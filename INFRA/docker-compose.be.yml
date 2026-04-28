@@ -1,9 +1,9 @@
 services:
 
-  spring-boot:
+  spring:
     build:
-      context: ../BE     # 소스코드 경로
-      dockerfile: ../INFRA/Dockerfile.be
+      context: ../BE/letsgitit
+      dockerfile: ../../INFRA/Dockerfile.be
     container_name: spring
     expose:
       - "8080"
