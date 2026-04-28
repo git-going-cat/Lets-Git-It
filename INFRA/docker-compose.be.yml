@@ -1,0 +1,24 @@
+services:
+
+  spring-boot:
+    build:
+      context: ../BE     # 소스코드 경로
+      dockerfile: ../INFRA/Dockerfile.be
+    container_name: spring
+    expose:
+      - "8080"
+    env_file:
+      - .env
+    environment:
+      - REDIS_AUTH_HOST=redis-auth
+      - REDIS_GAME_HOST=redis-game
+      - REDIS_RANKING_HOST=redis-ranking
+      - MYSQL_HOST=mysql
+    restart: always
+    networks:
+      - letsgit-dev
+
+networks:
+  letsgit-dev:
+    name: letsgit-dev
+    external: true
