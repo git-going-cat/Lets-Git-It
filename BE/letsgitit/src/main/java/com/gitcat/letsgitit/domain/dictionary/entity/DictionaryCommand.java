@@ -1,13 +1,14 @@
 package com.gitcat.letsgitit.domain.dictionary.entity;
 
-import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
+import jakarta.persistence.*;
+
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 // [양방향 설정 이유]
 // GET /api/v1/dictionary/commands 응답은 명령어와 옵션을 항상 함께 반환한다.
@@ -18,34 +19,33 @@ import java.util.UUID;
 @Table(name = "dictionary_command")
 public class DictionaryCommand {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "dictionary_command_id", nullable = false, columnDefinition = "BINARY(16)")
-    private UUID id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	@Column(name = "dictionary_command_id", nullable = false, columnDefinition = "BINARY(16)")
+	private UUID id;
 
-    @Column(name = "name", nullable = false, length = 100)
-    private String name;
+	@Column(name = "name", nullable = false, length = 100)
+	private String name;
 
-    @Column(name = "description", columnDefinition = "TEXT")
-    private String description;
+	@Column(name = "description", columnDefinition = "TEXT")
+	private String description;
 
-    @Column(name = "image_url", length = 500)
-    private String imageUrl;
+	@Column(name = "image_url", length = 500)
+	private String imageUrl;
 
-    @Column(name = "is_in_game", nullable = false)
-    private boolean isInGame = true;
+	@Column(name = "is_in_game", nullable = false)
+	private boolean isInGame = true;
 
-    @OneToMany(mappedBy = "dictionaryCommand",
-        cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<DictionaryCommandOption> options = new ArrayList<>();
+	@OneToMany(mappedBy = "dictionaryCommand", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+	private List<DictionaryCommandOption> options = new ArrayList<>();
 
-    public static DictionaryCommand of(String name, String description,
-                                        String imageUrl, boolean isInGame) {
-        DictionaryCommand command   = new DictionaryCommand();
-        command.name                = name;
-        command.description         = description;
-        command.imageUrl            = imageUrl;
-        command.isInGame            = isInGame;
-        return command;
-    }
+	public static DictionaryCommand of(String name, String description,
+		String imageUrl, boolean isInGame) {
+		DictionaryCommand command = new DictionaryCommand();
+		command.name = name;
+		command.description = description;
+		command.imageUrl = imageUrl;
+		command.isInGame = isInGame;
+		return command;
+	}
 }

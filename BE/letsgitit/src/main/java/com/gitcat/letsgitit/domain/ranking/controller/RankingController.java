@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.domain.ranking.controller;
 
-public class RankingController {
-}
+public class RankingController {}

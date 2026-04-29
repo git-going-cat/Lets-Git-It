@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.domain.tutorial.repository;
 
-public interface TutorialRepository {
-}
+public interface TutorialRepository {}

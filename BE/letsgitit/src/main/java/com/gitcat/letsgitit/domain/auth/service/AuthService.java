@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.domain.auth.service;
 
-public class AuthService {
-}
+public class AuthService {}

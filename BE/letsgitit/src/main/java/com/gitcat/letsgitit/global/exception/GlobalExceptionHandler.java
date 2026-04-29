@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.global.exception;
 
-public class GlobalExceptionHandler {
-}
+public class GlobalExceptionHandler {}

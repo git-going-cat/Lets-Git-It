@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.domain.ranking.repository;
 
-public interface SingleRankingRepository {
-}
+public interface SingleRankingRepository {}

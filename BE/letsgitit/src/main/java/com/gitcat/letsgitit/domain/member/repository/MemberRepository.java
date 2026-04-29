@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.domain.member.repository;
 
-public interface MemberRepository {
-}
+public interface MemberRepository {}

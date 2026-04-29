@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.domain.coop.repository;
 
-public interface CoopResultMemberRepository {
-}
+public interface CoopResultMemberRepository {}

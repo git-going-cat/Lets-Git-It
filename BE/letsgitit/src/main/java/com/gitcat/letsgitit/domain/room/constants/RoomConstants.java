@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.domain.room.constants;
 
-public class RoomConstants {
-}
+public class RoomConstants {}

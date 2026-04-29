@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.global.exception;
 
-public class ErrorCode {
-}
+public class ErrorCode {}

@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.domain.coop.repository;
 
-public interface CoopCommandSetItemRepository {
-}
+public interface CoopCommandSetItemRepository {}

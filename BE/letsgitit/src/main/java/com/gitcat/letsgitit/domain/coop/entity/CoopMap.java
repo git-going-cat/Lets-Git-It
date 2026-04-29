@@ -1,49 +1,47 @@
 package com.gitcat.letsgitit.domain.coop.entity;
 
-import com.gitcat.letsgitit.global.enums.MapDifficulty;
+import java.util.UUID;
+
 import jakarta.persistence.*;
+
+import com.gitcat.letsgitit.global.enums.MapDifficulty;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(
-    name = "coop_map",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uq_coop_map_name_difficulty",
-            columnNames = {"name", "difficulty"})
-    }
-)
+@Table(name = "coop_map", uniqueConstraints = {
+	@UniqueConstraint(name = "uq_coop_map_name_difficulty", columnNames = {"name", "difficulty"})
+})
 public class CoopMap {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "coop_map_id", nullable = false, columnDefinition = "BINARY(16)")
-    private UUID id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	@Column(name = "coop_map_id", nullable = false, columnDefinition = "BINARY(16)")
+	private UUID id;
 
-    @Column(name = "name", nullable = false, length = 100)
-    private String name;
+	@Column(name = "name", nullable = false, length = 100)
+	private String name;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "difficulty", nullable = false, length = 20)
-    private MapDifficulty difficulty;
+	@Enumerated(EnumType.STRING)
+	@Column(name = "difficulty", nullable = false, length = 20)
+	private MapDifficulty difficulty;
 
-    @Column(name = "is_active", nullable = false)
-    private boolean isActive = true;
+	@Column(name = "is_active", nullable = false)
+	private boolean isActive = true;
 
-    public static CoopMap of(String name, MapDifficulty difficulty) {
-        CoopMap map    = new CoopMap();
-        map.name       = name;
-        map.difficulty = difficulty;
-        map.isActive   = true;
-        return map;
-    }
+	public static CoopMap of(String name, MapDifficulty difficulty) {
+		CoopMap map = new CoopMap();
+		map.name = name;
+		map.difficulty = difficulty;
+		map.isActive = true;
+		return map;
+	}
 
-    public void deactivate() {
-        this.isActive = false;
-    }
+	public void deactivate() {
+		this.isActive = false;
+	}
 }

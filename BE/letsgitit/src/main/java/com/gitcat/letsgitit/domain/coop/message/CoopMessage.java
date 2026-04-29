@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.domain.coop.message;
 
-public class CoopMessage {
-}
+public class CoopMessage {}

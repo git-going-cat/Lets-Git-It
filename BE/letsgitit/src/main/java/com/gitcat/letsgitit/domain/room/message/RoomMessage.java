@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.domain.room.message;
 
-public class RoomMessage {
-}
+public class RoomMessage {}

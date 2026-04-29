@@ -1,4 +1,3 @@
 package com.gitcat.letsgitit.global.common;
 
-public class Common {
-}
+public class Common {}
