@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.5.14'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.diffplug.spotless' version '6.25.0'
 }
 
 group = 'com.gitcat'
@@ -50,4 +51,33 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+spotless {
+    java {
+        target 'src/**/*.java'
+        eclipse().configFile('style/naver-eclipse-formatter.xml')
+        importOrder('\\#', 'java', 'jakarta', 'org', 'net', 'com', '')
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+def generated = layout.buildDirectory.dir('generated/querydsl')
+
+tasks.withType(JavaCompile).configureEach {
+    options.getGeneratedSourceOutputDirectory().set(generated.get().asFile)
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir generated
+        }
+    }
+}
+
+clean {
+    delete layout.buildDirectory.dir('generated')
 }
