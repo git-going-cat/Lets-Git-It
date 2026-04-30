@@ -73,7 +73,7 @@ project-root/
 
 ```text
 com.gitcat.letsgitit.global
-├── config/                         # 전역 설정
+├── config/
 │   ├── SwaggerConfig.java
 │   ├── RedisConfig.java
 │   ├── WebSocketConfig.java
@@ -81,21 +81,21 @@ com.gitcat.letsgitit.global
 │   └── ActuatorConfig.java
 ├── entity/
 │   └── BaseEntity.java             # createdAt, updatedAt 자동 관리
-├── exception/                      # 예외 처리
+├── exception/
 │   ├── CustomException.java
 │   ├── ErrorCode.java
 │   ├── ErrorResponse.java
 │   └── GlobalExceptionHandler.java
-├── response/                       # 응답 래퍼
-│   └── ApiResponse.java            # ApiResponse<T> (ok, create 메서드)
-├── security/                       # JWT 인증/인가
+├── response/
+│   └── ApiResponse.java
+├── security/
 │   ├── JwtAuthenticationFilter.java
 │   ├── JwtProvider.java
 │   ├── CustomUserDetails.java
 │   └── CustomUserDetailsService.java
 ├── websocket/
 │   └── WebSocketSessionManager.java
-└── enums/                          # 전역 Enum
+└── enums/
     ├── Provider.java               # LOCAL / GOOGLE
     ├── Difficulty.java             # EASY / NORMAL / HARD
     ├── GameMode.java               # SINGLE / TIME_ATTACK / SPEED_RUN / COOP
@@ -155,61 +155,273 @@ com.gitcat.letsgitit.global
     └── {Domain}Exception.java
 ```
 
-<example type="correct">
-```text
-# ✅ Member 도메인 예시
-src/main/java/com/gitcat/letsgitit/domain/member/
-├── controller/
-│   ├── MemberController.java
-│   └── MemberControllerDocs.java
-├── service/
-│   ├── MemberService.java
-│   └── MemberServiceImpl.java
-├── dto/
-│   ├── request/
-│   │   ├── NicknameSaveRequest.java
-│   │   └── NicknameUpdateRequest.java
-│   └── response/
-│       └── MemberInfoResponse.java
-├── entity/
-│   └── Member.java
-├── repository/
-│   ├── MemberRepository.java
-│   ├── MemberRepositoryImpl.java
-│   ├── MemberJpaRepository.java
-│   └── MemberDslRepository.java
-└── exception/
-    └── MemberNotFoundException.java
-```
+### 전체 도메인 패키지 구조
 
 ```text
-# ✅ Room 도메인 예시 (WebSocket + Redis + 메시지 포함)
-src/main/java/com/gitcat/letsgitit/domain/room/
-├── controller/
-│   ├── RoomController.java         # @RestController, REST API
-│   └── RoomHandler.java            # @Controller, WebSocket
-├── service/
-│   ├── RoomService.java
-│   ├── RoomServiceImpl.java
-│   ├── RoomLobbyService.java
-│   └── RoomLobbyServiceImpl.java
-├── dto/
-│   ├── request/
-│   │   └── CreateRoomRequest.java
-│   └── response/
-│       └── RoomListResponse.java
-├── repository/
-│   └── RoomRedisRepository.java
-├── message/
-│   ├── ReadyMessage.java
-│   └── GameStartMessage.java
-├── constants/
-│   └── RoomRedisKeys.java
-└── exception/
-    ├── RoomNotFoundException.java
-    └── RoomFullException.java
+com.gitcat.letsgitit.domain
+│
+├── auth
+│   ├── controller
+│   │   ├── AuthController.java
+│   │   ├── EmailVerificationController.java
+│   │   └── OAuthController.java
+│   ├── service
+│   │   ├── AuthService.java
+│   │   ├── EmailVerificationService.java
+│   │   └── OAuthService.java
+│   ├── repository
+│   │   ├── EmailVerificationRedisRepository.java
+│   │   ├── RefreshTokenRedisRepository.java
+│   │   └── OAuthTempCodeRedisRepository.java
+│   ├── dto
+│   │   ├── request
+│   │   │   ├── LoginRequest.java
+│   │   │   ├── EmailSendRequest.java
+│   │   │   ├── EmailVerifyRequest.java
+│   │   │   └── PasswordChangeRequest.java
+│   │   └── response
+│   │       ├── LoginResponse.java
+│   │       └── TokenResponse.java
+│   └── constants
+│       └── AuthRedisKeys.java
+│
+├── member
+│   ├── controller
+│   │   └── MemberController.java
+│   ├── service
+│   │   └── MemberService.java
+│   ├── repository
+│   │   └── MemberRepository.java
+│   ├── entity
+│   │   └── Member.java
+│   └── dto
+│       ├── request
+│       │   ├── NicknameSaveRequest.java
+│       │   ├── NicknameUpdateRequest.java
+│       │   ├── CharacterSaveRequest.java
+│       │   └── PasswordUpdateRequest.java
+│       └── response
+│           ├── MemberInfoResponse.java
+│           └── NicknameCheckResponse.java
+│
+├── room
+│   ├── controller
+│   │   ├── RoomController.java             # @RestController, REST API
+│   │   └── RoomHandler.java                # @Controller, WebSocket
+│   ├── service
+│   │   ├── RoomService.java
+│   │   └── RoomLobbyService.java
+│   ├── repository
+│   │   └── RoomRedisRepository.java
+│   ├── dto
+│   │   ├── request
+│   │   │   ├── CreateRoomRequest.java
+│   │   │   ├── RoomUpdateRequest.java
+│   │   │   └── PasswordVerifyRequest.java
+│   │   └── response
+│   │       ├── CreateRoomResponse.java
+│   │       ├── RoomListResponse.java
+│   │       └── JoinRoomResponse.java
+│   ├── message
+│   │   ├── ReadyMessage.java
+│   │   ├── GameStartMessage.java
+│   │   ├── KickRequestMessage.java
+│   │   ├── LeaveMessage.java
+│   │   ├── ChatMessage.java
+│   │   └── HostTransferRequestMessage.java
+│   ├── constants
+│   │   └── RoomRedisKeys.java
+│   └── exception
+│       ├── RoomNotFoundException.java
+│       └── RoomFullException.java
+│
+├── single
+│   ├── controller
+│   │   └── SingleController.java
+│   ├── service
+│   │   └── SingleService.java
+│   ├── repository
+│   │   ├── SingleResultRepository.java
+│   │   └── SingleSessionRedisRepository.java
+│   ├── entity
+│   │   └── SingleResult.java
+│   ├── dto
+│   │   ├── request
+│   │   │   ├── StartSessionRequest.java
+│   │   │   └── SingleResultSaveRequest.java
+│   │   └── response
+│   │       ├── StartSessionResponse.java
+│   │       ├── SingleResultResponse.java
+│   │       └── SingleRankingResponse.java
+│   ├── constants
+│   │   └── SingleRedisKeys.java
+│   └── exception
+│       ├── SessionNotFoundException.java
+│       └── SessionExpiredException.java
+│
+├── competitive
+│   ├── controller
+│   │   ├── CompetitiveController.java      # @RestController, REST API
+│   │   ├── ContributionHandler.java        # @Controller, WebSocket
+│   │   └── TimeAttackHandler.java          # @Controller, WebSocket
+│   ├── service
+│   │   ├── CompetitiveRankingService.java
+│   │   ├── ContributionGameService.java
+│   │   └── TimeAttackGameService.java
+│   ├── repository
+│   │   ├── ContributionResultRepository.java
+│   │   ├── ContributionResultMemberRepository.java
+│   │   ├── TimeAttackResultRepository.java
+│   │   ├── TimeAttackResultMemberRepository.java
+│   │   ├── ContributionGameRedisRepository.java
+│   │   └── TimeAttackGameRedisRepository.java
+│   ├── entity
+│   │   ├── ContributionResult.java
+│   │   ├── ContributionResultMember.java
+│   │   ├── TimeAttackResult.java
+│   │   └── TimeAttackResultMember.java
+│   ├── dto
+│   │   └── response
+│   │       └── CompetitiveRankingResponse.java
+│   ├── message
+│   │   ├── contribution
+│   │   │   ├── ContributionInputMessage.java
+│   │   │   ├── CommandExpiredMessage.java
+│   │   │   ├── PositionUpdateMessage.java
+│   │   │   ├── ScoreUpdateMessage.java
+│   │   │   └── ContributionGameEndMessage.java
+│   │   └── timeattack
+│   │       ├── TimeAttackInputMessage.java
+│   │       ├── TimeAttackInputResultMessage.java
+│   │       ├── MiniGameResultMessage.java
+│   │       ├── MiniGameStartMessage.java
+│   │       ├── MiniGameQueuedMessage.java
+│   │       ├── MiniGameClearMessage.java
+│   │       ├── PushSentMessage.java
+│   │       └── TimeAttackGameEndMessage.java
+│   └── constants
+│       ├── ContributionRedisKeys.java
+│       └── TimeAttackRedisKeys.java
+│
+├── coop
+│   ├── controller
+│   │   ├── CoopController.java             # @RestController, REST API
+│   │   └── CoopHandler.java                # @Controller, WebSocket
+│   ├── service
+│   │   ├── CoopRankingService.java
+│   │   └── CoopGameService.java
+│   ├── repository
+│   │   ├── CoopMapRepository.java
+│   │   ├── CoopResultRepository.java
+│   │   ├── CoopResultMemberRepository.java
+│   │   ├── CoopCommandSetRepository.java
+│   │   ├── CoopCommandSetItemRepository.java
+│   │   └── CoopGameRedisRepository.java
+│   ├── entity
+│   │   ├── CoopMap.java
+│   │   ├── CoopResult.java
+│   │   ├── CoopResultMember.java
+│   │   ├── CoopCommandSet.java
+│   │   └── CoopCommandSetItem.java
+│   ├── dto
+│   │   ├── request
+│   │   │   └── CoopResultSaveRequest.java
+│   │   └── response
+│   │       ├── CoopResultResponse.java
+│   │       └── CoopRankingResponse.java
+│   ├── message
+│   │   ├── CoopInputMessage.java
+│   │   ├── CoopResetMessage.java
+│   │   ├── CoopStartedMessage.java
+│   │   ├── CoopRoundRevealMessage.java
+│   │   ├── CoopRoundAssignMessage.java
+│   │   ├── CoopInputResultMessage.java
+│   │   ├── CoopWrongOrderMessage.java
+│   │   └── CoopGameEndMessage.java
+│   └── constants
+│       └── CoopRedisKeys.java
+│
+├── ranking
+│   ├── controller
+│   │   └── RankingController.java
+│   ├── service
+│   │   └── RankingSettlementService.java   # @Scheduled 매주 월요일 Redis → DB 정산
+│   ├── repository
+│   │   ├── SingleRankingRepository.java
+│   │   ├── CompetitiveRankingRepository.java
+│   │   └── CoopRankingRepository.java
+│   ├── entity
+│   │   ├── SingleRanking.java
+│   │   ├── CompetitiveRanking.java
+│   │   └── CoopRanking.java
+│   └── dto
+│       └── response
+│           ├── SingleRankingResponse.java
+│           ├── CompetitiveRankingResponse.java
+│           └── CoopRankingResponse.java
+│
+├── record
+│   ├── service
+│   │   └── RecordService.java
+│   ├── repository
+│   │   ├── MemberBestRecordRepository.java
+│   │   └── MemberCoopBestRecordRepository.java
+│   ├── entity
+│   │   ├── MemberBestRecord.java
+│   │   └── MemberCoopBestRecord.java
+│   └── dto
+│       └── response
+│           ├── BestRecordResponse.java
+│           └── CoopBestRecordResponse.java
+│
+├── command
+│   ├── service
+│   │   └── CommandService.java
+│   ├── repository
+│   │   ├── SingleCommandSetRepository.java
+│   │   ├── SingleCommandSetItemRepository.java
+│   │   ├── CompetitiveCommandSetRepository.java
+│   │   └── CompetitiveCommandSetItemRepository.java
+│   ├── entity
+│   │   ├── SingleCommandSet.java
+│   │   ├── SingleCommandSetItem.java
+│   │   ├── CompetitiveCommandSet.java
+│   │   └── CompetitiveCommandSetItem.java
+│   └── dto
+│       └── response
+│           ├── SingleCommandSetResponse.java
+│           └── CompetitiveCommandSetResponse.java
+│
+├── dictionary
+│   ├── controller
+│   │   └── DictionaryController.java
+│   ├── service
+│   │   └── DictionaryService.java
+│   ├── repository
+│   │   ├── DictionaryCommandRepository.java
+│   │   └── DictionaryCommandOptionRepository.java
+│   ├── entity
+│   │   ├── DictionaryCommand.java
+│   │   └── DictionaryCommandOption.java
+│   └── dto
+│       └── response
+│           └── DictionaryCommandResponse.java
+│
+└── tutorial
+    ├── controller
+    │   └── TutorialController.java
+    ├── service
+    │   └── TutorialService.java
+    ├── repository
+    │   ├── TutorialCommandSetRepository.java
+    │   └── TutorialCommandSetItemRepository.java
+    ├── entity
+    │   ├── TutorialCommandSet.java
+    │   └── TutorialCommandSetItem.java
+    └── dto
+        └── response
+            └── TutorialResponse.java
 ```
-</example>
 </rule>
 
 ---
@@ -250,17 +462,17 @@ domain.exception extends global.exception.CustomException
 
 | 도메인 | entity | repository | service | controller | exception |
 |--------|--------|------------|---------|------------|-----------|
-| `auth` | - | ✅ (Redis) | ✅ | ✅ | ✅ |
-| `member` | ✅ Member | ✅ | ✅ | ✅ | ✅ |
-| `room` | - | ✅ (Redis) | ✅ | ✅ (REST+WS) | ✅ |
-| `single` | ✅ SingleResult | ✅ (JPA+Redis) | ✅ | ✅ | ✅ |
-| `competitive` | ✅ 4개 | ✅ (JPA+Redis) | ✅ | ✅ (REST+WS) | ✅ |
-| `coop` | ✅ 5개 | ✅ (JPA+Redis) | ✅ | ✅ (REST+WS) | ✅ |
-| `ranking` | ✅ 3개 | ✅ | ✅ | ✅ | - |
-| `record` | ✅ 2개 | ✅ | ✅ | - | - |
-| `command` | ✅ 4개 | ✅ | ✅ | - | - |
-| `dictionary` | ✅ 2개 | ✅ | ✅ | ✅ | - |
-| `tutorial` | ✅ 2개 | ✅ | ✅ | ✅ | - |
+| `auth` | - | ✅ (Redis 3개) | ✅ (3개) | ✅ (3개) | - |
+| `member` | ✅ Member | ✅ | ✅ | ✅ | - |
+| `room` | - | ✅ (Redis) | ✅ (2개) | ✅ (REST+WS) | ✅ |
+| `single` | ✅ 1개 | ✅ (JPA+Redis) | ✅ | ✅ | ✅ |
+| `competitive` | ✅ 4개 | ✅ (JPA+Redis 6개) | ✅ (3개) | ✅ (REST+WS) | - |
+| `coop` | ✅ 5개 | ✅ (JPA+Redis 6개) | ✅ (2개) | ✅ (REST+WS) | - |
+| `ranking` | ✅ 3개 | ✅ (3개) | ✅ | ✅ | - |
+| `record` | ✅ 2개 | ✅ (2개) | ✅ | - | - |
+| `command` | ✅ 4개 | ✅ (4개) | ✅ | - | - |
+| `dictionary` | ✅ 2개 | ✅ (2개) | ✅ | ✅ | - |
+| `tutorial` | ✅ 2개 | ✅ (2개) | ✅ | ✅ | - |
 
 ### 6.2. 신규 도메인 작성 가이드
 
@@ -275,5 +487,5 @@ domain.exception extends global.exception.CustomException
 
 ---
 
-**문서 버전**: 2.0
+**문서 버전**: 2.1
 **최종 업데이트**: 2026-04-30
