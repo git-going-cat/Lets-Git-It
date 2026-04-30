@@ -47,6 +47,7 @@ dependencies {
 
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'     // ← jpa-test, webmvc-test → starter-test 하나로
+    testImplementation 'com.h2database:h2'
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -83,4 +84,16 @@ sourceSets {
 
 clean {
     delete layout.buildDirectory.dir('generated')
+}
+
+bootRun {
+    def envFile = file(".env")
+    if (envFile.exists()) {
+        envFile.readLines().each {
+            if (it && !it.startsWith("#")) {
+                def (key, value) = it.split("=", 2)
+                environment key.trim(), value.trim()
+            }
+        }
+    }
 }
