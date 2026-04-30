@@ -7,5 +7,6 @@ be-ci:
         - BE/**/*
   script:
     - cd $CI_PROJECT_DIR/BE/letsgitit
+    - chmod +x gradlew
     - ./gradlew test
     - ./gradlew spotlessCheck
