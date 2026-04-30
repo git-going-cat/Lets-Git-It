@@ -190,7 +190,7 @@ public interface RoomControllerDocs {
 
 	@Operation(summary = "방 나가기", description = "방장이 나가면 다음 입장 순서 멤버에게 방장 위임.")
 	@ApiResponse(responseCode = "200", description = "방 나가기 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
-		{"status": 200, "message": "방 나가기 성공", "data": null}
+		{"status": 200, "message": "방 나가기 성공", "data": {}}}
 		""")))
 	ResponseEntity<?> leaveRoom(
 		@Parameter(name = "roomId", description = "방 ID", required = true)

@@ -114,9 +114,15 @@ public interface MemberControllerDocs {
 	ResponseEntity<?> updateNickname(Map<String, Object> body);
 
 	@Operation(summary = "닉네임 중복 확인", description = "닉네임 사용 가능 여부를 확인합니다. 탈퇴 회원 닉네임도 재사용 불가.")
-	@ApiResponse(responseCode = "200", description = "닉네임 중복 확인 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
-		{"status": 200, "message": "닉네임 중복 확인 성공", "data": {"isAvailable": true}}
-		""")))
+
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "사용할 수 있는 닉네임", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+		{"status": 200, "message": "사용할 수 있는 닉네임", "data": {}}
+		"""))),
+		@ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "NICKNAME_DUPLICATED", value = """
+			{"status": 409, "code": "NICKNAME_DUPLICATED", "message": "이미 사용 중인 닉네임입니다.", "errors": []}
+			""")))
+	})
 	ResponseEntity<?> checkNickname(
 		@Parameter(name = "nickname", description = "확인할 닉네임", required = true)
 		String nickname);
