@@ -117,8 +117,8 @@ public interface MemberControllerDocs {
 
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "사용할 수 있는 닉네임", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
-		{"status": 200, "message": "사용할 수 있는 닉네임", "data": {}}
-		"""))),
+			{"status": 200, "message": "사용할 수 있는 닉네임", "data": {}}
+			"""))),
 		@ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "NICKNAME_DUPLICATED", value = """
 			{"status": 409, "code": "NICKNAME_DUPLICATED", "message": "이미 사용 중인 닉네임입니다.", "errors": []}
 			""")))
