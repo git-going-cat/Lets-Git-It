@@ -8,5 +8,5 @@ be-ci:
   script:
     - cd $CI_PROJECT_DIR/BE/letsgitit
     - chmod +x gradlew
-    - ./gradlew test
+    - ./gradlew test -Dspring.profiles.active=test
     - ./gradlew spotlessCheck
