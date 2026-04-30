@@ -1,11 +1,18 @@
 fe-ci:
   stage: ci
+  image: node:24
   tags: [dev]
+  before_script:
+    - export NVM_DIR="$HOME/.nvm"
+    - source "$NVM_DIR/nvm.sh"
+    - nvm use 24.13.0
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
         - FE/**/*
   script:
+    - node -v
+    - npm -v
     - cd $CI_PROJECT_DIR/FE
     - npm ci
     - npm run lint      # ESLint
