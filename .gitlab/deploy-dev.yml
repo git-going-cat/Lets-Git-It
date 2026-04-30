@@ -1,0 +1,10 @@
+deploy-dev:
+  stage: deploy
+  tags: [dev]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+  script:
+    - cd /home/ubuntu/develop/S14P31A304
+    - git pull origin develop
+    - docker compose -f INFRA/docker-compose.be.yml up -d --build spring
+    - docker compose -f INFRA/docker-compose.fe.yml up -d --build nginx

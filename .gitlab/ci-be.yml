@@ -1,0 +1,11 @@
+be-ci:
+  stage: ci
+  tags: [dev]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - BE/**/*
+  script:
+    - cd $CI_PROJECT_DIR/BE
+    - ./gradlew test
+    - ./gradlew spotlessCheck
