@@ -8,4 +8,4 @@ be-ci:
   script:
     - cd $CI_PROJECT_DIR/BE
     - ./gradlew test
-    - ./gradlew checkstyleMain
+    - ./gradlew spotlessCheck

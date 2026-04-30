@@ -1,3 +1,7 @@
+# .gitkeep — 빈 폴더를 git에 올리기 위한 플레이스홀더 파일
+# 절대 무시되면 안 됨
+!**/.gitkeep
+
 # Logs
 logs
 *.log
