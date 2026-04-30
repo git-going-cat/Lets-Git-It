@@ -17,21 +17,24 @@ spring:
 server:
   port: 8080
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 logging:
   level:
     com.gitcat.letsgitit: INFO
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN
 
-redis:
-  auth:
-    host: ${PROD_REDIS_AUTH_HOST}
-    port: ${PROD_REDIS_AUTH_PORT}
-
-  game:
-    host: ${PROD_REDIS_GAME_HOST}
-    port: ${PROD_REDIS_GAME_PORT}
-
-  ranking:
-    host: ${PROD_REDIS_RANKING_HOST}
-    port: ${PROD_REDIS_RANKING_PORT}
