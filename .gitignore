@@ -10,6 +10,23 @@
 
 # 환경변수 파일
 .env
+**/.env
+
+# IDE 설정
+.vscode/
+.idea/
+
+# Gradle (local wrapper cache)
+.gradle-user-home/
+
+# Claude Code
+**/.claude/
+
+# node_modules
+node_modules/
+
+# 환경변수 파일
+.env
 **/.env.env
 
 certs/
