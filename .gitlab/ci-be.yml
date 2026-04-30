@@ -6,6 +6,6 @@ be-ci:
       changes:
         - BE/**/*
   script:
-    - cd $CI_PROJECT_DIR/BE
+    - cd $CI_PROJECT_DIR/BE/letsgitit
     - ./gradlew test
     - ./gradlew spotlessCheck
