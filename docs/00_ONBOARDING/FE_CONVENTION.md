@@ -57,6 +57,8 @@
 4. Types (import type)
 5. Styles
 
+- eslint-plugin-simple-import-sort로 자동 정렬 적용 중 (수동 정렬 불필요)
+
 ## 8. 데이터 통신
 
 - any 타입 사용 금지, 모든 API 응답은 Zod 스키마 검증 후 사용
@@ -68,3 +70,40 @@
 - `../` 두 번 이상 → 절대경로
 - `../` 한 번이면 → 상대경로
 - ex) `features/game` 안의 파일들을 참조한느 경우 상대경로, `features/game` 안의 파일을 수정 중인데 `features/auth` 나 `shared/button` 과 같은 식으로 다른 폴더로 나가는 경우 절대경로
+
+## 10. 테스트 규칙 (Vitest)
+
+- 테스트 환경: jsdom
+- 테스트 대상 우선순위: shared/utils/ > features/_/hooks/ > features/_/api/
+- Phaser Scene은 Canvas 의존성으로 인해 테스트 제외
+- 테스트 파일 위치: 대상 파일과 동일 디렉토리 (same-dir 방식)
+  - 예: scoreCalculator.ts → scoreCalculator.test.ts
+- 게임 중 WebSocket 패킷(.safeParse() 실패)은 로그만 기록하고 폐기
+
+## 11. 에러 처리 규칙
+
+- 전역 ErrorBoundary: 라우트 최상단에 배치, 예상 못한 런타임 에러 캐치
+- TanStack Query: throwOnError: false (전역 throw 비활성화), retry: 1
+- 401 응답: 자동 로그아웃 + 로그인 페이지 이동 (BE Refresh Token 플로우 확인 후 확정)
+- 게임 중 WebSocket 에러: 재연결 시도 후 실패 시 모달 표시 → 대기실 이동 (BE 합의 후 확정)
+- Zod safeParse 실패: console.error 로그 후 해당 패킷 폐기, UI 중단 없음
+
+## 12. 환경변수 규칙
+
+- VITE\_ 접두사 필수 (없으면 클라이언트에서 접근 불가)
+- 환경변수는 직접 import.meta.env로 접근하지 않고 src/config/env.ts에서만 참조
+- .env.local은 개인 로컬 설정용, 반드시 .gitignore에 포함
+
+## 13. WebSocket 생명주기
+
+- 연결: 방 입장 확정 시 (SocketManager.connect)
+- 해제: 방 완전 이탈 / 홈 이동 시 (SocketManager.disconnect)
+- 재연결 전략: BE 합의 후 확정
+- 게임 중 연결 끊김 처리: BE 합의 후 확정
+
+## 14. 지원 해상도
+
+- 최소 지원 해상도: 1280 × 720
+- 모바일: 미지원
+- Phaser 캔버스: 고정 사이즈 또는 letterbox 스케일링
+- Tailwind 기준 breakpoint: (팀 합의 후 확정)
