@@ -48,6 +48,7 @@
 - Phaser Scene 클래스: PascalCase + Scene 접미사 (SingleScene, CoopScene)
 - Props 타입: 컴포넌트명 + Props (SingleHUDProps)
 - Interface에 I 접두사 금지 (User O, IUser X)
+- Jotai atom 파일: atom 단위로 파일 분리 (livesAtom.ts, comboAtom.ts) — 한 파일에 모으지 말 것
 
 ## 7. Import 순서
 
@@ -84,7 +85,9 @@
 
 - 전역 ErrorBoundary: 라우트 최상단에 배치, 예상 못한 런타임 에러 캐치
 - TanStack Query: throwOnError: false (전역 throw 비활성화), retry: 1
-- 401 응답: 자동 로그아웃 + 로그인 페이지 이동 (BE Refresh Token 플로우 확인 후 확정)
+- 401 응답: axios interceptor에서 Refresh Token 재발급 시도
+  - 성공 → 원래 요청 자동 재시도
+  - 실패 → 로그아웃 + 로그인 페이지 이동
 - 게임 중 WebSocket 에러: 재연결 시도 후 실패 시 모달 표시 → 대기실 이동 (BE 합의 후 확정)
 - Zod safeParse 실패: console.error 로그 후 해당 패킷 폐기, UI 중단 없음
 
@@ -107,3 +110,99 @@
 - 모바일: 미지원
 - Phaser 캔버스: 고정 사이즈 또는 letterbox 스케일링
 - Tailwind 기준 breakpoint: (팀 합의 후 확정)
+
+## 15. 상태 관리 사용 규칙
+
+### Jotai
+
+- atom은 관심사 단위로 파일을 분리해서 배치 — 중앙 store 파일 하나에 모으지 말 것
+  - ✅ `features/single/store/livesAtom.ts`, `features/single/store/scoreAtom.ts`
+  - ❌ `features/single/store/singleStore.ts` (Zustand 방식, Jotai에서는 금지)
+- 파생 관계인 atom끼리는 같은 파일에 둬도 무방
+
+```ts
+// scoreAtom.ts
+export const comboAtom = atom(0);
+export const bonusAtom = atom((get) => get(comboAtom) * 10); // 파생 atom
+```
+
+### Zustand
+
+- 도메인별로 store를 분리 — 하나의 거대한 store 금지
+  - ✅ `features/auth/store/authStore.ts`, `features/multi/store/multiStore.ts`
+  - ❌ 모든 전역 상태를 `useStore` 하나에 몰아넣기
+
+### TanStack Query
+
+- 서버에서 받은 데이터를 Zustand/Jotai에 중복 저장 금지 — Query가 서버 상태를 단독 관리
+
+```ts
+// ❌ 이중 관리
+const { data } = useQuery({ queryKey: ["ranking"], queryFn: fetchRanking });
+useEffect(() => {
+  useRankingStore.setState({ ranking: data });
+}, [data]);
+
+// ✅ data 그대로 사용
+const { data: ranking } = useQuery({
+  queryKey: ["ranking", mode],
+  queryFn: () => fetchRanking(mode),
+});
+```
+
+### TanStack Router
+
+- 라우트 타입 수동 정의 금지 — `routeTree.gen.ts` 자동 생성 타입 그대로 사용
+- search params 검증은 Zod와 연동
+
+```ts
+validateSearch: z.object({
+  mode: z.enum(["contribution", "timeattack", "coop"]),
+});
+```
+
+### Zod
+
+- 게임 중 WebSocket 패킷은 `.safeParse()` 필수 — `.parse()`는 throw하므로 게임 중 사용 금지
+
+```ts
+// ❌ 게임 중 터짐
+const packet = GamePacketSchema.parse(rawData);
+
+// ✅ 실패해도 게임 유지
+const result = GamePacketSchema.safeParse(rawData);
+if (!result.success) {
+  console.error("잘못된 패킷:", result.error);
+  return;
+}
+```
+
+### Phaser ↔ React
+
+- React에서 Phaser Scene 직접 참조 금지 — EventBus 경유만 허용
+
+```ts
+// ❌ 강결합
+const scene = gameInstance.scene.getScene("SingleScene") as SingleScene;
+scene.pauseGame();
+
+// ✅ EventBus 경유
+EventBus.emit("game:pause");
+```
+
+---
+
+## 16. Tailwind CSS 크기 규칙
+
+- 크기(width, height, padding, margin, gap 등)는 Tailwind 기본 스케일 클래스 우선 사용
+  - ✅ `w-32`, `p-4`, `gap-2`
+  - ❌ `w-[128px]`, `p-[14px]`
+- 여러 곳에서 공통으로 쓰이는 특수한 크기는 `tailwind.config.ts`의 `theme.extend`에 등록 후 사용
+
+```ts
+  // tailwind.config.ts
+  theme: { extend: { width: { 'hud': '8rem', 'churu': '9rem' } } }
+  // 사용: w-hud, w-churu
+```
+
+- 임의 값(`w-[...]`)은 Tailwind 스케일로 표현 불가능한 경우에만 허용, 이유를 주석으로 명시
