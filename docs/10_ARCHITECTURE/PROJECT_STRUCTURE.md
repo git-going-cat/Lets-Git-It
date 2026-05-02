@@ -443,11 +443,12 @@ domain.exception extends global.exception.CustomException
 
 **규칙 상세**:
 1. `controller`는 `service` 인터페이스에만 의존
-2. `service` 구현체는 `entity`와 `repository` 인터페이스를 참조 가능
-3. `entity`는 비즈니스 로직 중심으로 구성하고, repository에 의존하지 않음
-4. `repository` 구현체는 `JpaRepository` 및 `DslRepository`를 조합
-5. `global`은 `domain`에 의존하지 않음
-6. 도메인별 예외는 `global.exception.CustomException`을 상속
+2. `service` 구현체는 같은 도메인의 `entity`와 `repository` 인터페이스를 참조 가능
+3. 타 도메인 데이터가 필요하면 해당 도메인의 `service` 인터페이스를 참조하고, 타 도메인 `repository`를 직접 참조하지 않음
+4. `entity`는 비즈니스 로직 중심으로 구성하고, repository에 의존하지 않음
+5. `repository` 구현체는 `JpaRepository` 및 `DslRepository`를 조합
+6. `global`은 `domain`에 의존하지 않음
+7. 도메인별 예외는 `global.exception.CustomException`을 상속
 </rule>
 
 </critical_rules>

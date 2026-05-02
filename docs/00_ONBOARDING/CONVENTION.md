@@ -250,7 +250,7 @@
 
 | 카테고리 | 기술 | 용도 |
 |----------|------|------|
-| RDBMS | PostgreSQL 15.x | 주 데이터베이스 |
+| RDBMS | MySQL 8.0 | 주 데이터베이스 |
 | Cache | Redis 7.x | 캐싱, 세션, 랭킹 |
 
 ### 5.4. Infra
@@ -258,7 +258,7 @@
 | 카테고리 | 기술 | 용도 |
 |----------|------|------|
 | Cloud | AWS EC2 | 애플리케이션 서버 |
-| Database | AWS RDS | PostgreSQL 호스팅 |
+| Database | AWS RDS | MySQL 호스팅 |
 | Cache | AWS ElastiCache | Redis 호스팅 |
 | CI/CD | GitHub Actions | 자동 배포 |
 
