@@ -34,6 +34,56 @@
 - Phaser Scene 이벤트 구독은 useEffect + cleanup 필수
 - 게임 로직(점수 계산 등)은 Scene 안에 작성 금지, shared/utils/로 분리
 
+### 4-1. 함수 선언 방식
+
+**컴포넌트·훅 → `function` 키워드**
+**내부 함수·핸들러 → arrow function**
+
+```tsx
+// ✅ 컴포넌트: function 키워드
+export default function SingleHUD({ score }: SingleHUDProps) {
+  // ✅ 내부 핸들러: arrow function
+  const handlePause = () => { ... };
+  const formatScore = (n: number) => n.toLocaleString();
+
+  return <div onClick={handlePause}>{formatScore(score)}</div>;
+}
+
+// ✅ 훅: function 키워드
+export function useSingleGame() {
+  const handleKeyDown = (e: KeyboardEvent) => { ... };
+  return { handleKeyDown };
+}
+```
+
+**예외 (arrow function을 컴포넌트에 사용해도 되는 경우)**
+
+```tsx
+// ✅ memo + displayName 명시가 필요한 경우
+const ScoreBoard = memo(function ScoreBoard(props: ScoreBoardProps) {
+  return <div>{props.score}</div>;
+});
+
+// ✅ forwardRef로 ref를 전달해야 하는 경우
+const Input = forwardRef<HTMLInputElement, InputProps>(
+  function Input(props, ref) {
+    return <input ref={ref} {...props} />;
+  },
+);
+
+// ✅ 호이스팅이 반드시 필요한 경우 (선언 이전에 참조)
+function Parent() {
+  return <Child render={renderItem} />;
+
+  function renderItem() {
+    // ← 호이스팅으로 위에서 참조 가능
+    return <span />;
+  }
+}
+```
+
+> **판단 기준**: "이 함수가 컴포넌트 트리의 노드인가?" → `function` 키워드. "이 함수가 컴포넌트 내부의 동작인가?" → arrow function.
+
 ## 5. 주석 규칙
 
 - Hook, Util, Phaser Scene에는 JSDoc 필수
@@ -43,6 +93,7 @@
 ## 6. 네이밍 규칙
 
 - 컴포넌트 파일: PascalCase (SingleHUD.tsx)
+- **페이지 루트 컴포넌트 파일: `Page` 접미사 필수** (HomePage.tsx, SinglePage.tsx)
 - 훅/유틸/atom 파일: camelCase (useGameBridge.ts, scoreAtom.ts)
 - Jotai atom 변수: Atom 접미사 필수 (scoreAtom, livesAtom)
 - Phaser Scene 클래스: PascalCase + Scene 접미사 (SingleScene, CoopScene)
@@ -154,16 +205,64 @@ const { data: ranking } = useQuery({
 
 - 라우트 타입 수동 정의 금지 — `routeTree.gen.ts` 자동 생성 타입 그대로 사용
 - search params 검증은 Zod와 연동
+- `pages/` 폴더 사용 금지 — **Feature-Driven 아키텍처**를 따른다
+
+#### Feature-Driven 라우팅 구조
+
+`routes/`는 **라우팅 컨트롤러**만 담당하고, 실제 화면과 로직은 `features/`에 응집한다.
+
+| 레이어          | 위치                                         | 담당                                                                                |
+| --------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 라우팅 컨트롤러 | `routes/`                                    | path 정의, loader, beforeLoad, validateSearch, errorComponent/pendingComponent 지정 |
+| 페이지 컴포넌트 | `features/{domain}/components/XxxPage.tsx`   | 화면 조립 (Page 접미사 필수)                                                        |
+| 비즈니스 로직   | `features/{domain}/hooks/`, `api/`, `store/` | 데이터 패칭, 상태 관리, 이벤트 처리                                                 |
+| 공통 UI         | `shared/`                                    | ErrorFallback, LoadingSpinner 등 라우트 공용 컴포넌트                               |
 
 ```ts
-validateSearch: z.object({
-  mode: z.enum(["contribution", "timeattack", "coop"]),
+// ✅ routes/home.tsx — 컨트롤러 역할만
+import { createFileRoute } from "@tanstack/react-router";
+import { HomePage } from "@/features/home/components/HomePage";
+import { RouteErrorFallback } from "@/shared/components/RouteErrorFallback";
+import { LoadingSpinner } from "@/shared/components/LoadingSpinner";
+
+export const Route = createFileRoute("/home")({
+  beforeLoad: ({ context }) => {
+    // 권한 가드
+  },
+  validateSearch: z.object({
+    mode: z.enum(["contribution", "timeattack", "coop"]).optional(),
+  }),
+  loader: ({ context }) => {
+    // 데이터 패칭 (필요 시)
+  },
+  component: HomePage,
+  errorComponent: RouteErrorFallback,
+  pendingComponent: LoadingSpinner,
+});
+
+// ✅ features/home/components/HomePage.tsx — 화면 조립
+export function HomePage() {
+  const { mode } = Route.useSearch();
+  // ...
+}
+```
+
+```tsx
+// ❌ routes/에 UI 로직 작성 금지
+export const Route = createFileRoute("/home")({
+  component: () => {
+    const [tab, setTab] = useState("single"); // ← features/로 이동해야 함
+    return <div>...</div>;
+  },
 });
 ```
 
 ### Zod
 
 - 게임 중 WebSocket 패킷은 `.safeParse()` 필수 — `.parse()`는 throw하므로 게임 중 사용 금지
+- **스키마 파일 위치**: 사용하는 feature 안 `schemas/` 폴더에 배치 — 최상위 `schemas/` 폴더 사용 금지
+  - WebSocket 패킷 스키마: `features/{domain}/schemas/{domain}.schema.ts`
+  - React Hook Form resolver 스키마: `features/{domain}/schemas/{form}.schema.ts`
 
 ```ts
 // ❌ 게임 중 터짐
@@ -206,3 +305,82 @@ EventBus.emit("game:pause");
 ```
 
 - 임의 값(`w-[...]`)은 Tailwind 스케일로 표현 불가능한 경우에만 허용, 이유를 주석으로 명시
+
+---
+
+## 17. MR 템플릿
+
+MR 제목 형식: `[FE/타입/티켓번호] 기능 설명`
+예시: `[FE/feat/21] 회원 로그인 기능 구현`
+
+> 템플릿 사용 시 MR 유형의 미체크 항목을 삭제하지 말 것 — 해당하는 항목만 체크(`[x]`)하고 나머지는 그대로 둔다.
+
+```markdown
+## 📌 MR 유형
+
+어떤 변경 사항인지 해당하는 항목에 체크해 주세요.
+
+- [ ] feat : 새로운 기능을 추가했습니다.
+- [ ] fix : 버그를 수정했습니다.
+- [ ] refactor : 기능 변경 없이 코드를 개선했습니다.
+- [ ] style : UI 또는 스타일을 수정했습니다.
+- [ ] chore : 의존성 추가, 설정 파일 등을 변경했습니다.
+- [ ] docs : 문서를 수정했습니다.
+- [ ] test : 테스트 코드를 추가하거나 수정했습니다.
+
+---
+
+## 📝 작업 내용
+
+> 이번 MR에서 어떤 작업을 했는지 간략하게 설명해 주세요.
+
+<!-- 예시: 홈 화면 싱글/멀티 모드 선택 버튼 컴포넌트를 구현했습니다. -->
+
+---
+
+## 💡 변경 상세 내용
+
+> 구체적으로 어떤 부분이 어떻게 바뀌었는지 설명해 주세요.
+> 코드 스니펫, 다이어그램, 주요 로직 설명 등을 자유롭게 첨부해도 좋습니다.
+
+### Before
+
+<!-- 변경 전 상태를 설명하거나 스크린샷을 첨부해 주세요. -->
+
+### After
+
+<!-- 변경 후 상태를 설명하거나 스크린샷을 첨부해 주세요. -->
+
+---
+
+## 📷 스크린샷 (UI 변경이 있는 경우)
+
+> UI 변경이 없는 PR이라면 이 섹션은 삭제하셔도 됩니다.
+
+| Before | After |
+| ------ | ----- |
+|        |       |
+
+---
+
+## ✅ 체크리스트
+
+MR을 올리기 전에 아래 항목을 확인해 주세요.
+
+- [ ] 로컬에서 빌드가 정상적으로 완료되었습니다. (`npm run build`)
+- [ ] ESLint 및 Prettier 오류가 없습니다.
+- [ ] `any` 타입을 사용하지 않았습니다. (TypeScript strict 준수)
+- [ ] 인라인 `style={{}}` 을 사용하지 않았습니다. (Tailwind className만 사용)
+- [ ] 불필요한 `console.log` 및 디버그 코드를 제거했습니다.
+- [ ] `FE` 브랜치로 MR이 설정되어 있습니다. (`develop, master` 브랜치로 설정 금지)
+- [ ] MR 제목이 컨벤션 규칙을 따르고 있습니다. (예: `[FE/feat/21] 회원 로그인 기능 구현`)
+
+---
+
+## ⚠️ 리뷰어에게 전달할 내용
+
+> 리뷰어가 특히 주의 깊게 봐주었으면 하는 부분이나,
+> 구현하면서 고민했던 부분, 참고해야 할 컨텍스트가 있다면 작성해 주세요.
+
+<!-- 예시: 기존 EventBus 구조를 변경했으니 Phaser 씬 연동 부분을 중점적으로 확인해 주세요. -->
+```
