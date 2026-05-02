@@ -1,4 +1,6 @@
-﻿// TODO: 구현 필요
-export default function Routes() {
-  return <div />;
-}
+// TODO: import { LandingPage } from '@/features/auth/components/LandingPage'
+import { createFileRoute } from '@tanstack/react-router';
+
+export const Route = createFileRoute('/')({
+  component: () => <div />,
+});
