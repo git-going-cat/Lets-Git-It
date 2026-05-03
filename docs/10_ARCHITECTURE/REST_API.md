@@ -822,9 +822,8 @@ GET /api/v1/dictionary/commands
 
 ## 4. 랭킹 (Ranking)
 
-> 모든 랭킹 API는 **인증 불필요**
+> 모든 랭킹 API는 **인증 필요**
 > - 로그인 유저: `myRank` 필드 반환
-> - 비로그인 유저: `myRank: null`
 > - 초기 진입 시 `cursor`, `size` 파라미터 생략 → `top3` + `myRank` + `around` 포함 응답
 > - 무한 스크롤 시 `cursor`, `size` 포함 → `rankings` + `nextCursor` + `hasNext` 응답
 
@@ -857,7 +856,7 @@ GET /api/v1/rankings/single?difficulty={difficulty}&cursor={cursor}&size={size}
 | `top3[].rank` | Integer | 순위 |
 | `top3[].nickname` | String | 닉네임 |
 | `top3[].score` | Integer | 점수 |
-| `myRank` | Object | 내 랭킹 정보, 비로그인 시 null |
+| `myRank` | Object | 내 랭킹 정보 |
 | `myRank.rank` | Integer | 내 순위 |
 | `myRank.score` | Integer | 내 점수 |
 | `around` | Array | 내 랭킹 근처 유저 |
@@ -1051,7 +1050,7 @@ GET /api/v1/rankings/coop?mapName={맵이름}&difficulty={맵난이도}&cursor={
 | `top3[].rank` | Integer | 순위 |
 | `top3[].nickname` | String | 닉네임 |
 | `top3[].clearTime` | Integer | 클리어 시간 (ms) |
-| `myRank` | Object | 내 랭킹 정보, 비로그인 시 null |
+| `myRank` | Object | 내 랭킹 정보 |
 | `myRank.rank` | Integer | 내 순위 |
 | `myRank.clearTime` | Integer | 내 클리어 시간 (ms) |
 | `around` | Array | 내 랭킹 근처 유저 |

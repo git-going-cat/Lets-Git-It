@@ -52,6 +52,15 @@ public class RedisConfig {
 		return new LettuceConnectionFactory(new RedisStandaloneConfiguration(host, port));
 	}
 
+	@Bean
+	public StringRedisTemplate rankingStringRedisTemplate(
+		@Qualifier("rankingRedisConnectionFactory")
+		RedisConnectionFactory factory) {
+		StringRedisTemplate template = new StringRedisTemplate();
+		template.setConnectionFactory(factory);
+		return template;
+	}
+
 	// ===================== TEMPLATES =====================
 
 	@Bean
