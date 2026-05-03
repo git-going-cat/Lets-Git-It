@@ -7,9 +7,9 @@ import jakarta.persistence.*;
 
 import org.hibernate.annotations.SQLRestriction;
 
+import com.gitcat.letsgitit.domain.member.entity.enums.OnboardingStatus;
 import com.gitcat.letsgitit.global.entity.BaseEntity;
 import com.gitcat.letsgitit.global.enums.AuthType;
-import com.gitcat.letsgitit.global.enums.OnboardingStatus;
 import com.gitcat.letsgitit.global.enums.Provider;
 
 import lombok.AccessLevel;

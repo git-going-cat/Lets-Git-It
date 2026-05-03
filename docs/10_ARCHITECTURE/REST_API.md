@@ -551,6 +551,7 @@ GET /api/v1/members/me
 | --- | --- | --- |
 | `nickname` | String | 닉네임 |
 | `authType` | String | `OAUTH` / `LOCAL` |
+| `provider` | String | `GOOGLE` |
 | `email` | String | 이메일 |
 | `totalPlayTime` | Integer | 총 플레이 시간 (sec) |
 | `characterHair` | String | 캐릭터 머리 에셋 ID |
@@ -561,7 +562,6 @@ GET /api/v1/members/me
 | `characterOutfitColor` | String | 캐릭터 옷색 ID |
 | `records` | Array | 모드별 기록 목록 |
 | `records[].mode` | String | 게임 모드 |
-| `records[].bestRank` | Integer | 최고 순위 |
 
 **records 모드별 추가 필드**
 
@@ -579,21 +579,22 @@ GET /api/v1/members/me
   "data": {
     "nickname": "dobby",
     "authType": "LOCAL",
+    "provider": null,
     "email": "user@example.com",
     "totalPlayTime": 37200,
-    "characterHair": "hair_01",
-    "characterHairColor": "color_black",
-    "characterBody": "body_default",
-    "characterEye": "eye_01",
-    "characterOutfit": "outfit_01",
-    "characterOutfitColor": "color_white",
+    "characterHair": "Hairstyle_01",
+    "characterHairColor": "Hairstyle-color_01",
+    "characterBody": "Body_01",
+    "characterEye": "Eyes_01",
+    "characterOutfit": "Outfit_01",
+    "characterOutfitColor": "Outfit-color_01",
     "records": [
-      { "mode": "SINGLE_EASY",      "bestScore": 9500,  "bestRank": 12 },
-      { "mode": "SINGLE_NORMAL",    "bestScore": 7200,  "bestRank": 45 },
-      { "mode": "SINGLE_HARD",      "bestScore": 5100,  "bestRank": 103 },
-      { "mode": "CONTRIBUTION_RUN", "totalContribution": 88000, "bestRank": 7 },
-      { "mode": "TIME_ATTACK",      "totalCount": 10500, "bestRank": 3 },
-      { "mode": "COOP",             "bestClearTime": 61000, "bestRank": 2 }
+      { "mode": "SINGLE_EASY",      "bestScore": 9500 },
+      { "mode": "SINGLE_NORMAL",    "bestScore": 7200 },
+      { "mode": "SINGLE_HARD",      "bestScore": 5100 },
+      { "mode": "CONTRIBUTION_RUN", "totalContribution": 88000 },
+      { "mode": "TIME_ATTACK",      "totalCount": 10500},
+      { "mode": "COOP",             "bestClearTime": 61000 }
     ]
   }
 }
@@ -616,12 +617,12 @@ GET /api/v1/members/me
 
 ```json
 {
-  "characterHair": "hair_01",
-  "characterHairColor": "color_black",
-  "characterBody": "body_default",
-  "characterEye": "eye_01",
-  "characterOutfit": "outfit_01",
-  "characterOutfitColor": "color_white"
+  "characterHair": "Hairstyle_01",
+  "characterHairColor": "Hairstyle-color_01",
+  "characterBody": "Body_01",
+  "characterEye": "Eyes_01",
+  "characterOutfit": "Outfit_01",
+  "characterOutfitColor": "Outfit-color_01"
 }
 ```
 
@@ -682,10 +683,6 @@ GET /api/v1/members/nickname/check?nickname={nickname}
 > 탈퇴 회원의 닉네임도 재사용 불가
 
 #### Response
-
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| `isAvailable` | Boolean | 사용 가능 여부 |
 
 ```json
 {
