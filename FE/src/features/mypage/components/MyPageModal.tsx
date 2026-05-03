@@ -19,7 +19,7 @@ export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) 
   return (
     <div
       // -translate-x-[120%]: 슬라이드 아웃 시 요소 너비 기준 120% 오프셋 — 그림자 잔상 제거 목적, translate-x-full(100%) 초과값이라 임의값 불가피
-      className={`absolute bottom-12 left-0 z-40 flex h-modal-md w-modal-md flex-col rounded-t-xl rounded-br-xl bg-[#f3f3f3]/95 p-6 shadow-2xl backdrop-blur transition-all duration-300 ease-in-out ${
+      className={`absolute bottom-12 left-0 z-40 flex h-auto w-modal-md flex-col rounded-t-xl rounded-br-xl bg-[#f3f3f3]/95 p-6 shadow-2xl backdrop-blur transition-all duration-300 ease-in-out ${
         isOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 pointer-events-none'
       }`}
     >
@@ -49,7 +49,7 @@ export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) 
         {/* 우측 전적 영역 */}
         <div className="flex flex-1 flex-col rounded-lg bg-white p-4 shadow-inner">
           <h3 className="mb-3 text-xs font-bold text-gray-500">전적 및 랭킹</h3>
-          <div className="flex flex-col gap-3 overflow-y-auto pr-2">
+          <div className="flex flex-col gap-3 pr-2">
             {isLoading ? (
               // 스켈레톤 UI
               <>
