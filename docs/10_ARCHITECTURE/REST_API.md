@@ -551,6 +551,7 @@ GET /api/v1/members/me
 | --- | --- | --- |
 | `nickname` | String | 닉네임 |
 | `authType` | String | `OAUTH` / `LOCAL` |
+| `provider` | String | `GOOGLE` |
 | `email` | String | 이메일 |
 | `totalPlayTime` | Integer | 총 플레이 시간 (sec) |
 | `characterHair` | String | 캐릭터 머리 에셋 ID |
@@ -561,7 +562,6 @@ GET /api/v1/members/me
 | `characterOutfitColor` | String | 캐릭터 옷색 ID |
 | `records` | Array | 모드별 기록 목록 |
 | `records[].mode` | String | 게임 모드 |
-| `records[].bestRank` | Integer | 최고 순위 |
 
 **records 모드별 추가 필드**
 
@@ -579,21 +579,22 @@ GET /api/v1/members/me
   "data": {
     "nickname": "dobby",
     "authType": "LOCAL",
+    "provider": null,
     "email": "user@example.com",
     "totalPlayTime": 37200,
-    "characterHair": "hair_01",
-    "characterHairColor": "color_black",
-    "characterBody": "body_default",
-    "characterEye": "eye_01",
-    "characterOutfit": "outfit_01",
-    "characterOutfitColor": "color_white",
+    "characterHair": "Hairstyle_01",
+    "characterHairColor": "Hairstyle-color_01",
+    "characterBody": "Body_01",
+    "characterEye": "Eyes_01",
+    "characterOutfit": "Outfit_01",
+    "characterOutfitColor": "Outfit-color_01",
     "records": [
-      { "mode": "SINGLE_EASY",      "bestScore": 9500,  "bestRank": 12 },
-      { "mode": "SINGLE_NORMAL",    "bestScore": 7200,  "bestRank": 45 },
-      { "mode": "SINGLE_HARD",      "bestScore": 5100,  "bestRank": 103 },
-      { "mode": "CONTRIBUTION_RUN", "totalContribution": 88000, "bestRank": 7 },
-      { "mode": "TIME_ATTACK",      "totalCount": 10500, "bestRank": 3 },
-      { "mode": "COOP",             "bestClearTime": 61000, "bestRank": 2 }
+      { "mode": "SINGLE_EASY",      "bestScore": 9500 },
+      { "mode": "SINGLE_NORMAL",    "bestScore": 7200 },
+      { "mode": "SINGLE_HARD",      "bestScore": 5100 },
+      { "mode": "CONTRIBUTION_RUN", "totalContribution": 88000 },
+      { "mode": "TIME_ATTACK",      "totalCount": 10500},
+      { "mode": "COOP",             "bestClearTime": 61000 }
     ]
   }
 }
@@ -616,12 +617,12 @@ GET /api/v1/members/me
 
 ```json
 {
-  "characterHair": "hair_01",
-  "characterHairColor": "color_black",
-  "characterBody": "body_default",
-  "characterEye": "eye_01",
-  "characterOutfit": "outfit_01",
-  "characterOutfitColor": "color_white"
+  "characterHair": "Hairstyle_01",
+  "characterHairColor": "Hairstyle-color_01",
+  "characterBody": "Body_01",
+  "characterEye": "Eyes_01",
+  "characterOutfit": "Outfit_01",
+  "characterOutfitColor": "Outfit-color_01"
 }
 ```
 
@@ -682,10 +683,6 @@ GET /api/v1/members/nickname/check?nickname={nickname}
 > 탈퇴 회원의 닉네임도 재사용 불가
 
 #### Response
-
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| `isAvailable` | Boolean | 사용 가능 여부 |
 
 ```json
 {
@@ -822,9 +819,8 @@ GET /api/v1/dictionary/commands
 
 ## 4. 랭킹 (Ranking)
 
-> 모든 랭킹 API는 **인증 불필요**
+> 모든 랭킹 API는 **인증 필요**
 > - 로그인 유저: `myRank` 필드 반환
-> - 비로그인 유저: `myRank: null`
 > - 초기 진입 시 `cursor`, `size` 파라미터 생략 → `top3` + `myRank` + `around` 포함 응답
 > - 무한 스크롤 시 `cursor`, `size` 포함 → `rankings` + `nextCursor` + `hasNext` 응답
 
@@ -857,7 +853,7 @@ GET /api/v1/rankings/single?difficulty={difficulty}&cursor={cursor}&size={size}
 | `top3[].rank` | Integer | 순위 |
 | `top3[].nickname` | String | 닉네임 |
 | `top3[].score` | Integer | 점수 |
-| `myRank` | Object | 내 랭킹 정보, 비로그인 시 null |
+| `myRank` | Object | 내 랭킹 정보 |
 | `myRank.rank` | Integer | 내 순위 |
 | `myRank.score` | Integer | 내 점수 |
 | `around` | Array | 내 랭킹 근처 유저 |
@@ -1051,7 +1047,7 @@ GET /api/v1/rankings/coop?mapName={맵이름}&difficulty={맵난이도}&cursor={
 | `top3[].rank` | Integer | 순위 |
 | `top3[].nickname` | String | 닉네임 |
 | `top3[].clearTime` | Integer | 클리어 시간 (ms) |
-| `myRank` | Object | 내 랭킹 정보, 비로그인 시 null |
+| `myRank` | Object | 내 랭킹 정보 |
 | `myRank.rank` | Integer | 내 순위 |
 | `myRank.clearTime` | Integer | 내 클리어 시간 (ms) |
 | `around` | Array | 내 랭킹 근처 유저 |
@@ -1940,7 +1936,7 @@ GET /api/v1/tutorial
 ```json
 {
   "status": 200,
-  "message": "요청 성공",
+  "message": "튜토리얼 조회 성공",
   "data": {
     "steps": [
       {
@@ -1961,12 +1957,12 @@ GET /api/v1/tutorial
         "description": "작업한 브랜치들을 main에 합쳐봐요.",
         "commands": [
           {
-            "sequence": 12,
+            "sequence": 1,
             "command": "git merge feature/login",
             "explanation": "다른 브랜치의 작업 내용을 현재 브랜치로 가져와 합칩니다."
           },
           {
-            "sequence": 13,
+            "sequence": 2,
             "command": "git merge feature/signup",
             "explanation": "두 번째 브랜치도 동일하게 머지합니다."
           }
