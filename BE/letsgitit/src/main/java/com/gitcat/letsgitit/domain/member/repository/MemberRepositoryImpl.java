@@ -10,7 +10,6 @@ import com.gitcat.letsgitit.domain.member.entity.Member;
 
 import lombok.RequiredArgsConstructor;
 
-// 랭킹 기능 구현을 위한 임시 클래스 -> 추후 member 기능 구현시 제거해도 됨
 @Repository
 @RequiredArgsConstructor
 public class MemberRepositoryImpl implements MemberRepository {
@@ -25,5 +24,15 @@ public class MemberRepositoryImpl implements MemberRepository {
 	@Override
 	public List<Member> findAllByIds(List<UUID> ids) {
 		return memberJpaRepository.findAllById(ids);
+	}
+
+	@Override
+	public boolean existsByNickname(String nickname) {
+		return memberJpaRepository.existsByNicknameIncludingDeleted(nickname);
+	}
+
+	@Override
+	public void flush() {
+		memberJpaRepository.flush();
 	}
 }

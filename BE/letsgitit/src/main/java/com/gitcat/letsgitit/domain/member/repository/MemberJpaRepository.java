@@ -1,10 +1,20 @@
 package com.gitcat.letsgitit.domain.member.repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.gitcat.letsgitit.domain.member.entity.Member;
 
-// 랭킹 기능 구현을 위한 임시 인터페이스 -> 추후 member 기능 구현시 제거해도 됨
-public interface MemberJpaRepository extends JpaRepository<Member, UUID> {}
+public interface MemberJpaRepository extends JpaRepository<Member, UUID> {
+
+	Optional<Member> findById(UUID memberId);
+
+	@Query(value = "select count(*) > 0 from member where nickname = :nickname", nativeQuery = true)
+	boolean existsByNicknameIncludingDeleted(@Param("nickname")
+	String nickname);
+
+}
