@@ -2,7 +2,6 @@ package com.gitcat.letsgitit.domain.auth.controller;
 
 import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -80,16 +79,20 @@ public class AuthController implements AuthControllerDocs {
 		return ApiResponse.ok("로그인 성공", loginResponse);
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/token")
-	public ResponseEntity<?> exchangeToken(@RequestBody
-	Map<String, Object> body) {
-		String code = (String)body.getOrDefault("code", "");
-		if ("EXPIRED_CODE".equals(code)) {
-			throw new BusinessException(INVALID_AUTH_CODE);
+	public ResponseEntity<?> exchangeToken(
+		@RequestBody
+		Map<String, String> body,
+		HttpServletResponse response) {
+
+		String code = body.get("code");
+		if (code == null || code.isBlank()) {
+			throw new BusinessException(ErrorCode.INVALID_AUTH_CODE);
 		}
-		return ApiResponse.ok("로그인 성공", buildLoginData());
+
+		AuthResponse.LoginResponse loginResponse = authService.loginWithOAuth(code, response);
+		return ApiResponse.ok("로그인 성공", loginResponse);
 	}
 
 	@Override
@@ -133,22 +136,6 @@ public class AuthController implements AuthControllerDocs {
 
 		authService.resetPassword(request);
 		return ApiResponse.ok("비밀번호 변경 성공");
-	}
-
-	private Map<String, Object> buildLoginData() {
-		Map<String, Object> data = new LinkedHashMap<>();
-		data.put("accessToken",
-			"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIn0.mock_access_token");
-		data.put("isFirstLogin", false);
-		data.put("nickname", "dobby");
-		data.put("onboardingStatus", "NONE");
-		data.put("characterHair", "hair_01");
-		data.put("characterHairColor", "color_black");
-		data.put("characterBody", "body_default");
-		data.put("characterEye", "eye_01");
-		data.put("characterOutfit", "outfit_01");
-		data.put("characterOutfitColor", "color_white");
-		return data;
 	}
 
 	@Override

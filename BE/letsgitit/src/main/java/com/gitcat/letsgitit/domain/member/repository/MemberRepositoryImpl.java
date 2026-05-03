@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Repository;
 
 import com.gitcat.letsgitit.domain.member.entity.Member;
+import com.gitcat.letsgitit.global.enums.Provider;
 
 import lombok.RequiredArgsConstructor;
 
@@ -49,5 +50,10 @@ public class MemberRepositoryImpl implements MemberRepository {
 	@Override
 	public void flush() {
 		memberJpaRepository.flush();
+	}
+
+	@Override
+	public Optional<Member> findByProviderAndProviderId(Provider provider, String providerId) {
+		return memberJpaRepository.findByProviderAndProviderId(provider, providerId);
 	}
 }

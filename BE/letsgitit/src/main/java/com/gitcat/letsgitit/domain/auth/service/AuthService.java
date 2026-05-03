@@ -20,6 +20,9 @@ public interface AuthService {
 	// 로컬 로그인
 	AuthResponse.LoginResponse login(AuthRequest.LoginRequest request, HttpServletResponse response);
 
+	// OAuth 임시코드 → Access Token 교환 (구글 소셜 로그인)
+	AuthResponse.LoginResponse loginWithOAuth(String tempCode, HttpServletResponse response);
+
 	// 토큰 재발급
 	AuthResponse.ReissueResponse reissue(String refreshToken, HttpServletResponse response);
 

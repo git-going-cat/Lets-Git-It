@@ -2,6 +2,7 @@ package com.gitcat.letsgitit.domain.member.model;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.UUID;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -13,19 +14,19 @@ import lombok.Getter;
 @Getter
 public class CustomUserDetails implements UserDetails {
 
-	private final String memberId; // Redis AT 조회에 사용
+	private final UUID memberId; // Redis AT 조회에 사용
 	private final String email; // JWT subject, username으로 사용
 	private final String password; // BCrypt 검증에 사용
 
 	// Member 엔티티 → CustomUserDetails 변환 팩토리 메서드
 	public static CustomUserDetails from(Member member) {
 		return new CustomUserDetails(
-			member.getId().toString(),
+			member.getId(),
 			member.getEmail(),
 			member.getPassword() != null ? member.getPassword() : "");
 	}
 
-	private CustomUserDetails(String memberId, String email, String password) {
+	private CustomUserDetails(UUID memberId, String email, String password) {
 		this.memberId = memberId;
 		this.email = email;
 		this.password = password;

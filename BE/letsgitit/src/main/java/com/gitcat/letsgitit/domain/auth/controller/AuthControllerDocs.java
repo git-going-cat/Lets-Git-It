@@ -139,7 +139,7 @@ public interface AuthControllerDocs {
 		구글 소셜 로그인 콜백에서 받은 1회용 임시코드로 Access Token 발급.
 		응답 시 refreshToken이 HttpOnly Cookie로 세팅됩니다.
 		""")
-	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+	@io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{"code": "550e8400-e29b-41d4-a716-446655440000"}
 		""")))
 	@ApiResponses({
@@ -161,11 +161,11 @@ public interface AuthControllerDocs {
 			  }
 			}
 			"""))),
-		@ApiResponse(responseCode = "400", description = "임시코드 만료 또는 없음", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "INVALID_AUTH_CODE", value = """
+		@ApiResponse(responseCode = "400", description = "임시코드 만료·없음 또는 code 누락", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "INVALID_AUTH_CODE", value = """
 			{"status": 400, "code": "INVALID_AUTH_CODE", "message": "유효하지 않거나 만료된 인증 코드입니다.", "errors": []}
 			""")))
 	})
-	ResponseEntity<?> exchangeToken(Map<String, Object> body);
+	ResponseEntity<?> exchangeToken(Map<String, String> body, HttpServletResponse response);
 
 	@Operation(summary = "Access Token 재발급", description = "Request Body 없음. Refresh Token은 HttpOnly Cookie로 자동 전송됩니다.")
 	@ApiResponses({

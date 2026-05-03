@@ -28,4 +28,7 @@ public class AuthConstants {
 
 	// Access Token Redis 저장 TTL (분) — application.yml의 access-expiration과 맞춰야 함
 	public static final long ACCESS_TOKEN_TTL_MINUTES = 30;
+
+	// OAuth 임시코드 TTL: 30초
+	public static final long OAUTH_TEMP_CODE_TTL_SECONDS = 30L;
 }

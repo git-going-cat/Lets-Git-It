@@ -214,4 +214,33 @@ public class AuthRedisRepositoryImpl implements AuthRedisRepository {
 		return Boolean.TRUE.equals(
 			authStringRedisTemplate.hasKey(cooldownKey(email, purpose)));
 	}
+
+	// 예시: "auth:oauth:tempcode:550e8400-e29b-41d4-a716-446655440000"
+	private String oauthTempCodeKey(String code) {
+		return "auth:oauth:tempcode:" + code;
+	}
+
+	@Override
+	public void saveOAuthTempCode(String code, String email) {
+		authStringRedisTemplate.opsForValue()
+			.set(oauthTempCodeKey(code), email,
+				AuthConstants.OAUTH_TEMP_CODE_TTL_SECONDS, TimeUnit.SECONDS);
+	}
+
+	// Redis GETDEL — GET과 DEL을 단일 명령으로 원자 처리
+	// 동일 코드로 동시 요청이 들어와도 하나만 email을 획득하고 나머지는 null 반환
+	@Override
+	public String consumeOAuthTempCode(String code) {
+		return authStringRedisTemplate.opsForValue().getAndDelete(oauthTempCodeKey(code));
+	}
+
+	@Override
+	public String getOAuthTempCode(String code) {
+		return authStringRedisTemplate.opsForValue().get(oauthTempCodeKey(code));
+	}
+
+	@Override
+	public void deleteOAuthTempCode(String code) {
+		authStringRedisTemplate.delete(oauthTempCodeKey(code));
+	}
 }

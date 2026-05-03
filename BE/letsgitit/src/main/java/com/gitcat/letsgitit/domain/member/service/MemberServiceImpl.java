@@ -21,6 +21,7 @@ import com.gitcat.letsgitit.domain.member.repository.MemberRepository;
 import com.gitcat.letsgitit.domain.record.entity.MemberBestRecord;
 import com.gitcat.letsgitit.domain.record.entity.MemberCoopBestRecord;
 import com.gitcat.letsgitit.domain.record.service.RecordService;
+import com.gitcat.letsgitit.global.enums.Provider;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
@@ -167,8 +168,22 @@ public class MemberServiceImpl implements MemberService {
 		memberRepository.save(member);
 	}
 
-	private Member findById(UUID memberId) {
+	@Override
+	@Transactional(readOnly = true)
+	public Member findById(UUID memberId) {
 		return memberRepository.findById(memberId)
 			.orElseThrow(() -> new BusinessException(MEMBER_NOT_FOUND));
+	}
+
+	@Override
+	@Transactional
+	public Member findOrCreateOAuthMember(String email, Provider provider, String providerId) {
+		return memberRepository.findByProviderAndProviderId(provider, providerId)
+			.orElseGet(() -> {
+				if (memberRepository.existsByEmail(email)) {
+					throw new BusinessException(EMAIL_DUPLICATE);
+				}
+				return memberRepository.save(Member.ofOAuth(email, provider, providerId));
+			});
 	}
 }

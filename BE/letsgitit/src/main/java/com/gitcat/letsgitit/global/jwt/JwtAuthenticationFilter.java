@@ -59,7 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 					// 2. Redis에 저장된 AT와 일치 여부 확인 — 동시접속 차단
 					if (userDetails instanceof CustomUserDetails customUserDetails) {
 						String storedToken = authRedisRepository.getAccessToken(
-							customUserDetails.getMemberId());
+							customUserDetails.getMemberId().toString());
 
 						if (!token.equals(storedToken)) {
 							log.debug("동시접속 차단. 다른 기기에서 로그인된 토큰: {}", request.getRequestURI());

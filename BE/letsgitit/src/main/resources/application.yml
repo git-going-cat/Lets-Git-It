@@ -40,6 +40,18 @@ spring:
             required: true
     default-encoding: UTF-8
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: "{baseUrl}/login/oauth2/code/google"
+            scope:
+              - email
+              - profile
+
 redis:
   auth:
     host: ${REDIS_AUTH_HOST}
@@ -81,3 +93,7 @@ jwt:
   secret: ${JWT_SECRET}          # 서명용 비밀키 (256비트 이상 권장, .env에서 주입)
   access-expiration: 1800000     # Access Token 만료: 30분 (밀리초)
   refresh-expiration: 604800000  # Refresh Token 만료: 7일 (밀리초)
+
+# 프론트 콜백 URL (리다이렉트 대상)
+oauth2:
+  frontend-redirect-uri: ${FRONTEND_REDIRECT_URI:http://localhost:5173/auth/callback/google}

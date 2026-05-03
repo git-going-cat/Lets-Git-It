@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.gitcat.letsgitit.domain.member.entity.Member;
+import com.gitcat.letsgitit.global.enums.Provider;
 
 public interface MemberJpaRepository extends JpaRepository<Member, UUID> {
 
@@ -20,5 +21,7 @@ public interface MemberJpaRepository extends JpaRepository<Member, UUID> {
 	@Query(value = "select count(*) > 0 from member where nickname = :nickname", nativeQuery = true)
 	boolean existsByNicknameIncludingDeleted(@Param("nickname")
 	String nickname);
+
+	Optional<Member> findByProviderAndProviderId(Provider provider, String providerId);
 
 }
