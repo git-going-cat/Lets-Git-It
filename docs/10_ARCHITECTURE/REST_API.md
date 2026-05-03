@@ -1936,7 +1936,7 @@ GET /api/v1/tutorial
 ```json
 {
   "status": 200,
-  "message": "요청 성공",
+  "message": "튜토리얼 조회 성공",
   "data": {
     "steps": [
       {
@@ -1957,12 +1957,12 @@ GET /api/v1/tutorial
         "description": "작업한 브랜치들을 main에 합쳐봐요.",
         "commands": [
           {
-            "sequence": 12,
+            "sequence": 1,
             "command": "git merge feature/login",
             "explanation": "다른 브랜치의 작업 내용을 현재 브랜치로 가져와 합칩니다."
           },
           {
-            "sequence": 13,
+            "sequence": 2,
             "command": "git merge feature/signup",
             "explanation": "두 번째 브랜치도 동일하게 머지합니다."
           }
