@@ -1,10 +1,12 @@
 import { useState } from 'react';
 
 import { useRanking } from '../hooks/useRanking';
-import type { RankingEntry, RankingMode } from '../types/ranking.types';
+
 import RankingList from './RankingList';
 import RankingPodium from './RankingPodium';
 import RankingSidebar from './RankingSidebar';
+
+import type { RankingEntry, RankingMode } from '../types/ranking.types';
 
 // ── 타입 ──────────────────────────────────────────────────
 

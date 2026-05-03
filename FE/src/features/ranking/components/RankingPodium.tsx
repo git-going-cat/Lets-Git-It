@@ -35,9 +35,7 @@ export default function RankingPodium({ mode, top3 }: RankingPodiumProps) {
             <span className="text-sm font-bold text-gray-800">{entry.nickname}</span>
 
             {/* 점수 */}
-            <span className="text-xs font-semibold text-gray-600">
-              {formatScore(mode, entry)}
-            </span>
+            <span className="text-xs font-semibold text-gray-600">{formatScore(mode, entry)}</span>
 
             {/* 등급 뱃지 (협력 모드 제외) */}
             {grade && <GradeBadge grade={grade} />}
@@ -62,11 +60,11 @@ export default function RankingPodium({ mode, top3 }: RankingPodiumProps) {
               }}
             >
               {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-              <span 
+              <span
                 className="mb-2"
                 style={{
                   color: idx === 1 ? '#8a6a00' : idx === 0 ? '#5a6a8a' : '#7a5030',
-                  opacity: 0.55
+                  opacity: 0.55,
                 }}
               >
                 {entry.rank}

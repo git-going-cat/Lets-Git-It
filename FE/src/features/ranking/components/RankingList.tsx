@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 
 import { useRanking } from '../hooks/useRanking';
-import type { MyRank, RankingEntry, RankingMode } from '../types/ranking.types';
 import { formatScore, getGrade, getValueLabel, GRADE_COLORS } from '../utils/rankingFormat';
+
+import type { MyRank, RankingEntry, RankingMode } from '../types/ranking.types';
 
 // ── 컴포넌트 ──────────────────────────────────────────────
 
