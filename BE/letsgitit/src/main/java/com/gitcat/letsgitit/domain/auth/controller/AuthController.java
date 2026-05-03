@@ -5,7 +5,13 @@ import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,77 +19,65 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gitcat.letsgitit.domain.auth.constants.AuthConstants;
+import com.gitcat.letsgitit.domain.auth.dto.request.AuthRequest;
+import com.gitcat.letsgitit.domain.auth.dto.response.AuthResponse;
+import com.gitcat.letsgitit.domain.auth.service.AuthService;
+import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
+import com.gitcat.letsgitit.global.enums.AuthPurpose;
 import com.gitcat.letsgitit.global.exception.BusinessException;
+import com.gitcat.letsgitit.global.exception.ErrorCode;
 import com.gitcat.letsgitit.global.response.ApiResponse;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
 public class AuthController implements AuthControllerDocs {
 
-	// TODO: 서비스 로직 연동 후 제거
+	private final AuthService authService;
+
 	@Override
 	@PostMapping("/email/send")
 	public ResponseEntity<?> sendEmailCode(
 		@RequestParam
-		String purpose,
-		@RequestBody
-		Map<String, Object> body) {
-		String email = (String)body.getOrDefault("email", "");
-		if ("duplicate@test.com".equals(email)) {
-			throw new BusinessException(EMAIL_DUPLICATE);
-		}
-		if (!email.contains("@")) {
-			throw new BusinessException(INVALID_EMAIL_FORMAT);
-		}
-		Map<String, Object> data = new LinkedHashMap<>();
-		data.put("expiredAt", "2026-05-01T09:12:34.123");
-		return ApiResponse.ok("인증 메일 발송 성공", data);
+		AuthPurpose purpose, // String → Enum 자동 변환, 잘못된 값이면 400
+		@Valid @RequestBody
+		AuthRequest.SendEmailCodeRequest request) {
+		AuthResponse.SendEmailCodeResponse response = authService.sendEmailCode(request.email(), purpose);
+		return ApiResponse.ok("인증 메일 발송 성공", response);
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/email/verify")
-	public ResponseEntity<?> verifyEmailCode(@RequestBody
-	Map<String, Object> body) {
-		String code = (String)body.getOrDefault("code", "");
-		if ("EXPIRED".equals(code)) {
-			throw new BusinessException(EXPIRED_AUTH_CODE);
-		}
-		if ("WRONG".equals(code)) {
-			throw new BusinessException(INVALID_AUTH_CODE);
-		}
+	public ResponseEntity<?> verifyEmailCode(
+		@RequestParam
+		AuthPurpose purpose,
+		@Valid @RequestBody
+		AuthRequest.VerifyEmailCodeRequest request) {
+		authService.verifyEmailCode(request, purpose);
 		return ApiResponse.ok("이메일 인증 성공");
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/register")
-	public ResponseEntity<?> register(@RequestBody
-	Map<String, Object> body) {
-		String email = (String)body.getOrDefault("email", "");
-		String password = (String)body.getOrDefault("password", "");
-		if ("duplicate@test.com".equals(email)) {
-			throw new BusinessException(EMAIL_DUPLICATE);
-		}
-		if ("unverified@test.com".equals(email)) {
-			throw new BusinessException(EMAIL_NOT_VERIFIED);
-		}
-		if ("weak".equals(password)) {
-			throw new BusinessException(INVALID_PASSWORD_FORMAT);
-		}
+	public ResponseEntity<?> register(
+		@Valid @RequestBody
+		AuthRequest.RegisterRequest request) {
+		authService.register(request);
 		return ApiResponse.create("회원가입 성공");
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/login")
-	public ResponseEntity<?> login(@RequestBody
-	Map<String, Object> body) {
-		String password = (String)body.getOrDefault("password", "");
-		if ("wrongpass".equals(password)) {
-			throw new BusinessException(INVALID_CREDENTIALS);
-		}
-		return ApiResponse.ok("로그인 성공", buildLoginData());
+	public ResponseEntity<?> login(
+		@Valid @RequestBody
+		AuthRequest.LoginRequest request,
+		HttpServletResponse response) {
+
+		AuthResponse.LoginResponse loginResponse = authService.login(request, response);
+		return ApiResponse.ok("로그인 성공", loginResponse);
 	}
 
 	// TODO: 서비스 로직 연동 후 제거
@@ -98,42 +92,46 @@ public class AuthController implements AuthControllerDocs {
 		return ApiResponse.ok("로그인 성공", buildLoginData());
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/reissue")
-	public ResponseEntity<?> reissueToken() {
-		Map<String, Object> data = new LinkedHashMap<>();
-		data.put("accessToken",
-			"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIn0.reissued_mock");
-		return ApiResponse.ok("토큰 재발급 성공", data);
+	public ResponseEntity<?> reissueToken(
+		@CookieValue(name = AuthConstants.REFRESH_TOKEN_COOKIE, required = false)
+		String refreshToken,
+		HttpServletResponse response) {
+
+		// 쿠키 누락 체크
+		if (refreshToken == null) {
+			throw new BusinessException(ErrorCode.MISSING_COOKIE);
+		}
+
+		AuthResponse.ReissueResponse reissueResponse = authService.reissue(refreshToken, response);
+		return ApiResponse.ok("토큰 재발급 성공", reissueResponse);
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/logout")
-	public ResponseEntity<?> logout() {
+	public ResponseEntity<?> logout(
+		HttpServletRequest request,
+		HttpServletResponse response) {
+
+		// Authorization 헤더에서 AT 추출
+		String bearerToken = request.getHeader("Authorization");
+		if (bearerToken == null || !bearerToken.startsWith("Bearer ")) {
+			throw new BusinessException(ErrorCode.INVALID_TOKEN);
+		}
+
+		String accessToken = bearerToken.substring(7);
+		authService.logout(accessToken, response);
 		return ApiResponse.ok("로그아웃 성공");
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
-	@PatchMapping("/password")
-	public ResponseEntity<?> resetPassword(@RequestBody
-	Map<String, Object> body) {
-		String email = (String)body.getOrDefault("email", "");
-		String newPassword = (String)body.getOrDefault("newPassword", "");
-		if ("notfound@test.com".equals(email)) {
-			throw new BusinessException(MEMBER_NOT_FOUND);
-		}
-		if ("oauth@test.com".equals(email)) {
-			throw new BusinessException(OAUTH_ACCOUNT);
-		}
-		if ("weak".equals(newPassword)) {
-			throw new BusinessException(INVALID_PASSWORD_FORMAT);
-		}
-		if ("samepass".equals(newPassword)) {
-			throw new BusinessException(SAME_AS_CURRENT_PASSWORD);
-		}
+	@PatchMapping("/password/reset")
+	public ResponseEntity<?> resetPassword(
+		@Valid @RequestBody
+		AuthRequest.ResetPasswordRequest request) {
+
+		authService.resetPassword(request);
 		return ApiResponse.ok("비밀번호 변경 성공");
 	}
 
@@ -151,5 +149,17 @@ public class AuthController implements AuthControllerDocs {
 		data.put("characterOutfit", "outfit_01");
 		data.put("characterOutfitColor", "color_white");
 		return data;
+	}
+
+	@Override
+	@PostMapping("/password/verify")
+	public ResponseEntity<?> verifyPassword(
+		@Valid @RequestBody
+		AuthRequest.VerifyPasswordRequest request,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails) { // UserDetails → CustomUserDetails
+
+		authService.verifyPassword(request, userDetails.getUsername());
+		return ApiResponse.ok("비밀번호 검증 성공");
 	}
 }

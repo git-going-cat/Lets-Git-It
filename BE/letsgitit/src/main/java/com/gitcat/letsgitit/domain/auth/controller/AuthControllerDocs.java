@@ -2,7 +2,18 @@ package com.gitcat.letsgitit.domain.auth.controller;
 
 import java.util.Map;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.CookieValue;
+
+import com.gitcat.letsgitit.domain.auth.constants.AuthConstants;
+import com.gitcat.letsgitit.domain.auth.dto.request.AuthRequest;
+import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
+import com.gitcat.letsgitit.global.enums.AuthPurpose;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,6 +22,7 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @Tag(name = "Auth", description = "인증 관련 API")
@@ -18,12 +30,6 @@ public interface AuthControllerDocs {
 
 	@Operation(summary = "이메일 인증 코드 발송", description = """
 		회원가입 전 이메일 인증용. 인증 코드는 5분간 유효합니다.
-
-		**Mock 에러 트리거 (테스트용)**
-		| 요청값 | 발생 에러 |
-		|---|---|
-		| email: "duplicate@test.com" | 409 EMAIL_DUPLICATE |
-		| email: "invalid-email" | 400 INVALID_EMAIL_FORMAT |
 		""")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{"email": "user@example.com"}
@@ -45,17 +51,12 @@ public interface AuthControllerDocs {
 	})
 	ResponseEntity<?> sendEmailCode(
 		@Parameter(name = "purpose", description = "인증 목적 (SIGN_UP / PASSWORD_RESET / WITHDRAW)", required = true)
-		String purpose,
-		Map<String, Object> body);
+		AuthPurpose purpose,
+		@Valid
+		AuthRequest.SendEmailCodeRequest request);
 
 	@Operation(summary = "이메일 인증 코드 검증", description = """
 		인증 코드 검증 성공 시 서버에서 인증 완료 상태를 Redis에 저장합니다.
-
-		**Mock 에러 트리거 (테스트용)**
-		| 요청값 | 발생 에러 |
-		|---|---|
-		| code: "EXPIRED" | 401 EXPIRED_AUTH_CODE |
-		| code: "WRONG" | 400 INVALID_AUTH_CODE |
 		""")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{"email": "user@example.com", "code": "A1B2C3"}
@@ -71,17 +72,14 @@ public interface AuthControllerDocs {
 			{"status": 401, "code": "EXPIRED_AUTH_CODE", "message": "인증 코드가 만료되었습니다. (5분 초과)", "errors": []}
 			""")))
 	})
-	ResponseEntity<?> verifyEmailCode(Map<String, Object> body);
+	ResponseEntity<?> verifyEmailCode(
+		@Parameter(name = "purpose", description = "인증 목적 (SIGN_UP / PASSWORD_RESET / WITHDRAW)", required = true)
+		AuthPurpose purpose,
+		@Valid
+		AuthRequest.VerifyEmailCodeRequest request);
 
 	@Operation(summary = "회원가입", description = """
 		이메일 인증 완료 후 호출. 탈퇴 후 30일 이내 재가입 시 기존 계정 재활성화.
-
-		**Mock 에러 트리거 (테스트용)**
-		| 요청값 | 발생 에러 |
-		|---|---|
-		| email: "duplicate@test.com" | 409 EMAIL_DUPLICATE |
-		| email: "unverified@test.com" | 403 EMAIL_NOT_VERIFIED |
-		| password: "weak" | 400 INVALID_PASSWORD_FORMAT |
 		""")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{"email": "user@example.com", "password": "password123!"}
@@ -100,15 +98,11 @@ public interface AuthControllerDocs {
 			{"status": 400, "code": "INVALID_PASSWORD_FORMAT", "message": "비밀번호 형식이 올바르지 않습니다.", "errors": []}
 			""")))
 	})
-	ResponseEntity<?> register(Map<String, Object> body);
+	ResponseEntity<?> register(@Valid
+	AuthRequest.RegisterRequest request);
 
 	@Operation(summary = "로컬 로그인", description = """
 		응답 시 refreshToken이 HttpOnly Cookie로 자동 세팅됩니다.
-
-		**Mock 에러 트리거 (테스트용)**
-		| 요청값 | 발생 에러 |
-		|---|---|
-		| password: "wrongpass" | 401 INVALID_CREDENTIALS |
 		""")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{"email": "user@example.com", "password": "password123!"}
@@ -136,16 +130,14 @@ public interface AuthControllerDocs {
 			{"status": 401, "code": "INVALID_CREDENTIALS", "message": "이메일 또는 비밀번호가 올바르지 않습니다.", "errors": []}
 			""")))
 	})
-	ResponseEntity<?> login(Map<String, Object> body);
+	ResponseEntity<?> login(
+		@Valid
+		AuthRequest.LoginRequest request,
+		HttpServletResponse response);
 
 	@Operation(summary = "OAuth 임시코드 → Access Token 교환", description = """
 		구글 소셜 로그인 콜백에서 받은 1회용 임시코드로 Access Token 발급.
 		응답 시 refreshToken이 HttpOnly Cookie로 세팅됩니다.
-
-		**Mock 에러 트리거 (테스트용)**
-		| 요청값 | 발생 에러 |
-		|---|---|
-		| code: "EXPIRED_CODE" | 400 INVALID_AUTH_CODE |
 		""")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{"code": "550e8400-e29b-41d4-a716-446655440000"}
@@ -202,9 +194,13 @@ public interface AuthControllerDocs {
 			{"status": 400, "code": "MISSING_COOKIE", "message": "필수 쿠키가 누락되었습니다.", "errors": []}
 			""")))
 	})
-	ResponseEntity<?> reissueToken();
+	ResponseEntity<?> reissueToken(
+		@CookieValue(name = AuthConstants.REFRESH_TOKEN_COOKIE, required = false)
+		String refreshToken,
+		HttpServletResponse response);
 
-	@Operation(summary = "로그아웃", description = "Authorization 헤더에 Access Token 필요. Redis의 Refresh Token 삭제 + HttpOnly Cookie 만료.")
+	@Operation(summary = "로그아웃", description = "Authorization 헤더에 Access Token 필요. Redis의 Refresh Token 삭제 + HttpOnly Cookie 만료.", security = @SecurityRequirement(name = "bearerAuth") // 추가
+	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "로그아웃 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 			{"status": 200, "message": "로그아웃 성공", "data": {}}
@@ -213,18 +209,10 @@ public interface AuthControllerDocs {
 			{"status": 401, "code": "INVALID_TOKEN", "message": "유효하지 않은 토큰입니다.", "errors": []}
 			""")))
 	})
-	ResponseEntity<?> logout();
+	ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response);
 
 	@Operation(summary = "비밀번호 변경 (비밀번호 찾기용, 인증 불필요)", description = """
 		이메일 인증 완료 후 호출. 서버에서 인증 완료 상태 확인.
-
-		**Mock 에러 트리거 (테스트용)**
-		| 요청값 | 발생 에러 |
-		|---|---|
-		| email: "notfound@test.com" | 404 MEMBER_NOT_FOUND |
-		| email: "oauth@test.com" | 400 OAUTH_ACCOUNT |
-		| newPassword: "weak" | 400 INVALID_PASSWORD_FORMAT |
-		| newPassword: "samepass" | 409 SAME_AS_CURRENT_PASSWORD |
 		""")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{"email": "user@example.com", "newPassword": "newPassword123!"}
@@ -248,5 +236,27 @@ public interface AuthControllerDocs {
 			{"status": 409, "code": "SAME_AS_CURRENT_PASSWORD", "message": "현재 비밀번호와 동일합니다.", "errors": []}
 			""")))
 	})
-	ResponseEntity<?> resetPassword(Map<String, Object> body);
+	ResponseEntity<?> resetPassword(@Valid
+	AuthRequest.ResetPasswordRequest request);
+
+	@Operation(summary = "비밀번호 검증", description = "로그인 상태에서 현재 비밀번호 확인. Authorization 헤더에 Access Token 필요.", security = @SecurityRequirement(name = "bearerAuth"))
+	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+		{"password": "currentPassword123!"}
+		""")))
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "비밀번호 검증 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+			{"status": 200, "message": "비밀번호 검증 성공", "data": {}}
+			"""))),
+		@ApiResponse(responseCode = "401", description = "비밀번호 불일치", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "PASSWORD_MISMATCH", value = """
+			{"status": 401, "code": "PASSWORD_MISMATCH", "message": "비밀번호가 일치하지 않습니다.", "errors": []}
+			"""))),
+		@ApiResponse(responseCode = "400", description = "소셜 로그인 계정", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "OAUTH_ACCOUNT", value = """
+			{"status": 400, "code": "OAUTH_ACCOUNT", "message": "소셜 로그인 계정은 비밀번호를 사용할 수 없습니다.", "errors": []}
+			""")))
+	})
+	ResponseEntity<?> verifyPassword(
+		@Valid
+		AuthRequest.VerifyPasswordRequest request,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails);
 }
