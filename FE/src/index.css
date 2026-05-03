@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+@theme {
+  --width-modal-lg: 900px;
+  --width-modal-md: 600px;
+  --height-modal-lg: 560px;
+  --height-modal-md: 480px;
+}
