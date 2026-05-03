@@ -131,7 +131,6 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
       {/* 모달 본체 — Win11 탐색기 스타일 */}
       {/* w-[900px] h-[560px]: Win11 탐색기 비율 재현을 위한 고정 크기 */}
       <div className="relative z-10 flex w-[900px] h-[560px] flex-col overflow-hidden rounded-lg bg-[#f3f3f3] shadow-2xl ring-1 ring-black/10">
-
         {/* ── 탭 바 ── */}
         <div className="flex items-center bg-[#f9f9f9] pl-2 pr-3 pt-1 select-none">
           {/* 탭 목록 */}
@@ -141,17 +140,21 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 key={tab}
                 type="button"
                 onClick={() => handleTabChange(tab)}
-                className={`flex items-center gap-2 rounded-t-md px-4 py-2 text-sm transition-colors ${activeTab === tab
+                className={`flex items-center gap-2 rounded-t-md px-4 py-2 text-sm transition-colors ${
+                  activeTab === tab
                     ? 'bg-[#f3f3f3] text-gray-800 shadow-sm'
                     : 'text-gray-500 hover:bg-white/60'
-                  }`}
+                }`}
               >
                 <span className="text-base">📁</span>
                 {tab === 'single' ? '싱글모드' : '멀티모드'}
                 {activeTab === tab && (
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); onClose(); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClose();
+                    }}
                     className="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] text-gray-400 hover:bg-gray-200"
                     aria-label="닫기"
                   >
@@ -160,7 +163,9 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 )}
               </button>
             ))}
-            <button type="button" className="px-3 py-2 text-gray-400 hover:text-gray-600 text-sm">+</button>
+            <button type="button" className="px-3 py-2 text-gray-400 hover:text-gray-600 text-sm">
+              +
+            </button>
           </div>
           {/* 창 컨트롤 버튼 */}
           <div className="flex gap-1">
@@ -169,15 +174,15 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 key={icon}
                 type="button"
                 onClick={i === 2 ? onClose : undefined}
-                className={`flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors ${i === 2 ? 'hover:bg-red-500 hover:text-white' : 'hover:bg-gray-200'
-                  }`}
+                className={`flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors ${
+                  i === 2 ? 'hover:bg-red-500 hover:text-white' : 'hover:bg-gray-200'
+                }`}
               >
                 {icon}
               </button>
             ))}
           </div>
         </div>
-
 
         {/* ── 주소 표시줄 ── */}
         <div className="flex items-center gap-2 border-b border-gray-200 bg-[#f3f3f3] px-3 py-1.5">
@@ -193,16 +198,20 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
           <div className="flex flex-1 items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700">
             <span>📁</span>
             <span>바탕화면 &gt;</span>
-            <span className="font-medium">{activeTab === 'single' ? '싱글모드' : '멀티모드'} &gt;</span>
+            <span className="font-medium">
+              {activeTab === 'single' ? '싱글모드' : '멀티모드'} &gt;
+            </span>
           </div>
-          <button type="button" className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-200">
+          <button
+            type="button"
+            className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-200"
+          >
             세부 정보
           </button>
         </div>
 
         {/* ── 콘텐츠 영역 ── */}
         <div className="flex flex-1 overflow-hidden">
-
           {/* 사이드바 */}
           <div className="w-44 overflow-y-auto border-r border-gray-200 bg-[#f9f9f9] py-2 select-none">
             {SIDEBAR_TREE.map((item, idx) => (
@@ -210,14 +219,23 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 key={idx}
                 type="button"
                 onClick={() => item.tab && handleTabChange(item.tab)}
-                className={`flex w-full items-center gap-1.5 px-3 py-1 text-left text-xs transition-colors ${item.tab === activeTab
+                className={`flex w-full items-center gap-1.5 px-3 py-1 text-left text-xs transition-colors ${
+                  item.tab === activeTab
                     ? 'bg-[#cce4f7] text-gray-900 font-medium'
                     : 'text-gray-700 hover:bg-gray-200/70'
-                  }`}
+                }`}
                 // depth별 동적 들여쓰기: Tailwind 정적 클래스로 표현 불가
                 style={{ paddingLeft: `${(item.depth + 1) * 12}px` }}
               >
-                <span>{item.isFolder ? '📁' : item.label === '싱글 랭킹' || item.label === '멀티 랭킹' ? '📊' : item.label === '도감' ? '📖' : '🖥'}</span>
+                <span>
+                  {item.isFolder
+                    ? '📁'
+                    : item.label === '싱글 랭킹' || item.label === '멀티 랭킹'
+                      ? '📊'
+                      : item.label === '도감'
+                        ? '📖'
+                        : '🖥'}
+                </span>
                 {item.label}
               </button>
             ))}
@@ -231,10 +249,11 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 type="button"
                 onClick={() => setSelectedItem(item.id)}
                 onDoubleClick={handleGameStart}
-                className={`flex flex-col items-center gap-2 rounded-lg p-3 transition-colors ${selectedItem === item.id
+                className={`flex flex-col items-center gap-2 rounded-lg p-3 transition-colors ${
+                  selectedItem === item.id
                     ? 'bg-[#cce4f7] ring-2 ring-[#0078d4]/40'
                     : 'hover:bg-gray-100'
-                  }`}
+                }`}
               >
                 <div className="relative">
                   <img
@@ -245,8 +264,18 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                   />
                   {/* Windows 바로가기 화살표 오버레이 */}
                   <div className="absolute bottom-0 left-0 flex h-4 w-4 items-center justify-center rounded-sm bg-white shadow-sm ring-1 ring-gray-300">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-3 w-3 text-gray-600">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 17L17 7M17 7H7M17 7V17" />
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      className="h-3 w-3 text-gray-600"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M7 17L17 7M17 7H7M17 7V17"
+                      />
                     </svg>
                   </div>
                 </div>
@@ -285,9 +314,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 </button>
               </div>
             ) : (
-              <p className="mt-10 px-4 text-center text-xs text-gray-400">
-                항목을 선택하세요
-              </p>
+              <p className="mt-10 px-4 text-center text-xs text-gray-400">항목을 선택하세요</p>
             )}
           </div>
         </div>

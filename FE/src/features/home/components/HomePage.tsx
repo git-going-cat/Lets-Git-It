@@ -34,21 +34,26 @@ export function HomePage() {
   return (
     <div className="relative h-screen w-full overflow-hidden">
       {/* 배경 이미지 */}
-      <img src={bgImage} alt="배경" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      <img
+        src={bgImage}
+        alt="배경"
+        className="absolute inset-0 h-full w-full object-cover"
+        draggable={false}
+      />
 
       {/* 내부 컴포넌트들은 각각 absolute 클래스를 가지고 있으므로 그대로 렌더링 */}
       <LogoSection />
-      
+
       <SettingsButton onClick={() => handleOpenModal('settings')} />
-      
+
       <SideMenuButtons onOpen={handleOpenModal} />
-      
+
       <div className="absolute bottom-[12vh] left-1/2 -translate-x-1/2">
         <ModeSelectSection onOpen={handleOpenModal} />
       </div>
-      
+
       <TutorialNpc />
-      
+
       {/* 좌측 마이페이지 바 */}
       <MyPageModal isOpen={isMyPageOpen} onOpenLogout={() => handleOpenModal('logout')} />
 
@@ -60,20 +65,36 @@ export function HomePage() {
       {/* 모달 렌더링 영역 */}
       {activeModal === 'settings' && <SettingsModal onClose={handleCloseModal} />}
       {activeModal === 'logout' && <LogoutModal onClose={handleCloseModal} />}
-      {activeModal === 'explorer-single' && <Win11ExplorerModal initialTab="single" onClose={handleCloseModal} />}
-      {activeModal === 'explorer-multi' && <Win11ExplorerModal initialTab="multi" onClose={handleCloseModal} />}
-      
+      {activeModal === 'explorer-single' && (
+        <Win11ExplorerModal initialTab="single" onClose={handleCloseModal} />
+      )}
+      {activeModal === 'explorer-multi' && (
+        <Win11ExplorerModal initialTab="multi" onClose={handleCloseModal} />
+      )}
+
       {/* TODO: 랭킹, 도감 모달 구현 */}
       {activeModal === 'ranking' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={handleCloseModal}>
-          <div className="rounded-xl bg-white p-8 font-bold shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={handleCloseModal}
+        >
+          <div
+            className="rounded-xl bg-white p-8 font-bold shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             랭킹 모달 (구현 예정)
           </div>
         </div>
       )}
       {activeModal === 'dictionary' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={handleCloseModal}>
-          <div className="rounded-xl bg-white p-8 font-bold shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={handleCloseModal}
+        >
+          <div
+            className="rounded-xl bg-white p-8 font-bold shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             도감 모달 (구현 예정)
           </div>
         </div>

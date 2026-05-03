@@ -18,8 +18,9 @@ export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) 
 
   return (
     <div
-      className={`absolute bottom-12 left-0 z-40 flex h-[480px] w-[600px] flex-col rounded-t-xl rounded-br-xl bg-[#f3f3f3]/95 p-6 shadow-2xl backdrop-blur transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 pointer-events-none'
-        }`}
+      className={`absolute bottom-12 left-0 z-40 flex h-[480px] w-[600px] flex-col rounded-t-xl rounded-br-xl bg-[#f3f3f3]/95 p-6 shadow-2xl backdrop-blur transition-all duration-300 ease-in-out ${
+        isOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 pointer-events-none'
+      }`}
     >
       {/* 윈도우 11 시작메뉴 스타일 헤더 */}
       <div className="mb-4 flex shrink-0 items-center justify-between px-2">
