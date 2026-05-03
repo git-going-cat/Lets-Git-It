@@ -36,7 +36,8 @@ const SINGLE_ITEMS: ExplorerItem[] = [
     label: 'Easy',
     img: singleEasyImg,
     description: '브랜치 최대 3개로 진행되는 기본 모드',
-    detail: 'add / commit / push / merge / switch / pull\n기본 명령어 제공\n\n초보자에게 추천하는 난이도',
+    detail:
+      'add / commit / push / merge / switch / pull\n기본 명령어 제공\n\n초보자에게 추천하는 난이도',
   },
   {
     id: 'NORMAL',
@@ -50,7 +51,8 @@ const SINGLE_ITEMS: ExplorerItem[] = [
     label: 'Hard',
     img: singleHardImg,
     description: '브랜치 최대 5개로 진행되는 고급 모드',
-    detail: 'Normal 명령어 + rebase / force push / diff\nConflict 미니게임 포함\n\nGit 전문가를 위한 난이도',
+    detail:
+      'Normal 명령어 + rebase / force push / diff\nConflict 미니게임 포함\n\nGit 전문가를 위한 난이도',
   },
 ];
 
