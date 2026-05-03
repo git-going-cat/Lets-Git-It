@@ -48,9 +48,7 @@ export function HomePage() {
 
       <SideMenuButtons onOpen={handleOpenModal} />
 
-      <div
-        className="absolute bottom-20 left-1/2 -translate-x-1/2"
-      >
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2">
         <ModeSelectSection onOpen={handleOpenModal} />
       </div>
 
