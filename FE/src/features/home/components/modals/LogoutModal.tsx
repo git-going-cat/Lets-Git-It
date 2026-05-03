@@ -18,7 +18,7 @@ export default function LogoutModal({ onClose }: LogoutModalProps) {
       onClick={onClose}
     >
       <div
-        className="flex w-[320px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
+        className="flex w-80 flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}

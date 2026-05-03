@@ -31,7 +31,7 @@ export default function TutorialNpc() {
           <button
             type="button"
             onClick={handleCloseBubble}
-            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-gray-300 text-[10px] hover:bg-gray-400"
+            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-gray-300 text-xs hover:bg-gray-400"
             aria-label="말풍선 닫기"
           >
             ✕

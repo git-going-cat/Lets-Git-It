@@ -129,8 +129,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* 모달 본체 — Win11 탐색기 스타일 */}
-      {/* w-[900px] h-[560px]: Win11 탐색기 비율 재현을 위한 고정 크기 */}
-      <div className="relative z-10 flex w-[900px] h-[560px] flex-col overflow-hidden rounded-lg bg-[#f3f3f3] shadow-2xl ring-1 ring-black/10">
+      <div className="relative z-10 flex w-modal-lg h-modal-lg flex-col overflow-hidden rounded-lg bg-[#f3f3f3] shadow-2xl ring-1 ring-black/10">
         {/* ── 탭 바 ── */}
         <div className="flex items-center bg-[#f9f9f9] pl-2 pr-3 pt-1 select-none">
           {/* 탭 목록 */}
@@ -155,7 +154,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                       e.stopPropagation();
                       onClose();
                     }}
-                    className="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] text-gray-400 hover:bg-gray-200"
+                    className="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-gray-400 hover:bg-gray-200"
                     aria-label="닫기"
                   >
                     ✕
@@ -296,7 +295,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 />
                 <p className="text-sm font-bold text-gray-800">{selectedData.label}</p>
                 <div>
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
                     세부 정보
                   </p>
                   <p className="text-xs leading-relaxed whitespace-pre-line text-gray-600">
@@ -320,7 +319,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
         </div>
 
         {/* ── 상태 표시줄 ── */}
-        <div className="flex items-center border-t border-gray-200 bg-[#f3f3f3] px-4 py-1 text-[11px] text-gray-500">
+        <div className="flex items-center border-t border-gray-200 bg-[#f3f3f3] px-4 py-1 text-xs text-gray-500">
           <span>{items.length}개 항목</span>
           {selectedItem && <span className="ml-2">· 1개 항목 선택함</span>}
         </div>
