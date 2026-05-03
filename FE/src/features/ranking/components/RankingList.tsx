@@ -1,14 +1,8 @@
 import { useEffect, useRef } from 'react';
 
-import {
-  formatScore,
-  getGrade,
-  getValueLabel,
-  GRADE_COLORS,
-} from '../utils/rankingFormat';
-
-import type { MyRank, RankingEntry, RankingMode } from '../types/ranking.types';
 import { useRanking } from '../hooks/useRanking';
+import type { MyRank, RankingEntry, RankingMode } from '../types/ranking.types';
+import { formatScore, getGrade, getValueLabel, GRADE_COLORS } from '../utils/rankingFormat';
 
 // ── 컴포넌트 ──────────────────────────────────────────────
 
@@ -37,7 +31,7 @@ export default function RankingList({ mode, data }: RankingListProps) {
           void fetchNextPage();
         }
       },
-      { threshold: 1.0 },
+      { threshold: 1.0 }
     );
 
     observer.observe(target);
@@ -105,7 +99,11 @@ export default function RankingList({ mode, data }: RankingListProps) {
                   {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
                   <span
                     className="rounded-full px-2 py-0.5 text-xs font-bold"
-                    style={{ backgroundColor: GRADE_COLORS[grade].bg, color: GRADE_COLORS[grade].text, border: GRADE_COLORS[grade].border }}
+                    style={{
+                      backgroundColor: GRADE_COLORS[grade].bg,
+                      color: GRADE_COLORS[grade].text,
+                      border: GRADE_COLORS[grade].border,
+                    }}
                   >
                     {grade}
                   </span>
@@ -122,7 +120,7 @@ export default function RankingList({ mode, data }: RankingListProps) {
     <div className="flex flex-col">
       {/* 헤더 */}
       {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-      <div 
+      <div
         className="flex items-center px-4 py-2 text-xs font-semibold"
         style={{ background: 'rgba(100,140,200,0.07)', color: '#7a8aaa' }}
       >
@@ -152,7 +150,7 @@ export default function RankingList({ mode, data }: RankingListProps) {
 
       {/* 하단 고정 텍스트 */}
       {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-      <div 
+      <div
         className="px-4 py-2 text-center text-xs"
         style={{
           background: 'rgba(100,140,200,0.05)',

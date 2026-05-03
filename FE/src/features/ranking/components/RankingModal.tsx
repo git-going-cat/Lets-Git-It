@@ -1,11 +1,10 @@
 import { useState } from 'react';
 
 import { useRanking } from '../hooks/useRanking';
+import type { RankingEntry, RankingMode } from '../types/ranking.types';
 import RankingList from './RankingList';
 import RankingPodium from './RankingPodium';
 import RankingSidebar from './RankingSidebar';
-
-import type { RankingEntry, RankingMode } from '../types/ranking.types';
 
 // ── 타입 ──────────────────────────────────────────────────
 
@@ -46,10 +45,10 @@ export default function RankingModal({ onClose }: RankingModalProps) {
       {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
       <div
         className="relative z-10 flex w-modal-lg overflow-hidden shadow-2xl"
-        style={{ 
-          borderRadius: '16px', 
+        style={{
+          borderRadius: '16px',
           height: '600px',
-          background: 'linear-gradient(160deg, #7ECFEA 0%, #9DDAF0 35%, #C5EDF8 65%, #E8C4C4 100%)'
+          background: 'linear-gradient(160deg, #7ECFEA 0%, #9DDAF0 35%, #C5EDF8 65%, #E8C4C4 100%)',
         }}
       >
         {/* 좌측 사이드바 */}
@@ -59,9 +58,7 @@ export default function RankingModal({ onClose }: RankingModalProps) {
         <div className="flex flex-1 flex-col overflow-y-auto">
           {/* 헤더 바 */}
           <div className="flex items-center justify-between px-6 py-3">
-            <h2 className="text-lg font-bold text-gray-800">
-              {getModeLabel(activeMode)} 랭킹
-            </h2>
+            <h2 className="text-lg font-bold text-gray-800">{getModeLabel(activeMode)} 랭킹</h2>
             <button
               type="button"
               onClick={onClose}
@@ -104,14 +101,8 @@ export default function RankingModal({ onClose }: RankingModalProps) {
               </div>
             ) : initialData ? (
               <div className="flex flex-1 flex-col overflow-y-auto">
-                <RankingPodium
-                  mode={activeMode}
-                  top3={initialData.top3 as RankingEntry[]}
-                />
-                <RankingList
-                  mode={activeMode}
-                  data={data}
-                />
+                <RankingPodium mode={activeMode} top3={initialData.top3 as RankingEntry[]} />
+                <RankingList mode={activeMode} data={data} />
               </div>
             ) : (
               <div className="flex flex-1 items-center justify-center text-sm text-gray-400">
