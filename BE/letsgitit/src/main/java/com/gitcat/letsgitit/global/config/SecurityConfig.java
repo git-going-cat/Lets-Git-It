@@ -15,11 +15,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gitcat.letsgitit.domain.auth.repository.AuthRedisRepository;
+import com.gitcat.letsgitit.domain.auth.service.CustomOAuth2UserService;
 import com.gitcat.letsgitit.domain.member.service.CustomUserDetailsService;
 import com.gitcat.letsgitit.global.jwt.CustomAccessDeniedHandler;
 import com.gitcat.letsgitit.global.jwt.CustomAuthenticationEntryPoint;
 import com.gitcat.letsgitit.global.jwt.JwtAuthenticationFilter;
 import com.gitcat.letsgitit.global.jwt.JwtProvider;
+import com.gitcat.letsgitit.global.oauth2.OAuth2FailureHandler;
+import com.gitcat.letsgitit.global.oauth2.OAuth2SuccessHandler;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,6 +37,9 @@ public class SecurityConfig {
 	private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 	private final CustomAccessDeniedHandler customAccessDeniedHandler;
 	private final ObjectMapper objectMapper;
+	private final CustomOAuth2UserService customOAuth2UserService;
+	private final OAuth2SuccessHandler oAuth2SuccessHandler;
+	private final OAuth2FailureHandler oAuth2FailureHandler;
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -80,10 +86,22 @@ public class SecurityConfig {
 					"/swagger-ui/**", // Swagger UI
 					"/api-docs/**", // Swagger API 문서
 					"/actuator/**", // 모니터링 엔드포인트
-					"/ws/**" // WebSocket
+					"/ws/**", // WebSocket
+					"/login/oauth2/**" // 구글 콜백 수신 경로 (Spring Security 내부)
 				).permitAll()
 				// 그 외 모든 요청은 인증 필요
 				.anyRequest().authenticated())
+
+			.oauth2Login(oauth2 -> oauth2
+				// 진입 URI를 /api/v1/oauth2/authorization/{provider}로 커스텀
+				.authorizationEndpoint(endpoint -> endpoint.baseUri("/api/v1/oauth2/authorization"))
+				// 구글 콜백 처리 URI (구글 Console에 등록한 redirect_uri와 일치해야 함)
+				.redirectionEndpoint(endpoint -> endpoint.baseUri("/login/oauth2/code/*"))
+				// 유저 정보 처리
+				.userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+				// 성공/실패 핸들러
+				.successHandler(oAuth2SuccessHandler)
+				.failureHandler(oAuth2FailureHandler))
 
 			// JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 삽입
 			// - Security의 기본 폼 로그인 필터보다 먼저 실행되게 함

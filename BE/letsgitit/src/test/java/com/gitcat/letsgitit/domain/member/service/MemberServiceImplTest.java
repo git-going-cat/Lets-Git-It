@@ -26,6 +26,7 @@ import com.gitcat.letsgitit.domain.member.repository.MemberRepository;
 import com.gitcat.letsgitit.domain.record.entity.MemberBestRecord;
 import com.gitcat.letsgitit.domain.record.entity.MemberCoopBestRecord;
 import com.gitcat.letsgitit.domain.record.service.RecordService;
+import com.gitcat.letsgitit.global.enums.Provider;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 
 @ExtendWith(MockitoExtension.class)
@@ -275,5 +276,64 @@ class MemberServiceImplTest {
 		assertThatThrownBy(() -> memberService.getProfile(memberId))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", MEMBER_NOT_FOUND);
+	}
+
+	// ===================== findOrCreateOAuthMember =====================
+
+	@Test
+	void OAuth_회원이_이미_존재하면_저장_없이_기존_회원을_반환한다() {
+		// given
+		String email = "oauth@example.com";
+		String providerId = "google-123";
+		Member existingMember = Member.ofOAuth(email, Provider.GOOGLE, providerId);
+
+		given(memberRepository.findByProviderAndProviderId(Provider.GOOGLE, providerId))
+			.willReturn(Optional.of(existingMember));
+
+		// when
+		Member result = memberService.findOrCreateOAuthMember(email, Provider.GOOGLE, providerId);
+
+		// then
+		assertThat(result).isEqualTo(existingMember);
+		then(memberRepository).should(never()).save(any());
+	}
+
+	@Test
+	void 신규_OAuth_회원이고_이메일_중복이_없으면_새_회원을_생성한다() {
+		// given
+		String email = "newoauth@example.com";
+		String providerId = "google-456";
+		Member newMember = Member.ofOAuth(email, Provider.GOOGLE, providerId);
+
+		given(memberRepository.findByProviderAndProviderId(Provider.GOOGLE, providerId))
+			.willReturn(Optional.empty());
+		given(memberRepository.existsByEmail(email)).willReturn(false);
+		given(memberRepository.save(any())).willReturn(newMember);
+
+		// when
+		Member result = memberService.findOrCreateOAuthMember(email, Provider.GOOGLE, providerId);
+
+		// then
+		assertThat(result).isEqualTo(newMember);
+		then(memberRepository).should().save(any());
+	}
+
+	@Test
+	void 신규_OAuth_회원인데_이메일이_이미_로컬_가입된_경우_EMAIL_DUPLICATE() {
+		// given
+		String email = "existing@example.com";
+		String providerId = "google-789";
+
+		given(memberRepository.findByProviderAndProviderId(Provider.GOOGLE, providerId))
+			.willReturn(Optional.empty());
+		given(memberRepository.existsByEmail(email)).willReturn(true);
+
+		// when & then
+		assertThatThrownBy(
+			() -> memberService.findOrCreateOAuthMember(email, Provider.GOOGLE, providerId))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", EMAIL_DUPLICATE);
+
+		then(memberRepository).should(never()).save(any());
 	}
 }

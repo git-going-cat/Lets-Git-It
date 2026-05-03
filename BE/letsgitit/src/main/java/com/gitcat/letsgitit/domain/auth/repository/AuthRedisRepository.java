@@ -77,4 +77,19 @@ public interface AuthRedisRepository {
 
 	// 쿨다운 존재 여부 확인
 	boolean hasCooldown(String email, String purpose);
+
+	// ===================== OAuth 임시코드 =====================
+
+	// OAuth 임시코드 저장 (key: UUID → value: email, TTL 30초)
+	void saveOAuthTempCode(String code, String email);
+
+	// OAuth 임시코드 원자적 소비 (Redis GETDEL) — 조회와 삭제를 단일 명령으로 처리
+	// null 반환 = 만료(30초 초과) 또는 존재하지 않는 코드
+	String consumeOAuthTempCode(String code);
+
+	// OAuth 임시코드로 email 조회
+	String getOAuthTempCode(String code);
+
+	// OAuth 임시코드 삭제 (1회용 처리)
+	void deleteOAuthTempCode(String code);
 }

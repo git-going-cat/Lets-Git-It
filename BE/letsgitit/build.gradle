@@ -77,6 +77,9 @@ dependencies {
 
     // 이메일 발송 (3단계에서 쓰지만 지금 추가해두는 게 편함)
     implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+    // OAuth2 Client (구글 소셜 로그인)
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 }
 
 tasks.named('test') {

@@ -93,7 +93,7 @@ class JwtAuthenticationFilterTest {
 
 	@Test
 	void 유효한_토큰이고_Redis_저장_토큰과_일치하면_SecurityContext에_인증을_등록한다() throws Exception {
-		String memberId = UUID.randomUUID().toString();
+		UUID memberId = UUID.randomUUID();
 		MockHttpServletRequest request = 인증_요청(ACCESS_TOKEN);
 		MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -105,7 +105,7 @@ class JwtAuthenticationFilterTest {
 		given(authRedisRepository.isAccessTokenBlacklisted(ACCESS_TOKEN)).willReturn(false);
 		given(jwtProvider.getEmail(ACCESS_TOKEN)).willReturn(EMAIL);
 		given(userDetailsService.loadUserByUsername(EMAIL)).willReturn(userDetails);
-		given(authRedisRepository.getAccessToken(memberId)).willReturn(ACCESS_TOKEN);
+		given(authRedisRepository.getAccessToken(memberId.toString())).willReturn(ACCESS_TOKEN);
 
 		jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
 
@@ -141,7 +141,7 @@ class JwtAuthenticationFilterTest {
 
 	@Test
 	void Redis_저장_토큰과_요청_토큰이_다르면_401_INVALID_TOKEN을_응답하고_다음_필터로_넘기지_않는다() throws Exception {
-		String memberId = UUID.randomUUID().toString();
+		UUID memberId = UUID.randomUUID();
 		MockHttpServletRequest request = 인증_요청(ACCESS_TOKEN);
 		MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -152,7 +152,7 @@ class JwtAuthenticationFilterTest {
 		given(authRedisRepository.isAccessTokenBlacklisted(ACCESS_TOKEN)).willReturn(false);
 		given(jwtProvider.getEmail(ACCESS_TOKEN)).willReturn(EMAIL);
 		given(userDetailsService.loadUserByUsername(EMAIL)).willReturn(userDetails);
-		given(authRedisRepository.getAccessToken(memberId)).willReturn("different.access.token");
+		given(authRedisRepository.getAccessToken(memberId.toString())).willReturn("different.access.token");
 
 		jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
 

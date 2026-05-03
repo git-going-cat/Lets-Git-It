@@ -436,6 +436,48 @@ class AuthServiceImplTest {
 		assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.PASSWORD_MISMATCH);
 	}
 
+	// ===================== OAuth 토큰 교환 =====================
+
+	@Test
+	void OAuth_임시코드로_로그인_성공() {
+		// given
+		String tempCode = UUID.randomUUID().toString();
+		HttpServletResponse response = mock(HttpServletResponse.class);
+		UUID memberId = UUID.randomUUID();
+		Member member = 회원_생성(memberId);
+
+		given(authRedisRepository.consumeOAuthTempCode(tempCode)).willReturn(memberId.toString());
+		given(memberService.findById(memberId)).willReturn(member);
+		given(authRedisRepository.getAccessToken(memberId.toString())).willReturn(null);
+		given(authRedisRepository.getRefreshToken(memberId.toString())).willReturn(null);
+		given(jwtProvider.createAccessToken(EMAIL)).willReturn(ACCESS_TOKEN);
+		given(jwtProvider.createRefreshToken(EMAIL)).willReturn(REFRESH_TOKEN);
+
+		// when
+		AuthResponse.LoginResponse loginResponse = authService.loginWithOAuth(tempCode, response);
+
+		// then
+		assertThat(loginResponse.accessToken()).isEqualTo(ACCESS_TOKEN);
+		then(authRedisRepository).should().saveAccessToken(memberId.toString(), ACCESS_TOKEN);
+		then(authRedisRepository).should().saveRefreshToken(memberId.toString(), REFRESH_TOKEN);
+		then(response).should().addHeader(eq(HttpHeaders.SET_COOKIE), anyString());
+	}
+
+	@Test
+	void 만료된_OAuth_임시코드로_로그인_시_INVALID_AUTH_CODE() {
+		// given
+		String tempCode = UUID.randomUUID().toString();
+		HttpServletResponse response = mock(HttpServletResponse.class);
+
+		given(authRedisRepository.consumeOAuthTempCode(tempCode)).willReturn(null);
+
+		// when & then
+		BusinessException ex = assertThrows(BusinessException.class,
+			() -> authService.loginWithOAuth(tempCode, response));
+
+		assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.INVALID_AUTH_CODE);
+	}
+
 	// ===================== 헬퍼 =====================
 
 	private Member 회원_생성(UUID id) {

@@ -3,6 +3,7 @@ package com.gitcat.letsgitit.domain.auth.service;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -238,6 +239,61 @@ public class AuthServiceImpl implements AuthService {
 		log.debug("로그인 완료. email: {}", email);
 
 		// 7. Access Token + 유저 정보 반환
+		return AuthResponse.LoginResponse.from(member, accessToken);
+	}
+
+	@Override
+	@Transactional
+	public AuthResponse.LoginResponse loginWithOAuth(String tempCode, HttpServletResponse response) {
+
+		// 1. 임시코드 원자적 소비 (Redis GETDEL) — 조회와 삭제를 단일 명령으로 처리
+		//    동일 코드로 동시 요청이 들어와도 하나만 memberId를 획득하고 나머지는 null 반환
+		String memberIdStr = authRedisRepository.consumeOAuthTempCode(tempCode);
+		if (memberIdStr == null) {
+			// null = 만료(30초 초과), 존재하지 않는 코드, 또는 이미 소비된 코드
+			throw new BusinessException(ErrorCode.INVALID_AUTH_CODE);
+		}
+
+		// 3. Member 조회
+		Member member = memberService.findById(UUID.fromString(memberIdStr));
+		String memberId = member.getId().toString();
+		String email = member.getEmail();
+
+		// 4. 기존 토큰 블랙리스트 처리 (동시접속 차단)
+		String oldAccessToken = authRedisRepository.getAccessToken(memberId);
+		if (oldAccessToken != null) {
+			long remainingMs = jwtProvider.getExpiration(oldAccessToken);
+			if (remainingMs > 0) {
+				authRedisRepository.addAccessTokenToBlacklist(oldAccessToken, remainingMs);
+			}
+		}
+
+		String oldRefreshToken = authRedisRepository.getRefreshToken(memberId);
+		if (oldRefreshToken != null) {
+			long remainingMs = jwtProvider.getExpiration(oldRefreshToken);
+			if (remainingMs > 0) {
+				authRedisRepository.addRefreshTokenToBlacklist(oldRefreshToken, remainingMs);
+			}
+		}
+
+		// 5. JWT 발급
+		String accessToken = jwtProvider.createAccessToken(email);
+		String refreshToken = jwtProvider.createRefreshToken(email);
+
+		authRedisRepository.saveAccessToken(memberId, accessToken);
+		authRedisRepository.saveRefreshToken(memberId, refreshToken);
+
+		// 6. Refresh Token HttpOnly Cookie
+		ResponseCookie cookie = ResponseCookie.from(AuthConstants.REFRESH_TOKEN_COOKIE, refreshToken)
+			.httpOnly(true)
+			.secure(true)
+			.path("/")
+			.maxAge(Duration.ofDays(7))
+			.sameSite("None")
+			.build();
+		response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+		log.debug("OAuth 토큰 교환 완료. email: {}", email);
 		return AuthResponse.LoginResponse.from(member, accessToken);
 	}
 

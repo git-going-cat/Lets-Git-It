@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.gitcat.letsgitit.domain.member.entity.Member;
+import com.gitcat.letsgitit.global.enums.Provider;
 
 public interface MemberRepository {
 	Optional<Member> findById(UUID id);
@@ -22,4 +23,7 @@ public interface MemberRepository {
 	boolean existsByEmail(String email);
 
 	Member save(Member member);
+
+	// OAuth 소셜 로그인 회원 조회
+	Optional<Member> findByProviderAndProviderId(Provider provider, String providerId);
 }

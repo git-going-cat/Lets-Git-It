@@ -8,6 +8,7 @@ import com.gitcat.letsgitit.domain.member.dto.request.NicknameRequest;
 import com.gitcat.letsgitit.domain.member.dto.request.SaveCharacterRequest;
 import com.gitcat.letsgitit.domain.member.dto.response.MemberProfileResponse;
 import com.gitcat.letsgitit.domain.member.entity.Member;
+import com.gitcat.letsgitit.global.enums.Provider;
 
 public interface MemberService {
 
@@ -36,4 +37,8 @@ public interface MemberService {
 	void createMember(String email, String encodedPassword);
 
 	void updatePassword(Member member, String encodedPassword);
+
+	Member findOrCreateOAuthMember(String email, Provider provider, String providerId);
+
+	Member findById(UUID memberId);
 }
