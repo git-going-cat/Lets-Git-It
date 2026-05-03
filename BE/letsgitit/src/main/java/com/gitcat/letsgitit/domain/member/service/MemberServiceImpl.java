@@ -141,6 +141,32 @@ public class MemberServiceImpl implements MemberService {
 			.collect(Collectors.toMap(Member::getId, Member::getNickname));
 	}
 
+	@Override
+	@Transactional(readOnly = true)
+	public Member findByEmail(String email) {
+		return memberRepository.findByEmail(email)
+			.orElseThrow(() -> new BusinessException(MEMBER_NOT_FOUND));
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public boolean existsByEmail(String email) {
+		return memberRepository.existsByEmail(email);
+	}
+
+	@Override
+	@Transactional
+	public void createMember(String email, String encodedPassword) {
+		memberRepository.save(Member.of(email, encodedPassword));
+	}
+
+	@Override
+	@Transactional
+	public void updatePassword(Member member, String encodedPassword) {
+		member.updatePassword(encodedPassword);
+		memberRepository.save(member);
+	}
+
 	private Member findById(UUID memberId) {
 		return memberRepository.findById(memberId)
 			.orElseThrow(() -> new BusinessException(MEMBER_NOT_FOUND));

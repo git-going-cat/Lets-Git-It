@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.gitcat.letsgitit.domain.member.dto.request.NicknameRequest;
 import com.gitcat.letsgitit.domain.member.dto.request.SaveCharacterRequest;
 import com.gitcat.letsgitit.domain.member.dto.response.MemberProfileResponse;
+import com.gitcat.letsgitit.domain.member.entity.Member;
 
 public interface MemberService {
 
@@ -27,4 +28,12 @@ public interface MemberService {
 
 	// 랭킹 기능 구현을 위한 메서드
 	Map<UUID, String> getNicknamesByIds(List<UUID> memberIds);
+
+	boolean existsByEmail(String email);
+
+	Member findByEmail(String email);
+
+	void createMember(String email, String encodedPassword);
+
+	void updatePassword(Member member, String encodedPassword);
 }

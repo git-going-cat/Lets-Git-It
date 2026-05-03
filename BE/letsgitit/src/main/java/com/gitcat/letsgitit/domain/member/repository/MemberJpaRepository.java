@@ -13,6 +13,10 @@ public interface MemberJpaRepository extends JpaRepository<Member, UUID> {
 
 	Optional<Member> findById(UUID memberId);
 
+	Optional<Member> findByEmail(String email);
+
+	boolean existsByEmail(String email);
+
 	@Query(value = "select count(*) > 0 from member where nickname = :nickname", nativeQuery = true)
 	boolean existsByNicknameIncludingDeleted(@Param("nickname")
 	String nickname);

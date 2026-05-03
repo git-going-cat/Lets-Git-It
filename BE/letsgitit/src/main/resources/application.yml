@@ -26,6 +26,20 @@ spring:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}    # Gmail 앱 비밀번호
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+    default-encoding: UTF-8
+
 redis:
   auth:
     host: ${REDIS_AUTH_HOST}
@@ -62,3 +76,8 @@ springdoc:
   swagger-ui:
     path: /swagger-ui
     operations-sorter: alpha
+
+jwt:
+  secret: ${JWT_SECRET}          # 서명용 비밀키 (256비트 이상 권장, .env에서 주입)
+  access-expiration: 1800000     # Access Token 만료: 30분 (밀리초)
+  refresh-expiration: 604800000  # Refresh Token 만료: 7일 (밀리초)
