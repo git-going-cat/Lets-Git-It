@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-@Tag(name = "Ranking", description = "랭킹 관련 API (인증 불필요, 로그인 유저는 myRank 반환)")
+@Tag(name = "Ranking", description = "랭킹 관련 API (로그인 유저는 myRank 반환)")
 public interface RankingControllerDocs {
 
 	@Operation(summary = "이번주 싱글 난이도별 랭킹 조회", description = "cursor 생략 시 초기 응답(top3 + myRank + around), cursor 포함 시 무한 스크롤 응답(rankings + nextCursor + hasNext).")
@@ -52,9 +52,9 @@ public interface RankingControllerDocs {
 	ResponseEntity<?> getSingleRanking(
 		@Parameter(name = "difficulty", description = "난이도 (EASY / NORMAL / HARD)", required = true)
 		String difficulty,
-		@Parameter(name = "cursor", description = "무한 스크롤 커서. 생략 시 초기 응답")
+		@Parameter(name = "cursor", description = "무한 스크롤 커서. 생략 시 초기 응답. 0 이상")
 		Integer cursor,
-		@Parameter(name = "size", description = "페이지 크기 (기본값 20)")
+		@Parameter(name = "size", description = "페이지 크기 (기본값 20, 최솟값 1, 최댓값 100)")
 		Integer size);
 
 	@Operation(summary = "이번주 기여도 뺏기 랭킹 조회", description = "cursor 생략 시 초기 응답, cursor 포함 시 무한 스크롤 응답.")

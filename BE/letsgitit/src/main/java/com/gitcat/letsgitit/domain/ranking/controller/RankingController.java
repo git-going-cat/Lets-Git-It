@@ -3,59 +3,49 @@ package com.gitcat.letsgitit.domain.ranking.controller;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gitcat.letsgitit.domain.ranking.service.SingleRankingService;
 import com.gitcat.letsgitit.global.response.ApiResponse;
 
+import lombok.RequiredArgsConstructor;
+
+@Validated
 @RestController
 @RequestMapping("/api/v1/rankings")
+@RequiredArgsConstructor
 public class RankingController implements RankingControllerDocs {
 
-	// TODO: 서비스 로직 연동 후 제거
+	private final SingleRankingService singleRankingService;
+
 	@Override
 	@GetMapping("/single")
 	public ResponseEntity<?> getSingleRanking(
 		@RequestParam
 		String difficulty,
-		@RequestParam(required = false)
+		@RequestParam(required = false) @Min(0)
 		Integer cursor,
-		@RequestParam(required = false, defaultValue = "20")
+		@RequestParam(required = false, defaultValue = "20") @Min(1) @Max(100)
 		Integer size) {
+		UUID memberId = null; // TODO: Spring Security 연동 후 인증 유저 UUID로 교체
 
 		if (cursor == null) {
-			Map<String, Object> data = new LinkedHashMap<>();
-			data.put("difficulty", difficulty);
-			data.put("year", 2026);
-			data.put("month", 4);
-			data.put("week", 18);
-			data.put("top3", List.of(
-				Map.of("rank", 1, "nickname", "gitmaster", "score", 9800),
-				Map.of("rank", 2, "nickname", "branchking", "score", 9200),
-				Map.of("rank", 3, "nickname", "mergelord", "score", 8700)));
-			data.put("myRank", Map.of("rank", 42, "score", 7200));
-			data.put("around", List.of(
-				Map.of("rank", 40, "nickname", "user1", "score", 7400),
-				Map.of("rank", 41, "nickname", "user2", "score", 7300),
-				Map.of("rank", 42, "nickname", "dobby", "score", 7200),
-				Map.of("rank", 43, "nickname", "user3", "score", 7100),
-				Map.of("rank", 44, "nickname", "user4", "score", 7000)));
-			data.put("nextCursor", 44);
-			data.put("hasNext", true);
-			return ApiResponse.ok("싱글 랭킹 조회 성공", data);
+			return ApiResponse.ok("싱글 랭킹 조회 성공",
+				singleRankingService.getSingleRanking(difficulty, size, memberId));
 		}
 
-		Map<String, Object> data = new LinkedHashMap<>();
-		data.put("rankings", List.of(
-			Map.of("rank", cursor + 1, "nickname", "user5", "score", 6900),
-			Map.of("rank", cursor + 2, "nickname", "user6", "score", 6800)));
-		data.put("nextCursor", cursor + 20);
-		data.put("hasNext", true);
-		return ApiResponse.ok("싱글 랭킹 조회 성공", data);
+		return ApiResponse.ok("싱글 랭킹 조회 성공",
+			singleRankingService.getSingleRankingScroll(difficulty, cursor, size, memberId));
 	}
 
 	// TODO: 서비스 로직 연동 후 제거
