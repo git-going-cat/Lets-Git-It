@@ -1,3 +1,7 @@
 package com.gitcat.letsgitit.domain.tutorial.service;
 
-public class TutorialService {}
+import com.gitcat.letsgitit.domain.tutorial.dto.response.TutorialResponse;
+
+public interface TutorialService {
+	TutorialResponse getTutorial();
+}

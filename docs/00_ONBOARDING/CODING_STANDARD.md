@@ -158,6 +158,38 @@
 - DTO 직접 조회: 랭킹 응답, 방 목록 응답 등 성능 최적화
 - 타입 안정성: 컴파일 시점 오류 검증
 
+**쿼리 작성 기준**
+
+이 프로젝트에서 Repository 쿼리는 아래 기준으로 선택합니다.
+
+**기본 원칙**
+- 단순 조회 → JPA 메서드명 또는 `@Query`
+- 동적 조건 / 복잡한 JOIN → QueryDSL
+
+**`@Query`를 쓰는 경우**
+- 연관 관계가 LAZY로 선언된 엔티티를 한 번에 조회해야 할 때 Fetch Join을 직접 작성
+- `@OneToMany` LAZY 관계에서 N+1 방지가 필요한 경우
+- 정렬 조건이 고정되어 있고 동적 조건이 없는 경우
+
+    @Query("SELECT ts FROM TutorialStep ts " +
+           "LEFT JOIN FETCH ts.items " +
+           "ORDER BY ts.stepOrder ASC")
+    List<TutorialStep> findAllWithItemsOrderByStepOrder();
+
+**QueryDSL을 쓰는 경우**
+- `WHERE` 조건이 동적으로 바뀌는 경우
+- 여러 테이블을 JOIN하면서 특정 컬럼만 뽑아야 하는 경우 (Projection)
+- 페이징 + 동적 정렬이 필요한 경우
+
+**`@EntityGraph`도 대안이 됩니다**
+- `@Query` 없이 Fetch Join 효과를 내고 싶을 때 사용
+- 해당 메서드 호출 시에만 LAZY를 무시하고 연관 데이터를 함께 조회
+
+    @EntityGraph(attributePaths = {"items"})
+    List<TutorialStep> findAllByOrderByStepOrderAsc();
+
+- 결과는 `@Query + Fetch Join`과 동일하며, 선택은 팀 컨벤션에 따릅니다.
+
 **구현 예시**
 
 **1. Interface (Service가 의존)**
