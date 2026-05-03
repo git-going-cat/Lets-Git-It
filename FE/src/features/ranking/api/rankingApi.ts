@@ -38,12 +38,16 @@ function generateMockRankings(baseScore: number, mode: string, cursor: number = 
 
 function generateSingleMock(
   difficulty: string,
-  cursor?: number,
+  cursor?: number
 ): RankingResponse<SingleRankingEntry, SingleMyRank> {
   const baseScore = difficulty === 'EASY' ? 8000 : difficulty === 'NORMAL' ? 7000 : 6000;
 
   if (cursor !== undefined) {
-    return generateMockRankings(baseScore, 'single', cursor) as RankingInfiniteResponse<SingleRankingEntry>;
+    return generateMockRankings(
+      baseScore,
+      'single',
+      cursor
+    ) as RankingInfiniteResponse<SingleRankingEntry>;
   }
 
   return {
@@ -73,7 +77,11 @@ function generateSingleMock(
 function generateSpeedMock(cursor?: number): RankingResponse<SpeedRankingEntry, SpeedMyRank> {
   const baseScore = 9000;
   if (cursor !== undefined) {
-    return generateMockRankings(baseScore, 'speed', cursor) as RankingInfiniteResponse<SpeedRankingEntry>;
+    return generateMockRankings(
+      baseScore,
+      'speed',
+      cursor
+    ) as RankingInfiniteResponse<SpeedRankingEntry>;
   }
 
   return {
@@ -100,10 +108,16 @@ function generateSpeedMock(cursor?: number): RankingResponse<SpeedRankingEntry, 
 
 // ── Mock: 타임어택 ────────────────────────────────────────
 
-function generateTimeAttackMock(cursor?: number): RankingResponse<TimeAttackRankingEntry, TimeAttackMyRank> {
+function generateTimeAttackMock(
+  cursor?: number
+): RankingResponse<TimeAttackRankingEntry, TimeAttackMyRank> {
   const baseScore = 11000;
   if (cursor !== undefined) {
-    return generateMockRankings(baseScore, 'timeattack', cursor) as RankingInfiniteResponse<TimeAttackRankingEntry>;
+    return generateMockRankings(
+      baseScore,
+      'timeattack',
+      cursor
+    ) as RankingInfiniteResponse<TimeAttackRankingEntry>;
   }
 
   return {
@@ -133,7 +147,11 @@ function generateTimeAttackMock(cursor?: number): RankingResponse<TimeAttackRank
 function generateCoopMock(cursor?: number): RankingResponse<CoopRankingEntry, CoopMyRank> {
   const baseScore = 75000;
   if (cursor !== undefined) {
-    return generateMockRankings(baseScore, 'coop', cursor) as RankingInfiniteResponse<CoopRankingEntry>;
+    return generateMockRankings(
+      baseScore,
+      'coop',
+      cursor
+    ) as RankingInfiniteResponse<CoopRankingEntry>;
   }
 
   return {
