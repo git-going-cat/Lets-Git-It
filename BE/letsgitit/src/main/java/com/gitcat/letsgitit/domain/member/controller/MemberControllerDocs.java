@@ -1,7 +1,6 @@
 package com.gitcat.letsgitit.domain.member.controller;
 
 import java.util.Map;
-import java.util.UUID;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -11,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 
 import com.gitcat.letsgitit.domain.member.dto.request.NicknameRequest;
 import com.gitcat.letsgitit.domain.member.dto.request.SaveCharacterRequest;
+import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -42,7 +42,7 @@ public interface MemberControllerDocs {
 		}))
 	})
 	ResponseEntity<?> completeTutorial(@Parameter(hidden = true)
-	UUID memberId);
+	CustomUserDetails userDetails);
 
 	@Operation(summary = "내 정보 조회 (마이페이지)", description = "로그인한 사용자의 프로필 및 모드별 기록을 조회합니다.")
 	@ApiResponses({
@@ -78,7 +78,7 @@ public interface MemberControllerDocs {
 			""")))
 	})
 	ResponseEntity<?> getMyInfo(@Parameter(hidden = true)
-	UUID memberId);
+	CustomUserDetails userDetails);
 
 	@Operation(summary = "캐릭터 에셋 저장", description = "캐릭터 외형 정보를 저장합니다.")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
@@ -106,7 +106,7 @@ public interface MemberControllerDocs {
 			""")))
 	})
 	ResponseEntity<?> saveCharacter(@Parameter(hidden = true)
-	UUID memberId, @Valid
+	CustomUserDetails userDetails, @Valid
 	SaveCharacterRequest request);
 
 	@Operation(summary = "닉네임 저장 (온보딩)", description = """
@@ -141,7 +141,7 @@ public interface MemberControllerDocs {
 		}))
 	})
 	ResponseEntity<?> saveNickname(@Parameter(hidden = true)
-	UUID memberId, @Valid
+	CustomUserDetails userDetails, @Valid
 	NicknameRequest request);
 
 	@Operation(summary = "닉네임 수정", description = """
@@ -170,7 +170,7 @@ public interface MemberControllerDocs {
 			""")))
 	})
 	ResponseEntity<?> updateNickname(@Parameter(hidden = true)
-	UUID memberId, @Valid
+	CustomUserDetails userDetails, @Valid
 	NicknameRequest request);
 
 	@Operation(summary = "닉네임 중복 확인", description = "닉네임 사용 가능 여부를 확인합니다. 탈퇴 회원 닉네임도 재사용 불가.")

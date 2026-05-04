@@ -9,12 +9,14 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
 import com.gitcat.letsgitit.domain.ranking.service.SingleRankingService;
 import com.gitcat.letsgitit.global.response.ApiResponse;
 
@@ -31,13 +33,15 @@ public class RankingController implements RankingControllerDocs {
 	@Override
 	@GetMapping("/single")
 	public ResponseEntity<?> getSingleRanking(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@RequestParam
 		String difficulty,
 		@RequestParam(required = false) @Min(0)
 		Integer cursor,
 		@RequestParam(required = false, defaultValue = "20") @Min(1) @Max(100)
 		Integer size) {
-		UUID memberId = null; // TODO: Spring Security 연동 후 인증 유저 UUID로 교체
+		UUID memberId = userDetails.getMemberId();
 
 		if (cursor == null) {
 			return ApiResponse.ok("싱글 랭킹 조회 성공",

@@ -1,6 +1,11 @@
 package com.gitcat.letsgitit.domain.ranking.controller;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+
 import org.springframework.http.ResponseEntity;
+
+import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -50,11 +55,13 @@ public interface RankingControllerDocs {
 			""")
 	}))
 	ResponseEntity<?> getSingleRanking(
+		@Parameter(hidden = true)
+		CustomUserDetails userDetails,
 		@Parameter(name = "difficulty", description = "난이도 (EASY / NORMAL / HARD)", required = true)
 		String difficulty,
-		@Parameter(name = "cursor", description = "무한 스크롤 커서. 생략 시 초기 응답. 0 이상")
+		@Parameter(name = "cursor", description = "무한 스크롤 커서. 생략 시 초기 응답. 0 이상") @Min(0)
 		Integer cursor,
-		@Parameter(name = "size", description = "페이지 크기 (기본값 20, 최솟값 1, 최댓값 100)")
+		@Parameter(name = "size", description = "페이지 크기 (기본값 20, 최솟값 1, 최댓값 100)") @Min(1) @Max(100)
 		Integer size);
 
 	@Operation(summary = "이번주 기여도 뺏기 랭킹 조회", description = "cursor 생략 시 초기 응답, cursor 포함 시 무한 스크롤 응답.")

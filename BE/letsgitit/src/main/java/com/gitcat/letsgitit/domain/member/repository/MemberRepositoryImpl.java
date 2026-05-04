@@ -39,7 +39,7 @@ public class MemberRepositoryImpl implements MemberRepository {
 
 	@Override
 	public boolean existsByNickname(String nickname) {
-		return memberJpaRepository.existsByNicknameIncludingDeleted(nickname);
+		return memberJpaRepository.countByNicknameIncludingDeleted(nickname) > 0;
 	}
 
 	@Override
