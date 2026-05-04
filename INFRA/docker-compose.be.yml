@@ -8,7 +8,7 @@ services:
     expose:
       - "8080"
     env_file:
-      - .env
+      - ../BE/letsgitit/.env
     environment:
       - REDIS_AUTH_HOST=redis-auth
       - REDIS_GAME_HOST=redis-game
