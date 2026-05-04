@@ -790,6 +790,7 @@ GET /api/v1/dictionary/commands
 | `commands[].name` | String | 명령어 이름 |
 | `commands[].description` | String | 명령어 설명 |
 | `commands[].imageUrl` | String | 명령어 이미지 URL |
+| `commands[].isInGame` | Boolean | 게임 내 사용 여부 |
 | `commands[].options` | Array | 명령어 옵션 목록 |
 | `commands[].options[].option` | String | 옵션 |
 | `commands[].options[].description` | String | 옵션 설명 |
@@ -805,6 +806,7 @@ GET /api/v1/dictionary/commands
         "name": "git commit",
         "description": "변경사항을 로컬 저장소에 저장합니다",
         "imageUrl": "https://cdn.example.com/commands/commit.png",
+        "isInGame": true,
         "options": [
           { "option": "-m",      "description": "커밋 메시지를 인라인으로 작성" },
           { "option": "--amend", "description": "직전 커밋 수정" }
