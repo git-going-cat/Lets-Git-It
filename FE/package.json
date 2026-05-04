@@ -24,6 +24,7 @@
     "@tanstack/react-router": "^1.168.25",
     "axios": "^1.15.2",
     "jotai": "^2.19.1",
+    "nes.css": "^2.2.1",
     "phaser": "^4.0.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
