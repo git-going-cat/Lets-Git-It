@@ -36,7 +36,7 @@ public class MemberServiceImpl implements MemberService {
 	@Override
 	@Transactional
 	public void endTutorial(UUID memberId) {
-		Member member = findById(memberId);
+		Member member = getMemberOrThrow(memberId);
 
 		OnboardingStatus onboardingStatus = member.getOnboardingStatus();
 
@@ -54,7 +54,7 @@ public class MemberServiceImpl implements MemberService {
 	@Override
 	@Transactional(readOnly = true)
 	public MemberProfileResponse getProfile(UUID memberId) {
-		Member member = findById(memberId);
+		Member member = getMemberOrThrow(memberId);
 
 		List<MemberBestRecord> bestRecords = recordService.getBestRecords(memberId);
 
@@ -66,7 +66,7 @@ public class MemberServiceImpl implements MemberService {
 	@Override
 	@Transactional
 	public void saveCharacterAssets(UUID memberId, SaveCharacterRequest saveCharacterRequest) {
-		Member member = findById(memberId);
+		Member member = getMemberOrThrow(memberId);
 
 		member.updateCharacter(
 			saveCharacterRequest.characterHair(),
@@ -80,7 +80,7 @@ public class MemberServiceImpl implements MemberService {
 	@Override
 	@Transactional
 	public void saveNickname(UUID memberId, NicknameRequest nicknameRequest) {
-		Member member = findById(memberId);
+		Member member = getMemberOrThrow(memberId);
 
 		if (member.getOnboardingStatus() != OnboardingStatus.NONE) {
 			throw new BusinessException(NICKNAME_ALREADY_SET);
@@ -102,7 +102,7 @@ public class MemberServiceImpl implements MemberService {
 	@Override
 	@Transactional
 	public void updateNickname(UUID memberId, NicknameRequest nicknameRequest) {
-		Member member = findById(memberId);
+		Member member = getMemberOrThrow(memberId);
 
 		String newNickname = nicknameRequest.nickname();
 
@@ -169,10 +169,16 @@ public class MemberServiceImpl implements MemberService {
 	}
 
 	@Override
+	@Transactional
+	public void addPlayTime(UUID memberId, int seconds) {
+		Member member = findById(memberId);
+		member.addPlayTime(seconds);
+	}
+
+	@Override
 	@Transactional(readOnly = true)
 	public Member findById(UUID memberId) {
-		return memberRepository.findById(memberId)
-			.orElseThrow(() -> new BusinessException(MEMBER_NOT_FOUND));
+		return getMemberOrThrow(memberId);
 	}
 
 	@Override
@@ -185,5 +191,10 @@ public class MemberServiceImpl implements MemberService {
 				}
 				return memberRepository.save(Member.ofOAuth(email, provider, providerId));
 			});
+	}
+
+	private Member getMemberOrThrow(UUID memberId) {
+		return memberRepository.findById(memberId)
+			.orElseThrow(() -> new BusinessException(MEMBER_NOT_FOUND));
 	}
 }

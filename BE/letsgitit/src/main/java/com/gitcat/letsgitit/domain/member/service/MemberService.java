@@ -38,6 +38,8 @@ public interface MemberService {
 
 	void updatePassword(Member member, String encodedPassword);
 
+	void addPlayTime(UUID memberId, int seconds);
+
 	Member findOrCreateOAuthMember(String email, Provider provider, String providerId);
 
 	Member findById(UUID memberId);

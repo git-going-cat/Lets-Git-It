@@ -11,4 +11,8 @@ public interface SingleResultRepository {
 	Optional<SingleResult> findTopByMemberIdAndDifficultyOrderByScoreDesc(
 		UUID memberId,
 		Difficulty difficulty);
+
+	boolean existsBySessionId(String sessionId);
+
+	SingleResult save(SingleResult singleResult);
 }

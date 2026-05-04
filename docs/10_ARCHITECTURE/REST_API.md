@@ -1567,13 +1567,13 @@ POST /api/v1/single/sessions/{sessionId}/result
 
 #### Request Body
 
-| 필드 | 타입 | 필수 | 설명 |
+| 필드 | 타입 | 필수 | 설명                                  |
 | --- | --- | --- | --- |
-| `status` | String | Y | `SUCCESS` / `GAMEOVER` |
-| `score` | Integer | Y | 최종 점수 (프론트 계산값) |
-| `playTime` | Integer | Y | 플레이 시간 (ms) |
-| `grade` | String | Y | 등급 `S` / `A` / `B` / `C` / `D` |
-| `sessionId` | UUID | Y | 세션 ID |
+| `status` | String | Y | `SUCCESS` / `GAMEOVER`              |
+| `score` | Integer | Y | 최종 점수 (프론트 계산값)                     |
+| `playTime` | Integer | Y | 플레이 시간 (ms)                         |
+| `grade` | String | Y | 등급 `S` / `A` / `B` / `C` / `D` / `F` |
+| `sessionId` | UUID | Y | 세션 ID                               |
 
 ```json
 {
