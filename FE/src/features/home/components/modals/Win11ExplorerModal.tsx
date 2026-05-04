@@ -51,8 +51,7 @@ const SINGLE_ITEMS: ExplorerItem[] = [
     label: 'Hard',
     img: singleHardImg,
     description: '브랜치 최대 5개로 진행되는 고급 모드',
-    detail:
-      'Normal 명령어 + rebase / force push / diff\nConflict 미니게임 포함\n\nGit 전문가를 위한 난이도',
+    detail: 'Normal 명령어 + rebase / force push / diff\n\nGit 전문가를 위한 난이도',
   },
 ];
 
