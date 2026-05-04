@@ -6,6 +6,7 @@ be-ci:
       changes:
         - BE/**/*
   script:
-    - cd $CI_PROJECT_DIR/BE
-    - ./gradlew test
+    - cd $CI_PROJECT_DIR/BE/letsgitit
+    - chmod +x gradlew
+    - ./gradlew test -Dspring.profiles.active=test
     - ./gradlew spotlessCheck

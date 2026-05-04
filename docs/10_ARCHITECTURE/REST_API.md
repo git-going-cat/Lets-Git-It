@@ -533,7 +533,7 @@ POST /api/v1/members/me/tutorial
 {
   "status": 200,
   "message": "튜토리얼 완료",
-  "data": null
+  "data": {}
 }
 ```
 
@@ -661,7 +661,7 @@ PATCH /api/v1/members/me/nickname
 {
   "status": 200,
   "message": "닉네임 변경 성공",
-  "data": null
+  "data": {}
 }
 ```
 
@@ -690,10 +690,8 @@ GET /api/v1/members/nickname/check?nickname={nickname}
 ```json
 {
   "status": 200,
-  "message": "닉네임 중복 확인 성공",
-  "data": {
-    "isAvailable": true
-  }
+  "message": "사용할 수 있는 닉네임",
+  "data": {}
 }
 ```
 
@@ -1822,7 +1820,7 @@ DELETE /api/v1/rooms/{roomId}/leave
 {
   "status": 200,
   "message": "방 나가기 성공",
-  "data": null
+  "data": {}
 }
 ```
 

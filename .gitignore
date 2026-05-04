@@ -10,7 +10,10 @@
 
 # 환경변수 파일
 .env
-**/.env.env
+**/.env
+
+# node_modules
+node_modules/
 
 certs/
 INFRA/.env

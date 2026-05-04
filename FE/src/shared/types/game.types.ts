@@ -1,1 +1,1 @@
-﻿// TODO: 구현 필요
+﻿export type Grade = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';

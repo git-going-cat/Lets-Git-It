@@ -4,6 +4,7 @@
 이 문서는 Let's Git it 프로젝트의 모든 팀원이 준수해야 하는 협업 컨벤션입니다. Git 워크플로우, 이슈/PR 관리, 브랜치 전략을 정의하며, 효율적인 협업과 코드 품질 유지를 위한 필수 규칙을 제시합니다.
 
 **적용 대상:**
+
 - 모든 프로젝트 기여자 (백엔드, 프론트엔드)
 - GitHub Issue, Pull Request, Git Commit 작업
 - CI/CD 파이프라인 설정 및 관리
@@ -12,6 +13,7 @@
 ---
 
 ## 목차
+
 1. [브랜치 전략 (Git Flow)](#1-브랜치-전략-git-flow)
 2. [Git Commit 컨벤션](#2-git-commit-컨벤션)
 3. [Pull Request 규칙](#3-pull-request-규칙)
@@ -35,16 +37,16 @@
 
 ### 1.2. 브랜치 종류 및 역할
 
-| 브랜치 | 설명 | 생성 기준 | 병합 대상 |
-|--------|------|-----------|-----------|
-| main | 운영 서버 배포 브랜치 (안정 버전만 유지) | - | - |
-| release | 배포 준비 브랜치 (테스트 서버 배포 및 QA) | develop | main, develop |
-| develop | 개발 통합 브랜치 (배포 전 최종 테스트) | main | main (via release) |
-| feat/BE-{ticket}-{기능} | 백엔드 기능 개발 | develop | develop |
-| feat/FE-{ticket}-{기능} | 프론트엔드 기능 개발 | develop | develop |
-| fix/BE-{ticket}-{기능} | 백엔드 버그 수정 | develop | develop |
-| fix/FE-{ticket}-{기능} | 프론트엔드 버그 수정 | develop | develop |
-| hotfix/{기능설명} | 긴급 버그 수정 | main | main, develop |
+| 브랜치                  | 설명                                      | 생성 기준 | 병합 대상          |
+| ----------------------- | ----------------------------------------- | --------- | ------------------ |
+| main                    | 운영 서버 배포 브랜치 (안정 버전만 유지)  | -         | -                  |
+| release                 | 배포 준비 브랜치 (테스트 서버 배포 및 QA) | develop   | main, develop      |
+| develop                 | 개발 통합 브랜치 (배포 전 최종 테스트)    | main      | main (via release) |
+| feat/BE-{ticket}-{기능} | 백엔드 기능 개발                          | develop   | develop            |
+| feat/FE-{ticket}-{기능} | 프론트엔드 기능 개발                      | develop   | develop            |
+| fix/BE-{ticket}-{기능}  | 백엔드 버그 수정                          | develop   | develop            |
+| fix/FE-{ticket}-{기능}  | 프론트엔드 버그 수정                      | develop   | develop            |
+| hotfix/{기능설명}       | 긴급 버그 수정                            | main      | main, develop      |
 
 ### 1.3. 브랜치 네이밍 규칙
 
@@ -68,6 +70,7 @@
 ### 1.4. 브랜치 생성 방법
 
 **Jira 이슈 화면에서 브랜치 생성**
+
 1. Jira Task 화면에서 [Create Branch] 클릭
 2. 브랜치 이름이 자동으로 Jira 이슈 번호 포함하여 생성됨
 3. Jira 이슈와 Git 브랜치 자동 연결 유지
@@ -78,7 +81,7 @@
     git checkout develop
     git pull origin develop
     git checkout -b feat/BE-127-회원가입
-    
+
     # 작업 완료 후 push
     git push origin feat/BE-127-회원가입
 
@@ -94,27 +97,27 @@
 ### 2.1. Commit Message 형식
 
     [PREFIX] type: 제목
-    
+
     본문 (선택사항)
 
 ### 2.2. PREFIX 종류
 
-| PREFIX | 설명 |
-|--------|------|
-| [BE] | 백엔드 관련 커밋 |
-| [FE] | 프론트엔드 관련 커밋 |
+| PREFIX | 설명                 |
+| ------ | -------------------- |
+| [BE]   | 백엔드 관련 커밋     |
+| [FE]   | 프론트엔드 관련 커밋 |
 
 ### 2.3. Type 종류
 
-| Type | 설명 | 예시 |
-|------|------|------|
-| feat | 새로운 기능 추가 (디자인 포함) | [BE] feat: 이메일 인증 코드 발송 기능 추가 |
-| fix | 버그 수정 | [FE] fix: 로그인 페이지 토큰 만료 오류 수정 |
-| docs | 문서 수정 | [BE] docs: API 명세 업데이트 |
-| style | 코드 포맷팅, 세미콜론 누락 등 | [FE] style: ESLint 규칙 적용 |
-| refactor | 코드 리팩토링 | [BE] refactor: 랭킹 조회 로직 개선 |
-| test | 테스트 코드 추가/수정 | [BE] test: 회원가입 테스트 케이스 추가 |
-| chore | 빌드 업무, 패키지 매니저 설정 등 | [BE] chore: Spring Boot 3.2.5 업그레이드 |
+| Type     | 설명                             | 예시                                        |
+| -------- | -------------------------------- | ------------------------------------------- |
+| feat     | 새로운 기능 추가 (디자인 포함)   | [BE] feat: 이메일 인증 코드 발송 기능 추가  |
+| fix      | 버그 수정                        | [FE] fix: 로그인 페이지 토큰 만료 오류 수정 |
+| docs     | 문서 수정                        | [BE] docs: API 명세 업데이트                |
+| style    | 코드 포맷팅, 세미콜론 누락 등    | [FE] style: ESLint 규칙 적용                |
+| refactor | 코드 리팩토링                    | [BE] refactor: 랭킹 조회 로직 개선          |
+| test     | 테스트 코드 추가/수정            | [BE] test: 회원가입 테스트 케이스 추가      |
+| chore    | 빌드 업무, 패키지 매니저 설정 등 | [BE] chore: Spring Boot 3.2.5 업그레이드    |
 
 ### 2.4. Commit Message 예시
 
@@ -136,7 +139,7 @@
 제목으로 설명이 부족할 경우, 한 줄 띄우고 본문 작성
 
     [BE] feat: 기여도 뺏기 모드 명령어 선점 로직 구현
-    
+
     - Redis SETNX를 활용한 동시성 제어
     - 명령어 입력 시 선점 여부 확인
     - 선점 실패 시 에러 응답 반환
@@ -159,7 +162,7 @@
 
     ## 기능 설명
     필요시 실행 결과 스크린샷 첨부 (프론트는 화면의 변경이 있을 경우 디바이스 별로 업로드)
-    
+
     ## 체크리스트
     - [ ] PR 제목 규칙 잘 지켰는가?
     - [ ] 추가/수정사항을 설명하였는가?
@@ -206,18 +209,19 @@
     [FE] 로그인 화면 UI 개발
 
 **설명 필수 포함 사항**
+
 - 구현할 기능 상세 설명
 - 관련 API 명세 또는 화면 설계
 - 완료 조건 (Definition of Done)
 
 ### 4.3. Jira 이슈 상태 관리
 
-| 상태 | 설명 |
-|------|------|
-| To Do | 작업 대기 중 |
-| In Progress | 작업 진행 중 |
-| In Review | PR 생성 및 리뷰 대기 중 |
-| Done | 작업 완료 및 develop 병합 완료 |
+| 상태        | 설명                           |
+| ----------- | ------------------------------ |
+| To Do       | 작업 대기 중                   |
+| In Progress | 작업 진행 중                   |
+| In Review   | PR 생성 및 리뷰 대기 중        |
+| Done        | 작업 완료 및 develop 병합 완료 |
 
 ---
 
@@ -225,42 +229,47 @@
 
 ### 5.1. Backend
 
-| 카테고리 | 기술 | 버전 |
-|----------|------|------|
-| Language | Java | 17 |
-| Framework | Spring Boot | 3.2.x |
-| ORM | JPA/Hibernate | - |
-| Query | QueryDSL | 5.0.0 |
-| WebSocket | STOMP | - |
-| Security | Spring Security | - |
-| Build Tool | Gradle | 8.x |
+| 카테고리   | 기술            | 버전  |
+| ---------- | --------------- | ----- |
+| Language   | Java            | 17    |
+| Framework  | Spring Boot     | 3.2.x |
+| ORM        | JPA/Hibernate   | -     |
+| Query      | QueryDSL        | 5.0.0 |
+| WebSocket  | STOMP           | -     |
+| Security   | Spring Security | -     |
+| Build Tool | Gradle          | 8.x   |
 
 ### 5.2. Frontend
 
-| 카테고리 | 기술 | 버전 |
-|----------|------|------|
-| Language | TypeScript | 5.x |
-| Framework | React | 18.x |
-| State | Zustand/Recoil | - |
-| Build Tool | Vite | 5.x |
-| Linter | ESLint | - |
-| Formatter | Prettier | - |
+| 카테고리      | 기술                     | 버전 |
+| ------------- | ------------------------ | ---- |
+| Language      | TypeScript               | 6.x  |
+| Framework     | React                    | 19.x |
+| 라우팅        | TanStack Router          | -    |
+| 상태 (서버)   | TanStack Query           | -    |
+| 상태 (인게임) | Jotai                    | -    |
+| 상태 (전역)   | Zustand                  | -    |
+| 폼 관리       | React Hook Form + Zod    | -    |
+| Build Tool    | Vite                     | 8.x  |
+| Linter        | ESLint                   | -    |
+| Formatter     | Prettier                 | -    |
+| 테스트        | Vitest + Testing Library | -    |
 
 ### 5.3. Database
 
-| 카테고리 | 기술 | 용도 |
-|----------|------|------|
-| RDBMS | PostgreSQL 15.x | 주 데이터베이스 |
-| Cache | Redis 7.x | 캐싱, 세션, 랭킹 |
+| 카테고리 | 기술            | 용도             |
+| -------- | --------------- | ---------------- |
+| RDBMS    | PostgreSQL 15.x | 주 데이터베이스  |
+| Cache    | Redis 7.x       | 캐싱, 세션, 랭킹 |
 
 ### 5.4. Infra
 
-| 카테고리 | 기술 | 용도 |
-|----------|------|------|
-| Cloud | AWS EC2 | 애플리케이션 서버 |
-| Database | AWS RDS | PostgreSQL 호스팅 |
-| Cache | AWS ElastiCache | Redis 호스팅 |
-| CI/CD | GitHub Actions | 자동 배포 |
+| 카테고리 | 기술            | 용도              |
+| -------- | --------------- | ----------------- |
+| Cloud    | AWS EC2         | 애플리케이션 서버 |
+| Database | AWS RDS         | PostgreSQL 호스팅 |
+| Cache    | AWS ElastiCache | Redis 호스팅      |
+| CI/CD    | GitHub Actions  | 자동 배포         |
 
 ---
 
@@ -269,32 +278,38 @@
 ### 6.1. 필수 체크 항목
 
 **구현**
+
 - [ ] 요구사항이 정확히 구현되었는가?
 - [ ] 에러 처리가 적절한가?
 - [ ] 동시성 이슈가 없는가?
 - [ ] N+1 쿼리 문제가 없는가?
 
 **테스트**
+
 - [ ] 단위 테스트가 작성되었는가?
 - [ ] 테스트 커버리지가 충분한가?
 - [ ] 경계값 테스트가 포함되었는가?
 
 **보안**
+
 - [ ] SQL Injection 취약점이 없는가?
 - [ ] 민감 정보가 로그에 노출되지 않는가?
 - [ ] 인증/인가 처리가 적절한가?
 
 **성능**
+
 - [ ] 불필요한 DB 조회가 없는가?
 - [ ] Redis 캐싱이 적절히 적용되었는가?
 - [ ] 인덱스가 필요한 컬럼에 생성되었는가?
 
 **코드 품질**
+
 - [ ] 코딩 컨벤션을 준수했는가?
 - [ ] 불필요한 코드가 없는가?
 - [ ] 주석이 필요한 부분에 작성되었는가?
 
 **문서**
+
 - [ ] API 명세가 업데이트되었는가?
 - [ ] JavaDoc이 작성되었는가?
 - [ ] README가 업데이트되었는가?
@@ -329,26 +344,31 @@
 ### 7.1. Frontend CI
 
 **Lint 검사**
+
 - ESLint 규칙 준수 확인
 - Prettier 포맷팅 확인
 
 **빌드 검증**
+
 - develop 브랜치 PR 생성 시 자동 실행
 - 빌드 성공 여부 확인
 
 ### 7.2. Backend CI
 
 **코드 품질 검사**
+
 - Spotless 포맷팅 확인
 - 컴파일 오류 확인
 
 **테스트 실행**
+
 - 단위 테스트 실행
 - 통합 테스트 실행 (선택)
 
 ### 7.3. CD (Continuous Deployment)
 
 **자동 배포 트리거**
+
 - develop 브랜치 병합 시: 개발 서버 자동 배포
 - main 브랜치 병합 시: 운영 서버 자동 배포
 
