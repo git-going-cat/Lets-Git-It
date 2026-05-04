@@ -208,6 +208,8 @@ public interface RankingControllerDocs {
 		}
 		""")))
 	ResponseEntity<?> getSingleRankingHistory(
+		@Parameter(hidden = true)
+		CustomUserDetails userDetails,
 		@Parameter(name = "difficulty", description = "난이도 (EASY / NORMAL / HARD)", required = true)
 		Difficulty difficulty,
 		@Parameter(name = "year", description = "조회 연도 (예: 2025)", required = true) @Min(1)

@@ -170,6 +170,8 @@ public class RankingController implements RankingControllerDocs {
 	@Override
 	@GetMapping("/single/history")
 	public ResponseEntity<?> getSingleRankingHistory(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@RequestParam
 		Difficulty difficulty,
 		@RequestParam
@@ -183,7 +185,7 @@ public class RankingController implements RankingControllerDocs {
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 
-		UUID memberId = null; // TODO: Spring Security 연동 후 인증 유저 UUID로 교체
+		UUID memberId = userDetails.getMemberId();
 
 		if (cursor == null) {
 			return ApiResponse.ok("싱글 랭킹 조회 성공",
