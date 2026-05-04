@@ -1,4 +1,14 @@
-import type { RankGrade, RankingEntry, RankingMode } from '../types/ranking.types';
+import type {
+  CoopMyRank,
+  MyRank,
+  RankGrade,
+  RankingEntry,
+  RankingMode,
+  SingleMyRank,
+  SpeedMyRank,
+  TimeAttackMyRank,
+  WeekParam,
+} from '../types/ranking.types';
 
 /**
  * 모드별 점수 값을 포맷팅된 문자열로 변환
@@ -7,15 +17,23 @@ import type { RankGrade, RankingEntry, RankingMode } from '../types/ranking.type
  */
 export function formatScore(mode: RankingMode, entry: RankingEntry): string {
   if (mode === 'coop') {
-    return formatClearTime((entry as { clearTime: number }).clearTime);
+    return 'clearTime' in entry ? formatClearTime(entry.clearTime) : '-';
   }
   if (mode === 'speed') {
-    return `${(entry as { contribution: number }).contribution.toLocaleString()}`;
+    return 'contribution' in entry ? `${entry.contribution.toLocaleString()}` : '-';
   }
   if (mode === 'timeattack') {
-    return `${(entry as { totalCount: number }).totalCount.toLocaleString()}`;
+    return 'totalCount' in entry ? `${entry.totalCount.toLocaleString()}` : '-';
   }
-  return `${(entry as { score: number }).score.toLocaleString()} pt`;
+  return 'score' in entry ? `${entry.score.toLocaleString()} pt` : '-';
+}
+
+/** 내 순위(MyRank)의 점수 값을 포맷팅된 문자열로 변환 */
+export function formatMyRankScore(mode: RankingMode, myRank: Exclude<MyRank, null>): string {
+  if (mode === 'coop') return formatClearTime((myRank as CoopMyRank).clearTime);
+  if (mode === 'speed') return (myRank as SpeedMyRank).contribution.toLocaleString();
+  if (mode === 'timeattack') return (myRank as TimeAttackMyRank).totalCount.toLocaleString();
+  return `${(myRank as SingleMyRank).score.toLocaleString()} pt`;
 }
 
 /**
@@ -46,11 +64,14 @@ export function getGrade(mode: RankingMode, entry: RankingEntry): RankGrade | nu
 
   let value: number;
   if (mode === 'speed') {
-    value = (entry as { contribution: number }).contribution;
+    if (!('contribution' in entry)) return null;
+    value = entry.contribution;
   } else if (mode === 'timeattack') {
-    value = (entry as { totalCount: number }).totalCount;
+    if (!('totalCount' in entry)) return null;
+    value = entry.totalCount;
   } else {
-    value = (entry as { score: number }).score;
+    if (!('score' in entry)) return null;
+    value = entry.score;
   }
 
   if (value >= 9000) return 'S';
@@ -73,4 +94,37 @@ export function getValueLabel(mode: RankingMode): string {
   if (mode === 'speed') return '기여도';
   if (mode === 'timeattack') return '카운트';
   return '점수';
+}
+
+/** 모드 코드를 한글 라벨로 변환 */
+export function getModeLabel(mode: RankingMode): string {
+  const labels: Record<RankingMode, string> = {
+    'single-easy': '싱글 이지',
+    'single-normal': '싱글 노말',
+    'single-hard': '싱글 하드',
+    speed: '기여도 뺏기',
+    timeattack: '타임어택',
+    coop: '협력',
+  };
+  return labels[mode];
+}
+
+/**
+ * 이전 주차 계산
+ *
+ * @description 1주차이면 이전 달 마지막 주로 이동. 주차 이동 로직 단일 출처.
+ */
+export function getPrevWeek(current: WeekParam): WeekParam {
+  if (current.week === 1) {
+    const prevMonth = current.month === 1 ? 12 : current.month - 1;
+    const prevYear = current.month === 1 ? current.year - 1 : current.year;
+    return { year: prevYear, month: prevMonth, week: getLastWeekOfMonth(prevYear, prevMonth) };
+  }
+  return { ...current, week: current.week - 1 };
+}
+
+function getLastWeekOfMonth(year: number, month: number): number {
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return Math.ceil((firstDay + daysInMonth) / 7);
 }
