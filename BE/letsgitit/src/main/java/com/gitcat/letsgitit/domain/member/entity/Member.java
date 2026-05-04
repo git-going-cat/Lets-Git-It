@@ -7,9 +7,9 @@ import jakarta.persistence.*;
 
 import org.hibernate.annotations.SQLRestriction;
 
+import com.gitcat.letsgitit.domain.member.entity.enums.OnboardingStatus;
 import com.gitcat.letsgitit.global.entity.BaseEntity;
-import com.gitcat.letsgitit.global.enums.GitProficiency;
-import com.gitcat.letsgitit.global.enums.OnboardingStatus;
+import com.gitcat.letsgitit.global.enums.AuthType;
 import com.gitcat.letsgitit.global.enums.Provider;
 
 import lombok.AccessLevel;
@@ -38,6 +38,10 @@ public class Member extends BaseEntity {
 	private String password;
 
 	@Enumerated(EnumType.STRING)
+	@Column(name = "auth_type", nullable = false, length = 50)
+	private AuthType authType;
+
+	@Enumerated(EnumType.STRING)
 	@Column(name = "provider", length = 50)
 	private Provider provider;
 
@@ -47,27 +51,23 @@ public class Member extends BaseEntity {
 	@Column(name = "nickname", length = 50)
 	private String nickname;
 
-	@Column(name = "character_hair", length = 50)
-	private String characterHair;
+	@Column(name = "character_hair", nullable = false, length = 50)
+	private String characterHair = "Hairstyle_01";
 
-	@Column(name = "character_hair_color", length = 50)
-	private String characterHairColor;
+	@Column(name = "character_hair_color", nullable = false, length = 50)
+	private String characterHairColor = "Hairstyle-color_01";
 
-	@Column(name = "character_body", length = 50)
-	private String characterBody;
+	@Column(name = "character_body", nullable = false, length = 50)
+	private String characterBody = "Body_01";
 
-	@Column(name = "character_outfit_color", length = 50)
-	private String characterOutfitColor;
+	@Column(name = "character_eye", nullable = false, length = 50)
+	private String characterEye = "Eyes_01";
 
-	@Column(name = "character_eye", length = 50)
-	private String characterEye;
+	@Column(name = "character_outfit", nullable = false, length = 50)
+	private String characterOutfit = "Outfit_01";
 
-	@Column(name = "character_outfit", length = 50)
-	private String characterOutfit;
-
-	@Enumerated(EnumType.STRING)
-	@Column(name = "git_proficiency", length = 50)
-	private GitProficiency gitProficiency;
+	@Column(name = "character_outfit_color", nullable = false, length = 50)
+	private String characterOutfitColor = "Outfit-color_01";
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "onboarding_status", nullable = false, length = 50)
@@ -83,7 +83,7 @@ public class Member extends BaseEntity {
 		Member member = new Member();
 		member.email = email;
 		member.password = encodedPassword;
-		member.provider = Provider.LOCAL;
+		member.authType = AuthType.LOCAL;
 		member.onboardingStatus = OnboardingStatus.NONE;
 		member.totalPlayTime = 0;
 		return member;
@@ -94,6 +94,7 @@ public class Member extends BaseEntity {
 		member.email = email;
 		member.provider = provider;
 		member.providerId = providerId;
+		member.authType = AuthType.OAUTH;
 		member.onboardingStatus = OnboardingStatus.NONE;
 		member.totalPlayTime = 0;
 		return member;
@@ -107,14 +108,14 @@ public class Member extends BaseEntity {
 		this.password = encodedPassword;
 	}
 
-	public void updateCharacter(String hair, String hairColor, String body,
-		String outfitColor, String eye, String outfit) {
+	public void updateCharacter(String hair, String hairColor, String body, String eye, String outfit,
+		String outfitColor) {
 		this.characterHair = hair;
 		this.characterHairColor = hairColor;
 		this.characterBody = body;
-		this.characterOutfitColor = outfitColor;
 		this.characterEye = eye;
 		this.characterOutfit = outfit;
+		this.characterOutfitColor = outfitColor;
 	}
 
 	public void updateOnboardingStatus(OnboardingStatus status) {

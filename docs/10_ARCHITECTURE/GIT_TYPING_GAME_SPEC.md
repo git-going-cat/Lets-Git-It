@@ -11,7 +11,7 @@
 ### 기술 스택
 - **프론트엔드**: React + WebSocket
 - **백엔드**: Spring Boot + WebSocket
-- **인프라**: AWS EC2 (Seoul), Redis (동일 리전), RDS PostgreSQL
+- **인프라**: AWS EC2 (Seoul), Redis (동일 리전), RDS MySQL 8.0
 - **배포**: Nginx (리버스 프록시)
 
 ---
