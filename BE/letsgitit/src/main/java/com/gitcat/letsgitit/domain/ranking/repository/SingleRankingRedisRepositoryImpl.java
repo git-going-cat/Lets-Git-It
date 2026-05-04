@@ -60,6 +60,11 @@ public class SingleRankingRedisRepositoryImpl implements SingleRankingRedisRepos
 		return count != null ? count : 0L;
 	}
 
+	@Override
+	public void deleteKey(String key) {
+		rankingStringRedisTemplate.delete(key);
+	}
+
 	private List<RankEntry> toRankEntries(Set<ZSetOperations.TypedTuple<String>> tuples) {
 		if (tuples == null || tuples.isEmpty())
 			return List.of();

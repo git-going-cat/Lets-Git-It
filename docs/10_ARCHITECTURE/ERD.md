@@ -1,5 +1,5 @@
 -- =============================================
--- Let's Git it — ERD DDL v16
+-- Let's Git it — ERD DDL v18
 -- =============================================
 
 
@@ -60,9 +60,9 @@ single_ranking_id BINARY(16)  NOT NULL,
 member_id         BINARY(16)  NOT NULL,
 difficulty        VARCHAR(20) NOT NULL COMMENT 'EASY / NORMAL / HARD',
 score             INT         NOT NULL DEFAULT 0,
-grade             VARCHAR(1)  NOT NULL COMMENT 'S / A / B / C / D',
+grade             VARCHAR(1)  NULL     COMMENT 'S / A / B / C / D — 정산 시 미결정, 향후 업데이트',
 rank              INT         NOT NULL,
-week              VARCHAR(10) NOT NULL COMMENT '예: 2025-04-3 (year-month-weekOfMonth)'
+week              VARCHAR(10) NOT NULL COMMENT '예: 2025-04-3 (year-month-weekOfMonth)',
 recorded_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 PRIMARY KEY (single_ranking_id),
 UNIQUE KEY uq_single_ranking (member_id, difficulty, week),
