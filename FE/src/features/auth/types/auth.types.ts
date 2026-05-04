@@ -16,7 +16,7 @@ export const characterInfoSchema = z.object({
 export const loginResponseDataSchema = characterInfoSchema.extend({
   accessToken: z.string(),
   isFirstLogin: z.boolean(),
-  nickname: z.string(),
+  nickname: z.string().nullable(),
   onboardingStatus: onboardingStatusSchema,
 });
 
@@ -49,7 +49,7 @@ export interface OAuthTokenRequest {
 }
 
 export interface AuthUser extends CharacterInfo {
-  nickname: string;
+  nickname: string | null;
   onboardingStatus: OnboardingStatus;
 }
 

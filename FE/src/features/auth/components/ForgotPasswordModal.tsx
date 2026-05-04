@@ -4,6 +4,20 @@ interface ForgotPasswordModalProps {
   onClose: () => void;
 }
 
+const inlineBtn = (active: boolean) =>
+  `shrink-0 rounded-full! border-none! px-3 py-2 text-xs font-medium transition-colors ${
+    active
+      ? 'bg-white! text-gray-900 cursor-pointer'
+      : 'cursor-not-allowed border! border-white/50! bg-white/10 text-white/40'
+  }`;
+
+const bigBtn = (active: boolean) =>
+  `w-full rounded-full! border-none! py-2.5 text-sm font-semibold transition-colors ${
+    active
+      ? 'bg-white! text-gray-900 cursor-pointer'
+      : 'cursor-not-allowed border! border-white/50! bg-white/10 text-white/40'
+  }`;
+
 /**
  * 비밀번호 찾기 모달 — email(인증코드 발송+검증) → reset → done 단계 흐름
  */
@@ -27,20 +41,25 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
     onClose();
   };
 
+  const emailValue = emailForm.watch('email');
+  const codeValue = emailForm.watch('code');
+  const newPasswordValue = resetForm.watch('newPassword');
+  const newPasswordConfirmValue = resetForm.watch('newPasswordConfirm');
+  const isResetReady = !!newPasswordValue && !!newPasswordConfirmValue;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleClose}
     >
       <div
-        className="relative w-80 rounded-2xl bg-[#1e2a3a]/90 p-8 shadow-2xl backdrop-blur"
+        className="relative w-96 rounded-2xl bg-[#131313]/95 p-8 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 닫기 버튼 */}
         <button
           type="button"
           onClick={handleClose}
-          className="absolute right-4 top-4 text-white/50 hover:text-white transition-colors"
+          className="absolute right-4 top-4 border-none! bg-transparent! text-white/50 hover:text-white transition-colors"
           aria-label="닫기"
         >
           ✕
@@ -50,41 +69,46 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
         {step === 'email' && (
           <form
             onSubmit={emailForm.handleSubmit(handleVerifyAndProceed)}
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-3"
           >
-            <div className="text-center">
+            <div className="mb-2 text-center">
               <h2 className="text-lg font-bold text-white">비밀번호를 잊으셨나요?</h2>
-              <p className="mt-1 text-xs text-white/50 leading-relaxed">
+              <p className="mt-2 text-xs text-white/50 leading-relaxed">
                 가입하신 이메일 주소를 입력해주세요.
                 <br />
-                이메일로 비밀번호 재설정{' '}
-                <span className="text-white/70 font-medium">인증 코드</span>를 보내드립니다.
+                이메일로 비밀번호 재설정 코드를 보내드립니다.
                 <br />
-                받은 메일 함을 확인해 주세요.
+                보안을 위해 요청 횟수가 제한됩니다.
               </p>
             </div>
 
-            <div className="flex flex-col gap-2">
+            {/* 이메일 행 */}
+            <div>
               <div className="flex gap-2">
                 <input
                   {...emailForm.register('email')}
                   type="email"
                   placeholder="이메일 입력"
-                  className="flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-white/50"
+                  className="min-w-0 flex-1 rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50"
                 />
                 <button
                   type="button"
-                  disabled={isSubmitting}
+                  disabled={!emailValue || isSubmitting}
                   onClick={handleSendCode}
-                  className="shrink-0 rounded-lg bg-white/10 px-3 py-2 text-xs text-white/70 hover:bg-white/20 disabled:opacity-50 transition-colors"
+                  className={inlineBtn(!!emailValue && !isSubmitting)}
                 >
-                  {codeSent ? '재발송' : '인증코드 받기'}
+                  {codeSent ? '재전송' : '인증코드 전송'}
                 </button>
               </div>
               {emailForm.formState.errors.email && (
-                <p className="text-xs text-red-400">{emailForm.formState.errors.email.message}</p>
+                <p className="ml-2 mt-1 text-xs text-red-400">
+                  {emailForm.formState.errors.email.message}
+                </p>
               )}
+            </div>
 
+            {/* 인증코드 행 */}
+            <div>
               <div className="flex gap-2">
                 <input
                   {...emailForm.register('code')}
@@ -92,23 +116,24 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
                   placeholder="인증코드 입력"
                   maxLength={6}
                   disabled={!codeSent}
-                  className="flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-40"
+                  className="min-w-0 flex-1 rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-40"
                 />
                 <button
-                  type="submit"
-                  disabled={!codeSent || isSubmitting}
-                  className="shrink-0 rounded-lg bg-white/10 px-3 py-2 text-xs text-white/70 hover:bg-white/20 disabled:opacity-50 transition-colors"
+                  type="button"
+                  disabled={!codeSent || !codeValue || isSubmitting}
+                  onClick={emailForm.handleSubmit(handleVerifyAndProceed)}
+                  className={inlineBtn(!!codeSent && !!codeValue && !isSubmitting)}
                 >
-                  인증코드 확인
+                  인증코드 인증
                 </button>
               </div>
               {emailForm.formState.errors.code && (
-                <p className="text-xs text-red-400">{emailForm.formState.errors.code.message}</p>
+                <p className="ml-2 mt-1 text-xs text-red-400">
+                  {emailForm.formState.errors.code.message}
+                </p>
               )}
               {codeExpiredAt && (
-                <p className="text-xs text-white/40">
-                  만료 시각: {new Date(codeExpiredAt).toLocaleTimeString()}
-                </p>
+                <p className="ml-2 mt-1 text-xs text-white/40">코드 만료: {codeExpiredAt}</p>
               )}
             </div>
 
@@ -116,75 +141,70 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
 
             <button
               type="submit"
-              disabled={!codeSent || isSubmitting}
-              className="w-full rounded-lg bg-white/20 py-2.5 text-sm font-semibold text-white hover:bg-white/30 disabled:opacity-50 transition-colors"
+              disabled={!codeSent || !codeValue || isSubmitting}
+              className={bigBtn(!!codeSent && !!codeValue && !isSubmitting)}
             >
-              {isSubmitting ? '확인 중...' : '계속'}
+              계속
             </button>
           </form>
         )}
 
-        {/* ── 새 비밀번호 입력 단계 ── */}
+        {/* ── 비밀번호 재설정 단계 ── */}
         {step === 'reset' && (
           <form
             onSubmit={resetForm.handleSubmit(handleResetPassword)}
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-3"
           >
-            <div className="text-center">
+            <div className="mb-2 text-center">
               <h2 className="text-lg font-bold text-white">비밀번호 재설정</h2>
-              <p className="mt-1 text-xs text-white/50">새로운 비밀번호를 재설정하세요</p>
+              <p className="mt-2 text-xs text-white/50">새로운 비밀번호를 입력하세요.</p>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <input
-                {...resetForm.register('newPassword')}
-                type="password"
-                placeholder="새 비밀번호"
-                className="w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-white/50"
-              />
-              {resetForm.formState.errors.newPassword && (
-                <p className="text-xs text-red-400">
-                  {resetForm.formState.errors.newPassword.message}
-                </p>
-              )}
+            <input
+              {...resetForm.register('newPassword')}
+              type="password"
+              placeholder="새 비밀번호 입력"
+              className="w-full rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50"
+            />
+            {resetForm.formState.errors.newPassword && (
+              <p className="ml-2 -mt-1 text-xs text-red-400">
+                {resetForm.formState.errors.newPassword.message}
+              </p>
+            )}
 
-              <input
-                {...resetForm.register('newPasswordConfirm')}
-                type="password"
-                placeholder="새 비밀번호 확인"
-                className="w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-white/50"
-              />
-              {resetForm.formState.errors.newPasswordConfirm && (
-                <p className="text-xs text-red-400">
-                  {resetForm.formState.errors.newPasswordConfirm.message}
-                </p>
-              )}
-            </div>
+            <input
+              {...resetForm.register('newPasswordConfirm')}
+              type="password"
+              placeholder="새 비밀번호 확인"
+              className="w-full rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50"
+            />
+            {resetForm.formState.errors.newPasswordConfirm && (
+              <p className="ml-2 -mt-1 text-xs text-red-400">
+                {resetForm.formState.errors.newPasswordConfirm.message}
+              </p>
+            )}
 
             {apiError && <p className="text-center text-xs text-red-400">{apiError}</p>}
 
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-lg bg-white/20 py-2.5 text-sm font-semibold text-white hover:bg-white/30 disabled:opacity-50 transition-colors"
+              disabled={!isResetReady || isSubmitting}
+              className={`mt-1 ${bigBtn(isResetReady && !isSubmitting)}`}
             >
-              {isSubmitting ? '변경 중...' : '변경하기'}
+              변경하기
             </button>
           </form>
         )}
 
         {/* ── 완료 단계 ── */}
         {step === 'done' && (
-          <div className="flex flex-col items-center gap-6 py-4">
-            <div className="text-center">
-              <h2 className="text-lg font-bold text-white">비밀번호 변경 완료!</h2>
-              <p className="mt-2 text-sm text-white/60">새 비밀번호로 로그인해주세요.</p>
+          <div className="flex flex-col items-center gap-4 text-center">
+            <h2 className="text-2xl">✅</h2>
+            <div>
+              <h3 className="font-semibold text-white">비밀번호가 변경되었습니다.</h3>
+              <p className="mt-1 text-xs text-white/60">새로운 비밀번호로 로그인해주세요.</p>
             </div>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="w-full rounded-lg bg-white/20 py-2.5 text-sm font-semibold text-white hover:bg-white/30 transition-colors"
-            >
+            <button type="button" onClick={handleClose} className={bigBtn(true)}>
               로그인하러 가기
             </button>
           </div>
