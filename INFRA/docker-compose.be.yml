@@ -5,8 +5,8 @@ services:
       context: ../BE/letsgitit
       dockerfile: ../../INFRA/Dockerfile.be
     container_name: spring
-    expose:
-      - "8080"
+    ports:
+      - "8080:8080"
     env_file:
       - ../BE/letsgitit/.env
     environment:
