@@ -23,6 +23,7 @@ public interface DictionaryControllerDocs {
 		        "name": "git commit",
 		        "description": "변경사항을 로컬 저장소에 저장합니다",
 		        "imageUrl": "https://cdn.example.com/commands/commit.png",
+		        "isInGame": true,
 		        "options": [
 		          {"option": "-m", "description": "커밋 메시지를 인라인으로 작성"},
 		          {"option": "--amend", "description": "직전 커밋 수정"}
