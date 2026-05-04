@@ -27,9 +27,9 @@ public interface RankingControllerDocs {
 			    "difficulty": "NORMAL",
 			    "year": 2026, "month": 4, "week": 18,
 			    "top3": [
-			      {"rank": 1, "nickname": "gitmaster", "score": 9800},
-			      {"rank": 2, "nickname": "branchking", "score": 9200},
-			      {"rank": 3, "nickname": "mergelord", "score": 8700}
+			      {"rank": 1, "nickname": "gitcat", "score": 9800},
+			      {"rank": 2, "nickname": "brnch", "score": 9200},
+			      {"rank": 3, "nickname": "merge", "score": 8700}
 			    ],
 			    "myRank": {"rank": 42, "score": 7200},
 			    "around": [
@@ -73,9 +73,9 @@ public interface RankingControllerDocs {
 			  "data": {
 			    "year": 2026, "month": 4, "week": 18,
 			    "top3": [
-			      {"rank": 1, "nickname": "speedking", "contribution": 12000},
-			      {"rank": 2, "nickname": "fastuser", "contribution": 11500},
-			      {"rank": 3, "nickname": "quickdraw", "contribution": 10900}
+			      {"rank": 1, "nickname": "speed", "contribution": 12000},
+			      {"rank": 2, "nickname": "fastu", "contribution": 11500},
+			      {"rank": 3, "nickname": "quick", "contribution": 10900}
 			    ],
 			    "myRank": {"rank": 15, "contribution": 8800},
 			    "around": [
@@ -113,9 +113,9 @@ public interface RankingControllerDocs {
 			  "data": {
 			    "year": 2026, "month": 4, "week": 18,
 			    "top3": [
-			      {"rank": 1, "nickname": "timemaster", "totalCount": 15000},
-			      {"rank": 2, "nickname": "clockking", "totalCount": 14200},
-			      {"rank": 3, "nickname": "ticktock", "totalCount": 13800}
+			      {"rank": 1, "nickname": "timer", "totalCount": 15000},
+			      {"rank": 2, "nickname": "clock", "totalCount": 14200},
+			      {"rank": 3, "nickname": "tick", "totalCount": 13800}
 			    ],
 			    "myRank": {"rank": 7, "totalCount": 10500},
 			    "around": [
@@ -154,9 +154,9 @@ public interface RankingControllerDocs {
 			    "mapId": 1, "mapName": "기초 브랜치",
 			    "year": 2026, "month": 4, "week": 18,
 			    "top3": [
-			      {"rank": 1, "nickname": "coopmaster", "clearTime": 61000},
-			      {"rank": 2, "nickname": "teamwork", "clearTime": 65000},
-			      {"rank": 3, "nickname": "syncpro", "clearTime": 70000}
+			      {"rank": 1, "nickname": "coop", "clearTime": 61000},
+			      {"rank": 2, "nickname": "team", "clearTime": 65000},
+			      {"rank": 3, "nickname": "sync", "clearTime": 70000}
 			    ],
 			    "myRank": {"rank": 5, "clearTime": 83000},
 			    "around": [
@@ -198,7 +198,7 @@ public interface RankingControllerDocs {
 		    "difficulty": "NORMAL",
 		    "year": 2025, "month": 4, "week": 3,
 		    "top3": [
-		      {"rank": 1, "nickname": "gitmaster", "score": 9800}
+		      {"rank": 1, "nickname": "gitcat", "score": 9800}
 		    ],
 		    "myRank": {"rank": 42, "score": 7200},
 		    "around": [{"rank": 42, "nickname": "dobby", "score": 7200}],
@@ -227,7 +227,7 @@ public interface RankingControllerDocs {
 		  "message": "스피드런 랭킹 조회 성공",
 		  "data": {
 		    "year": 2025, "month": 4, "week": 3,
-		    "top3": [{"rank": 1, "nickname": "speedking", "contribution": 12000}],
+		    "top3": [{"rank": 1, "nickname": "speed", "contribution": 12000}],
 		    "myRank": {"rank": 15, "contribution": 8800},
 		    "around": [{"rank": 15, "nickname": "dobby", "contribution": 8800}],
 		    "nextCursor": 17, "hasNext": true
@@ -253,7 +253,7 @@ public interface RankingControllerDocs {
 		  "message": "타임어택 랭킹 조회 성공",
 		  "data": {
 		    "year": 2025, "month": 4, "week": 3,
-		    "top3": [{"rank": 1, "nickname": "timemaster", "totalCount": 15000}],
+		    "top3": [{"rank": 1, "nickname": "timer", "totalCount": 15000}],
 		    "myRank": {"rank": 7, "totalCount": 10500},
 		    "around": [{"rank": 7, "nickname": "dobby", "totalCount": 10500}],
 		    "nextCursor": 9, "hasNext": true
@@ -280,7 +280,7 @@ public interface RankingControllerDocs {
 		  "data": {
 		    "mapId": 1, "mapName": "기초 브랜치",
 		    "year": 2025, "month": 4, "week": 3,
-		    "top3": [{"rank": 1, "nickname": "coopmaster", "clearTime": 61000}],
+		    "top3": [{"rank": 1, "nickname": "coop", "clearTime": 61000}],
 		    "myRank": {"rank": 5, "clearTime": 83000},
 		    "around": [{"rank": 5, "nickname": "dobby", "clearTime": 83000}],
 		    "nextCursor": 7, "hasNext": true
