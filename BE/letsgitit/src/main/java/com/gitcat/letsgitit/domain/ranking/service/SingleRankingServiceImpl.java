@@ -1,8 +1,7 @@
 package com.gitcat.letsgitit.domain.ranking.service;
 
-import static com.gitcat.letsgitit.global.exception.ErrorCode.INVALID_INPUT_VALUE;
-
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,10 +15,11 @@ import com.gitcat.letsgitit.domain.ranking.constants.RankingKeyUtil;
 import com.gitcat.letsgitit.domain.ranking.dto.response.RankingEntry;
 import com.gitcat.letsgitit.domain.ranking.dto.response.SingleRankingInitialResponse;
 import com.gitcat.letsgitit.domain.ranking.dto.response.SingleRankingScrollResponse;
+import com.gitcat.letsgitit.domain.ranking.entity.SingleRanking;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRedisRepository;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRedisRepository.RankEntry;
+import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRepository;
 import com.gitcat.letsgitit.global.enums.Difficulty;
-import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.util.WeekUtil;
 
 import lombok.RequiredArgsConstructor;
@@ -29,17 +29,16 @@ import lombok.RequiredArgsConstructor;
 public class SingleRankingServiceImpl implements SingleRankingService {
 
 	private final SingleRankingRedisRepository singleRankingRedisRepository;
-
+	private final SingleRankingRepository singleRankingRepository;
 	private final MemberService memberService;
 
 	@Override
 	@Transactional(readOnly = true)
-	public SingleRankingInitialResponse getSingleRanking(String difficulty, int size, UUID memberId) {
+	public SingleRankingInitialResponse getSingleRanking(Difficulty difficulty, int size, UUID memberId) {
 
-		LocalDate now = LocalDate.now();
+		LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
-		Difficulty diff = parseDifficulty(difficulty);
-		String key = RankingKeyUtil.singleKey(diff.name(), WeekUtil.getWeek(now));
+		String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
 		long total = singleRankingRedisRepository.getTotalCount(key);
 
 		List<RankEntry> top3Raw = singleRankingRedisRepository.getTopEntries(key, 3);
@@ -52,7 +51,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 
 		if (myRankZeroBased == null || myScore == null) {
 			return new SingleRankingInitialResponse(
-				diff.name(),
+				difficulty.name(),
 				WeekUtil.getYear(now),
 				WeekUtil.getMonth(now),
 				WeekUtil.getWeekOfMonth(now),
@@ -82,7 +81,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		boolean hasNext = nextCursorLong < total;
 
 		return new SingleRankingInitialResponse(
-			diff.name(),
+			difficulty.name(),
 			WeekUtil.getYear(now),
 			WeekUtil.getMonth(now),
 			WeekUtil.getWeekOfMonth(now),
@@ -95,12 +94,12 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 
 	@Override
 	@Transactional(readOnly = true)
-	public SingleRankingScrollResponse getSingleRankingScroll(String difficulty, int cursor, int size, UUID memberId) {
+	public SingleRankingScrollResponse getSingleRankingScroll(Difficulty difficulty, int cursor, int size,
+		UUID memberId) {
 
-		LocalDate now = LocalDate.now();
+		LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
-		Difficulty diff = parseDifficulty(difficulty);
-		String key = RankingKeyUtil.singleKey(diff.name(), WeekUtil.getWeek(now));
+		String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
 		long total = singleRankingRedisRepository.getTotalCount(key);
 
 		long start = cursor;
@@ -120,12 +119,112 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			hasNext);
 	}
 
-	private Difficulty parseDifficulty(String difficulty) {
-		try {
-			return Difficulty.valueOf(difficulty.toUpperCase());
-		} catch (IllegalArgumentException e) {
-			throw new BusinessException(INVALID_INPUT_VALUE);
+	@Override
+	@Transactional(readOnly = true)
+	public SingleRankingInitialResponse getSingleRankingHistory(Difficulty difficulty, int year, int month, int week,
+		int size, UUID memberId) {
+		String weekKey = WeekUtil.getWeek(year, month, week);
+
+		List<SingleRanking> top3Raw = singleRankingRepository.findTop3ByDifficultyAndWeek(
+			difficulty,
+			weekKey);
+
+		long total = singleRankingRepository.countByDifficultyAndWeek(difficulty, weekKey);
+
+		SingleRanking myRankEntity = singleRankingRepository
+			.findByMemberIdAndDifficultyAndWeek(memberId, difficulty, weekKey)
+			.orElse(null);
+
+		if (myRankEntity == null) {
+			List<UUID> top3Ids = top3Raw.stream().map(SingleRanking::getMemberId).toList();
+			Map<UUID, String> top3NicknameMap = memberService.getNicknamesByIds(top3Ids);
+			List<RankingEntry> top3 = toHistoryEntries(top3Raw, top3NicknameMap);
+
+			boolean hasNext = total > 3;
+			return new SingleRankingInitialResponse(
+				difficulty.name(),
+				year,
+				month,
+				week,
+				top3,
+				null,
+				List.of(),
+				hasNext ? 3 : null,
+				hasNext);
 		}
+
+		int aroundMinRank = Math.max(1, myRankEntity.getRank() - 2);
+		int aroundMaxRank = Math.min((int)total, myRankEntity.getRank() + 2);
+
+		List<SingleRanking> aroundRaw = singleRankingRepository
+			.findAroundByDifficultyAndWeekAndRank(
+				difficulty,
+				weekKey,
+				aroundMinRank,
+				aroundMaxRank);
+
+		List<UUID> allIds = new ArrayList<>();
+		top3Raw.stream().map(SingleRanking::getMemberId).forEach(allIds::add);
+		aroundRaw.stream().map(SingleRanking::getMemberId).forEach(allIds::add);
+		allIds.add(myRankEntity.getMemberId());
+		Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(allIds.stream().distinct().toList());
+
+		List<RankingEntry> top3 = toHistoryEntries(top3Raw, nicknameMap);
+		String myNickname = nicknameMap.getOrDefault(myRankEntity.getMemberId(), "[Unknown]");
+		RankingEntry myRank = new RankingEntry(myRankEntity.getRank(), myNickname, myRankEntity.getScore());
+		List<RankingEntry> around = toHistoryEntries(aroundRaw, nicknameMap);
+
+		boolean hasNext = aroundMaxRank < total;
+
+		return new SingleRankingInitialResponse(
+			difficulty.name(),
+			year,
+			month,
+			week,
+			top3,
+			myRank,
+			around,
+			hasNext ? aroundMaxRank : null,
+			hasNext);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public SingleRankingScrollResponse getSingleRankingHistoryScroll(Difficulty difficulty, int year, int month,
+		int week, int cursor, int size, UUID memberId) {
+		String weekKey = WeekUtil.getWeek(year, month, week);
+
+		List<SingleRanking> raw = singleRankingRepository.findScrollResult(
+			difficulty,
+			weekKey,
+			cursor,
+			size + 1);
+
+		if (raw.isEmpty()) {
+			return new SingleRankingScrollResponse(List.of(), null, false);
+		}
+
+		boolean hasNext = raw.size() > size;
+		List<SingleRanking> page = hasNext ? raw.subList(0, size) : raw;
+
+		List<UUID> memberIds = page.stream().map(SingleRanking::getMemberId).toList();
+		Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberIds);
+		List<RankingEntry> rankings = toHistoryEntries(page, nicknameMap);
+		Integer nextCursor = hasNext ? page.get(page.size() - 1).getRank() : null;
+
+		return new SingleRankingScrollResponse(
+			rankings,
+			nextCursor,
+			hasNext);
+	}
+
+	private List<RankingEntry> toHistoryEntries(List<SingleRanking> raw, Map<UUID, String> nicknameMap) {
+		return raw.stream()
+			.map(sr -> new RankingEntry(
+				sr.getRank(),
+				nicknameMap.getOrDefault(sr.getMemberId(), "[Unknown]"),
+				sr.getScore()))
+			.toList();
 	}
 
 	private List<RankingEntry> toEntries(List<RankEntry> raw, int startRank, Map<UUID, String> nicknameMap) {
@@ -136,7 +235,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			UUID id = UUID.fromString(r.memberId());
 			result.add(new RankingEntry(
 				startRank + i,
-				nicknameMap.getOrDefault(id, "(알 수 없음)"),
+				nicknameMap.getOrDefault(id, "[Unknown]"),
 				(int)Math.round(r.score())));
 		}
 

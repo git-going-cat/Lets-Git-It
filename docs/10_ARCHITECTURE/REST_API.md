@@ -1124,7 +1124,8 @@ GET /api/v1/rankings/coop?mapName={맵이름}&difficulty={맵난이도}&cursor={
 ### 4-5. 싱글 난이도별 랭킹 조회 (과거 주)
 
 - 과거의 랭킹은 **RDB에서 조회**
-- 주간 정산 완료 후 저장된 RDB 데이터 사용
+- 이번 주 랭킹은 Redis Sorted Set 기반으로 실시간 조회하지만, 과거의 랭킹은 완료 후 저장된 RDB 데이터를 사용
+- RDB 저장 시점: **매주 월요일 00:00**
 
 ```
 GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={month}&week={week}&cursor={cursor}&size={size}
@@ -1140,6 +1141,28 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
 | `week` | ✅ | 조회할 주차, 예: `3` |
 | `cursor` | ❌ | 무한 스크롤 커서, 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
+
+#### 초기 진입 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `difficulty` | String | 난이도 |
+| `year` | Integer | 조회 연도 |
+| `month` | Integer | 조회 월 |
+| `week` | Integer | 조회 주차 |
+| `top3` | Array | 상위 3명 고정 노출 |
+| `top3[].rank` | Integer | 순위 |
+| `top3[].nickname` | String | 닉네임 |
+| `top3[].score` | Integer | 점수 |
+| `myRank` | Object | 내 랭킹 정보|
+| `myRank.rank` | Integer | 내 순위 |
+| `myRank.score` | Integer | 내 점수 |
+| `around` | Array | 내 랭킹 근처 유저 |
+| `around[].rank` | Integer | 순위 |
+| `around[].nickname` | String | 닉네임 |
+| `around[].score` | Integer | 점수 |
+| `nextCursor` | Integer | 다음 스크롤 시작 커서, null이면 마지막 |
+| `hasNext` | Boolean | 다음 페이지 존재 여부 |
 
 #### 초기 진입 Response 예시
 
@@ -1166,6 +1189,39 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
       { "rank": 44, "nickname": "user4",  "score": 7000 }
     ],
     "nextCursor": 44,
+    "hasNext": true
+  }
+}
+```
+
+#### 무한 스크롤 Request
+
+```
+GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=17&cursor=44&size=20
+```
+
+#### 무한 스크롤 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `rankings` | Array | 랭킹 목록 |
+| `rankings[].rank` | Integer | 순위 |
+| `rankings[].nickname` | String | 닉네임 |
+| `rankings[].score` | Integer | 점수 |
+| `nextCursor` | Integer | 다음 커서, null이면 마지막 |
+| `hasNext` | Boolean | 다음 페이지 존재 여부 |
+
+#### 무한 스크롤 Response 예시
+
+```json
+{
+  "status": 200,
+  "message": "싱글 랭킹 조회 성공",
+  "data": {
+    "rankings": [
+      { "rank": 45, "nickname": "user5", "score": 6900 }
+    ],
+    "nextCursor": 64,
     "hasNext": true
   }
 }

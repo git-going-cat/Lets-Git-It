@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.CreationTimestamp;
+
 import com.gitcat.letsgitit.domain.single.entity.enums.Grade;
 import com.gitcat.letsgitit.global.enums.Difficulty;
 
@@ -18,7 +20,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "single_ranking", uniqueConstraints = {
 	@UniqueConstraint(name = "uq_single_ranking", columnNames = {"member_id", "difficulty", "week"})
 }, indexes = {
-	@Index(name = "idx_single_ranking_difficulty_week", columnList = "difficulty, week")
+	@Index(name = "idx_single_ranking_difficulty_week_rank", columnList = "difficulty, week, `rank`")
 })
 public class SingleRanking {
 
@@ -38,7 +40,7 @@ public class SingleRanking {
 	private int score = 0;
 
 	@Enumerated(EnumType.STRING)
-	@Column(name = "grade", nullable = false, length = 1)
+	@Column(name = "grade", nullable = true, length = 1)
 	private Grade grade;
 
 	@Column(name = "`rank`", nullable = false)
@@ -47,19 +49,19 @@ public class SingleRanking {
 	@Column(name = "week", nullable = false, length = 10)
 	private String week;
 
-	@Column(name = "recorded_at", nullable = false)
+	@CreationTimestamp
+	@Column(name = "recorded_at", nullable = false, updatable = false)
 	private LocalDateTime recordedAt;
 
 	public static SingleRanking of(UUID memberId, Difficulty difficulty,
-		int score, Grade grade, int rank, String week) {
+		int score, int rank, String week) {
 		SingleRanking ranking = new SingleRanking();
 		ranking.memberId = memberId;
 		ranking.difficulty = difficulty;
 		ranking.score = score;
-		ranking.grade = grade;
+		ranking.grade = null;
 		ranking.rank = rank;
 		ranking.week = week;
-		ranking.recordedAt = LocalDateTime.now();
 		return ranking;
 	}
 }

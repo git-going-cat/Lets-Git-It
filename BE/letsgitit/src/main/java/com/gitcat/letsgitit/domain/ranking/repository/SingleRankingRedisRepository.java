@@ -25,4 +25,7 @@ public interface SingleRankingRedisRepository {
 
 	// 전체 등록 인원 수
 	long getTotalCount(String key);
+
+	// 정산 완료 후 키 삭제
+	void deleteKey(String key);
 }
