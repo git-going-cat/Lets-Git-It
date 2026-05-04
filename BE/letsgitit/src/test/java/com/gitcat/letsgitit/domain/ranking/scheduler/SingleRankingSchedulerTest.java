@@ -11,6 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -65,14 +66,16 @@ class SingleRankingSchedulerTest {
 			.willReturn(0L); // HARD
 		given(singleRankingRedisRepository.getRangeByRank(anyString(), eq(0L), anyLong()))
 			.willReturn(normalEntries);
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList()))
+			.willReturn(Map.of());
 
 		// when
 		scheduler.settleSingleRanking();
 		TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.afterCommit());
 
-		// then — NORMAL만 saveAll + deleteKey 1회 호출
+		// then — NORMAL만 saveAll 1회, deleteKey 2회 (ZSet 키 + grade 키)
 		verify(singleRankingRepository, times(1)).saveAll(anyList());
-		verify(singleRankingRedisRepository, times(1)).deleteKey(anyString());
+		verify(singleRankingRedisRepository, times(2)).deleteKey(anyString());
 	}
 
 	@Test
@@ -90,6 +93,8 @@ class SingleRankingSchedulerTest {
 			.willReturn(0L); // HARD
 		given(singleRankingRedisRepository.getRangeByRank(anyString(), eq(0L), anyLong()))
 			.willReturn(entries);
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList()))
+			.willReturn(Map.of());
 
 		ArgumentCaptor<List<SingleRanking>> captor = ArgumentCaptor.forClass(List.class);
 
@@ -118,6 +123,8 @@ class SingleRankingSchedulerTest {
 			.willReturn(0L); // HARD
 		given(singleRankingRedisRepository.getRangeByRank(anyString(), eq(0L), anyLong()))
 			.willReturn(entries);
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList()))
+			.willReturn(Map.of());
 
 		ArgumentCaptor<List<SingleRanking>> captor = ArgumentCaptor.forClass(List.class);
 
