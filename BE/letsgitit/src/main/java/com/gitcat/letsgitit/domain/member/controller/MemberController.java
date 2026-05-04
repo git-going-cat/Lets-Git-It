@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.gitcat.letsgitit.domain.member.dto.request.NicknameRequest;
 import com.gitcat.letsgitit.domain.member.dto.request.SaveCharacterRequest;
 import com.gitcat.letsgitit.domain.member.dto.response.MemberProfileResponse;
+import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
 import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.response.ApiResponse;
@@ -39,32 +41,44 @@ public class MemberController implements MemberControllerDocs {
 
 	@Override
 	@PostMapping("/me/tutorial")
-	public ResponseEntity<?> completeTutorial(UUID memberId) {
+	public ResponseEntity<?> completeTutorial(@AuthenticationPrincipal
+	CustomUserDetails userDetails) {
+		UUID memberId = userDetails.getMemberId();
+
 		memberService.endTutorial(memberId);
 		return ApiResponse.ok("튜토리얼 완료");
 	}
 
 	@Override
 	@GetMapping("/me")
-	public ResponseEntity<?> getMyInfo(UUID memberId) {
+	public ResponseEntity<?> getMyInfo(@AuthenticationPrincipal
+	CustomUserDetails userDetails) {
+		UUID memberId = userDetails.getMemberId();
+
 		MemberProfileResponse response = memberService.getProfile(memberId);
 		return ApiResponse.ok("내 정보 조회 성공", response);
 	}
 
 	@Override
 	@PatchMapping("/me/character")
-	public ResponseEntity<?> saveCharacter(UUID memberId,
+	public ResponseEntity<?> saveCharacter(@AuthenticationPrincipal
+	CustomUserDetails userDetails,
 		@Valid @RequestBody
 		SaveCharacterRequest request) {
+		UUID memberId = userDetails.getMemberId();
+
 		memberService.saveCharacterAssets(memberId, request);
 		return ApiResponse.ok("캐릭터 에셋 저장 성공");
 	}
 
 	@Override
 	@PostMapping("/me/nickname")
-	public ResponseEntity<?> saveNickname(UUID memberId,
+	public ResponseEntity<?> saveNickname(@AuthenticationPrincipal
+	CustomUserDetails userDetails,
 		@Valid @RequestBody
 		NicknameRequest request) {
+		UUID memberId = userDetails.getMemberId();
+
 		memberService.saveNickname(memberId, request);
 		return ApiResponse.ok("닉네임 저장 성공");
 	}
@@ -72,9 +86,12 @@ public class MemberController implements MemberControllerDocs {
 	@Override
 	@PatchMapping("/me/nickname")
 	public ResponseEntity<?> updateNickname(
-		UUID memberId,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@Valid @RequestBody
 		NicknameRequest request) {
+		UUID memberId = userDetails.getMemberId();
+
 		memberService.updateNickname(memberId, request);
 		return ApiResponse.ok("닉네임 변경 성공");
 	}
