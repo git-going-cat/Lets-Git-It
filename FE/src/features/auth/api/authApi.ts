@@ -40,4 +40,24 @@ export const authApi = {
 
   /** 로그아웃 */
   logout: () => http.post('/api/v1/auth/logout'),
+
+  // ── 회원가입 / 이메일 인증 / 비밀번호 재설정 ──────────────────────────
+
+  /** 이메일 인증 코드 발송 */
+  sendEmailCode: (purpose: 'SIGN_UP' | 'PASSWORD_RESET' | 'WITHDRAW', body: { email: string }) =>
+    http.post<{ status: number; message: string; data: { expiredAt: string } }>(
+      `/api/v1/auth/email/send?purpose=${purpose}`,
+      body
+    ),
+
+  /** 이메일 인증 코드 검증 */
+  verifyEmailCode: (body: { email: string; code: string }) =>
+    http.post('/api/v1/auth/email/verify', body),
+
+  /** 회원가입 */
+  register: (body: { email: string; password: string }) => http.post('/api/v1/auth/register', body),
+
+  /** 비밀번호 재설정 */
+  resetPassword: (body: { email: string; newPassword: string }) =>
+    http.patch('/api/v1/auth/password/reset', body),
 };

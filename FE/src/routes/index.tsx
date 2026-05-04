@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate } from '@tanstack/react-router';
+﻿import { createFileRoute, Navigate } from '@tanstack/react-router';
 
 import { useAuthStore } from '@/features/auth/store/authStore';
 
@@ -7,7 +7,7 @@ function HomeRedirect() {
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
-  return <div className="p-8 text-white">홈 화면 준비 중... (로그인됨)</div>;
+  return <div className="p-8 text-white">???붾㈃ 以鍮?以?.. (濡쒓렇?몃맖)</div>;
 }
 
 export const Route = createFileRoute('/')({
