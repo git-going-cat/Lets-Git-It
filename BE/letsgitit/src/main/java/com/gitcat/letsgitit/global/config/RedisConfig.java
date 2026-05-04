@@ -12,6 +12,7 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,6 +20,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.gitcat.letsgitit.domain.single.dto.SingleSessionCache;
 
 @Configuration
 @Profile("!test")
@@ -88,6 +90,27 @@ public class RedisConfig {
 	}
 
 	@Bean
+	public RedisTemplate<String, SingleSessionCache> singleSessionRedisTemplate(
+		@Qualifier("gameRedisConnectionFactory")
+		RedisConnectionFactory factory) {
+		ObjectMapper objectMapper = new ObjectMapper();
+		objectMapper.registerModule(new JavaTimeModule());
+		objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+		Jackson2JsonRedisSerializer<SingleSessionCache> serializer = new Jackson2JsonRedisSerializer<>(objectMapper,
+			SingleSessionCache.class);
+		StringRedisSerializer stringSerializer = new StringRedisSerializer();
+
+		RedisTemplate<String, SingleSessionCache> template = new RedisTemplate<>();
+		template.setConnectionFactory(factory);
+		template.setKeySerializer(stringSerializer);
+		template.setHashKeySerializer(stringSerializer);
+		template.setValueSerializer(serializer);
+		template.setHashValueSerializer(serializer);
+		return template;
+	}
+
+	@Bean
 	public RedisTemplate<String, Object> rankingRedisTemplate(
 		@Qualifier("rankingRedisConnectionFactory")
 		RedisConnectionFactory factory) {
@@ -96,7 +119,7 @@ public class RedisConfig {
 
 	// ===================== SERIALIZER =====================
 
-	private RedisTemplate<String, Object> buildTemplate(RedisConnectionFactory factory) {
+	private <T> RedisTemplate<String, T> buildTemplate(RedisConnectionFactory factory) {
 		ObjectMapper objectMapper = new ObjectMapper();
 		objectMapper.registerModule(new JavaTimeModule());
 		objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -109,7 +132,7 @@ public class RedisConfig {
 		GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
 		StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
-		RedisTemplate<String, Object> template = new RedisTemplate<>();
+		RedisTemplate<String, T> template = new RedisTemplate<>();
 		template.setConnectionFactory(factory);
 		template.setKeySerializer(stringSerializer);
 		template.setHashKeySerializer(stringSerializer);

@@ -1423,7 +1423,6 @@ POST /api/v1/single/sessions
 | `commandSet` | Array | 암호화된 명령어 목록 |
 | `commandSet[].commandSequence` | Integer | 명령어 식별자 |
 | `commandSet[].text` | String | 명령어 전체 텍스트 |
-| `commandSet[].displayText` | String | 화면 표시용 텍스트 |
 | `commandSet[].branchName` | String | 브랜치 이름 |
 | `commandSet[].type` | String | 명령어 타입 (`CREATE` / `MERGE` / `COMMON`) |
 
@@ -1444,21 +1443,18 @@ POST /api/v1/single/sessions
       {
         "commandSequence": 0,
         "text": "git commit -m 'fix login bug'",
-        "displayText": "fix login bug",
         "branchName": "main",
         "type": "COMMON"
       },
       {
         "commandSequence": 1,
         "text": "git switch -c feature/login",
-        "displayText": "feature/login",
         "branchName": "feature/login",
         "type": "CREATE"
       },
       {
         "commandSequence": 2,
         "text": "git merge feature/login",
-        "displayText": "merge feature/login",
         "branchName": "main",
         "type": "MERGE"
       }
