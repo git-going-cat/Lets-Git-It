@@ -1,3 +1,11 @@
+// ── 주차 파라미터 ──────────────────────────────────────────
+
+export interface WeekParam {
+  year: number;
+  month: number;
+  week: number;
+}
+
 // ── 모드 타입 ──────────────────────────────────────────────
 
 export type RankingMode =
