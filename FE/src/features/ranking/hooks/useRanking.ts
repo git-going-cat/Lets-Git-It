@@ -2,37 +2,65 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 
 import {
   fetchCoopRanking,
+  fetchCoopRankingHistory,
   fetchSingleRanking,
+  fetchSingleRankingHistory,
   fetchSpeedRanking,
+  fetchSpeedRankingHistory,
   fetchTimeAttackRanking,
+  fetchTimeAttackRankingHistory,
 } from '../api/rankingApi';
 
-import type { RankingMode } from '../types/ranking.types';
+import type {
+  MyRank,
+  RankingEntry,
+  RankingMode,
+  RankingResponse,
+  WeekParam,
+} from '../types/ranking.types';
+import type { InfiniteData } from '@tanstack/react-query';
 
-/**
- * 모드별 랭킹 데이터를 조회하는 TanStack Query 훅
- *
- * @description queryFn 내부에서 모드별 API 함수를 분기 호출.
- *              useInfiniteQuery로 무한 스크롤 지원.
- */
-export function useRanking(mode: RankingMode) {
-  return useInfiniteQuery({
-    queryKey: ['ranking', mode],
-    queryFn: ({ pageParam }) => {
+export function useRanking(mode: RankingMode, selectedWeek: WeekParam | null) {
+  return useInfiniteQuery<
+    RankingResponse<RankingEntry, MyRank>,
+    Error,
+    InfiniteData<RankingResponse<RankingEntry, MyRank>>,
+    (string | WeekParam)[],
+    number | undefined
+  >({
+    queryKey: ['ranking', mode, selectedWeek ?? 'current'],
+    queryFn: ({ pageParam }): Promise<RankingResponse<RankingEntry, MyRank>> => {
+      const cursor = pageParam as number | undefined;
+
+      if (selectedWeek) {
+        switch (mode) {
+          case 'single-easy':
+          case 'single-normal':
+          case 'single-hard':
+            return fetchSingleRankingHistory(mode, selectedWeek, cursor);
+          case 'speed':
+            return fetchSpeedRankingHistory(selectedWeek, cursor);
+          case 'timeattack':
+            return fetchTimeAttackRankingHistory(selectedWeek, cursor);
+          case 'coop':
+            return fetchCoopRankingHistory(selectedWeek, cursor);
+        }
+      }
+
       switch (mode) {
         case 'single-easy':
         case 'single-normal':
         case 'single-hard':
-          return fetchSingleRanking(mode, pageParam as number | undefined);
+          return fetchSingleRanking(mode, cursor);
         case 'speed':
-          return fetchSpeedRanking(pageParam as number | undefined);
+          return fetchSpeedRanking(cursor);
         case 'timeattack':
-          return fetchTimeAttackRanking(pageParam as number | undefined);
+          return fetchTimeAttackRanking(cursor);
         case 'coop':
-          return fetchCoopRanking(pageParam as number | undefined);
+          return fetchCoopRanking(cursor);
       }
     },
-    initialPageParam: undefined,
+    initialPageParam: undefined as number | undefined,
     getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.nextCursor : undefined),
   });
 }
