@@ -278,6 +278,21 @@ class MemberServiceImplTest {
 			.hasFieldOrPropertyWithValue("errorCode", MEMBER_NOT_FOUND);
 	}
 
+	@Test
+	void 플레이_시간_추가_시_totalPlayTime이_누적된다() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedPassword");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+
+		// when
+		memberService.addPlayTime(memberId, 120);
+
+		// then
+		assertThat(member.getTotalPlayTime()).isEqualTo(120);
+	}
+
 	// ===================== findOrCreateOAuthMember =====================
 
 	@Test

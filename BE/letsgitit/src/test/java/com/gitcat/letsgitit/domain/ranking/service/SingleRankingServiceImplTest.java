@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.*;
 import static org.mockito.BDDMockito.given;
 
 import java.util.List;
@@ -409,5 +410,33 @@ class SingleRankingServiceImplTest {
 		assertThat(response.rankings()).isEmpty();
 		assertThat(response.hasNext()).isFalse();
 		assertThat(response.nextCursor()).isNull();
+	}
+
+	@Test
+	void 점수_갱신_후_현재_순위를_반환한다() {
+		// given
+		given(singleRankingRedisRepository.getRankZeroBased(org.mockito.ArgumentMatchers.anyString(),
+			org.mockito.ArgumentMatchers.eq(memberId))).willReturn(4L);
+
+		// when
+		int rank = singleRankingService.updateSingleScore(Difficulty.NORMAL, memberId, 7200);
+
+		// then
+		assertThat(rank).isEqualTo(5);
+		then(singleRankingRedisRepository).should()
+			.saveScore(org.mockito.ArgumentMatchers.anyString(), eq(memberId), eq(7200.0));
+	}
+
+	@Test
+	void 순위가_없으면_0을_반환한다() {
+		// given
+		given(singleRankingRedisRepository.getRankZeroBased(org.mockito.ArgumentMatchers.anyString(),
+			org.mockito.ArgumentMatchers.eq(memberId))).willReturn(null);
+
+		// when
+		int rank = singleRankingService.updateSingleScore(Difficulty.HARD, memberId, 5000);
+
+		// then
+		assertThat(rank).isZero();
 	}
 }

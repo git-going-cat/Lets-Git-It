@@ -18,6 +18,7 @@ import com.gitcat.letsgitit.domain.record.entity.MemberBestRecord;
 import com.gitcat.letsgitit.domain.record.entity.MemberCoopBestRecord;
 import com.gitcat.letsgitit.domain.record.repository.MemberBestRecordRepository;
 import com.gitcat.letsgitit.domain.record.repository.MemberCoopBestRecordRepository;
+import com.gitcat.letsgitit.global.enums.Difficulty;
 
 @ExtendWith(MockitoExtension.class)
 class RecordServiceImplTest {
@@ -80,5 +81,62 @@ class RecordServiceImplTest {
 		// then
 		assertThat(result).isNull();
 		then(memberCoopBestRecordRepository).should().findBestRecordByMemberId(memberId);
+	}
+
+	@Test
+	void 싱글_최고_기록이_없으면_새로_생성해서_저장한다() {
+		// given
+		UUID memberId = UUID.randomUUID();
+
+		given(memberBestRecordRepository.findByMemberIdAndMode(memberId, SINGLE_NORMAL))
+			.willReturn(Optional.empty());
+
+		// when
+		boolean result = recordService.updateSingleBestRecord(memberId, Difficulty.NORMAL, 7200, 12);
+
+		// then
+		assertThat(result).isTrue();
+		then(memberBestRecordRepository).should().save(argThat(record -> record.getMemberId().equals(memberId)
+			&& record.getMode() == SINGLE_NORMAL
+			&& record.getBestScore() == 7200
+			&& record.getBestRank() == 12));
+	}
+
+	@Test
+	void 기존_최고_점수보다_낮거나_같으면_저장하지_않는다() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		MemberBestRecord record = MemberBestRecord.of(memberId, SINGLE_HARD, 8000, 5);
+
+		given(memberBestRecordRepository.findByMemberIdAndMode(memberId, SINGLE_HARD))
+			.willReturn(Optional.of(record));
+
+		// when
+		boolean result = recordService.updateSingleBestRecord(memberId, Difficulty.HARD, 8000, 4);
+
+		// then
+		assertThat(result).isFalse();
+		assertThat(record.getBestScore()).isEqualTo(8000);
+		assertThat(record.getBestRank()).isEqualTo(5);
+		then(memberBestRecordRepository).should(never()).save(any(MemberBestRecord.class));
+	}
+
+	@Test
+	void 기존_최고_점수보다_높으면_기록을_갱신해_저장한다() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		MemberBestRecord record = MemberBestRecord.of(memberId, SINGLE_EASY, 5000, 20);
+
+		given(memberBestRecordRepository.findByMemberIdAndMode(memberId, SINGLE_EASY))
+			.willReturn(Optional.of(record));
+
+		// when
+		boolean result = recordService.updateSingleBestRecord(memberId, Difficulty.EASY, 6000, 10);
+
+		// then
+		assertThat(result).isTrue();
+		assertThat(record.getBestScore()).isEqualTo(6000);
+		assertThat(record.getBestRank()).isEqualTo(10);
+		then(memberBestRecordRepository).should().save(record);
 	}
 }
