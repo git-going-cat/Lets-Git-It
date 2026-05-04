@@ -8,6 +8,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.gitcat.letsgitit.domain.auth.repository.AuthRedisRepository;
+import com.gitcat.letsgitit.domain.single.repository.SingleSessionRedisRepository;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -18,6 +19,9 @@ class LetsgititApplicationTests {
 
 	@MockitoBean
 	private AuthRedisRepository authRedisRepository;
+
+	@MockitoBean
+	private SingleSessionRedisRepository singleSessionRedisRepository;
 
 	@MockitoBean(name = "rankingStringRedisTemplate")
 	StringRedisTemplate rankingStringRedisTemplate;

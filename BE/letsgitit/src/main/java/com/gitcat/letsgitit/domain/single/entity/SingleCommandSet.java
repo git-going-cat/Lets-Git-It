@@ -1,4 +1,4 @@
-package com.gitcat.letsgitit.domain.command.entity;
+package com.gitcat.letsgitit.domain.single.entity;
 
 import java.util.UUID;
 

@@ -5,7 +5,7 @@ import java.util.UUID;
 
 import jakarta.persistence.*;
 
-import com.gitcat.letsgitit.domain.single.entity.Grade;
+import com.gitcat.letsgitit.domain.single.entity.enums.Grade;
 import com.gitcat.letsgitit.global.enums.Difficulty;
 
 import lombok.AccessLevel;

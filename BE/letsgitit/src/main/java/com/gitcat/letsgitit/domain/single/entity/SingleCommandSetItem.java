@@ -1,10 +1,10 @@
-package com.gitcat.letsgitit.domain.command.entity;
+package com.gitcat.letsgitit.domain.single.entity;
 
 import java.util.UUID;
 
 import jakarta.persistence.*;
 
-import com.gitcat.letsgitit.global.enums.CommandType;
+import com.gitcat.letsgitit.domain.single.entity.enums.CommandType;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -35,22 +35,17 @@ public class SingleCommandSetItem {
 	@Column(name = "branch_name", length = 100)
 	private String branchName;
 
-	@Column(name = "display_text", length = 255)
-	private String displayText;
-
 	@Enumerated(EnumType.STRING)
 	@Column(name = "command_type", nullable = false, length = 10)
 	private CommandType commandType = CommandType.COMMON;
 
 	public static SingleCommandSetItem of(UUID singleCommandSetId, int sequence,
-		String commandText, String branchName,
-		String displayText, CommandType commandType) {
+		String commandText, String branchName, CommandType commandType) {
 		SingleCommandSetItem item = new SingleCommandSetItem();
 		item.singleCommandSetId = singleCommandSetId;
 		item.sequence = sequence;
 		item.commandText = commandText;
 		item.branchName = branchName;
-		item.displayText = displayText;
 		item.commandType = commandType;
 		return item;
 	}
