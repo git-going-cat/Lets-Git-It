@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { useRanking } from '../hooks/useRanking';
+import { getModeLabel, getPrevWeek } from '../utils/rankingFormat';
 
 import RankingList from './RankingList';
 import RankingPodium from './RankingPodium';
 import RankingSidebar from './RankingSidebar';
 
-import type { RankingEntry, RankingMode } from '../types/ranking.types';
+import type { RankingEntry, RankingMode, WeekParam } from '../types/ranking.types';
 
 // ── 타입 ──────────────────────────────────────────────────
 
@@ -21,16 +22,50 @@ interface RankingModalProps {
  *
  * @description 좌측 폴더트리로 모드 선택, 우측에 해당 모드의 랭킹 표시.
  *              TanStack Query로 데이터 조회, 서버 상태 별도 store 저장 없음.
+ *              selectedWeek=null → 이번 주 API, 값 있음 → 직전 주 history API (2단계).
  */
 export default function RankingModal({ onClose }: RankingModalProps) {
   const [activeMode, setActiveMode] = useState<RankingMode>('single-easy');
-  const { data, isLoading } = useRanking(activeMode);
+  const [selectedWeek, setSelectedWeek] = useState<WeekParam | null>(null);
+  const rankingScrollRef = useRef<HTMLDivElement>(null);
 
-  // useInfiniteQuery 응답에서 초기 데이터(top3, myRank 등) 추출
+  const { data, fetchNextPage, hasNextPage, isLoading, isFetchingNextPage } = useRanking(
+    activeMode,
+    selectedWeek
+  );
+
+  const isCurrentWeek = selectedWeek === null;
+
+  // 이번 주 API 응답에서 파생 — history 조회 중에는 null (displayWeek는 selectedWeek 우선)
+  const currentWeekInfo = useMemo<WeekParam | null>(() => {
+    if (!isCurrentWeek || !data?.pages[0]) return null;
+    const page = data.pages[0];
+    if ('year' in page && 'month' in page && 'week' in page) {
+      return { year: page.year, month: page.month, week: page.week };
+    }
+    return null;
+  }, [data, isCurrentWeek]);
+
   const initialData = data?.pages[0] && 'top3' in data.pages[0] ? data.pages[0] : null;
+  const displayWeek = selectedWeek ?? currentWeekInfo;
+  const rankingListKey = `${activeMode}:${selectedWeek?.year ?? 'current'}:${selectedWeek?.month ?? ''}:${
+    selectedWeek?.week ?? ''
+  }`;
 
   const handleModeChange = (mode: RankingMode) => {
     setActiveMode(mode);
+    setSelectedWeek(null);
+  };
+
+  // ← 이번 주 → 직전 주 (2단계만 허용)
+  const handlePrevWeek = () => {
+    if (!currentWeekInfo || !isCurrentWeek) return;
+    setSelectedWeek(getPrevWeek(currentWeekInfo));
+  };
+
+  // → 항상 이번 주로 복귀
+  const handleNextWeek = () => {
+    setSelectedWeek(null);
   };
 
   return (
@@ -56,7 +91,7 @@ export default function RankingModal({ onClose }: RankingModalProps) {
         {/* 좌측 사이드바 */}
         <RankingSidebar activeMode={activeMode} onSelectMode={handleModeChange} />
 
-        {/* 우측 콘텐츠 영역 */}
+        {/* 중앙 콘텐츠 영역 */}
         <div className="flex flex-1 flex-col overflow-y-auto">
           {/* 헤더 바 */}
           <div className="flex items-center justify-between px-6 py-3">
@@ -71,27 +106,35 @@ export default function RankingModal({ onClose }: RankingModalProps) {
             </button>
           </div>
 
-          {/* 주간 정보 */}
-          {initialData && (
-            <div className="px-6 pb-2">
-              {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-              <span
-                className="inline-block"
-                style={{
-                  background: 'rgba(255,255,255,0.7)',
-                  color: '#5a7ab0',
-                  border: '1px solid rgba(100,140,200,0.25)',
-                  borderRadius: '20px',
-                  padding: '3px 10px',
-                  fontSize: '11px',
-                }}
-              >
-                {initialData.year}년 {initialData.month}월 {initialData.week}주차
-              </span>
-            </div>
-          )}
+          {/* 주간 네비게이터 — 이번 주 ↔ 직전 주 2단계 */}
+          <div className="flex items-center justify-center gap-3 px-6 pb-2">
+            <button
+              type="button"
+              onClick={handlePrevWeek}
+              disabled={!isCurrentWeek || !currentWeekInfo}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-sm text-gray-600 transition-colors hover:bg-black/10 disabled:opacity-30"
+              aria-label="직전 주"
+            >
+              ←
+            </button>
+            {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
+            <span className="text-lg font-semibold" style={{ color: '#3a5a8a' }}>
+              {displayWeek
+                ? `${displayWeek.year}년 ${displayWeek.month}월 ${displayWeek.week}주차`
+                : '로딩 중...'}
+            </span>
+            <button
+              type="button"
+              onClick={handleNextWeek}
+              disabled={isCurrentWeek}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-sm text-gray-600 transition-colors hover:bg-black/10 disabled:opacity-30"
+              aria-label="이번 주"
+            >
+              →
+            </button>
+          </div>
 
-          {/* 콘텐츠 */}
+          {/* 콘텐츠 카드 */}
           {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
           <div
             className="mx-4 mb-4 flex flex-1 flex-col overflow-hidden rounded-xl shadow-lg backdrop-blur-md"
@@ -102,9 +145,19 @@ export default function RankingModal({ onClose }: RankingModalProps) {
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-500" />
               </div>
             ) : initialData ? (
-              <div className="flex flex-1 flex-col overflow-y-auto">
+              <div ref={rankingScrollRef} className="flex flex-1 flex-col overflow-y-auto">
                 <RankingPodium mode={activeMode} top3={initialData.top3 as RankingEntry[]} />
-                <RankingList mode={activeMode} data={data} />
+                <RankingList
+                  key={rankingListKey}
+                  mode={activeMode}
+                  data={data}
+                  fetchNextPage={fetchNextPage}
+                  hasNextPage={hasNextPage}
+                  isFetchingNextPage={isFetchingNextPage}
+                  scrollContainerRef={rankingScrollRef}
+                  scrollResetKey={rankingListKey}
+                  selectedWeek={selectedWeek}
+                />
               </div>
             ) : (
               <div className="flex flex-1 items-center justify-center text-sm text-gray-400">
@@ -116,19 +169,4 @@ export default function RankingModal({ onClose }: RankingModalProps) {
       </div>
     </div>
   );
-}
-
-// ── 헬퍼 ──────────────────────────────────────────────────
-
-/** 모드 코드를 한글 라벨로 변환 */
-function getModeLabel(mode: RankingMode): string {
-  const labels: Record<RankingMode, string> = {
-    'single-easy': '싱글 이지',
-    'single-normal': '싱글 노말',
-    'single-hard': '싱글 하드',
-    speed: '기여도 뺏기',
-    timeattack: '타임어택',
-    coop: '협력',
-  };
-  return labels[mode];
 }
