@@ -488,11 +488,25 @@ PATCH /api/v1/auth/password
 
 ### 2-1. 닉네임 저장 (온보딩)
 
+```
+POST /api/v1/members/me/nickname
+```
+
+> 최초 온보딩 시 1회만 가능. 이미 설정된 경우 `NICKNAME_ALREADY_SET` 오류.
+
+#### 닉네임 정책
+
+| 조건 | 내용 |
+| --- | --- |
+| 길이 | 2자 이상 6자 이하 |
+| 허용 문자 | 한글(완성형), 영문, 숫자 |
+| 금지 | 초성·자음 단독 사용 (`ㄱ`, `ㅎ` 등), 모음 단독 사용 (`ㅏ`, `ㅣ` 등), 특수문자, 공백 |
+
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `nickname` | String | Y | 설정할 닉네임 |
+| `nickname` | String | Y | 설정할 닉네임 (2~6자, 한글·영문·숫자) |
 
 ```json
 {
@@ -514,8 +528,9 @@ PATCH /api/v1/auth/password
 
 | 코드 | 설명 |
 | --- | --- |
-| `NICKNAME_DUPLICATE` | 중복된 닉네임 |
-| `NICKNAME_INVALID` | 닉네임 형식 불일치 |
+| `NICKNAME_DUPLICATE` | 중복된 닉네임 (탈퇴 회원 닉네임 포함) |
+| `NICKNAME_ALREADY_SET` | 이미 닉네임이 설정된 회원 |
+| `INVALID_INPUT_VALUE` | 닉네임 형식 불일치 (길이, 허용 문자 위반) |
 
 ---
 
@@ -644,11 +659,21 @@ GET /api/v1/members/me
 PATCH /api/v1/members/me/nickname
 ```
 
+> 현재와 동일한 닉네임 입력 시 중복 검사 없이 그대로 유지.
+
+#### 닉네임 정책
+
+| 조건 | 내용 |
+| --- | --- |
+| 길이 | 2자 이상 6자 이하 |
+| 허용 문자 | 한글(완성형), 영문, 숫자 |
+| 금지 | 초성·자음 단독 사용 (`ㄱ`, `ㅎ` 등), 모음 단독 사용 (`ㅏ`, `ㅣ` 등), 특수문자, 공백 |
+
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `nickname` | String | Y | 새 닉네임 |
+| `nickname` | String | Y | 새 닉네임 (2~6자, 한글·영문·숫자) |
 
 ```json
 {
@@ -670,7 +695,8 @@ PATCH /api/v1/members/me/nickname
 
 | 코드 | 설명 |
 | --- | --- |
-| `NICKNAME_DUPLICATE` | 이미 사용 중인 닉네임 |
+| `NICKNAME_DUPLICATE` | 이미 사용 중인 닉네임 (탈퇴 회원 닉네임 포함) |
+| `INVALID_INPUT_VALUE` | 닉네임 형식 불일치 (길이, 허용 문자 위반) |
 
 ---
 
@@ -680,7 +706,13 @@ PATCH /api/v1/members/me/nickname
 GET /api/v1/members/nickname/check?nickname={nickname}
 ```
 
-> 탈퇴 회원의 닉네임도 재사용 불가
+> 탈퇴 회원의 닉네임도 재사용 불가. 형식 검증 후 중복 검사 순으로 처리.
+
+#### Query Parameters
+
+| 파라미터 | 필수 | 설명 |
+| --- | --- | --- |
+| `nickname` | ✅ | 확인할 닉네임 (2~6자, 한글·영문·숫자) |
 
 #### Response
 
@@ -696,7 +728,8 @@ GET /api/v1/members/nickname/check?nickname={nickname}
 
 | 코드 | 설명 |
 | --- | --- |
-| `NICKNAME_DUPLICATE` | 이미 사용 중인 닉네임 |
+| `NICKNAME_DUPLICATE` | 이미 사용 중인 닉네임 (탈퇴 회원 닉네임 포함) |
+| `INVALID_INPUT_VALUE` | 닉네임 형식 불일치 (길이, 허용 문자 위반) |
 
 ---
 
@@ -873,9 +906,9 @@ GET /api/v1/rankings/single?difficulty={difficulty}&cursor={cursor}&size={size}
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "gitmaster",  "score": 9800 },
-      { "rank": 2, "nickname": "branchking", "score": 9200 },
-      { "rank": 3, "nickname": "mergelord",  "score": 8700 }
+      { "rank": 1, "nickname": "gitmas",  "score": 9800 },
+      { "rank": 2, "nickname": "branch", "score": 9200 },
+      { "rank": 3, "nickname": "mergel",  "score": 8700 }
     ],
     "myRank": { "rank": 42, "score": 7200 },
     "around": [
@@ -950,9 +983,9 @@ GET /api/v1/rankings/speed?cursor={cursor}&size={size}
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "speedking", "contribution": 12000 },
-      { "rank": 2, "nickname": "fastuser",  "contribution": 11500 },
-      { "rank": 3, "nickname": "quickdraw", "contribution": 10900 }
+      { "rank": 1, "nickname": "speed", "contribution": 12000 },
+      { "rank": 2, "nickname": "fast",  "contribution": 11500 },
+      { "rank": 3, "nickname": "quick", "contribution": 10900 }
     ],
     "myRank": { "rank": 15, "contribution": 8800 },
     "around": [
@@ -996,9 +1029,9 @@ GET /api/v1/rankings/timeattack?cursor={cursor}&size={size}
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "timemaster", "totalCount": 15000 },
-      { "rank": 2, "nickname": "clockking",  "totalCount": 14200 },
-      { "rank": 3, "nickname": "ticktock",   "totalCount": 13800 }
+      { "rank": 1, "nickname": "timema", "totalCount": 15000 },
+      { "rank": 2, "nickname": "clock",  "totalCount": 14200 },
+      { "rank": 3, "nickname": "tick",   "totalCount": 13800 }
     ],
     "myRank": { "rank": 7, "totalCount": 10500 },
     "around": [
@@ -1068,9 +1101,9 @@ GET /api/v1/rankings/coop?mapName={맵이름}&difficulty={맵난이도}&cursor={
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "coopmaster", "clearTime": 61000 },
-      { "rank": 2, "nickname": "teamwork",   "clearTime": 65000 },
-      { "rank": 3, "nickname": "syncpro",    "clearTime": 70000 }
+      { "rank": 1, "nickname": "coopma", "clearTime": 61000 },
+      { "rank": 2, "nickname": "teamwo",   "clearTime": 65000 },
+      { "rank": 3, "nickname": "syncpr",    "clearTime": 70000 }
     ],
     "myRank": { "rank": 5, "clearTime": 83000 },
     "around": [
@@ -1120,9 +1153,9 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "gitmaster",  "score": 9800 },
-      { "rank": 2, "nickname": "branchking", "score": 9200 },
-      { "rank": 3, "nickname": "mergelord",  "score": 8700 }
+      { "rank": 1, "nickname": "gitmas",  "score": 9800 },
+      { "rank": 2, "nickname": "branc", "score": 9200 },
+      { "rank": 3, "nickname": "merge",  "score": 8700 }
     ],
     "myRank": { "rank": 42, "score": 7200 },
     "around": [
@@ -1189,9 +1222,9 @@ GET /api/v1/rankings/speed/history?year={year}&month={month}&week={week}&cursor=
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "speedking", "contribution": 12000 },
-      { "rank": 2, "nickname": "fastuser",  "contribution": 11500 },
-      { "rank": 3, "nickname": "quickdraw", "contribution": 10900 }
+      { "rank": 1, "nickname": "speed", "contribution": 12000 },
+      { "rank": 2, "nickname": "fast",  "contribution": 11500 },
+      { "rank": 3, "nickname": "quick", "contribution": 10900 }
     ],
     "myRank": { "rank": 15, "contribution": 8800 },
     "around": [
@@ -1258,9 +1291,9 @@ GET /api/v1/rankings/timeattack/history?year={year}&month={month}&week={week}&cu
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "timemaster", "totalCount": 15000 },
-      { "rank": 2, "nickname": "clockking",  "totalCount": 14200 },
-      { "rank": 3, "nickname": "ticktock",   "totalCount": 13800 }
+      { "rank": 1, "nickname": "time", "totalCount": 15000 },
+      { "rank": 2, "nickname": "cloc",  "totalCount": 14200 },
+      { "rank": 3, "nickname": "tick",   "totalCount": 13800 }
     ],
     "myRank": { "rank": 7, "totalCount": 10500 },
     "around": [
@@ -1330,9 +1363,9 @@ GET /api/v1/rankings/coop/history?mapId={mapId}&year={year}&month={month}&week={
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "coopmaster", "clearTime": 61000 },
-      { "rank": 2, "nickname": "teamwork",   "clearTime": 65000 },
-      { "rank": 3, "nickname": "syncpro",    "clearTime": 70000 }
+      { "rank": 1, "nickname": "coopm", "clearTime": 61000 },
+      { "rank": 2, "nickname": "team",   "clearTime": 65000 },
+      { "rank": 3, "nickname": "sync",    "clearTime": 70000 }
     ],
     "myRank": { "rank": 5, "clearTime": 83000 },
     "around": [
