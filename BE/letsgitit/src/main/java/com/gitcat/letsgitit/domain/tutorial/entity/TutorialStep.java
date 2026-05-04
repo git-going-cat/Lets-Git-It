@@ -1,10 +1,14 @@
 package com.gitcat.letsgitit.domain.tutorial.entity;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -31,10 +35,6 @@ public class TutorialStep {
 
 	@Column(name = "description", nullable = false, length = 500)
 	private String description;
-
-	@OrderBy("sequence ASC")
-	@OneToMany(mappedBy = "tutorialStep", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-	private List<TutorialStepItem> items = new ArrayList<>();
 
 	public static TutorialStep of(int stepOrder, String title, String description) {
 		TutorialStep step = new TutorialStep();

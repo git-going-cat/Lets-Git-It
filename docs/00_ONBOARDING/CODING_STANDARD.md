@@ -72,7 +72,7 @@
 - `created_at`/`updated_at`이 필요한 엔티티는 `BaseEntity`를 상속 (`global.entity.BaseEntity`)
 - 소프트 삭제가 필요하면 `deletedAt` 필드와 `@SQLRestriction("deleted_at IS NULL")` 적용
 - 정적 팩토리 메서드는 `of` 네이밍 사용 (단일 파라미터) 또는 `from` (변환 용도)
-- `@Builder` 대신 정적 팩토리 메서드로 생성 의도를 명확히 표현
+- `@Builder` 대신 정적 팩토리 메서드(`of`, `from`)로 생성 의도를 명확히 표현
 
 **BaseEntity 상속 예시**
 
@@ -158,6 +158,38 @@
 - DTO 직접 조회: 랭킹 응답, 방 목록 응답 등 성능 최적화
 - 타입 안정성: 컴파일 시점 오류 검증
 
+**쿼리 작성 기준**
+
+이 프로젝트에서 Repository 쿼리는 아래 기준으로 선택합니다.
+
+**기본 원칙**
+- 단순 조회 → JPA 메서드명 또는 `@Query`
+- 동적 조건 / 복잡한 JOIN → QueryDSL
+
+**`@Query`를 쓰는 경우**
+- 연관 관계가 LAZY로 선언된 엔티티를 한 번에 조회해야 할 때 Fetch Join을 직접 작성
+- `@OneToMany` LAZY 관계에서 N+1 방지가 필요한 경우
+- 정렬 조건이 고정되어 있고 동적 조건이 없는 경우
+
+    @Query("SELECT ts FROM TutorialStep ts " +
+           "LEFT JOIN FETCH ts.items " +
+           "ORDER BY ts.stepOrder ASC")
+    List<TutorialStep> findAllWithItemsOrderByStepOrder();
+
+**QueryDSL을 쓰는 경우**
+- `WHERE` 조건이 동적으로 바뀌는 경우
+- 여러 테이블을 JOIN하면서 특정 컬럼만 뽑아야 하는 경우 (Projection)
+- 페이징 + 동적 정렬이 필요한 경우
+
+**`@EntityGraph`도 대안이 됩니다**
+- `@Query` 없이 Fetch Join 효과를 내고 싶을 때 사용
+- 해당 메서드 호출 시에만 LAZY를 무시하고 연관 데이터를 함께 조회
+
+    @EntityGraph(attributePaths = {"items"})
+    List<TutorialStep> findAllByOrderByStepOrderAsc();
+
+- 결과는 `@Query + Fetch Join`과 동일하며, 선택은 팀 컨벤션에 따릅니다.
+
 **구현 예시**
 
 **1. Interface (Service가 의존)**
@@ -229,7 +261,7 @@
 
 ### 4. Service 계층 규칙
 
-**RULE**: Service는 인터페이스 + 구현체로 분리하며, Repository는 추상화된 인터페이스만 주입받아 사용합니다.
+**RULE**: Service는 인터페이스 + 구현체로 분리합니다. 같은 도메인 내부 데이터 접근은 Repository 인터페이스를 주입받아 처리하고, 타 도메인 데이터 접근은 해당 도메인의 Service 인터페이스를 통해 처리합니다.
 
 **구조**
 
@@ -244,7 +276,6 @@
     
     @Service
     @RequiredArgsConstructor
-    @Transactional(readOnly = true)
     public class AuthServiceImpl implements AuthService {
         
         // ❌ MemberJpaRepository, MemberDslRepository 직접 사용 금지
@@ -252,6 +283,7 @@
         private final MemberRepository memberRepository;
         private final RedisTemplate<String, String> redisTemplate;
         
+        @Transactional(readOnly = true)
         public MemberDto findById(UUID memberId) {
             Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(MEMBER_NOT_FOUND));
@@ -268,9 +300,10 @@
     }
 
 **핵심 규칙**
-- 구현체 클래스 레벨에 `@Transactional(readOnly = true)` 기본 적용
-- 변경 작업 메서드에만 `@Transactional` 추가
-- 여러 Repository 조합 시 같은 Service에서 처리
+- `@Transactional(readOnly = true)`는 클래스 레벨에 선언하지 않고 조회 메서드에만 명시
+- 변경 작업 메서드에는 `@Transactional` 명시
+- 타 도메인 데이터가 필요하면 해당 도메인의 `Service` 인터페이스를 참조하고, 타 도메인 `Repository`를 직접 주입하지 않음
+- 같은 도메인 내부의 여러 Repository 조합은 같은 Service에서 처리
 - Redis 키 패턴은 명확하게 정의 (아래 Redis 키 네이밍 규칙 참고)
 - ErrorCode는 반드시 `static import`로 사용
 

@@ -39,8 +39,13 @@ public enum ErrorCode {
 
 	// member
 	MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "MEMBER_NOT_FOUND", "존재하지 않는 회원입니다."),
+	AUTH_MEMBER_NOT_FOUND(HttpStatus.UNAUTHORIZED.value(), "AUTH_MEMBER_NOT_FOUND", "해당 이메일의 회원을 찾을 수 없습니다."),
 	NICKNAME_DUPLICATED(HttpStatus.CONFLICT.value(), "NICKNAME_DUPLICATED", "이미 사용 중인 닉네임입니다."),
+	NICKNAME_DUPLICATE(HttpStatus.CONFLICT.value(), "NICKNAME_DUPLICATE", "이미 사용 중인 닉네임입니다."),
 	NICKNAME_INVALID(HttpStatus.BAD_REQUEST.value(), "NICKNAME_INVALID", "닉네임 형식이 올바르지 않습니다."),
+	NICKNAME_NOT_SET(HttpStatus.BAD_REQUEST.value(), "NICKNAME_NOT_SET", "닉네임이 설정되지 않았습니다."),
+	NICKNAME_ALREADY_SET(HttpStatus.BAD_REQUEST.value(), "NICKNAME_ALREADY_SET", "이미 닉네임이 설정되어 있습니다. 닉네임 수정을 요청해주세요."),
+	TUTORIAL_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST.value(), "TUTORIAL_ALREADY_COMPLETED", "이미 튜토리얼을 완료했습니다."),
 
 	// room
 	ROOM_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "ROOM_NOT_FOUND", "존재하지 않는 방입니다."),

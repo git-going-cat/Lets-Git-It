@@ -4,8 +4,6 @@ import java.util.UUID;
 
 import jakarta.persistence.*;
 
-import com.gitcat.letsgitit.global.enums.MapDifficulty;
-
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,14 +24,13 @@ public class CoopMap {
 	@Column(name = "name", nullable = false, length = 100)
 	private String name;
 
-	@Enumerated(EnumType.STRING)
 	@Column(name = "difficulty", nullable = false, length = 20)
-	private MapDifficulty difficulty;
+	private int difficulty;
 
 	@Column(name = "is_active", nullable = false)
 	private boolean isActive = true;
 
-	public static CoopMap of(String name, MapDifficulty difficulty) {
+	public static CoopMap of(String name, int difficulty) {
 		CoopMap map = new CoopMap();
 		map.name = name;
 		map.difficulty = difficulty;

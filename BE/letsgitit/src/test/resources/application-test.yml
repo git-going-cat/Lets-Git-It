@@ -15,6 +15,12 @@ spring:
     show-sql: false
     database-platform: org.hibernate.dialect.H2Dialect
 
+  mail:
+    host: localhost
+    port: 25
+    username: test@test.com
+    password: test
+
 server:
   port: 8080
 
@@ -29,3 +35,8 @@ redis:
   ranking:
     host: localhost
     port: 6381
+
+jwt:
+  secret: test-secret-key-must-be-at-least-256-bits-long-for-hs256-algorithm
+  access-expiration: 1800000
+  refresh-expiration: 604800000

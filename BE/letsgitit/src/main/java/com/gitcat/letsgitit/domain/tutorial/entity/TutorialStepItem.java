@@ -2,9 +2,13 @@ package com.gitcat.letsgitit.domain.tutorial.entity;
 
 import java.util.UUID;
 
-import jakarta.persistence.*;
-
-import com.gitcat.letsgitit.global.enums.TutorialItemType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -23,16 +27,11 @@ public class TutorialStepItem {
 	@Column(name = "tutorial_step_item_id", nullable = false, columnDefinition = "BINARY(16)")
 	private UUID id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "tutorial_step_id", nullable = false, foreignKey = @ForeignKey(name = "fk_tutorial_step_item_step"))
-	private TutorialStep tutorialStep;
+	@Column(name = "tutorial_step_id", nullable = false, columnDefinition = "BINARY(16)")
+	private UUID tutorialStepId;
 
 	@Column(name = "sequence", nullable = false)
 	private int sequence;
-
-	@Enumerated(EnumType.STRING)
-	@Column(name = "item_type", nullable = false, length = 20)
-	private TutorialItemType itemType;
 
 	@Column(name = "content", nullable = false, length = 255)
 	private String content;
@@ -40,13 +39,11 @@ public class TutorialStepItem {
 	@Column(name = "explanation", length = 500)
 	private String explanation;
 
-	public static TutorialStepItem of(TutorialStep tutorialStep, int sequence,
-		TutorialItemType itemType, String content,
+	public static TutorialStepItem of(UUID tutorialStepId, int sequence, String content,
 		String explanation) {
 		TutorialStepItem item = new TutorialStepItem();
-		item.tutorialStep = tutorialStep;
+		item.tutorialStepId = tutorialStepId;
 		item.sequence = sequence;
-		item.itemType = itemType;
 		item.content = content;
 		item.explanation = explanation;
 		return item;
