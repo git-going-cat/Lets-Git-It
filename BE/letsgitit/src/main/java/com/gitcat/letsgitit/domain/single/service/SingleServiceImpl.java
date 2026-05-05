@@ -109,6 +109,9 @@ public class SingleServiceImpl implements SingleService {
 		Optional<SingleResult> previousBest = singleResultRepository
 			.findTopByMemberIdAndDifficultyOrderByScoreDesc(memberId, difficulty);
 
+		// 4-1. 금주차 최고 점수 조회
+		Integer currentWeekBest = singleRankingService.getCurrentWeekScore(difficulty, memberId);
+
 		// 5. 결과 저장
 		SingleResult singleResult = SingleResult.of(
 			sessionId,
@@ -128,24 +131,34 @@ public class SingleServiceImpl implements SingleService {
 		// 6. 누적 시간 계산
 		memberService.addPlayTime(memberId, request.playTime() / 1000);
 
-		// 7. 신기록이면 랭킹 갱신
-		// 		- 금주차 랭킹 최고 기록 갱신
-		// 		- 역대 최고 기록 갱신
-		boolean isNewRecord = false;
-		if (previousBest.isEmpty() || request.score() > previousBest.get().getScore()) {
-			int rank = singleRankingService.updateSingleScore(
+		// 7. 금주차 최고 기록 갱신
+		boolean isCurrentWeekBest = currentWeekBest == null || request.score() > currentWeekBest;
+		Integer currentRank = null;
+
+		if (isCurrentWeekBest) {
+			currentRank = singleRankingService.updateSingleScore(
+				difficulty,
+				memberId,
+				request.score());
+		}
+
+		// 8. 역대 최고 기록 갱신
+		boolean isNewRecord = previousBest.isEmpty() || request.score() > previousBest.get().getScore();
+
+		if (isNewRecord) {
+			int rank = currentRank != null ? currentRank : singleRankingService.updateSingleScore(
 				difficulty,
 				memberId,
 				request.score());
 
-			isNewRecord = recordService.updateSingleBestRecord(
+			recordService.updateSingleBestRecord(
 				memberId,
 				difficulty,
 				request.score(),
 				rank);
 		}
 
-		// 8. 세션 종료 처리 — DB 커밋 확정 후 실행
+		// 9. 세션 종료 처리 — DB 커밋 확정 후 실행
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {

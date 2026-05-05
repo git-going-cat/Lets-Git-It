@@ -428,6 +428,30 @@ class SingleRankingServiceImplTest {
 	}
 
 	@Test
+	void 이번주_내_점수를_조회한다() {
+		// given
+		given(singleRankingRedisRepository.getScore(anyString(), eq(memberId))).willReturn(7200.0);
+
+		// when
+		Integer score = singleRankingService.getCurrentWeekScore(Difficulty.NORMAL, memberId);
+
+		// then
+		assertThat(score).isEqualTo(7200);
+	}
+
+	@Test
+	void 이번주_내_점수가_없으면_null을_반환한다() {
+		// given
+		given(singleRankingRedisRepository.getScore(anyString(), eq(memberId))).willReturn(null);
+
+		// when
+		Integer score = singleRankingService.getCurrentWeekScore(Difficulty.HARD, memberId);
+
+		// then
+		assertThat(score).isNull();
+	}
+
+	@Test
 	void 순위가_없으면_0을_반환한다() {
 		// given
 		given(singleRankingRedisRepository.getRankZeroBased(org.mockito.ArgumentMatchers.anyString(),

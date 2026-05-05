@@ -220,8 +220,8 @@ class SingleServiceImplTest {
 				.willReturn(Optional.of(SingleResult.of(
 					"prev-session", MEMBER_ID, DIFFICULTY,
 					SingleResultStatus.SUCCESS, 1500, Grade.A, 60)));
+			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(1500);
 			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 2000)).willReturn(3);
-			given(recordService.updateSingleBestRecord(MEMBER_ID, DIFFICULTY, 2000, 3)).willReturn(true);
 
 			// when
 			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
@@ -290,8 +290,8 @@ class SingleServiceImplTest {
 				.willReturn(Optional.of(SingleSessionCache.of(sessionId, MEMBER_ID, DIFFICULTY)));
 			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
 				.willReturn(Optional.empty());
+			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(null);
 			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 0)).willReturn(1);
-			given(recordService.updateSingleBestRecord(MEMBER_ID, DIFFICULTY, 0, 1)).willReturn(true);
 
 			// when
 			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
@@ -305,7 +305,7 @@ class SingleServiceImplTest {
 		}
 
 		@Test
-		void 신기록이_아니면_랭킹과_최고기록을_갱신하지_않는다() {
+		void 신기록이_아니고_금주차_최고점도_아니면_랭킹과_최고기록을_갱신하지_않는다() {
 			// given
 			String sessionId = UUID.randomUUID().toString();
 			SingleResultSaveRequest request = new SingleResultSaveRequest(
@@ -321,6 +321,7 @@ class SingleServiceImplTest {
 				.willReturn(Optional.of(SingleResult.of(
 					"prev-session", MEMBER_ID, DIFFICULTY,
 					SingleResultStatus.SUCCESS, 1500, Grade.A, 60)));
+			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(1200);
 
 			// when
 			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
@@ -329,9 +330,40 @@ class SingleServiceImplTest {
 
 			// then
 			assertThat(response.isNewRecord()).isFalse();
-			then(singleRankingService).shouldHaveNoInteractions();
+			then(singleRankingService).should().getCurrentWeekScore(DIFFICULTY, MEMBER_ID);
+			then(singleRankingService).should(never()).updateSingleScore(any(), any(), anyInt());
 			then(recordService).shouldHaveNoInteractions();
 			then(singleSessionRedisRepository).should().deleteBySessionId(sessionId);
+		}
+
+		@Test
+		void 역대_신기록이_아니어도_금주차_최고점이면_랭킹만_갱신한다() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			SingleResultSaveRequest request = new SingleResultSaveRequest(
+				SingleResultStatus.SUCCESS,
+				1200,
+				90_000,
+				Grade.A);
+
+			given(singleResultRepository.existsBySessionId(sessionId)).willReturn(false);
+			given(singleSessionRedisRepository.findBySessionId(sessionId))
+				.willReturn(Optional.of(SingleSessionCache.of(sessionId, MEMBER_ID, DIFFICULTY)));
+			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
+				.willReturn(Optional.of(SingleResult.of(
+					"prev-session", MEMBER_ID, DIFFICULTY,
+					SingleResultStatus.SUCCESS, 1500, Grade.S, 60)));
+			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(1000);
+
+			// when
+			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(TransactionSynchronization::afterCommit);
+
+			// then
+			assertThat(response.isNewRecord()).isFalse();
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 1200);
+			then(recordService).shouldHaveNoInteractions();
 		}
 	}
 
