@@ -29,6 +29,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SingleRankingServiceImpl implements SingleRankingService {
 
+	private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
 	private final SingleRankingRedisRepository singleRankingRedisRepository;
 	private final SingleRankingRepository singleRankingRepository;
 	private final MemberService memberService;
@@ -37,7 +39,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 	@Transactional(readOnly = true)
 	public SingleRankingInitialResponse getSingleRanking(Difficulty difficulty, int size, UUID memberId) {
 
-		LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		LocalDate now = LocalDate.now(KST);
 
 		String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
 		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
@@ -105,7 +107,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 	public SingleRankingScrollResponse getSingleRankingScroll(Difficulty difficulty, int cursor, int size,
 		UUID memberId) {
 
-		LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		LocalDate now = LocalDate.now(KST);
 
 		String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
 		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
@@ -235,7 +237,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 	@Override
 	@Transactional
 	public int updateSingleScore(Difficulty difficulty, UUID memberId, int score, Grade grade) {
-		LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		LocalDate now = LocalDate.now(KST);
 		String scoreKey = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
 		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
 
