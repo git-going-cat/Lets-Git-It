@@ -12,6 +12,8 @@ public interface SingleRankingService {
 
 	SingleRankingScrollResponse getSingleRankingScroll(Difficulty difficulty, int cursor, int size, UUID memberId);
 
+	Integer getCurrentWeekScore(Difficulty difficulty, UUID memberId);
+
 	int updateSingleScore(Difficulty difficulty, UUID memberId, int score);
 
 	SingleRankingInitialResponse getSingleRankingHistory(

@@ -28,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SingleRankingServiceImpl implements SingleRankingService {
 
+	private static final ZoneId KOREA_ZONE_ID = ZoneId.of("Asia/Seoul");
+
 	private final SingleRankingRedisRepository singleRankingRedisRepository;
 	private final SingleRankingRepository singleRankingRepository;
 	private final MemberService memberService;
@@ -36,7 +38,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 	@Transactional(readOnly = true)
 	public SingleRankingInitialResponse getSingleRanking(Difficulty difficulty, int size, UUID memberId) {
 
-		LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		LocalDate now = LocalDate.now(KOREA_ZONE_ID);
 
 		String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
 		long total = singleRankingRedisRepository.getTotalCount(key);
@@ -97,7 +99,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 	public SingleRankingScrollResponse getSingleRankingScroll(Difficulty difficulty, int cursor, int size,
 		UUID memberId) {
 
-		LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		LocalDate now = LocalDate.now(KOREA_ZONE_ID);
 
 		String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
 		long total = singleRankingRedisRepository.getTotalCount(key);
@@ -219,10 +221,21 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
+	public Integer getCurrentWeekScore(Difficulty difficulty, UUID memberId) {
+		String key = RankingKeyUtil.singleKey(
+			difficulty.name(),
+			WeekUtil.getWeek(LocalDate.now(KOREA_ZONE_ID)));
+
+		Double score = singleRankingRedisRepository.getScore(key, memberId);
+		return score == null ? null : (int)Math.round(score);
+	}
+
+	@Override
 	public int updateSingleScore(Difficulty difficulty, UUID memberId, int score) {
 		String key = RankingKeyUtil.singleKey(
 			difficulty.name(),
-			WeekUtil.getWeek(LocalDate.now()));
+			WeekUtil.getWeek(LocalDate.now(KOREA_ZONE_ID)));
 
 		singleRankingRedisRepository.saveScore(key, memberId, score);
 
