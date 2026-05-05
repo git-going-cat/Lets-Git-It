@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import 'nes.css/css/nes.min.css' layer(nes);
+@import 'nes.css/css/nes.min.css';
 
 @theme {
   --width-modal-lg: 900px;
