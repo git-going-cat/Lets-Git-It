@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
 
@@ -23,7 +23,7 @@ export function useSingleGame() {
   const setCombo = useSetAtom(comboAtom);
   const setCommandIndex = useSetAtom(currentCommandIndexAtom);
   const setElapsedTime = useSetAtom(elapsedTimeAtom);
-  const setGameStatus = useSetAtom(gameStatusAtom);
+  const [gameStatus, setGameStatus] = useAtom(gameStatusAtom);
   const setGameResult = useSetAtom(gameResultAtom);
   const setTypoCount = useSetAtom(typoCountAtom);
   const setTotalAttempts = useSetAtom(totalAttemptsAtom);
@@ -34,6 +34,26 @@ export function useSingleGame() {
   useEffect(() => {
     typoRef.current = typoCount;
   }, [typoCount]);
+
+  // ESC 단일 리스너: stale closure 방지를 위해 ref로 최신 상태 동기화
+  const statusRef = useRef(gameStatus);
+  useEffect(() => {
+    statusRef.current = gameStatus;
+  }, [gameStatus]);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (statusRef.current === 'playing') {
+        EventBus.emit('game:pause');
+      } else if (statusRef.current === 'paused') {
+        setGameStatus('playing');
+        EventBus.emit('game:resume');
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { difficulty } = useSingleStore();
   // 이벤트 핸들러 클로저에서 최신 mutable 상태를 읽기 위한 ref

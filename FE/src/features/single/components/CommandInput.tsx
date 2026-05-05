@@ -32,6 +32,9 @@ export default function CommandInput() {
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
+          onCopy={(e) => e.preventDefault()}
+          onPaste={(e) => e.preventDefault()}
+          onCut={(e) => e.preventDefault()}
           disabled={!isPlaying}
           autoComplete="off"
           spellCheck="false"
