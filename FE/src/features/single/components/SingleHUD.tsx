@@ -4,10 +4,10 @@ import HUDLives from './HUDLives';
 
 export default function SingleHUD() {
   return (
-    <aside className="flex flex-col justify-between h-full p-4">
+    <div className="flex flex-1 flex-col justify-between p-4">
       <HUDLives />
       <HUDCombo />
       <HUDItemSlots />
-    </aside>
+    </div>
   );
 }
