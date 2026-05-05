@@ -1515,11 +1515,12 @@ POST /api/v1/single/sessions
 | `commandSet[].commandSequence` | Integer | 명령어 식별자 |
 | `commandSet[].text` | String | 명령어 전체 텍스트 |
 | `commandSet[].branchName` | String | 브랜치 이름 |
-| `commandSet[].type` | String | 명령어 타입 (`CREATE` / `MERGE` / `COMMON`) |
+| `commandSet[].type` | String | 명령어 타입 (`CREATE` / `MERGE` / `SWITCH` / `COMMON`) |
 
 **type 분류 기준**
-- `CREATE` : `git switch -c`, `git checkout -b` 등 브랜치 생성 명령어
+- `CREATE` : `git switch -c` 브랜치 생성 명령어
 - `MERGE` : `git merge` 명령어
+- `SWITCH` : `git switch` 브랜치 이동 명령어
 - `COMMON` : 그 외 모든 명령어
 
 ```json
@@ -1540,11 +1541,17 @@ POST /api/v1/single/sessions
       {
         "commandSequence": 1,
         "text": "git switch -c feature/login",
-        "branchName": "feature/login",
+        "branchName": "main",
         "type": "CREATE"
       },
       {
         "commandSequence": 2,
+        "text": "git switch main",
+        "branchName": "feature/login",
+        "type": "SWITCH"
+      },
+      {
+        "commandSequence": 3,
         "text": "git merge feature/login",
         "branchName": "main",
         "type": "MERGE"

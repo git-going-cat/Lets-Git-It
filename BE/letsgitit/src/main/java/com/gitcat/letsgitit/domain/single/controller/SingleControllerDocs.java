@@ -40,11 +40,17 @@ public interface SingleControllerDocs {
 		      {
 		        "commandSequence": 1,
 		        "text": "git switch -c feature/login",
-		        "branchName": "feature/login",
+		        "branchName": "main",
 		        "type": "CREATE"
 		      },
 		      {
-		        "commandSequence": 5,
+		        "commandSequence": 2,
+		        "text": "git switch main",
+		        "branchName": "feature/login",
+		        "type": "SWITCH"
+		      },
+		      {
+		        "commandSequence": 3,
 		        "text": "git merge feature/login",
 		        "branchName": "main",
 		        "type": "MERGE"
