@@ -1,7 +1,9 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
-COPY . .
-RUN npm ci && npm run build
+COPY FE/package.json FE/package-lock.json ./
+RUN npm install
+COPY FE .
+RUN npm run build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html

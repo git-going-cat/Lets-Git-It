@@ -196,6 +196,62 @@ class JwtAuthenticationFilterTest {
 		assertThat(response.getStatus()).isEqualTo(200);
 	}
 
+	// ────────────────────────────────────────────
+	// shouldNotFilter() 테스트
+	// ────────────────────────────────────────────
+
+	@Test
+	void 로컬_로그인_경로는_필터를_건너뛴다() throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRequestURI("/api/v1/auth/login");
+		assertThat(jwtAuthenticationFilter.shouldNotFilter(request)).isTrue();
+	}
+
+	@Test
+	void 회원가입_경로는_필터를_건너뛴다() throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRequestURI("/api/v1/auth/register");
+		assertThat(jwtAuthenticationFilter.shouldNotFilter(request)).isTrue();
+	}
+
+	@Test
+	void 토큰_재발급_경로는_필터를_건너뛴다() throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRequestURI("/api/v1/auth/reissue");
+		assertThat(jwtAuthenticationFilter.shouldNotFilter(request)).isTrue();
+	}
+
+	@Test
+	void OAuth2_구글_소셜로그인_진입경로는_필터를_건너뛴다() throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRequestURI("/api/v1/oauth2/authorization/google");
+		assertThat(jwtAuthenticationFilter.shouldNotFilter(request)).isTrue();
+	}
+
+	@Test
+	void OAuth2_깃허브_소셜로그인_진입경로는_필터를_건너뛴다() throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRequestURI("/api/v1/oauth2/authorization/github");
+		assertThat(jwtAuthenticationFilter.shouldNotFilter(request)).isTrue();
+	}
+
+	@Test
+	void 보호_경로는_필터를_건너뛰지_않는다() throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRequestURI("/api/v1/members/profile");
+		assertThat(jwtAuthenticationFilter.shouldNotFilter(request)).isFalse();
+	}
+
+	@Test
+	void 블랙리스트_토큰이_있어도_OAuth2_경로는_블랙리스트_검사를_하지_않는다() throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRequestURI("/api/v1/oauth2/authorization/google");
+		request.addHeader("Authorization", "Bearer " + ACCESS_TOKEN);
+
+		assertThat(jwtAuthenticationFilter.shouldNotFilter(request)).isTrue();
+		verify(authRedisRepository, never()).isAccessTokenBlacklisted(any());
+	}
+
 	private MockHttpServletRequest 인증_요청(String token) {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		request.setRequestURI("/api/v1/auth/logout");
