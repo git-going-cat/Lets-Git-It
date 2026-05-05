@@ -21,6 +21,7 @@
 - Phaser ↔ React: 직접 참조 금지, EventBus를 이용한 이벤트 기반 통신
 - EventBus 이벤트명: 'domain:action' 형태 (game:pause, score:update)
 - Phaser Scene 생명주기: create()에서 EventBus 등록, shutdown()에서 반드시 해제
+- Phaser Scene EventBus 핸들러: 클래스 필드 화살표 함수로 정의, context 인자 사용 금지
 - Scene 안에서 React import 금지
 - WebSocket: core/socket/SocketManager.ts를 통해서만 연결
 - Zod: 게임 중 패킷은 .safeParse() 필수 (오류 발생 시 로그 기록 후 폐기)

@@ -14,12 +14,14 @@ import { Route as SingleRouteImport } from './routes/single'
 import { Route as RankingRouteImport } from './routes/ranking'
 import { Route as MypageRouteImport } from './routes/mypage'
 import { Route as MultiRouteImport } from './routes/multi'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as DictionaryRouteImport } from './routes/dictionary'
 import { Route as CoopRouteImport } from './routes/coop'
 import { Route as ContributionRouteImport } from './routes/contribution'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MultiRoomIdRouteImport } from './routes/multi.$roomId'
+import { Route as AuthCallbackGoogleRouteImport } from './routes/auth.callback.google'
 
 const TimeattackRoute = TimeattackRouteImport.update({
   id: '/timeattack',
@@ -44,6 +46,11 @@ const MypageRoute = MypageRouteImport.update({
 const MultiRoute = MultiRouteImport.update({
   id: '/multi',
   path: '/multi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
@@ -76,6 +83,11 @@ const MultiRoomIdRoute = MultiRoomIdRouteImport.update({
   path: '/$roomId',
   getParentRoute: () => MultiRoute,
 } as any)
+const AuthCallbackGoogleRoute = AuthCallbackGoogleRouteImport.update({
+  id: '/auth/callback/google',
+  path: '/auth/callback/google',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -83,12 +95,14 @@ export interface FileRoutesByFullPath {
   '/coop': typeof CoopRoute
   '/dictionary': typeof DictionaryRoute
   '/home': typeof HomeRoute
+  '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
   '/mypage': typeof MypageRoute
   '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
+  '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -96,12 +110,14 @@ export interface FileRoutesByTo {
   '/coop': typeof CoopRoute
   '/dictionary': typeof DictionaryRoute
   '/home': typeof HomeRoute
+  '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
   '/mypage': typeof MypageRoute
   '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
+  '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -110,12 +126,14 @@ export interface FileRoutesById {
   '/coop': typeof CoopRoute
   '/dictionary': typeof DictionaryRoute
   '/home': typeof HomeRoute
+  '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
   '/mypage': typeof MypageRoute
   '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
+  '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -125,12 +143,14 @@ export interface FileRouteTypes {
     | '/coop'
     | '/dictionary'
     | '/home'
+    | '/login'
     | '/multi'
     | '/mypage'
     | '/ranking'
     | '/single'
     | '/timeattack'
     | '/multi/$roomId'
+    | '/auth/callback/google'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -138,12 +158,14 @@ export interface FileRouteTypes {
     | '/coop'
     | '/dictionary'
     | '/home'
+    | '/login'
     | '/multi'
     | '/mypage'
     | '/ranking'
     | '/single'
     | '/timeattack'
     | '/multi/$roomId'
+    | '/auth/callback/google'
   id:
     | '__root__'
     | '/'
@@ -151,12 +173,14 @@ export interface FileRouteTypes {
     | '/coop'
     | '/dictionary'
     | '/home'
+    | '/login'
     | '/multi'
     | '/mypage'
     | '/ranking'
     | '/single'
     | '/timeattack'
     | '/multi/$roomId'
+    | '/auth/callback/google'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -165,11 +189,13 @@ export interface RootRouteChildren {
   CoopRoute: typeof CoopRoute
   DictionaryRoute: typeof DictionaryRoute
   HomeRoute: typeof HomeRoute
+  LoginRoute: typeof LoginRoute
   MultiRoute: typeof MultiRouteWithChildren
   MypageRoute: typeof MypageRoute
   RankingRoute: typeof RankingRoute
   SingleRoute: typeof SingleRoute
   TimeattackRoute: typeof TimeattackRoute
+  AuthCallbackGoogleRoute: typeof AuthCallbackGoogleRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -207,6 +233,13 @@ declare module '@tanstack/react-router' {
       path: '/multi'
       fullPath: '/multi'
       preLoaderRoute: typeof MultiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home': {
@@ -251,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MultiRoomIdRouteImport
       parentRoute: typeof MultiRoute
     }
+    '/auth/callback/google': {
+      id: '/auth/callback/google'
+      path: '/auth/callback/google'
+      fullPath: '/auth/callback/google'
+      preLoaderRoute: typeof AuthCallbackGoogleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -270,11 +310,13 @@ const rootRouteChildren: RootRouteChildren = {
   CoopRoute: CoopRoute,
   DictionaryRoute: DictionaryRoute,
   HomeRoute: HomeRoute,
+  LoginRoute: LoginRoute,
   MultiRoute: MultiRouteWithChildren,
   MypageRoute: MypageRoute,
   RankingRoute: RankingRoute,
   SingleRoute: SingleRoute,
   TimeattackRoute: TimeattackRoute,
+  AuthCallbackGoogleRoute: AuthCallbackGoogleRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
