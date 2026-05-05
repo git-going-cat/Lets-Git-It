@@ -72,13 +72,11 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
             className="flex flex-col gap-3"
           >
             <div className="mb-2 text-center">
-              <h2 className="text-lg font-bold text-white">비밀번호를 잊으셨나요?</h2>
+              <h2 className="text-2xl font-bold text-white">비밀번호를 잊으셨나요?</h2>
               <p className="mt-2 text-xs text-white/50 leading-relaxed">
                 가입하신 이메일 주소를 입력해주세요.
                 <br />
                 이메일로 비밀번호 재설정 코드를 보내드립니다.
-                <br />
-                보안을 위해 요청 횟수가 제한됩니다.
               </p>
             </div>
 
@@ -166,6 +164,20 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
               placeholder="새 비밀번호 입력"
               className="w-full rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50"
             />
+            <ul className="-mt-1 ml-2 space-y-0.5">
+              {(
+                [
+                  { label: '8자 이상', ok: newPasswordValue.length >= 8 },
+                  { label: '영문자 포함', ok: /[A-Za-z]/.test(newPasswordValue) },
+                  { label: '숫자 포함', ok: /[0-9]/.test(newPasswordValue) },
+                  { label: '특수문자 포함', ok: /[^A-Za-z0-9]/.test(newPasswordValue) },
+                ] as { label: string; ok: boolean }[]
+              ).map(({ label, ok }) => (
+                <li key={label} className={`text-xs ${ok ? 'text-green-400' : 'text-white/40'}`}>
+                  {ok ? '✓' : '·'} {label}
+                </li>
+              ))}
+            </ul>
             {resetForm.formState.errors.newPassword && (
               <p className="ml-2 -mt-1 text-xs text-red-400">
                 {resetForm.formState.errors.newPassword.message}

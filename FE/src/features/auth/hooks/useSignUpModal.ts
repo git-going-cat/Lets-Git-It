@@ -26,7 +26,9 @@ export function useSignUpModal() {
   const [step, setStep] = useState<SignUpStep>('email');
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [apiError, setApiError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const [codeExpiredAt, setCodeExpiredAt] = useState<string | null>(null);
 
   const emailForm = useForm<SignUpEmailValues>({
@@ -44,7 +46,7 @@ export function useSignUpModal() {
 
   const handleSendCode = async (values: SignUpEmailValues) => {
     setApiError(null);
-    setIsSubmitting(true);
+    setIsSendingCode(true);
     try {
       const { data } = await authApi.sendEmailCode('SIGN_UP', { email: values.email });
       setCodeExpiredAt(data.data.expiredAt);
@@ -55,27 +57,27 @@ export function useSignUpModal() {
       const e = err as { response?: { data?: { message?: string } } };
       setApiError(e.response?.data?.message ?? '인증 코드 발송에 실패했습니다.');
     } finally {
-      setIsSubmitting(false);
+      setIsSendingCode(false);
     }
   };
 
   const handleVerifyCode = async (values: SignUpVerifyValues) => {
     setApiError(null);
-    setIsSubmitting(true);
+    setIsVerifyingCode(true);
     try {
-      await authApi.verifyEmailCode({ email: values.email, code: values.code });
+      await authApi.verifyEmailCode('SIGN_UP', { email: values.email, code: values.code });
       setStep('password');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setApiError(e.response?.data?.message ?? '인증 코드가 올바르지 않습니다.');
     } finally {
-      setIsSubmitting(false);
+      setIsVerifyingCode(false);
     }
   };
 
   const handleRegister = async (values: SignUpPasswordValues) => {
     setApiError(null);
-    setIsSubmitting(true);
+    setIsRegistering(true);
     try {
       await authApi.register({ email: verifiedEmail, password: values.password });
       setStep('done');
@@ -83,7 +85,7 @@ export function useSignUpModal() {
       const e = err as { response?: { data?: { message?: string } } };
       setApiError(e.response?.data?.message ?? '회원가입에 실패했습니다.');
     } finally {
-      setIsSubmitting(false);
+      setIsRegistering(false);
     }
   };
 
@@ -101,7 +103,9 @@ export function useSignUpModal() {
     step,
     verifiedEmail,
     apiError,
-    isSubmitting,
+    isSendingCode,
+    isVerifyingCode,
+    isRegistering,
     codeExpiredAt,
     emailForm,
     verifyForm,

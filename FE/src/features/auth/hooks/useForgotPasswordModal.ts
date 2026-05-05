@@ -59,7 +59,7 @@ export function useForgotPasswordModal() {
     setApiError(null);
     setIsSubmitting(true);
     try {
-      await authApi.verifyEmailCode({ email: values.email, code: values.code });
+      await authApi.verifyEmailCode('PASSWORD_RESET', { email: values.email, code: values.code });
       setVerifiedEmail(values.email);
       setStep('reset');
     } catch (err: unknown) {

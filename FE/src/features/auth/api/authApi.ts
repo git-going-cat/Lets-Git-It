@@ -51,8 +51,10 @@ export const authApi = {
     ),
 
   /** 이메일 인증 코드 검증 */
-  verifyEmailCode: (body: { email: string; code: string }) =>
-    http.post('/api/v1/auth/email/verify', body),
+  verifyEmailCode: (
+    purpose: 'SIGN_UP' | 'PASSWORD_RESET' | 'WITHDRAW',
+    body: { email: string; code: string }
+  ) => http.post(`/api/v1/auth/email/verify?purpose=${purpose}`, body),
 
   /** 회원가입 */
   register: (body: { email: string; password: string }) => http.post('/api/v1/auth/register', body),

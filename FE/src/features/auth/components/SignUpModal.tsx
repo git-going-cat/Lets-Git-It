@@ -1,3 +1,5 @@
+import googleIconSvg from '../assets/Web (mobile + desktop)/svg/neutral/web_neutral_rd_na.svg';
+import { useCountdown } from '../hooks/useCountdown';
 import { useSignUpModal } from '../hooks/useSignUpModal';
 
 const GOOGLE_AUTH_URL = '/api/v1/oauth2/authorization/google';
@@ -27,7 +29,9 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
   const {
     step,
     apiError,
-    isSubmitting,
+    isSendingCode,
+    isVerifyingCode,
+    isRegistering,
     codeExpiredAt,
     emailForm,
     verifyForm,
@@ -48,8 +52,11 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
   const passwordValue = passwordForm.watch('password');
   const passwordConfirmValue = passwordForm.watch('passwordConfirm');
 
+  const { timeLeft, formattedTime } = useCountdown(codeExpiredAt);
+
   const codeSent = step !== 'email';
   const codeVerified = step === 'password' || step === 'done';
+  const isCodeExpired = codeSent && !codeVerified && timeLeft === 0 && !!codeExpiredAt;
   const isRegisterReady = codeVerified && !!passwordValue && !!passwordConfirmValue;
 
   if (step === 'done') {
@@ -104,8 +111,10 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
         </button>
 
         <div className="mb-5 text-center">
-          <h2 className="text-lg font-bold text-white">회원가입</h2>
-          <p className="mt-1 text-xs text-white/50">계정 만들기</p>
+          <h2 className="text-2xl font-bold text-white">회원가입</h2>
+          <p className="mt-1 text-xs text-white/50">
+            인증 코드 메일이 보이지 않는다면 스팸 메일함을 확인해주세요.
+          </p>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -120,11 +129,11 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
               />
               <button
                 type="button"
-                disabled={!emailValue || isSubmitting}
+                disabled={!emailValue || isSendingCode}
                 onClick={emailForm.handleSubmit(handleSendCode)}
-                className={inlineBtn(!!emailValue && !isSubmitting)}
+                className={inlineBtn(!!emailValue && !isSendingCode)}
               >
-                {codeSent ? '재전송' : '인증코드 전송'}
+                {isSendingCode ? '전송 중...' : codeSent ? '재전송' : '인증코드 전송'}
               </button>
             </div>
             {emailForm.formState.errors.email && (
@@ -147,23 +156,40 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
               />
               <button
                 type="button"
-                disabled={!codeSent || !codeValue || isSubmitting || codeVerified}
+                disabled={
+                  !codeSent || !codeValue || isVerifyingCode || codeVerified || isCodeExpired
+                }
                 onClick={verifyForm.handleSubmit(handleVerifyCode)}
-                className={inlineBtn(!!codeSent && !!codeValue && !isSubmitting && !codeVerified)}
+                className={inlineBtn(
+                  !!codeSent && !!codeValue && !isVerifyingCode && !codeVerified && !isCodeExpired
+                )}
               >
-                {codeVerified ? '인증완료' : '인증코드 인증'}
+                {codeVerified ? '인증완료' : isVerifyingCode ? '확인 중...' : '인증코드 인증'}
               </button>
             </div>
-            {verifyForm.formState.errors.code && (
-              <p className="ml-2 mt-1 text-xs text-red-400">
-                {verifyForm.formState.errors.code.message}
-              </p>
-            )}
-            {codeExpiredAt && (
-              <p className="ml-2 mt-1 text-xs text-white/40">코드 만료: {codeExpiredAt}</p>
-            )}
+            <div className="mt-2">
+              {verifyForm.formState.errors.code && (
+                <p className="ml-2 mt-1 text-xs text-red-400">
+                  {verifyForm.formState.errors.code.message}
+                </p>
+              )}
+              {codeExpiredAt && !codeVerified && (
+                <p
+                  className={`ml-2 mt-1 text-xs ${
+                    timeLeft === 0
+                      ? 'text-red-400'
+                      : timeLeft < 30
+                        ? 'text-yellow-400'
+                        : 'text-white/40'
+                  }`}
+                >
+                  {timeLeft === 0
+                    ? '인증 코드가 만료되었습니다. 다시 요청해주세요.'
+                    : `남은 시간: ${formattedTime}`}
+                </p>
+              )}
+            </div>
           </div>
-
           {/* 비밀번호 */}
           <input
             {...passwordForm.register('password')}
@@ -172,6 +198,22 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
             disabled={!codeVerified}
             className="w-full rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-40"
           />
+          {codeVerified && (
+            <ul className="-mt-1 ml-2 space-y-0.5">
+              {(
+                [
+                  { label: '8자 이상', ok: passwordValue.length >= 8 },
+                  { label: '영문자 포함', ok: /[A-Za-z]/.test(passwordValue) },
+                  { label: '숫자 포함', ok: /[0-9]/.test(passwordValue) },
+                  { label: '특수문자 포함', ok: /[^A-Za-z0-9]/.test(passwordValue) },
+                ] as { label: string; ok: boolean }[]
+              ).map(({ label, ok }) => (
+                <li key={label} className={`text-xs ${ok ? 'text-green-400' : 'text-white/40'}`}>
+                  {ok ? '✓' : '·'} {label}
+                </li>
+              ))}
+            </ul>
+          )}
           {passwordForm.formState.errors.password && (
             <p className="ml-2 -mt-1 text-xs text-red-400">
               {passwordForm.formState.errors.password.message}
@@ -191,41 +233,38 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
               {passwordForm.formState.errors.passwordConfirm.message}
             </p>
           )}
-        </div>
 
-        {apiError && <p className="mt-2 text-center text-xs text-red-400">{apiError}</p>}
+          {apiError && <p className="text-center text-xs text-red-400">{apiError}</p>}
 
-        <button
-          type="button"
-          disabled={!isRegisterReady || isSubmitting}
-          onClick={passwordForm.handleSubmit(handleRegister)}
-          className={`mt-4 ${bigBtn(isRegisterReady && !isSubmitting)}`}
-        >
-          {isSubmitting ? '가입 중...' : '가입 완료'}
-        </button>
-
-        <p className="mt-3 text-center text-xs text-white/60">
-          계정이 이미 있다면?{' '}
           <button
             type="button"
-            onClick={handleClose}
-            className="border-none! bg-transparent! font-semibold text-white hover:text-white/80"
+            disabled={!isRegisterReady || isRegistering}
+            onClick={passwordForm.handleSubmit(handleRegister)}
+            className={bigBtn(isRegisterReady && !isRegistering)}
           >
-            로그인하기
+            {isRegistering ? '가입 중...' : '가입 완료'}
           </button>
-        </p>
 
+          <p className="mt-3 text-center text-xs text-white/60">
+            계정이 이미 있다면?{' '}
+            <button
+              type="button"
+              onClick={handleClose}
+              className="border-none! bg-transparent! font-semibold text-white hover:text-white/80"
+            >
+              로그인하기
+            </button>
+          </p>
+        </div>
         <div className="mt-3 flex items-center gap-3">
           <hr className="flex-1 border-white/20" />
           <span className="text-xs text-white/40">또는</span>
           <hr className="flex-1 border-white/20" />
         </div>
+        {/* Google 소셜 로그인 (아이콘 전용, Google 공식 가이드라인) */}
         <div className="mt-3 flex justify-center">
-          <a
-            href={GOOGLE_AUTH_URL}
-            className="text-sm text-white/70 hover:text-white transition-colors"
-          >
-            구글로 시작하기
+          <a href={GOOGLE_AUTH_URL} aria-label="구글로 로그인">
+            <img src={googleIconSvg} alt="Google" width={40} height={40} />
           </a>
         </div>
       </div>
