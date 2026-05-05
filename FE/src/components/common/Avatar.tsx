@@ -1,4 +1,4 @@
 ﻿// TODO: 구현 필요
 export default function Avatar() {
-  return <div />
+  return <div />;
 }

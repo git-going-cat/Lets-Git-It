@@ -103,12 +103,12 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
                 >
                   {isSendingCode ? '전송 중...' : codeSent ? '재전송' : '인증코드 전송'}
                 </button>
-                {emailForm.formState.errors.email && (
-                  <p className="ml-2 mt-1 text-xs text-red-400">
-                    {emailForm.formState.errors.email.message}
-                  </p>
-                )}
               </div>
+              {emailForm.formState.errors.email && (
+                <p className="ml-2 mt-2 text-xs text-red-400">
+                  {emailForm.formState.errors.email.message}
+                </p>
+              )}
             </div>
 
             {/* 인증코드 행 */}

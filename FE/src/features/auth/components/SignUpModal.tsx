@@ -119,7 +119,7 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
 
         <div className="flex flex-col gap-3">
           {/* 이메일 행 */}
-          <div>
+          <div className="flex flex-col gap-2">
             <div className="flex gap-2">
               <input
                 {...emailForm.register('email')}
@@ -137,7 +137,7 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
               </button>
             </div>
             {emailForm.formState.errors.email && (
-              <p className="ml-2 mt-1 text-xs text-red-400">
+              <p className="ml-2 mt-2 text-xs text-red-400">
                 {emailForm.formState.errors.email.message}
               </p>
             )}
