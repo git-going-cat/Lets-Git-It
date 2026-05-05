@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
 
+/**
+ * 서버에서 받은 만료 시각(ISO 문자열)을 기반으로 남은 시간을 1초 단위로 카운트다운합니다.
+ *
+ * @param expiredAt - 만료 시각 ISO 문자열 (Z 없는 UTC도 허용). null이면 비활성 상태.
+ * @returns `timeLeft` — null: 초기화 전, 0: 만료됨, 양수: 남은 초
+ * @returns `formattedTime` — "MM:SS" 형식 문자열
+ */
 export function useCountdown(expiredAt: string | null) {
   const [rawTimeLeft, setRawTimeLeft] = useState<number | null>(null);
 
