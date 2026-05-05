@@ -1,6 +1,8 @@
 import { useCountdown } from '../hooks/useCountdown';
 import { useForgotPasswordModal } from '../hooks/useForgotPasswordModal';
 
+import type React from 'react';
+
 interface ForgotPasswordModalProps {
   onClose: () => void;
 }
@@ -51,13 +53,15 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
   const isResetReady = resetForm.formState.isValid && resetForm.formState.isDirty;
 
   // Enter 키: codeSent 여부에 따라 전송 or 검증 분기
-  const onEmailFormSubmit = emailForm.handleSubmit((data) => {
+  // !codeSent 시 handleSubmit을 쓰면 code 필드도 검증돼서 실패하므로 직접 호출
+  const onEmailFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!codeSent) {
-      void handleSendCode();
+      void handleSendCode(); // 내부에서 이미 emailForm.trigger('email') 호출
     } else {
-      void handleVerifyAndProceed(data);
+      void emailForm.handleSubmit(handleVerifyAndProceed)(e);
     }
-  });
+  };
 
   const { timeLeft, formattedTime } = useCountdown(codeExpiredAt);
   const isCodeExpired = codeSent && timeLeft === 0 && !!codeExpiredAt;
@@ -93,7 +97,7 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
             </div>
 
             {/* 이메일 행 */}
-            <div>
+            <div className="flex flex-col gap-2">
               <div className="flex gap-2">
                 <input
                   {...emailForm.register('email')}
