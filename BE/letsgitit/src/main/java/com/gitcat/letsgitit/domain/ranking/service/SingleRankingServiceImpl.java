@@ -232,6 +232,19 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			hasNext);
 	}
 
+	@Override
+	@Transactional
+	public int updateSingleScore(Difficulty difficulty, UUID memberId, int score, Grade grade) {
+		LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		String scoreKey = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
+		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
+
+		singleRankingRedisRepository.saveScoreAndGrade(scoreKey, gradeKey, memberId, score, grade.name());
+
+		Long rankZeroBased = singleRankingRedisRepository.getRankZeroBased(scoreKey, memberId);
+		return rankZeroBased == null ? 0 : rankZeroBased.intValue() + 1;
+	}
+
 	private List<RankingEntry> toHistoryEntries(List<SingleRanking> raw, Map<UUID, String> nicknameMap) {
 		return raw.stream()
 			.map(sr -> new RankingEntry(
