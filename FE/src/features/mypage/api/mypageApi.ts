@@ -1,4 +1,4 @@
-import type { MyRecord } from '../types/mypage.types';
+﻿import type { MyRecord } from '../types/mypage.types';
 
 // TODO: 마이페이지 전적 API 엔드포인트 확인 후 연동
 export async function fetchMyRecord(): Promise<MyRecord> {

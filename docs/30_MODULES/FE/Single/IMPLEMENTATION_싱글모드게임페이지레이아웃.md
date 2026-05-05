@@ -1,4 +1,4 @@
-# Single_IMPLEMENTATION_싱글모드게임페이지레이아웃
+# Single*IMPLEMENTATION*싱글모드게임페이지레이아웃
 
 ## Background / Context
 
@@ -15,7 +15,7 @@ atom마다 파일을 분리했다 (`features/single/store/`).
 
 - `livesAtom.ts` — 목숨 (초기값 3), `MAX_LIVES` 상수 함께 export
 - `comboAtom.ts` — 콤보 카운터 (초기값 0)
-- `churuCountAtom.ts` — 츄르 스틱 개수 (초기값 0)
+- `churuAtom.ts` — 츄르 스틱 개수 (초기값 0)
 - `itemSlotsAtom.ts` — 아이템 슬롯 활성화 여부 (초기값 `[false, false, false]`)
 
 ### 2. HUD 컴포넌트 분리

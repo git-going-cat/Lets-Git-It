@@ -6,13 +6,10 @@ export default function HUDLives() {
   const lives = useAtomValue(livesAtom);
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="flex gap-2">
+    <div className="flex flex-col items-center gap-3">
+      <div className="flex gap-4">
         {Array.from({ length: MAX_LIVES }).map((_, i) => (
-          <div
-            key={i}
-            className={`w-8 h-8 rounded-full ${i < lives ? 'bg-red-500' : 'bg-gray-600'}`}
-          />
+          <i key={i} className={`nes-icon heart ${i < lives ? '' : 'is-empty'} is-medium`} />
         ))}
       </div>
     </div>

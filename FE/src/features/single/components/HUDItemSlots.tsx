@@ -8,15 +8,19 @@ export default function HUDItemSlots() {
   const itemSlots = useAtomValue(itemSlotsAtom);
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div
+      className="flex flex-col items-center gap-3 w-full"
+      style={{ fontFamily: "'Press Start 2P', monospace" }}
+    >
       {itemSlots.map((active, i) => (
-        <div
+        <button
           key={i}
-          className={`w-16 h-16 rounded-lg border-2 flex flex-col items-center justify-center gap-1 ${active ? 'border-yellow-400 bg-yellow-400/10' : 'border-gray-600 bg-gray-800 opacity-40'}`}
+          className={`nes-btn w-full text-[8px] ${active ? 'is-primary' : 'is-disabled'}`}
+          disabled={!active}
         >
-          <span className="text-sm">{'Ctrl+' + (i + 1)}</span>
-          <span className="text-sm font-medium">{ITEM_LABELS[i]}</span>
-        </div>
+          <div>Alt+{i + 1}</div>
+          <div>{ITEM_LABELS[i]}</div>
+        </button>
       ))}
     </div>
   );
