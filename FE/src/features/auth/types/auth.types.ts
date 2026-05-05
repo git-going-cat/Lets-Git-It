@@ -58,3 +58,30 @@ export interface ApiResponse<T> {
   message: string;
   data: T;
 }
+
+// ── 이메일 인증 / 회원가입 / 비밀번호 재설정 ───────────────────────────────
+
+export type EmailCodePurpose = 'SIGN_UP' | 'PASSWORD_RESET' | 'WITHDRAW';
+
+export interface SendEmailCodeRequest {
+  email: string;
+}
+
+export interface SendEmailCodeResponseData {
+  expiredAt: string;
+}
+
+export interface VerifyEmailCodeRequest {
+  email: string;
+  code: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  newPassword: string;
+}

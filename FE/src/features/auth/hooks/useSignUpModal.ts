@@ -42,6 +42,7 @@ export function useSignUpModal() {
 
   const passwordForm = useForm<SignUpPasswordValues>({
     resolver: zodResolver(signUpPasswordSchema),
+    mode: 'onChange',
   });
 
   const handleSendCode = async (values: SignUpEmailValues) => {

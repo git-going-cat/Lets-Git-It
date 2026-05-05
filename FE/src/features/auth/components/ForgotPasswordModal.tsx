@@ -47,8 +47,17 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
   const emailValue = emailForm.watch('email');
   const codeValue = emailForm.watch('code');
   const newPasswordValue = resetForm.watch('newPassword') ?? '';
-  const newPasswordConfirmValue = resetForm.watch('newPasswordConfirm');
-  const isResetReady = !!newPasswordValue && !!newPasswordConfirmValue;
+  // 비밀번호 폼이 Zod 스키마를 완전히 통과했을 때만 활성화
+  const isResetReady = resetForm.formState.isValid && resetForm.formState.isDirty;
+
+  // Enter 키: codeSent 여부에 따라 전송 or 검증 분기
+  const onEmailFormSubmit = emailForm.handleSubmit((data) => {
+    if (!codeSent) {
+      void handleSendCode();
+    } else {
+      void handleVerifyAndProceed(data);
+    }
+  });
 
   const { timeLeft, formattedTime } = useCountdown(codeExpiredAt);
   const isCodeExpired = codeSent && timeLeft === 0 && !!codeExpiredAt;
@@ -73,10 +82,7 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
 
         {/* ── 이메일 + 인증코드 단계 ── */}
         {step === 'email' && (
-          <form
-            onSubmit={emailForm.handleSubmit(handleVerifyAndProceed)}
-            className="flex flex-col gap-3"
-          >
+          <form onSubmit={onEmailFormSubmit} className="flex flex-col gap-3">
             <div className="mb-2 text-center">
               <h2 className="text-2xl font-bold text-white">비밀번호를 잊으셨나요?</h2>
               <p className="mt-2 text-xs text-white/50 leading-relaxed">

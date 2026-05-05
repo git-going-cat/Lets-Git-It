@@ -50,14 +50,15 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
   const emailValue = emailForm.watch('email');
   const codeValue = verifyForm.watch('code');
   const passwordValue = passwordForm.watch('password') ?? '';
-  const passwordConfirmValue = passwordForm.watch('passwordConfirm');
 
   const { timeLeft, formattedTime } = useCountdown(codeExpiredAt);
 
   const codeSent = step !== 'email';
   const codeVerified = step === 'password' || step === 'done';
   const isCodeExpired = codeSent && !codeVerified && timeLeft === 0 && !!codeExpiredAt;
-  const isRegisterReady = codeVerified && !!passwordValue && !!passwordConfirmValue;
+  // 비밀번호 폼이 Zod 스키마를 완전히 통과했을 때만 활성화
+  const isRegisterReady =
+    codeVerified && passwordForm.formState.isValid && passwordForm.formState.isDirty;
 
   if (step === 'done') {
     return (

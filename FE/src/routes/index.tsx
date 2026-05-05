@@ -7,7 +7,7 @@ function HomeRedirect() {
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
-  return <div className="p-8 text-white">???붾㈃ 以鍮?以?.. (濡쒓렇?몃맖)</div>;
+  return <div className="p-8 text-white">홈 화면으로 이동 중...</div>;
 }
 
 export const Route = createFileRoute('/')({
