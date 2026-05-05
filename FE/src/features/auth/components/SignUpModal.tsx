@@ -49,7 +49,7 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
 
   const emailValue = emailForm.watch('email');
   const codeValue = verifyForm.watch('code');
-  const passwordValue = passwordForm.watch('password');
+  const passwordValue = passwordForm.watch('password') ?? '';
   const passwordConfirmValue = passwordForm.watch('passwordConfirm');
 
   const { timeLeft, formattedTime } = useCountdown(codeExpiredAt);
@@ -176,16 +176,18 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
               {codeExpiredAt && !codeVerified && (
                 <p
                   className={`ml-2 mt-1 text-xs ${
-                    timeLeft === 0
-                      ? 'text-red-400'
-                      : timeLeft < 30
-                        ? 'text-yellow-400'
-                        : 'text-white/40'
+                    timeLeft === null || timeLeft >= 30
+                      ? 'text-white/80'
+                      : timeLeft === 0
+                        ? 'text-red-400'
+                        : 'text-yellow-400'
                   }`}
                 >
-                  {timeLeft === 0
-                    ? '인증 코드가 만료되었습니다. 다시 요청해주세요.'
-                    : `남은 시간: ${formattedTime}`}
+                  {timeLeft === null
+                    ? `남은 시간: --:--`
+                    : timeLeft === 0
+                      ? '인증 코드가 만료되었습니다. 다시 요청해주세요.'
+                      : `남은 시간: ${formattedTime}`}
                 </p>
               )}
             </div>

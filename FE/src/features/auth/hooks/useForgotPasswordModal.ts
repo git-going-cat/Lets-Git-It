@@ -23,7 +23,9 @@ export function useForgotPasswordModal() {
   const [step, setStep] = useState<ForgotPasswordStep>('email');
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [apiError, setApiError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [codeExpiredAt, setCodeExpiredAt] = useState<string | null>(null);
 
@@ -42,7 +44,7 @@ export function useForgotPasswordModal() {
     if (!isValidEmail) return;
 
     setApiError(null);
-    setIsSubmitting(true);
+    setIsSendingCode(true);
     try {
       const { data } = await authApi.sendEmailCode('PASSWORD_RESET', { email });
       setCodeExpiredAt(data.data.expiredAt);
@@ -51,13 +53,13 @@ export function useForgotPasswordModal() {
       const e = err as { response?: { data?: { message?: string } } };
       setApiError(e.response?.data?.message ?? '인증 코드 발송에 실패했습니다.');
     } finally {
-      setIsSubmitting(false);
+      setIsSendingCode(false);
     }
   };
 
   const handleVerifyAndProceed = async (values: ForgotPasswordEmailValues) => {
     setApiError(null);
-    setIsSubmitting(true);
+    setIsVerifyingCode(true);
     try {
       await authApi.verifyEmailCode('PASSWORD_RESET', { email: values.email, code: values.code });
       setVerifiedEmail(values.email);
@@ -66,13 +68,13 @@ export function useForgotPasswordModal() {
       const e = err as { response?: { data?: { message?: string } } };
       setApiError(e.response?.data?.message ?? '인증 코드가 올바르지 않습니다.');
     } finally {
-      setIsSubmitting(false);
+      setIsVerifyingCode(false);
     }
   };
 
   const handleResetPassword = async (values: ForgotPasswordResetValues) => {
     setApiError(null);
-    setIsSubmitting(true);
+    setIsResettingPassword(true);
     try {
       await authApi.resetPassword({ email: verifiedEmail, newPassword: values.newPassword });
       setStep('done');
@@ -80,7 +82,7 @@ export function useForgotPasswordModal() {
       const e = err as { response?: { data?: { message?: string } } };
       setApiError(e.response?.data?.message ?? '비밀번호 변경에 실패했습니다.');
     } finally {
-      setIsSubmitting(false);
+      setIsResettingPassword(false);
     }
   };
 
@@ -97,7 +99,9 @@ export function useForgotPasswordModal() {
   return {
     step,
     apiError,
-    isSubmitting,
+    isSendingCode,
+    isVerifyingCode,
+    isResettingPassword,
     codeSent,
     codeExpiredAt,
     emailForm,

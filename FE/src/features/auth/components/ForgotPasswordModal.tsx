@@ -1,3 +1,4 @@
+import { useCountdown } from '../hooks/useCountdown';
 import { useForgotPasswordModal } from '../hooks/useForgotPasswordModal';
 
 interface ForgotPasswordModalProps {
@@ -25,7 +26,9 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
   const {
     step,
     apiError,
-    isSubmitting,
+    isSendingCode,
+    isVerifyingCode,
+    isResettingPassword,
     codeSent,
     codeExpiredAt,
     emailForm,
@@ -43,9 +46,12 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
 
   const emailValue = emailForm.watch('email');
   const codeValue = emailForm.watch('code');
-  const newPasswordValue = resetForm.watch('newPassword');
+  const newPasswordValue = resetForm.watch('newPassword') ?? '';
   const newPasswordConfirmValue = resetForm.watch('newPasswordConfirm');
   const isResetReady = !!newPasswordValue && !!newPasswordConfirmValue;
+
+  const { timeLeft, formattedTime } = useCountdown(codeExpiredAt);
+  const isCodeExpired = codeSent && timeLeft === 0 && !!codeExpiredAt;
 
   return (
     <div
@@ -91,18 +97,18 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
                 />
                 <button
                   type="button"
-                  disabled={!emailValue || isSubmitting}
+                  disabled={!emailValue || isSendingCode}
                   onClick={handleSendCode}
-                  className={inlineBtn(!!emailValue && !isSubmitting)}
+                  className={inlineBtn(!!emailValue && !isSendingCode)}
                 >
-                  {codeSent ? '재전송' : '인증코드 전송'}
+                  {isSendingCode ? '전송 중...' : codeSent ? '재전송' : '인증코드 전송'}
                 </button>
+                {emailForm.formState.errors.email && (
+                  <p className="ml-2 mt-1 text-xs text-red-400">
+                    {emailForm.formState.errors.email.message}
+                  </p>
+                )}
               </div>
-              {emailForm.formState.errors.email && (
-                <p className="ml-2 mt-1 text-xs text-red-400">
-                  {emailForm.formState.errors.email.message}
-                </p>
-              )}
             </div>
 
             {/* 인증코드 행 */}
@@ -118,11 +124,13 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
                 />
                 <button
                   type="button"
-                  disabled={!codeSent || !codeValue || isSubmitting}
+                  disabled={!codeSent || !codeValue || isVerifyingCode || isCodeExpired}
                   onClick={emailForm.handleSubmit(handleVerifyAndProceed)}
-                  className={inlineBtn(!!codeSent && !!codeValue && !isSubmitting)}
+                  className={inlineBtn(
+                    !!codeSent && !!codeValue && !isVerifyingCode && !isCodeExpired
+                  )}
                 >
-                  인증코드 인증
+                  {isVerifyingCode ? '확인 중...' : '인증코드 인증'}
                 </button>
               </div>
               {emailForm.formState.errors.code && (
@@ -131,7 +139,21 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
                 </p>
               )}
               {codeExpiredAt && (
-                <p className="ml-2 mt-1 text-xs text-white/40">코드 만료: {codeExpiredAt}</p>
+                <p
+                  className={`ml-2 mt-1 text-xs ${
+                    timeLeft === null || timeLeft >= 30
+                      ? 'text-white/80'
+                      : timeLeft === 0
+                        ? 'text-red-400'
+                        : 'text-yellow-400'
+                  }`}
+                >
+                  {timeLeft === null
+                    ? '남은 시간: --:--'
+                    : timeLeft === 0
+                      ? '인증 코드가 만료되었습니다. 다시 요청해주세요.'
+                      : `남은 시간: ${formattedTime}`}
+                </p>
               )}
             </div>
 
@@ -139,8 +161,8 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
 
             <button
               type="submit"
-              disabled={!codeSent || !codeValue || isSubmitting}
-              className={bigBtn(!!codeSent && !!codeValue && !isSubmitting)}
+              disabled={!codeSent || !codeValue || isVerifyingCode || isCodeExpired}
+              className={bigBtn(!!codeSent && !!codeValue && !isVerifyingCode && !isCodeExpired)}
             >
               계속
             </button>
@@ -200,10 +222,10 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
 
             <button
               type="submit"
-              disabled={!isResetReady || isSubmitting}
-              className={`mt-1 ${bigBtn(isResetReady && !isSubmitting)}`}
+              disabled={!isResetReady || isResettingPassword}
+              className={`mt-1 ${bigBtn(isResetReady && !isResettingPassword)}`}
             >
-              변경하기
+              {isResettingPassword ? '변경 중...' : '변경하기'}
             </button>
           </form>
         )}
