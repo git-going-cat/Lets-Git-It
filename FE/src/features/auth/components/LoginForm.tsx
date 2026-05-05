@@ -5,7 +5,12 @@ import { useLoginForm } from '../hooks/useLoginForm';
 
 const GOOGLE_AUTH_URL = '/api/v1/oauth2/authorization/google';
 
-export default function LoginForm() {
+interface LoginFormProps {
+  onOpenSignUp: () => void;
+  onOpenForgotPassword: () => void;
+}
+
+export default function LoginForm({ onOpenSignUp, onOpenForgotPassword }: LoginFormProps) {
   const { register, handleSubmit, errors, isSubmitting, apiError, onSubmit } = useLoginForm();
 
   return (
@@ -36,7 +41,7 @@ export default function LoginForm() {
               type="submit"
               disabled={isSubmitting}
               aria-label="로그인"
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 !rounded-full !border-none bg-[#E4E4E4]/40 text-white flex items-center justify-center hover:bg-[#E4E4E4]/60 disabled:opacity-50 transition-colors shrink-0 overflow-hidden"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full! border-none! bg-[#E4E4E4]/40 text-white flex items-center justify-center hover:bg-[#E4E4E4]/60 disabled:opacity-50 transition-colors shrink-0 overflow-hidden"
               style={{ borderRadius: '50%' }}
             >
               <ChevronRight size={16} />
@@ -53,10 +58,14 @@ export default function LoginForm() {
 
       {/* 유틸 링크 */}
       <div className="flex justify-between text-xs text-white/80 px-2">
-        <button type="button" className="hover:text-white transition-colors">
+        <button
+          type="button"
+          onClick={onOpenForgotPassword}
+          className="hover:text-white transition-colors"
+        >
           비밀번호를 잊으셨나요?
         </button>
-        <button type="button" className="hover:text-white transition-colors">
+        <button type="button" onClick={onOpenSignUp} className="hover:text-white transition-colors">
           회원가입
         </button>
       </div>

@@ -6,10 +6,16 @@ import {
   reissueResponseDataSchema,
 } from '../types/auth.types';
 import type {
+  EmailCodePurpose,
   LoginRequest,
   LoginResponseData,
   OAuthTokenRequest,
+  RegisterRequest,
   ReissueResponseData,
+  ResetPasswordRequest,
+  SendEmailCodeRequest,
+  SendEmailCodeResponseData,
+  VerifyEmailCodeRequest,
 } from '../types/auth.types';
 
 /** 로그인 API 응답 Zod 파싱 헬퍼 */
@@ -40,4 +46,23 @@ export const authApi = {
 
   /** 로그아웃 */
   logout: () => http.post('/api/v1/auth/logout'),
+
+  // ── 회원가입 / 이메일 인증 / 비밀번호 재설정 ──────────────────────────
+
+  /** 이메일 인증 코드 발송 */
+  sendEmailCode: (purpose: EmailCodePurpose, body: SendEmailCodeRequest) =>
+    http.post<{ status: number; message: string; data: SendEmailCodeResponseData }>(
+      `/api/v1/auth/email/send?purpose=${purpose}`,
+      body
+    ),
+
+  /** 이메일 인증 코드 검증 */
+  verifyEmailCode: (purpose: EmailCodePurpose, body: VerifyEmailCodeRequest) =>
+    http.post(`/api/v1/auth/email/verify?purpose=${purpose}`, body),
+
+  /** 회원가입 */
+  register: (body: RegisterRequest) => http.post('/api/v1/auth/register', body),
+
+  /** 비밀번호 재설정 */
+  resetPassword: (body: ResetPasswordRequest) => http.patch('/api/v1/auth/password/reset', body),
 };

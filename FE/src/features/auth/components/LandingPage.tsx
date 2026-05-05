@@ -1,11 +1,19 @@
-﻿import screen from '@/assets/bg/screen.png';
+﻿import { useState } from 'react';
+
+import screen from '@/assets/bg/screen.png';
 import logo from '@/assets/landinglogo.png';
 
 import helpImg from '../assets/Web (mobile + desktop)/help.png';
 
+import ForgotPasswordModal from './ForgotPasswordModal';
 import LoginForm from './LoginForm';
+import SignUpModal from './SignUpModal';
+
+type ActiveModal = 'signup' | 'forgot' | null;
 
 export default function LandingPage() {
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+
   return (
     <div
       className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-cover bg-center"
@@ -20,13 +28,20 @@ export default function LandingPage() {
 
       {/* 로그인 폼 */}
       <div className="relative z-10">
-        <LoginForm />
+        <LoginForm
+          onOpenSignUp={() => setActiveModal('signup')}
+          onOpenForgotPassword={() => setActiveModal('forgot')}
+        />
       </div>
 
       {/* 하단 캐릭터 */}
       <div className="absolute bottom-0 left-50 z-10 flex flex-col items-center gap-1">
         <img src={helpImg} alt="도와줘" className="w-20 h-22 object-contain" />
       </div>
+
+      {activeModal === 'signup' && <SignUpModal onClose={() => setActiveModal(null)} />}
+
+      {activeModal === 'forgot' && <ForgotPasswordModal onClose={() => setActiveModal(null)} />}
     </div>
   );
 }
