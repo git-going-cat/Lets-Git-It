@@ -53,6 +53,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		Double myScore = singleRankingRedisRepository.getScore(key, memberId);
 
 		if (myRankZeroBased == null || myScore == null) {
+			boolean hasNext = total > 3;
 			return new SingleRankingInitialResponse(
 				difficulty.name(),
 				WeekUtil.getYear(now),
@@ -61,8 +62,8 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 				top3,
 				null,
 				List.of(),
-				null,
-				false);
+				hasNext ? 3 : null,
+				hasNext);
 		}
 
 		String nickname = memberService.getNicknameById(memberId);

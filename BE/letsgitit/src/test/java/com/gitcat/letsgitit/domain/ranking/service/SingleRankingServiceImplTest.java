@@ -96,7 +96,7 @@ class SingleRankingServiceImplTest {
 	}
 
 	@Test
-	void 초기_랭킹_조회_시_이번주_기록이_없으면_myRank와_around가_null과_빈_리스트로_반환된다() {
+	void 초기_랭킹_조회_시_이번주_기록이_없으면_myRank가_null이고_top3이후_스크롤_가능하다() {
 		// given
 		given(singleRankingRedisRepository.getTotalCount(anyString())).willReturn(50L);
 		given(singleRankingRedisRepository.getTopEntries(anyString(), eq(3))).willReturn(List.of());
@@ -111,8 +111,8 @@ class SingleRankingServiceImplTest {
 		// then
 		assertThat(response.myRank()).isNull();
 		assertThat(response.around()).isEmpty();
-		assertThat(response.nextCursor()).isNull();
-		assertThat(response.hasNext()).isFalse();
+		assertThat(response.nextCursor()).isEqualTo(3);
+		assertThat(response.hasNext()).isTrue();
 	}
 
 	@Test
