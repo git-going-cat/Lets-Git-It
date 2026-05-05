@@ -12,6 +12,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gitcat.letsgitit.domain.auth.repository.AuthRedisRepository;
@@ -42,8 +45,22 @@ public class SecurityConfig {
 	private final OAuth2FailureHandler oAuth2FailureHandler;
 
 	@Bean
+	public CorsConfigurationSource corsConfigurationSource() {
+		CorsConfiguration config = new CorsConfiguration();
+		config.addAllowedOriginPattern("*");
+		config.addAllowedMethod("*");
+		config.addAllowedHeader("*");
+		config.setAllowCredentials(true);
+
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", config);
+		return source;
+	}
+
+	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http
+			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 			// CSRF 비활성화
 			// - CSRF는 브라우저 세션 기반 인증에서 필요한 보호 기법
 			// - JWT는 세션을 사용하지 않으므로 불필요
@@ -82,12 +99,13 @@ public class SecurityConfig {
 					"/api/v1/auth/token", // OAuth 토큰 교환
 					"/api/v1/auth/password/reset", // 비밀번호 변경 (비밀번호 찾기)
 					"/api/v1/auth/reissue", // 토큰 재발급 (Refresh Token으로 요청)
-					"/oauth2/**", // OAuth2 관련 경로
+					"/api/v1/oauth2/authorization/**", // 소셜 로그인 진입점 (커스텀 base URI)
+					"/oauth2/**", // OAuth2 기본 경로
+					"/login/oauth2/**", // OAuth2 콜백 수신 경로 (Spring Security 내부)
 					"/swagger-ui/**", // Swagger UI
 					"/api-docs/**", // Swagger API 문서
 					"/actuator/**", // 모니터링 엔드포인트
-					"/ws/**", // WebSocket
-					"/login/oauth2/**" // 구글 콜백 수신 경로 (Spring Security 내부)
+					"/ws/**" // WebSocket
 				).permitAll()
 				// 그 외 모든 요청은 인증 필요
 				.anyRequest().authenticated())
