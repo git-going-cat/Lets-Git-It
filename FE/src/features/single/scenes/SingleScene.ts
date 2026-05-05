@@ -47,6 +47,10 @@ export class SingleScene extends Phaser.Scene {
     this.registerEvents();
     this.startTimer();
     this.showCurrentCommand();
+
+    // game.destroy() 시 Phaser가 shutdown()을 보장하지 않는 버전이 있으므로
+    // game destroy 이벤트에서도 EventBus 핸들러를 정리한다
+    this.game.events.once(Phaser.Core.Events.DESTROY, this.shutdown, this);
   }
 
   shutdown(): void {

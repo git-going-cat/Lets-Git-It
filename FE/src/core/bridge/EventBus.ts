@@ -11,7 +11,7 @@ export interface EventMap {
   'lives:update': number;
   'timer:tick': number;
   'command:complete': { index: number };
-  'command:miss': void;
+  'command:miss': { index: number };
   'item:use': { slot: 0 | 1 | 2 };
 }
 

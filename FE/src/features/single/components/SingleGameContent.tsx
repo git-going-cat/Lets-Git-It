@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 
 import screenBg from '@/assets/bg/screen.png';
+import { EventBus } from '@/core/bridge/EventBus';
 import { singleGameConfig } from '@/game/config';
 
 import { useSingleGame } from '../hooks/useSingleGame';
@@ -67,7 +68,24 @@ export default function SingleGameContent() {
         </div>
       </div>
       <div className="relative flex w-[15%] flex-col border-l border-gray-700">
-        <div className="h-48 border-b border-gray-700"></div>
+        <div className="flex h-48 flex-col border-b border-gray-700 p-2">
+          {/* 상단: 우측 정렬된 일시정지 버튼 */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="nes-btn text-xs"
+              onClick={() => EventBus.emit('game:pause')}
+              aria-label="일시정지"
+            >
+              ⏸
+            </button>
+          </div>
+
+          {/* 하단: 중앙 정렬된 캐릭터 */}
+          <div className="flex flex-1 items-end justify-center pb-2">
+            <span className="text-4xl">😸</span>
+          </div>
+        </div>
         <div className="flex-1"></div>
       </div>
     </div>
