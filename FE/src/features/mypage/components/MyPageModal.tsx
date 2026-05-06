@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchMyRecord } from '../api/mypageApi';
+
+import { EditProfileModal } from './EditProfileModal';
 
 interface MyPageModalProps {
   isOpen: boolean;
@@ -8,6 +11,7 @@ interface MyPageModalProps {
 }
 
 export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) {
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const nickname = ''; // TODO: authStore nickname 연동 (auth 팀원 구현 완료 후)
 
   const { data: record, isLoading } = useQuery({
@@ -28,7 +32,11 @@ export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) 
         <div className="flex items-center gap-2">
           <span className="text-[#0078d4]">Git 지존 완성 킹왕짱</span>
         </div>
-        <button type="button" className="text-sm text-gray-500 hover:text-gray-800">
+        <button
+          type="button"
+          className="text-sm text-gray-500 hover:text-gray-800"
+          onClick={() => setIsEditProfileOpen(true)}
+        >
           내 정보 수정 &gt;
         </button>
       </div>
@@ -112,6 +120,15 @@ export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) 
           로그아웃
         </button>
       </div>
+
+      {isEditProfileOpen && (
+        <EditProfileModal
+          isOpen={isEditProfileOpen}
+          onClose={() => setIsEditProfileOpen(false)}
+          authType={record?.authType ?? 'LOCAL'}
+          currentNickname={record?.nickname ?? ''}
+        />
+      )}
     </div>
   );
 }

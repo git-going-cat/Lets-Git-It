@@ -1,3 +1,4 @@
+import catFacePng from '../assets/Web (mobile + desktop)/cat-face.png';
 import googleIconSvg from '../assets/Web (mobile + desktop)/svg/neutral/web_neutral_rd_na.svg';
 import { useCountdown } from '../hooks/useCountdown';
 import { useSignUpModal } from '../hooks/useSignUpModal';
@@ -79,7 +80,7 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
             ✕
           </button>
           <div className="flex flex-col items-center gap-4 text-center">
-            <h2 className="text-2xl">🎉</h2>
+            <img src={catFacePng} alt="cat face" className="w-14 h-14 mb-1" />
             <div>
               <h3 className="font-semibold text-white">회원가입이 완료되었습니다.</h3>
               <p className="mt-1 text-xs text-white/60">로그인 후 모든 기능을 이용해보세요.</p>
@@ -121,22 +122,20 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
         <div className="flex flex-col gap-3">
           {/* 이메일 행 */}
           <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
-              <input
-                {...emailForm.register('email')}
-                type="email"
-                placeholder="이메일 입력"
-                className="min-w-0 flex-1 rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50"
-              />
-              <button
-                type="button"
-                disabled={!emailValue || isSendingCode}
-                onClick={emailForm.handleSubmit(handleSendCode)}
-                className={inlineBtn(!!emailValue && !isSendingCode)}
-              >
-                {isSendingCode ? '전송 중...' : codeSent ? '재전송' : '인증코드 전송'}
-              </button>
-            </div>
+            <input
+              {...emailForm.register('email')}
+              type="email"
+              placeholder="이메일 입력"
+              className="w-full rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50"
+            />
+            <button
+              type="button"
+              disabled={!emailValue || isSendingCode}
+              onClick={emailForm.handleSubmit(handleSendCode)}
+              className={bigBtn(!!emailValue && !isSendingCode)}
+            >
+              {isSendingCode ? '전송 중...' : codeSent ? '재전송' : '인증코드 전송'}
+            </button>
             {emailForm.formState.errors.email && (
               <p className="ml-2 mt-2 text-xs text-red-400">
                 {emailForm.formState.errors.email.message}
