@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 
 import { onboardingApi } from '../api/onboardingApi';
@@ -37,19 +38,21 @@ export function useOnboarding() {
     setStep(next);
   }, []);
 
+  const { mutateAsync: completeTutorial } = useMutation({
+    mutationFn: () => onboardingApi.completeTutorial(),
+  });
+
   /**
    * 튜토리얼 완료 or 스킵 처리.
    * completeTutorial API 호출 후 홈으로 이동.
    */
   const finishOnboarding = useCallback(async () => {
     setStep('completing');
-    try {
-      await onboardingApi.completeTutorial();
-    } catch {
+    await completeTutorial().catch(() => {
       // 이미 TUTORIAL_DONE인 경우 예외 발생 → 무시하고 홈으로 이동
-    }
+    });
     await navigate({ to: '/home' });
-  }, [navigate]);
+  }, [completeTutorial, navigate]);
 
   return { step, goToStep, finishOnboarding, user };
 }

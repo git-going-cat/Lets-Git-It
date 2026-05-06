@@ -57,10 +57,7 @@ export default function CharacterSetup({ onComplete }: CharacterSetupProps) {
       <div className="flex gap-4 items-center">
         {/* 캐릭터 미리보기 */}
         <div className="flex flex-col items-center gap-2 shrink-0">
-          <div
-            className="rounded-lg border border-white/10 flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.05)', padding: '12px' }}
-          >
+          <div className="rounded-lg border border-white/10 flex items-center justify-center bg-white/5 p-3">
             <CharacterPreview values={values} />
           </div>
         </div>

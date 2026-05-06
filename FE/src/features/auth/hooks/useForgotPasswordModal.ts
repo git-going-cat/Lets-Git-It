@@ -36,7 +36,8 @@ export function useForgotPasswordModal() {
 
   const resetForm = useForm<ForgotPasswordResetValues>({
     resolver: zodResolver(forgotPasswordResetSchema),
-    mode: 'onChange',
+    mode: 'all',
+    defaultValues: { newPassword: '', newPasswordConfirm: '' },
   });
 
   const handleSendCode = async () => {
