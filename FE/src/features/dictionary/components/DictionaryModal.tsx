@@ -1,23 +1,20 @@
-import { useState } from 'react';
-
-import { useDictionary } from '../hooks/useDictionary';
+import { useDictionaryModal } from '../hooks/useDictionaryModal';
 
 import CommandDetail from './CommandDetail';
-
-import type { Command } from '../types/dictionary.types';
 
 interface DictionaryModalProps {
   onClose: () => void;
 }
 
 export default function DictionaryModal({ onClose }: DictionaryModalProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCommand, setSelectedCommand] = useState<Command | null>(null);
-
-  const { data: commands, isLoading } = useDictionary();
-
-  const filteredCommands =
-    commands?.filter((cmd) => cmd.name.toLowerCase().includes(searchQuery.toLowerCase())) || [];
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedCommand,
+    setSelectedCommand,
+    filteredCommands,
+    isLoading,
+  } = useDictionaryModal();
 
   return (
     <div
@@ -76,11 +73,11 @@ export default function DictionaryModal({ onClose }: DictionaryModalProps) {
                         {cmd.name}
                       </span>
                       {cmd.isInGame ? (
-                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
+                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-bold text-blue-600">
                           게임 내 사용
                         </span>
                       ) : (
-                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-bold text-gray-500">
                           게임 외
                         </span>
                       )}
