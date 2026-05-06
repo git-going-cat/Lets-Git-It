@@ -6,10 +6,12 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.gitcat.letsgitit.domain.record.entity.BestRecordMode;
 import com.gitcat.letsgitit.domain.record.entity.MemberBestRecord;
 import com.gitcat.letsgitit.domain.record.entity.MemberCoopBestRecord;
 import com.gitcat.letsgitit.domain.record.repository.MemberBestRecordRepository;
 import com.gitcat.letsgitit.domain.record.repository.MemberCoopBestRecordRepository;
+import com.gitcat.letsgitit.global.enums.Difficulty;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,5 +33,31 @@ public class RecordServiceImpl implements RecordService {
 	public MemberCoopBestRecord getBestCoopRecord(UUID memberId) {
 		return memberCoopBestRecordRepository.findBestRecordByMemberId(memberId)
 			.orElse(null);
+	}
+
+	@Override
+	@Transactional
+	public boolean updateSingleBestRecord(UUID memberId, Difficulty difficulty, int score, int rank) {
+		BestRecordMode mode = toSingleBestRecordMode(difficulty);
+
+		MemberBestRecord record = memberBestRecordRepository
+			.findByMemberIdAndMode(memberId, mode)
+			.orElseGet(() -> MemberBestRecord.of(memberId, mode, 0, 0));
+
+		if (score <= record.getBestScore()) {
+			return false;
+		}
+
+		record.update(score, rank);
+		memberBestRecordRepository.save(record);
+		return true;
+	}
+
+	private BestRecordMode toSingleBestRecordMode(Difficulty difficulty) {
+		return switch (difficulty) {
+			case EASY -> BestRecordMode.SINGLE_EASY;
+			case NORMAL -> BestRecordMode.SINGLE_NORMAL;
+			case HARD -> BestRecordMode.SINGLE_HARD;
+		};
 	}
 }

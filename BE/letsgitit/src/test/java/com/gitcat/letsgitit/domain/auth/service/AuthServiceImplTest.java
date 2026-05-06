@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.*;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -194,8 +195,8 @@ class AuthServiceImplTest {
 		// given
 		AuthRequest.RegisterRequest request = new AuthRequest.RegisterRequest(EMAIL, PASSWORD);
 		given(authRedisRepository.isEmailVerified(EMAIL, "sign_up")).willReturn(true);
-		given(memberService.existsByEmail(EMAIL)).willReturn(false);
 		given(passwordEncoder.encode(PASSWORD)).willReturn(ENCODED_PASSWORD);
+		given(memberService.findByEmailIncludingDeleted(EMAIL)).willReturn(Optional.empty());
 
 		// when
 		authService.register(request);
@@ -334,7 +335,7 @@ class AuthServiceImplTest {
 
 		given(jwtProvider.validateToken(ACCESS_TOKEN)).willReturn(true);
 		given(jwtProvider.getEmail(ACCESS_TOKEN)).willReturn(EMAIL);
-		given(memberService.findByEmail(EMAIL)).willReturn(member);
+		given(memberService.findByEmailIncludingDeleted(EMAIL)).willReturn(Optional.of(member));
 		given(jwtProvider.getExpiration(ACCESS_TOKEN)).willReturn(1000L);
 		given(authRedisRepository.getRefreshToken(memberId.toString())).willReturn(REFRESH_TOKEN);
 		given(jwtProvider.getExpiration(REFRESH_TOKEN)).willReturn(100000L);

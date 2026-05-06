@@ -1,10 +1,9 @@
 package com.gitcat.letsgitit.domain.single.controller;
 
-import java.util.Map;
-
 import org.springframework.http.ResponseEntity;
 
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
+import com.gitcat.letsgitit.domain.single.dto.request.SingleResultSaveRequest;
 import com.gitcat.letsgitit.domain.single.dto.request.SingleSessionStartRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,11 +40,17 @@ public interface SingleControllerDocs {
 		      {
 		        "commandSequence": 1,
 		        "text": "git switch -c feature/login",
-		        "branchName": "feature/login",
+		        "branchName": "main",
 		        "type": "CREATE"
 		      },
 		      {
-		        "commandSequence": 5,
+		        "commandSequence": 2,
+		        "text": "git switch main",
+		        "branchName": "feature/login",
+		        "type": "SWITCH"
+		      },
+		      {
+		        "commandSequence": 3,
 		        "text": "git merge feature/login",
 		        "branchName": "main",
 		        "type": "MERGE"
@@ -97,7 +102,9 @@ public interface SingleControllerDocs {
 			""")))
 	})
 	ResponseEntity<?> saveResult(
+		@Parameter(hidden = true)
+		CustomUserDetails userDetails,
 		@Parameter(name = "sessionId", description = "세션 ID", required = true)
 		String sessionId,
-		Map<String, Object> body);
+		SingleResultSaveRequest request);
 }

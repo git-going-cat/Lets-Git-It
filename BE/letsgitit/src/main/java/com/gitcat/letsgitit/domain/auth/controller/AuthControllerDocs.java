@@ -88,6 +88,9 @@ public interface AuthControllerDocs {
 		@ApiResponse(responseCode = "201", description = "회원가입 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 			{"status": 201, "message": "회원가입 성공", "data": {}}
 			"""))),
+		@ApiResponse(responseCode = "200", description = "탈퇴 후 30일 이내 재가입 — 기존 계정 재활성화", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+			{"status": 200, "message": "계정이 재활성화되었습니다.", "data": {}}
+			"""))),
 		@ApiResponse(responseCode = "409", description = "이미 사용 중인 이메일", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "EMAIL_DUPLICATE", value = """
 			{"status": 409, "code": "EMAIL_DUPLICATE", "message": "이미 사용 중인 이메일입니다.", "errors": []}
 			"""))),

@@ -28,4 +28,7 @@ public interface MemberJpaRepository extends JpaRepository<Member, UUID> {
 
 	Optional<Member> findByProviderAndProviderId(Provider provider, String providerId);
 
+	@Query(value = "SELECT * FROM member WHERE email = :email LIMIT 1", nativeQuery = true)
+	Optional<Member> findByEmailIncludingDeleted(@Param("email")
+	String email);
 }

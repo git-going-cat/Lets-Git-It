@@ -92,4 +92,9 @@ public interface AuthRedisRepository {
 
 	// OAuth 임시코드 삭제 (1회용 처리)
 	void deleteOAuthTempCode(String code);
+
+	// 인터페이스
+	void saveOAuthReactivated(String tempCode, boolean isReactivated);
+
+	boolean getOAuthReactivated(String tempCode);
 }
