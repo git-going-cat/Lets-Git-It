@@ -19,13 +19,16 @@ public class SingleRankingRedisRepositoryImpl implements SingleRankingRedisRepos
 	}
 
 	@Override
-	public void saveScore(String key, UUID memberId, double score) {
+	public boolean saveScoreAndGrade(String scoreKey, String gradeKey, UUID memberId, double score, String grade) {
 		Double currentScore = rankingStringRedisTemplate.opsForZSet()
-			.score(key, memberId.toString());
+			.score(scoreKey, memberId.toString());
 
 		if (currentScore == null || score > currentScore) {
-			rankingStringRedisTemplate.opsForZSet().add(key, memberId.toString(), score);
+			rankingStringRedisTemplate.opsForZSet().add(scoreKey, memberId.toString(), score);
+			rankingStringRedisTemplate.opsForHash().put(gradeKey, memberId.toString(), grade);
+			return true;
 		}
+		return false;
 	}
 
 	@Override
@@ -48,6 +51,31 @@ public class SingleRankingRedisRepositoryImpl implements SingleRankingRedisRepos
 	}
 
 	@Override
+	public String getGrade(String gradeKey, UUID memberId) {
+		Object value = rankingStringRedisTemplate.opsForHash()
+			.get(gradeKey, memberId.toString());
+		return value != null ? (String)value : null;
+	}
+
+	@Override
+	public Map<UUID, String> getGrades(String gradeKey, List<UUID> memberIds) {
+		if (memberIds.isEmpty()) {
+			return Map.of();
+		}
+		List<Object> fields = memberIds.stream().map(UUID::toString).collect(java.util.stream.Collectors.toList());
+		List<Object> values = rankingStringRedisTemplate.opsForHash().multiGet(gradeKey, fields);
+
+		Map<UUID, String> result = new HashMap<>(memberIds.size());
+		for (int i = 0; i < memberIds.size(); i++) {
+			Object val = values.get(i);
+			if (val != null) {
+				result.put(memberIds.get(i), (String)val);
+			}
+		}
+		return result;
+	}
+
+	@Override
 	public List<RankEntry> getRangeByRank(String key, long start, long end) {
 		Set<ZSetOperations.TypedTuple<String>> tuples = rankingStringRedisTemplate.opsForZSet()
 			.reverseRangeWithScores(key, start, end);
@@ -58,6 +86,11 @@ public class SingleRankingRedisRepositoryImpl implements SingleRankingRedisRepos
 	public long getTotalCount(String key) {
 		Long count = rankingStringRedisTemplate.opsForZSet().zCard(key);
 		return count != null ? count : 0L;
+	}
+
+	@Override
+	public void deleteKey(String key) {
+		rankingStringRedisTemplate.delete(key);
 	}
 
 	private List<RankEntry> toRankEntries(Set<ZSetOperations.TypedTuple<String>> tuples) {

@@ -84,11 +84,17 @@ POST /api/v1/auth/email/send?purpose=SIGN_UP
 ### 1-2. 이메일 인증 코드 검증
 
 ```
-POST /api/v1/auth/email/verify
+POST /api/v1/auth/email/verify?purpose={purpose}
 ```
 
 > 검증 성공 시 서버에서 인증 완료 상태를 Redis에 저장합니다.
 > 이후 회원가입 API 호출 시 인증 완료 여부를 확인합니다.
+
+#### Query
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `purpose` | String | Y | 인증 목적<br>• `SIGN_UP` : 로컬 회원가입용<br>• `PASSWORD_RESET` : 비밀번호 찾기용<br>• `WITHDRAW` : 탈퇴용 |
 
 #### Request Body
 
@@ -150,10 +156,22 @@ POST /api/v1/auth/register
 
 #### Response
 
+일반 회원가입:
+
 ```json
 {
   "status": 201,
   "message": "회원가입 성공",
+  "data": {}
+}
+```
+
+30일 이내 재가입 (기존 계정 재활성화):
+
+```json
+{
+  "status": 200,
+  "message": "계정이 재활성화되었습니다.",
   "data": {}
 }
 ```
@@ -408,7 +426,7 @@ POST /api/v1/auth/logout
 ### 1-9. 비밀번호 변경 (비밀번호 찾기용 · 인증 불필요)
 
 ```
-PATCH /api/v1/auth/password
+PATCH /api/v1/auth/password/reset
 ```
 
 > 인증 불필요. 이메일 인증 완료 후 호출. 서버에서 `email:verified:PASSWORD_RESET:{email}` 확인.
@@ -451,6 +469,10 @@ PATCH /api/v1/auth/password
 
 ### 1-10. 비밀번호 검증
 
+```
+POST /api/v1/auth/password/verify
+```
+
 비밀번호를 수정하기 전, 기존 비밀번호를 입력받아 검증합니다.
 
 #### Request Body
@@ -488,11 +510,25 @@ PATCH /api/v1/auth/password
 
 ### 2-1. 닉네임 저장 (온보딩)
 
+```
+POST /api/v1/members/me/nickname
+```
+
+> 최초 온보딩 시 1회만 가능. 이미 설정된 경우 `NICKNAME_ALREADY_SET` 오류.
+
+#### 닉네임 정책
+
+| 조건 | 내용 |
+| --- | --- |
+| 길이 | 2자 이상 6자 이하 |
+| 허용 문자 | 한글(완성형), 영문, 숫자 |
+| 금지 | 초성·자음 단독 사용 (`ㄱ`, `ㅎ` 등), 모음 단독 사용 (`ㅏ`, `ㅣ` 등), 특수문자, 공백 |
+
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `nickname` | String | Y | 설정할 닉네임 |
+| `nickname` | String | Y | 설정할 닉네임 (2~6자, 한글·영문·숫자) |
 
 ```json
 {
@@ -514,8 +550,9 @@ PATCH /api/v1/auth/password
 
 | 코드 | 설명 |
 | --- | --- |
-| `NICKNAME_DUPLICATE` | 중복된 닉네임 |
-| `NICKNAME_INVALID` | 닉네임 형식 불일치 |
+| `NICKNAME_DUPLICATE` | 중복된 닉네임 (탈퇴 회원 닉네임 포함) |
+| `NICKNAME_ALREADY_SET` | 이미 닉네임이 설정된 회원 |
+| `INVALID_INPUT_VALUE` | 닉네임 형식 불일치 (길이, 허용 문자 위반) |
 
 ---
 
@@ -604,6 +641,10 @@ GET /api/v1/members/me
 
 ### 2-4. 캐릭터 에셋 저장
 
+```
+PATCH /api/v1/members/me/character
+```
+
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
@@ -644,11 +685,21 @@ GET /api/v1/members/me
 PATCH /api/v1/members/me/nickname
 ```
 
+> 현재와 동일한 닉네임 입력 시 중복 검사 없이 그대로 유지.
+
+#### 닉네임 정책
+
+| 조건 | 내용 |
+| --- | --- |
+| 길이 | 2자 이상 6자 이하 |
+| 허용 문자 | 한글(완성형), 영문, 숫자 |
+| 금지 | 초성·자음 단독 사용 (`ㄱ`, `ㅎ` 등), 모음 단독 사용 (`ㅏ`, `ㅣ` 등), 특수문자, 공백 |
+
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `nickname` | String | Y | 새 닉네임 |
+| `nickname` | String | Y | 새 닉네임 (2~6자, 한글·영문·숫자) |
 
 ```json
 {
@@ -670,7 +721,8 @@ PATCH /api/v1/members/me/nickname
 
 | 코드 | 설명 |
 | --- | --- |
-| `NICKNAME_DUPLICATE` | 이미 사용 중인 닉네임 |
+| `NICKNAME_DUPLICATE` | 이미 사용 중인 닉네임 (탈퇴 회원 닉네임 포함) |
+| `INVALID_INPUT_VALUE` | 닉네임 형식 불일치 (길이, 허용 문자 위반) |
 
 ---
 
@@ -680,7 +732,13 @@ PATCH /api/v1/members/me/nickname
 GET /api/v1/members/nickname/check?nickname={nickname}
 ```
 
-> 탈퇴 회원의 닉네임도 재사용 불가
+> 탈퇴 회원의 닉네임도 재사용 불가. 형식 검증 후 중복 검사 순으로 처리.
+
+#### Query Parameters
+
+| 파라미터 | 필수 | 설명 |
+| --- | --- | --- |
+| `nickname` | ✅ | 확인할 닉네임 (2~6자, 한글·영문·숫자) |
 
 #### Response
 
@@ -696,22 +754,41 @@ GET /api/v1/members/nickname/check?nickname={nickname}
 
 | 코드 | 설명 |
 | --- | --- |
-| `NICKNAME_DUPLICATE` | 이미 사용 중인 닉네임 |
+| `NICKNAME_DUPLICATE` | 이미 사용 중인 닉네임 (탈퇴 회원 닉네임 포함) |
+| `INVALID_INPUT_VALUE` | 닉네임 형식 불일치 (길이, 허용 문자 위반) |
 
 ---
 
 ### 2-7. 회원탈퇴
 
 ```
-DELETE /api/v1/members/me
+DELETE /api/v1/members/withdraw
 ```
 
+> Authorization 헤더에 Access Token 필요.
+>
 > - 탈퇴 즉시 물리 삭제하지 않음
 > - `deletedAt` 기준 soft delete 처리
-> - email, nickname은 유지
+> - 탈퇴 성공 시 서버에서 자동 로그아웃 처리 (AT 블랙리스트 등록, RT 삭제, 쿠키 만료)
 > - 닉네임 재사용 불가
 > - 탈퇴 후 30일 이내 같은 이메일로 재가입 시 기존 계정 재활성화
-> - 30일 초과 시 삭제 또는 마스킹 대상
+> - 30일 초과 시 마스킹 처리 후 신규 계정 생성 가능
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `password` | String | N | 현재 비밀번호 (LOCAL 계정만 필수, OAuth 계정은 불필요) |
+
+```json
+// LOCAL 계정
+{
+  "password": "currentPassword123!"
+}
+
+// OAuth 계정
+{}
+```
 
 #### Response
 
@@ -727,27 +804,73 @@ DELETE /api/v1/members/me
 
 | 코드 | 설명 |
 | --- | --- |
-| `INVALID_CREDENTIALS` | 이메일 또는 비밀번호 불일치 |
+| `INVALID_CREDENTIALS` | 비밀번호 불일치 (LOCAL 계정) |
+| `INVALID_TOKEN` | Authorization 헤더 누락 또는 유효하지 않은 토큰 |
 
 ---
 
-### 2-8. 비밀번호 변경 (인증 필요)
+### 2-8. 비밀번호 검증 (인증 필요)
 
 ```
-PATCH /api/v1/members/me/password
+POST /api/v1/members/me/password/verify
 ```
 
-> Authorization 헤더에 Access Token 필요. 비밀번호 검증 API(1-10) 호출 후 사용.
+> Authorization 헤더에 Access Token 필요.
+> 검증 성공 시 서버에서 Redis에 인증 상태 저장 (TTL 5분).
+> 이후 비밀번호 변경 API(2-9) 호출 시 이 상태를 확인한다.
 
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
+| `password` | String | Y | 현재 비밀번호 |
+
+```json
+{
+  "password": "currentPassword123!"
+}
+```
+
+#### Response
+
+```json
+{
+  "status": 200,
+  "message": "비밀번호 검증 성공",
+  "data": {}
+}
+```
+
+#### 에러 코드
+
+| 코드 | 설명 |
+| --- | --- |
+| `PASSWORD_MISMATCH` | 입력한 비밀번호가 현재 비밀번호와 불일치 |
+| `OAUTH_ACCOUNT` | 소셜 로그인 계정 (비밀번호 없음) |
+
+---
+
+### 2-9. 비밀번호 변경 (인증 필요)
+
+```
+PATCH /api/v1/members/me/password/reset
+```
+
+> Authorization 헤더에 Access Token 필요.
+> 비밀번호 검증 API(2-8) 호출 후 Redis 인증 상태가 존재할 때만 변경 가능.
+> 변경 완료 후 Redis 키 즉시 삭제.
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `currentPassword` | String | Y | 현재 비밀번호 (토큰 탈취 시 Redis 키만으로 변경되는 것을 방지하기 위한 재검증) |
 | `newPassword` | String | Y | 새 비밀번호 |
 
 ```json
 {
-  "newPassword": "newPassword123!"
+  "currentPassword": "currentPassword123!",
+  "newPassword": "newPassword456!"
 }
 ```
 
@@ -765,9 +888,11 @@ PATCH /api/v1/members/me/password
 
 | 코드 | 설명 |
 | --- | --- |
+| `PASSWORD_VERIFY_REQUIRED` | 비밀번호 검증 단계를 거치지 않음 (Redis 키 없음 / 만료) |
+| `PASSWORD_MISMATCH` | currentPassword가 현재 비밀번호와 불일치 |
 | `INVALID_PASSWORD_FORMAT` | 비밀번호 형식 불일치 |
 | `OAUTH_ACCOUNT` | 소셜 로그인 계정 (비밀번호 없음) |
-| `SAME_AS_CURRENT_PASSWORD` | 현재 비밀번호와 동일 |
+| `SAME_AS_CURRENT_PASSWORD` | 새 비밀번호가 현재 비밀번호와 동일 |
 
 ---
 
@@ -779,8 +904,6 @@ PATCH /api/v1/members/me/password
 GET /api/v1/dictionary/commands
 ```
 
-> 인증 불필요
-
 #### Response
 
 | 필드 | 타입 | 설명 |
@@ -789,7 +912,9 @@ GET /api/v1/dictionary/commands
 | `commands[].commandId` | UUID | 명령어 ID |
 | `commands[].name` | String | 명령어 이름 |
 | `commands[].description` | String | 명령어 설명 |
-| `commands[].imageUrl` | String | 명령어 이미지 URL |
+| `commands[].tip` | String | 명령어 팁 |
+| `commands[].example` | String | 명령어 예시 |
+| `commands[].isInGame` | Boolean | 게임 내 사용 여부 |
 | `commands[].options` | Array | 명령어 옵션 목록 |
 | `commands[].options[].option` | String | 옵션 |
 | `commands[].options[].description` | String | 옵션 설명 |
@@ -804,7 +929,9 @@ GET /api/v1/dictionary/commands
         "commandId": "UUID",
         "name": "git commit",
         "description": "변경사항을 로컬 저장소에 저장합니다",
-        "imageUrl": "https://cdn.example.com/commands/commit.png",
+        "tip": "커밋 메시지는 현재형으로 작성하는 것이 관례입니다",
+        "example": "git commit -m \"feat: 로그인 기능 추가\"",
+        "isInGame": true,
         "options": [
           { "option": "-m",      "description": "커밋 메시지를 인라인으로 작성" },
           { "option": "--amend", "description": "직전 커밋 수정" }
@@ -853,13 +980,16 @@ GET /api/v1/rankings/single?difficulty={difficulty}&cursor={cursor}&size={size}
 | `top3[].rank` | Integer | 순위 |
 | `top3[].nickname` | String | 닉네임 |
 | `top3[].score` | Integer | 점수 |
+| `top3[].grade` | String | 등급 (`S`/`A`/`B`/`C`/`D`), null 가능 |
 | `myRank` | Object | 내 랭킹 정보 |
 | `myRank.rank` | Integer | 내 순위 |
 | `myRank.score` | Integer | 내 점수 |
+| `myRank.grade` | String | 내 등급, null 가능 |
 | `around` | Array | 내 랭킹 근처 유저 |
 | `around[].rank` | Integer | 순위 |
 | `around[].nickname` | String | 닉네임 |
 | `around[].score` | Integer | 점수 |
+| `around[].grade` | String | 등급, null 가능 |
 | `nextCursor` | Integer | 다음 스크롤 시작 커서, null이면 마지막 |
 | `hasNext` | Boolean | 다음 페이지 존재 여부 |
 
@@ -873,17 +1003,17 @@ GET /api/v1/rankings/single?difficulty={difficulty}&cursor={cursor}&size={size}
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "gitmaster",  "score": 9800 },
-      { "rank": 2, "nickname": "branchking", "score": 9200 },
-      { "rank": 3, "nickname": "mergelord",  "score": 8700 }
+      { "rank": 1, "nickname": "gitmas", "score": 9800, "grade": "S" },
+      { "rank": 2, "nickname": "branch", "score": 9200, "grade": "A" },
+      { "rank": 3, "nickname": "mergel", "score": 8700, "grade": "A" }
     ],
-    "myRank": { "rank": 42, "score": 7200 },
+    "myRank": { "rank": 42, "score": 7200, "grade": "B" },
     "around": [
-      { "rank": 40, "nickname": "user1",  "score": 7400 },
-      { "rank": 41, "nickname": "user2",  "score": 7300 },
-      { "rank": 42, "nickname": "dobby",  "score": 7200 },
-      { "rank": 43, "nickname": "user3",  "score": 7100 },
-      { "rank": 44, "nickname": "user4",  "score": 7000 }
+      { "rank": 40, "nickname": "user1", "score": 7400, "grade": "B" },
+      { "rank": 41, "nickname": "user2", "score": 7300, "grade": "B" },
+      { "rank": 42, "nickname": "dobby", "score": 7200, "grade": "B" },
+      { "rank": 43, "nickname": "user3", "score": 7100, "grade": "C" },
+      { "rank": 44, "nickname": "user4", "score": 7000, "grade": "C" }
     ],
     "nextCursor": 44,
     "hasNext": true
@@ -905,6 +1035,7 @@ GET /api/v1/rankings/single?difficulty=NORMAL&cursor=44&size=20
 | `rankings[].rank` | Integer | 순위 |
 | `rankings[].nickname` | String | 닉네임 |
 | `rankings[].score` | Integer | 점수 |
+| `rankings[].grade` | String | 등급, null 가능 |
 | `nextCursor` | Integer | 다음 커서, null이면 마지막 |
 | `hasNext` | Boolean | 다음 페이지 존재 여부 |
 
@@ -914,7 +1045,7 @@ GET /api/v1/rankings/single?difficulty=NORMAL&cursor=44&size=20
   "message": "싱글 랭킹 조회 성공",
   "data": {
     "rankings": [
-      { "rank": 45, "nickname": "user5", "score": 6900 }
+      { "rank": 45, "nickname": "user5", "score": 6900, "grade": "C" }
     ],
     "nextCursor": 64,
     "hasNext": true
@@ -950,9 +1081,9 @@ GET /api/v1/rankings/speed?cursor={cursor}&size={size}
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "speedking", "contribution": 12000 },
-      { "rank": 2, "nickname": "fastuser",  "contribution": 11500 },
-      { "rank": 3, "nickname": "quickdraw", "contribution": 10900 }
+      { "rank": 1, "nickname": "speed", "contribution": 12000 },
+      { "rank": 2, "nickname": "fast",  "contribution": 11500 },
+      { "rank": 3, "nickname": "quick", "contribution": 10900 }
     ],
     "myRank": { "rank": 15, "contribution": 8800 },
     "around": [
@@ -996,9 +1127,9 @@ GET /api/v1/rankings/timeattack?cursor={cursor}&size={size}
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "timemaster", "totalCount": 15000 },
-      { "rank": 2, "nickname": "clockking",  "totalCount": 14200 },
-      { "rank": 3, "nickname": "ticktock",   "totalCount": 13800 }
+      { "rank": 1, "nickname": "timema", "totalCount": 15000 },
+      { "rank": 2, "nickname": "clock",  "totalCount": 14200 },
+      { "rank": 3, "nickname": "tick",   "totalCount": 13800 }
     ],
     "myRank": { "rank": 7, "totalCount": 10500 },
     "around": [
@@ -1068,9 +1199,9 @@ GET /api/v1/rankings/coop?mapName={맵이름}&difficulty={맵난이도}&cursor={
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "coopmaster", "clearTime": 61000 },
-      { "rank": 2, "nickname": "teamwork",   "clearTime": 65000 },
-      { "rank": 3, "nickname": "syncpro",    "clearTime": 70000 }
+      { "rank": 1, "nickname": "coopma", "clearTime": 61000 },
+      { "rank": 2, "nickname": "teamwo",   "clearTime": 65000 },
+      { "rank": 3, "nickname": "syncpr",    "clearTime": 70000 }
     ],
     "myRank": { "rank": 5, "clearTime": 83000 },
     "around": [
@@ -1091,7 +1222,8 @@ GET /api/v1/rankings/coop?mapName={맵이름}&difficulty={맵난이도}&cursor={
 ### 4-5. 싱글 난이도별 랭킹 조회 (과거 주)
 
 - 과거의 랭킹은 **RDB에서 조회**
-- 주간 정산 완료 후 저장된 RDB 데이터 사용
+- 이번 주 랭킹은 Redis Sorted Set 기반으로 실시간 조회하지만, 과거의 랭킹은 완료 후 저장된 RDB 데이터를 사용
+- RDB 저장 시점: **매주 월요일 00:00**
 
 ```
 GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={month}&week={week}&cursor={cursor}&size={size}
@@ -1108,6 +1240,31 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
 | `cursor` | ❌ | 무한 스크롤 커서, 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
+#### 초기 진입 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `difficulty` | String | 난이도 |
+| `year` | Integer | 조회 연도 |
+| `month` | Integer | 조회 월 |
+| `week` | Integer | 조회 주차 |
+| `top3` | Array | 상위 3명 고정 노출 |
+| `top3[].rank` | Integer | 순위 |
+| `top3[].nickname` | String | 닉네임 |
+| `top3[].score` | Integer | 점수 |
+| `top3[].grade` | String | 등급 (`S`/`A`/`B`/`C`/`D`), null 가능 |
+| `myRank` | Object | 내 랭킹 정보 |
+| `myRank.rank` | Integer | 내 순위 |
+| `myRank.score` | Integer | 내 점수 |
+| `myRank.grade` | String | 내 등급, null 가능 |
+| `around` | Array | 내 랭킹 근처 유저 |
+| `around[].rank` | Integer | 순위 |
+| `around[].nickname` | String | 닉네임 |
+| `around[].score` | Integer | 점수 |
+| `around[].grade` | String | 등급, null 가능 |
+| `nextCursor` | Integer | 다음 스크롤 시작 커서, null이면 마지막 |
+| `hasNext` | Boolean | 다음 페이지 존재 여부 |
+
 #### 초기 진입 Response 예시
 
 ```json
@@ -1120,17 +1277,17 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "gitmaster",  "score": 9800 },
-      { "rank": 2, "nickname": "branchking", "score": 9200 },
-      { "rank": 3, "nickname": "mergelord",  "score": 8700 }
+      { "rank": 1, "nickname": "gitmas", "score": 9800, "grade": "S" },
+      { "rank": 2, "nickname": "branc",  "score": 9200, "grade": "A" },
+      { "rank": 3, "nickname": "merge",  "score": 8700, "grade": "A" }
     ],
-    "myRank": { "rank": 42, "score": 7200 },
+    "myRank": { "rank": 42, "score": 7200, "grade": "B" },
     "around": [
-      { "rank": 40, "nickname": "user1",  "score": 7400 },
-      { "rank": 41, "nickname": "user2",  "score": 7300 },
-      { "rank": 42, "nickname": "dobby",  "score": 7200 },
-      { "rank": 43, "nickname": "user3",  "score": 7100 },
-      { "rank": 44, "nickname": "user4",  "score": 7000 }
+      { "rank": 40, "nickname": "user1", "score": 7400, "grade": "B" },
+      { "rank": 41, "nickname": "user2", "score": 7300, "grade": "B" },
+      { "rank": 42, "nickname": "dobby", "score": 7200, "grade": "B" },
+      { "rank": 43, "nickname": "user3", "score": 7100, "grade": "C" },
+      { "rank": 44, "nickname": "user4", "score": 7000, "grade": "C" }
     ],
     "nextCursor": 44,
     "hasNext": true
@@ -1144,6 +1301,18 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
 GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=17&cursor=44&size=20
 ```
 
+#### 무한 스크롤 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `rankings` | Array | 랭킹 목록 |
+| `rankings[].rank` | Integer | 순위 |
+| `rankings[].nickname` | String | 닉네임 |
+| `rankings[].score` | Integer | 점수 |
+| `rankings[].grade` | String | 등급, null 가능 |
+| `nextCursor` | Integer | 다음 커서, null이면 마지막 |
+| `hasNext` | Boolean | 다음 페이지 존재 여부 |
+
 #### 무한 스크롤 Response 예시
 
 ```json
@@ -1152,7 +1321,7 @@ GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=17&
   "message": "싱글 랭킹 조회 성공",
   "data": {
     "rankings": [
-      { "rank": 45, "nickname": "user5", "score": 6900 }
+      { "rank": 45, "nickname": "user5", "score": 6900, "grade": "C" }
     ],
     "nextCursor": 64,
     "hasNext": true
@@ -1189,9 +1358,9 @@ GET /api/v1/rankings/speed/history?year={year}&month={month}&week={week}&cursor=
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "speedking", "contribution": 12000 },
-      { "rank": 2, "nickname": "fastuser",  "contribution": 11500 },
-      { "rank": 3, "nickname": "quickdraw", "contribution": 10900 }
+      { "rank": 1, "nickname": "speed", "contribution": 12000 },
+      { "rank": 2, "nickname": "fast",  "contribution": 11500 },
+      { "rank": 3, "nickname": "quick", "contribution": 10900 }
     ],
     "myRank": { "rank": 15, "contribution": 8800 },
     "around": [
@@ -1258,9 +1427,9 @@ GET /api/v1/rankings/timeattack/history?year={year}&month={month}&week={week}&cu
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "timemaster", "totalCount": 15000 },
-      { "rank": 2, "nickname": "clockking",  "totalCount": 14200 },
-      { "rank": 3, "nickname": "ticktock",   "totalCount": 13800 }
+      { "rank": 1, "nickname": "time", "totalCount": 15000 },
+      { "rank": 2, "nickname": "cloc",  "totalCount": 14200 },
+      { "rank": 3, "nickname": "tick",   "totalCount": 13800 }
     ],
     "myRank": { "rank": 7, "totalCount": 10500 },
     "around": [
@@ -1330,9 +1499,9 @@ GET /api/v1/rankings/coop/history?mapId={mapId}&year={year}&month={month}&week={
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "coopmaster", "clearTime": 61000 },
-      { "rank": 2, "nickname": "teamwork",   "clearTime": 65000 },
-      { "rank": 3, "nickname": "syncpro",    "clearTime": 70000 }
+      { "rank": 1, "nickname": "coopm", "clearTime": 61000 },
+      { "rank": 2, "nickname": "team",   "clearTime": 65000 },
+      { "rank": 3, "nickname": "sync",    "clearTime": 70000 }
     ],
     "myRank": { "rank": 5, "clearTime": 83000 },
     "around": [
@@ -1424,11 +1593,12 @@ POST /api/v1/single/sessions
 | `commandSet[].commandSequence` | Integer | 명령어 식별자 |
 | `commandSet[].text` | String | 명령어 전체 텍스트 |
 | `commandSet[].branchName` | String | 브랜치 이름 |
-| `commandSet[].type` | String | 명령어 타입 (`CREATE` / `MERGE` / `COMMON`) |
+| `commandSet[].type` | String | 명령어 타입 (`CREATE` / `MERGE` / `SWITCH` / `COMMON`) |
 
 **type 분류 기준**
-- `CREATE` : `git switch -c`, `git checkout -b` 등 브랜치 생성 명령어
+- `CREATE` : `git switch -c` 브랜치 생성 명령어
 - `MERGE` : `git merge` 명령어
+- `SWITCH` : `git switch` 브랜치 이동 명령어
 - `COMMON` : 그 외 모든 명령어
 
 ```json
@@ -1449,11 +1619,17 @@ POST /api/v1/single/sessions
       {
         "commandSequence": 1,
         "text": "git switch -c feature/login",
-        "branchName": "feature/login",
+        "branchName": "main",
         "type": "CREATE"
       },
       {
         "commandSequence": 2,
+        "text": "git switch main",
+        "branchName": "feature/login",
+        "type": "SWITCH"
+      },
+      {
+        "commandSequence": 3,
         "text": "git merge feature/login",
         "branchName": "main",
         "type": "MERGE"
@@ -1476,13 +1652,13 @@ POST /api/v1/single/sessions/{sessionId}/result
 
 #### Request Body
 
-| 필드 | 타입 | 필수 | 설명 |
+| 필드 | 타입 | 필수 | 설명                                  |
 | --- | --- | --- | --- |
-| `status` | String | Y | `SUCCESS` / `GAMEOVER` |
-| `score` | Integer | Y | 최종 점수 (프론트 계산값) |
-| `playTime` | Integer | Y | 플레이 시간 (ms) |
-| `grade` | String | Y | 등급 `S` / `A` / `B` / `C` / `D` |
-| `sessionId` | UUID | Y | 세션 ID |
+| `status` | String | Y | `SUCCESS` / `GAMEOVER`              |
+| `score` | Integer | Y | 최종 점수 (프론트 계산값)                     |
+| `playTime` | Integer | Y | 플레이 시간 (ms)                         |
+| `grade` | String | Y | 등급 `S` / `A` / `B` / `C` / `D` / `F` |
+| `sessionId` | UUID | Y | 세션 ID                               |
 
 ```json
 {

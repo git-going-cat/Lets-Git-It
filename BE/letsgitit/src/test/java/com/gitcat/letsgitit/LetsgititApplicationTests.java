@@ -8,6 +8,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.gitcat.letsgitit.domain.auth.repository.AuthRedisRepository;
+import com.gitcat.letsgitit.domain.member.repository.MemberRedisRepository;
 import com.gitcat.letsgitit.domain.single.repository.SingleSessionRedisRepository;
 
 @ActiveProfiles("test")
@@ -19,6 +20,9 @@ class LetsgititApplicationTests {
 
 	@MockitoBean
 	private AuthRedisRepository authRedisRepository;
+
+	@MockitoBean
+	private MemberRedisRepository memberRedisRepository;
 
 	@MockitoBean
 	private SingleSessionRedisRepository singleSessionRedisRepository;

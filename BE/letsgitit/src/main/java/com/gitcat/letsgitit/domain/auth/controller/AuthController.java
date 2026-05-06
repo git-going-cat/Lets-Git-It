@@ -64,8 +64,13 @@ public class AuthController implements AuthControllerDocs {
 	public ResponseEntity<?> register(
 		@Valid @RequestBody
 		AuthRequest.RegisterRequest request) {
-		authService.register(request);
-		return ApiResponse.create("회원가입 성공");
+
+		boolean isReactivated = authService.register(request);
+
+		if (isReactivated) {
+			return ApiResponse.ok("계정이 재활성화되었습니다."); // 200
+		}
+		return ApiResponse.create("회원가입 성공"); // 201
 	}
 
 	@Override

@@ -13,4 +13,6 @@ public interface SingleResultJpaRepository extends JpaRepository<SingleResult, U
 	Optional<SingleResult> findTopByMemberIdAndDifficultyOrderByScoreDesc(
 		UUID memberId,
 		Difficulty difficulty);
+
+	boolean existsBySessionId(String sessionId);
 }

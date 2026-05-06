@@ -29,7 +29,11 @@ public class WeekUtil {
 		int year = date.getYear();
 		int month = date.getMonthValue();
 		int weekOfMonth = date.get(WEEK_FIELDS.weekOfMonth());
-		return year + "-" + String.format("%02d", month) + "-" + weekOfMonth;
+		return getWeek(year, month, weekOfMonth);
+	}
+
+	public static String getWeek(int year, int month, int week) {
+		return year + "-" + String.format("%02d", month) + "-" + week;
 	}
 
 	public static int getYear(LocalDate date) {

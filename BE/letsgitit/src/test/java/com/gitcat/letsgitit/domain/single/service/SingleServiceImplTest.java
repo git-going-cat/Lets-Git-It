@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,8 +18,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.gitcat.letsgitit.domain.member.service.MemberService;
+import com.gitcat.letsgitit.domain.ranking.service.SingleRankingService;
+import com.gitcat.letsgitit.domain.record.service.RecordService;
+import com.gitcat.letsgitit.domain.single.dto.SingleSessionCache;
+import com.gitcat.letsgitit.domain.single.dto.request.SingleResultSaveRequest;
 import com.gitcat.letsgitit.domain.single.dto.request.SingleSessionStartRequest;
+import com.gitcat.letsgitit.domain.single.dto.response.SingleResultResponse;
 import com.gitcat.letsgitit.domain.single.dto.response.SingleSessionStartResponse;
 import com.gitcat.letsgitit.domain.single.entity.SingleCommandSet;
 import com.gitcat.letsgitit.domain.single.entity.SingleCommandSetItem;
@@ -29,6 +39,8 @@ import com.gitcat.letsgitit.domain.single.repository.SingleCommandSetRepository;
 import com.gitcat.letsgitit.domain.single.repository.SingleResultRepository;
 import com.gitcat.letsgitit.domain.single.repository.SingleSessionRedisRepository;
 import com.gitcat.letsgitit.global.enums.Difficulty;
+import com.gitcat.letsgitit.global.exception.BusinessException;
+import com.gitcat.letsgitit.global.exception.ErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 class SingleServiceImplTest {
@@ -42,6 +54,12 @@ class SingleServiceImplTest {
 	private SingleCommandSetRepository singleCommandSetRepository;
 	@Mock
 	private SingleSessionRedisRepository singleSessionRedisRepository;
+	@Mock
+	private SingleRankingService singleRankingService;
+	@Mock
+	private RecordService recordService;
+	@Mock
+	private MemberService memberService;
 
 	private static final UUID MEMBER_ID = UUID.randomUUID();
 	private static final Difficulty DIFFICULTY = Difficulty.EASY;
@@ -169,6 +187,183 @@ class SingleServiceImplTest {
 
 			// then
 			then(singleSessionRedisRepository).should(times(1)).save(any());
+		}
+	}
+
+	@Nested
+	class SaveResult {
+
+		@BeforeEach
+		void setUpTransactionSync() {
+			TransactionSynchronizationManager.initSynchronization();
+		}
+
+		@AfterEach
+		void clearTransactionSync() {
+			TransactionSynchronizationManager.clearSynchronization();
+		}
+
+		@Test
+		void 신기록이면_결과_저장_후_랭킹과_최고기록을_갱신한다() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			SingleResultSaveRequest request = new SingleResultSaveRequest(
+				SingleResultStatus.SUCCESS,
+				2000,
+				120_000,
+				Grade.S);
+
+			given(singleResultRepository.existsBySessionId(sessionId)).willReturn(false);
+			given(singleSessionRedisRepository.findBySessionId(sessionId))
+				.willReturn(Optional.of(SingleSessionCache.of(sessionId, MEMBER_ID, DIFFICULTY)));
+			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
+				.willReturn(Optional.of(SingleResult.of(
+					"prev-session", MEMBER_ID, DIFFICULTY,
+					SingleResultStatus.SUCCESS, 1500, Grade.A, 60)));
+			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(1500);
+			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S)).willReturn(3);
+
+			// when
+			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(TransactionSynchronization::afterCommit);
+
+			// then
+			assertThat(response.isNewRecord()).isTrue();
+			then(singleResultRepository).should().save(any(SingleResult.class));
+			then(memberService).should().addPlayTime(MEMBER_ID, 120);
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S);
+			then(recordService).should().updateSingleBestRecord(MEMBER_ID, DIFFICULTY, 2000, 3);
+			then(singleSessionRedisRepository).should().deleteBySessionId(sessionId);
+		}
+
+		@Test
+		void 기존_결과가_있으면_이미_종료된_세션_예외가_발생한다() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			SingleResultSaveRequest request = new SingleResultSaveRequest(
+				SingleResultStatus.SUCCESS,
+				1500,
+				100,
+				Grade.A);
+
+			given(singleResultRepository.existsBySessionId(sessionId)).willReturn(true);
+
+			// when & then
+			assertThatThrownBy(() -> singleService.saveResult(MEMBER_ID, sessionId, request))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_FINISHED);
+			then(singleSessionRedisRepository).shouldHaveNoInteractions();
+		}
+
+		@Test
+		void Redis_세션이_없으면_세션_없음_예외가_발생한다() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			SingleResultSaveRequest request = new SingleResultSaveRequest(
+				SingleResultStatus.SUCCESS,
+				1500,
+				100,
+				Grade.A);
+
+			given(singleResultRepository.existsBySessionId(sessionId)).willReturn(false);
+			given(singleSessionRedisRepository.findBySessionId(sessionId)).willReturn(Optional.empty());
+
+			// when & then
+			assertThatThrownBy(() -> singleService.saveResult(MEMBER_ID, sessionId, request))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SESSION_NOT_FOUND);
+		}
+
+		@Test
+		void 첫_플레이는_점수와_무관하게_신기록으로_처리된다() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			SingleResultSaveRequest request = new SingleResultSaveRequest(
+				SingleResultStatus.SUCCESS,
+				0,
+				60_000,
+				Grade.S);
+
+			given(singleResultRepository.existsBySessionId(sessionId)).willReturn(false);
+			given(singleSessionRedisRepository.findBySessionId(sessionId))
+				.willReturn(Optional.of(SingleSessionCache.of(sessionId, MEMBER_ID, DIFFICULTY)));
+			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
+				.willReturn(Optional.empty());
+			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(null);
+			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 0, Grade.S)).willReturn(1);
+
+			// when
+			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(TransactionSynchronization::afterCommit);
+
+			// then
+			assertThat(response.isNewRecord()).isTrue();
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 0, Grade.S);
+			then(recordService).should().updateSingleBestRecord(MEMBER_ID, DIFFICULTY, 0, 1);
+		}
+
+		@Test
+		void 신기록이_아니고_금주차_최고점도_아니면_랭킹과_최고기록을_갱신하지_않는다() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			SingleResultSaveRequest request = new SingleResultSaveRequest(
+				SingleResultStatus.GAMEOVER,
+				1000,
+				90,
+				Grade.B);
+
+			given(singleResultRepository.existsBySessionId(sessionId)).willReturn(false);
+			given(singleSessionRedisRepository.findBySessionId(sessionId))
+				.willReturn(Optional.of(SingleSessionCache.of(sessionId, MEMBER_ID, DIFFICULTY)));
+			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
+				.willReturn(Optional.of(SingleResult.of(
+					"prev-session", MEMBER_ID, DIFFICULTY,
+					SingleResultStatus.SUCCESS, 1500, Grade.A, 60)));
+			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(1200);
+
+			// when
+			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(TransactionSynchronization::afterCommit);
+
+			// then
+			assertThat(response.isNewRecord()).isFalse();
+			then(singleRankingService).should().getCurrentWeekScore(DIFFICULTY, MEMBER_ID);
+			then(singleRankingService).should(never()).updateSingleScore(any(), any(), anyInt(), any());
+			then(recordService).shouldHaveNoInteractions();
+			then(singleSessionRedisRepository).should().deleteBySessionId(sessionId);
+		}
+
+		@Test
+		void 역대_신기록이_아니어도_금주차_최고점이면_랭킹만_갱신한다() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			SingleResultSaveRequest request = new SingleResultSaveRequest(
+				SingleResultStatus.SUCCESS,
+				1200,
+				90_000,
+				Grade.A);
+
+			given(singleResultRepository.existsBySessionId(sessionId)).willReturn(false);
+			given(singleSessionRedisRepository.findBySessionId(sessionId))
+				.willReturn(Optional.of(SingleSessionCache.of(sessionId, MEMBER_ID, DIFFICULTY)));
+			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
+				.willReturn(Optional.of(SingleResult.of(
+					"prev-session", MEMBER_ID, DIFFICULTY,
+					SingleResultStatus.SUCCESS, 1500, Grade.S, 60)));
+			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(1000);
+
+			// when
+			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(TransactionSynchronization::afterCommit);
+
+			// then
+			assertThat(response.isNewRecord()).isFalse();
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 1200, Grade.A);
+			then(recordService).shouldHaveNoInteractions();
 		}
 	}
 

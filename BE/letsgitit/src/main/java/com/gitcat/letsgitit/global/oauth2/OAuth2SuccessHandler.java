@@ -38,12 +38,14 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 		OAuth2User oAuth2User = (OAuth2User)authentication.getPrincipal();
 		Map<String, Object> attributes = oAuth2User.getAttributes();
 		String memberId = (String)attributes.get("memberId");
+		boolean isReactivated = Boolean.TRUE.equals(attributes.get("isReactivated")); // 추가
 
 		// 1. UUID 임시코드 발급
 		String tempCode = UUID.randomUUID().toString();
 
 		// 2. Redis에 저장 (key: UUID, value: memberId, TTL: 30초)
 		authRedisRepository.saveOAuthTempCode(tempCode, memberId);
+		authRedisRepository.saveOAuthReactivated(tempCode, isReactivated); // 추가
 
 		// 3. 프론트로 리다이렉트 (임시코드 쿼리파라미터로 전달)
 		String redirectUrl = UriComponentsBuilder.fromUriString(frontendRedirectUri)

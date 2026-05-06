@@ -3,6 +3,8 @@ package com.gitcat.letsgitit.domain.auth.service;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -140,7 +142,7 @@ public class AuthServiceImpl implements AuthService {
 
 	@Override
 	@Transactional
-	public void register(AuthRequest.RegisterRequest request) {
+	public boolean register(AuthRequest.RegisterRequest request) {
 		String email = request.email();
 		String password = request.password();
 
@@ -150,24 +152,55 @@ public class AuthServiceImpl implements AuthService {
 			throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
 		}
 
-		// 2. 이메일 중복 체크
-		//    인증 완료 후 가입 시도 사이에 다른 사람이 같은 이메일로 가입했을 경우 방어
-		if (memberService.existsByEmail(email)) {
-			throw new BusinessException(ErrorCode.EMAIL_DUPLICATE);
-		}
-
-		// 3. 비밀번호 암호화
+		// 2. 비밀번호 암호화
 		//    BCrypt로 단방향 해시 — 같은 비밀번호도 매번 다른 해시값
 		String encodedPassword = passwordEncoder.encode(password);
 
-		// 4. Member 저장
-		memberService.createMember(email, encodedPassword);
+		// 3. 탈퇴 계정 포함 이메일 조회
+		//    @SQLRestriction(deleted_at IS NULL)을 우회해 탈퇴 회원까지 포함해서 조회
+		//    → 재가입 / 중복 가입 / 신규 가입 세 가지 케이스를 분기 처리
+		Optional<Member> existingMember = memberService.findByEmailIncludingDeleted(email);
 
-		// 5. 인증 완료 상태 삭제
-		//    회원가입 완료 후 Redis 키 정리
+		boolean isReactivated = false;
+
+		if (existingMember.isPresent()) {
+			Member member = existingMember.get();
+
+			if (member.getDeletedAt() == null) {
+				// 3-1. 탈퇴하지 않은 정상 계정이 이미 존재 → 이메일 중복
+				//      인증 완료 후 가입 시도 사이에 다른 사람이 같은 이메일로 가입했을 경우 방어
+				throw new BusinessException(ErrorCode.EMAIL_DUPLICATE);
+			}
+
+			long daysSinceDeleted = ChronoUnit.DAYS.between(member.getDeletedAt(), LocalDateTime.now());
+
+			if (daysSinceDeleted <= 30) {
+				// 3-2. 탈퇴 후 30일 이내 재가입 → 기존 계정 재활성화
+				//      deletedAt을 null로 되돌리고 새 비밀번호로 업데이트
+				//      닉네임, 캐릭터, 플레이 기록 등 기존 데이터 유지
+				member.reactivate();
+				member.updatePassword(encodedPassword);
+				isReactivated = true;
+			} else {
+				// 3-3. 탈퇴 후 30일 초과 → 기존 계정 마스킹 후 신규 계정 생성
+				//      email, nickname을 랜덤값으로 덮어 개인정보 보호
+				//      이후 같은 이메일로 신규 계정을 생성할 수 있도록 처리
+				member.mask();
+				memberService.flush();
+				memberService.createMember(email, encodedPassword);
+			}
+		} else {
+			// 3-4. 탈퇴 이력 없는 완전 신규 가입
+			memberService.createMember(email, encodedPassword);
+		}
+
+		// 4. 인증 완료 상태 삭제
+		//    회원가입 완료 후 Redis 키 정리 — 재사용 방지
 		authRedisRepository.deleteEmailVerified(email, AuthPurpose.SIGN_UP.name().toLowerCase());
 
 		log.debug("회원가입 완료. email: {}", email);
+
+		return isReactivated;
 	}
 
 	@Override
@@ -239,7 +272,7 @@ public class AuthServiceImpl implements AuthService {
 		log.debug("로그인 완료. email: {}", email);
 
 		// 7. Access Token + 유저 정보 반환
-		return AuthResponse.LoginResponse.from(member, accessToken);
+		return AuthResponse.LoginResponse.from(member, accessToken, false);
 	}
 
 	@Override
@@ -253,6 +286,10 @@ public class AuthServiceImpl implements AuthService {
 			// null = 만료(30초 초과), 존재하지 않는 코드, 또는 이미 소비된 코드
 			throw new BusinessException(ErrorCode.INVALID_AUTH_CODE);
 		}
+
+		// 2. 재활성화 여부 조회 후 삭제
+		//    OAuth2SuccessHandler에서 저장한 재활성화 플래그
+		boolean isReactivated = authRedisRepository.getOAuthReactivated(tempCode);
 
 		// 3. Member 조회
 		Member member = memberService.findById(UUID.fromString(memberIdStr));
@@ -294,7 +331,9 @@ public class AuthServiceImpl implements AuthService {
 		response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
 		log.debug("OAuth 토큰 교환 완료. email: {}", email);
-		return AuthResponse.LoginResponse.from(member, accessToken);
+
+		// 7. Access Token + 유저 정보 + 재활성화 여부 반환
+		return AuthResponse.LoginResponse.from(member, accessToken, isReactivated);
 	}
 
 	@Override
@@ -378,8 +417,11 @@ public class AuthServiceImpl implements AuthService {
 		}
 
 		// 2. AT에서 이메일 추출 → Member 조회
+		//    withdraw() 이후 호출될 수 있으므로 soft delete된 회원도 포함해서 조회
+		//    findByEmail()은 @SQLRestriction으로 deleted_at IS NULL 조건이 걸려 탈퇴 직후 MEMBER_NOT_FOUND 발생
 		String email = jwtProvider.getEmail(accessToken);
-		Member member = memberService.findByEmail(email);
+		Member member = memberService.findByEmailIncludingDeleted(email)
+			.orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
 		String memberId = member.getId().toString();
 
