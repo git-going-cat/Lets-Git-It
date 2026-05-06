@@ -1,9 +1,52 @@
 @import 'tailwindcss';
 @import 'nes.css/css/nes.min.css';
 
+@font-face {
+  font-family: 'NeoDunggeunGothicPro';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2302@1.0/NeoDunggeunmoPro-Regular.woff2')
+    format('woff2');
+  font-weight: normal;
+  font-display: swap;
+}
+
 @theme {
+  --font-pixel: 'NeoDunggeunGothicPro', monospace;
+  --grid-template-rows-single-game: auto minmax(0, 1fr) 160px;
   --width-modal-lg: 900px;
   --width-modal-md: 600px;
   --height-modal-lg: 560px;
   --height-modal-md: 480px;
+}
+
+@keyframes pixel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes combo-pop {
+  0% {
+    transform: scale(1.7);
+    filter: brightness(1.8);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+.combo-pop {
+  animation: combo-pop 0.25s ease-out;
+}
+
+.pixel-pulse {
+  animation: pixel-pulse 1s steps(1) infinite;
+}
+
+.pixel-art {
+  image-rendering: pixelated;
 }

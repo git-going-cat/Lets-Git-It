@@ -23,16 +23,13 @@ export default function GameProgress() {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
 
   return (
-    <div
-      className="flex w-full items-center gap-4 px-4 py-2"
-      style={{ fontFamily: "'Press Start 2P', monospace" }}
-    >
-      <span className="shrink-0 text-sm text-gray-400">
+    <div className="font-pixel flex w-full items-center gap-4 px-4 py-2">
+      <span className="shrink-0 text-xl text-gray-800">
         {value}/{total}
       </span>
       <progress className="nes-progress is-primary w-full" value={value} max={total} />
-      <span className="shrink-0 text-sm text-gray-400">{pct}%</span>
-      <span className="shrink-0 text-sm text-gray-400">⏱ {formatTime(elapsedMs)}</span>
+      <span className="shrink-0 text-xl text-gray-800">{pct}%</span>
+      <span className="shrink-0 text-xl text-gray-800">⏱ {formatTime(elapsedMs)}</span>
     </div>
   );
 }

@@ -139,6 +139,7 @@ Phaser 타이머(`this.time`)가 일시정지 여부를 제어하므로, 별도�
 - `😸` 캐릭터는 이모지 임시 대체다. 실제 캐릭터 에셋으로 교체 필요 (TODO)
 - `/single` 경로 직접 접근이 현재 허용된다. API 연동 후 `routes/single.tsx`의 `beforeLoad`에서 `useSingleStore.getState().sessionId` 유무로 가드를 추가해야 한다 (TODO).
 - `game.events.once(DESTROY, this.shutdown, this)` 픽스는 `shutdown()` 이중 호출이 발생할 수 있다. `shutdown()` 내부의 `EventBus.off`는 이미 해제된 핸들러를 다시 해제해도 오류가 발생하지 않으므로 안전하다.
+- `SingleScene`에 `isUserPaused` 플래그가 추가되었다. `handleGamePause`에서 `true`, `handleGameResume`에서 `false`로 관리하며, stash 아이템(`item:use slot 0`)의 자동 재개 여부를 판단하는 데 사용된다. stash 중 ESC 일시정지 → stash 만료 후 자동 재개 안 됨 → 유저가 이어하기를 눌러야 재개된다. → `IMPLEMENTATION_아이템드롭및사용.md` — "4. stash 구현" 참고.
 - `elapsedTimeAtom`은 ms 단위다. 결과 화면에서 `playTimeMs`로 전달할 때 단위 변환 주의.
 - `GameProgress`의 진행도 바 너비가 `w-full`로 고정되어 있어 경과 시간 span이 추가되면 내부 레이아웃이 좁아진다. 해상도 1280×720 기준으로 확인 필요.
 

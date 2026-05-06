@@ -7,6 +7,8 @@ export interface GameResult {
   score: number;
   grade: Grade;
   playTimeMs: number;
+  missCount: number;
+  typoCount: number;
 }
 
 /** game:over EventBus 이벤트 수신 시 저장, ResultModal이 구독 */

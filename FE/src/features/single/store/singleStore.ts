@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 
 import type { Command, Difficulty } from '../types/single.types';
 
@@ -7,6 +7,7 @@ interface SingleSessionState {
   difficulty: Difficulty | null;
   bestScore: number;
   commandSet: Command[];
+  githubName: string | null;
 }
 
 interface SingleSessionActions {
@@ -19,6 +20,7 @@ const initialState: SingleSessionState = {
   difficulty: null,
   bestScore: 0,
   commandSet: [],
+  githubName: null,
 };
 
 export const useSingleStore = create<SingleSessionState & SingleSessionActions>((set) => ({

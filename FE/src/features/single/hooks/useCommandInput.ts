@@ -1,18 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
 
+import { activeBranchAtom } from '../store/activeBranchAtom';
 import { comboAtom } from '../store/comboAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
 import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 import { totalAttemptsAtom, typoCountAtom } from '../store/typoAtom';
+import { isSwitchCommand, parseSwitchTarget } from '../utils/branchParser';
 
+/**
+ * 커맨드 입력 처리 훅.
+ * Enter 입력 시 hit / NORMAL 은닉 SWITCH / 오타 세 경로로 판정하고,
+ * EventBus로 Phaser 씬에 결과를 전달합니다.
+ */
 export function useCommandInput() {
   const commandIndex = useAtomValue(currentCommandIndexAtom);
   const gameStatus = useAtomValue(gameStatusAtom);
-  const { commandSet } = useSingleStore();
+  const { commandSet, difficulty } = useSingleStore();
+  const [activeBranch, setActiveBranch] = useAtom(activeBranchAtom);
 
   const setTypoCount = useSetAtom(typoCountAtom);
   const setTotalAttempts = useSetAtom(totalAttemptsAtom);
@@ -38,16 +46,39 @@ export function useCommandInput() {
       const currentCommand = commandSet[commandIndex];
       if (!currentCommand) return;
 
-      setTotalAttempts((prev) => prev + 1);
+      const trimmed = inputValue.trim();
+      const isNormal = difficulty === 'NORMAL';
+      const textMatches = trimmed === currentCommand.text;
+      const branchMatches = !isNormal || activeBranch === currentCommand.branchName;
+
       setHistoryText(inputValue);
 
-      if (inputValue.trim() === currentCommand.text) {
-        // 안정성 확보를 위해 현재 Phaser의 인덱스를 우선시합니다.
+      if (textMatches && branchMatches) {
         setIsError(false);
+        setTotalAttempts((prev) => prev + 1);
         EventBus.emit('command:complete', { index: commandIndex });
+        if (currentCommand.type === 'CREATE' || currentCommand.type === 'SWITCH') {
+          const target = parseSwitchTarget(trimmed);
+          if (target) {
+            setActiveBranch(target);
+            EventBus.emit('branch:switch', { branch: target });
+            if (currentCommand.type === 'CREATE') {
+              EventBus.emit('lane:create', { branch: target });
+            }
+          }
+        }
+      } else if (isNormal && !textMatches && isSwitchCommand(trimmed)) {
+        // NORMAL 모드 은닉 SWITCH: 점수·시도 횟수 없이 activeBranch만 업데이트
+        const target = parseSwitchTarget(trimmed);
+        if (target) {
+          setActiveBranch(target);
+          EventBus.emit('branch:switch', { branch: target });
+        }
+        setIsError(false);
       } else {
-        // 오타 시 콤보 리셋. 목숨 차감은 하지 않음 (miss 이벤트와 별개)
+        // 오타: 콤보 리셋 + 오타 카운트. 목숨 차감 없음 (시간 초과 miss에서만 차감)
         setIsError(true);
+        setTotalAttempts((prev) => prev + 1);
         setCombo(0);
         setTypoCount((prev) => prev + 1);
       }
