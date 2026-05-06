@@ -98,22 +98,20 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
 
             {/* 이메일 행 */}
             <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <input
-                  {...emailForm.register('email')}
-                  type="email"
-                  placeholder="이메일 입력"
-                  className="min-w-0 flex-1 rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50"
-                />
-                <button
-                  type="button"
-                  disabled={!emailValue || isSendingCode}
-                  onClick={handleSendCode}
-                  className={inlineBtn(!!emailValue && !isSendingCode)}
-                >
-                  {isSendingCode ? '전송 중...' : codeSent ? '재전송' : '인증코드 전송'}
-                </button>
-              </div>
+              <input
+                {...emailForm.register('email')}
+                type="email"
+                placeholder="이메일 입력"
+                className="w-full rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50"
+              />
+              <button
+                type="button"
+                disabled={!emailValue || isSendingCode}
+                onClick={handleSendCode}
+                className={bigBtn(!!emailValue && !isSendingCode)}
+              >
+                {isSendingCode ? '전송 중...' : codeSent ? '재전송' : '인증코드 전송'}
+              </button>
               {emailForm.formState.errors.email && (
                 <p className="ml-2 mt-2 text-xs text-red-400">
                   {emailForm.formState.errors.email.message}

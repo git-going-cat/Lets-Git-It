@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TimeattackRouteImport } from './routes/timeattack'
 import { Route as SingleRouteImport } from './routes/single'
 import { Route as RankingRouteImport } from './routes/ranking'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as MypageRouteImport } from './routes/mypage'
 import { Route as MultiRouteImport } from './routes/multi'
 import { Route as LoginRouteImport } from './routes/login'
@@ -36,6 +37,11 @@ const SingleRoute = SingleRouteImport.update({
 const RankingRoute = RankingRouteImport.update({
   id: '/ranking',
   path: '/ranking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MypageRoute = MypageRouteImport.update({
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
   '/mypage': typeof MypageRoute
+  '/onboarding': typeof OnboardingRoute
   '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
   '/mypage': typeof MypageRoute
+  '/onboarding': typeof OnboardingRoute
   '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
   '/mypage': typeof MypageRoute
+  '/onboarding': typeof OnboardingRoute
   '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/multi'
     | '/mypage'
+    | '/onboarding'
     | '/ranking'
     | '/single'
     | '/timeattack'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/multi'
     | '/mypage'
+    | '/onboarding'
     | '/ranking'
     | '/single'
     | '/timeattack'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/multi'
     | '/mypage'
+    | '/onboarding'
     | '/ranking'
     | '/single'
     | '/timeattack'
@@ -192,6 +204,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MultiRoute: typeof MultiRouteWithChildren
   MypageRoute: typeof MypageRoute
+  OnboardingRoute: typeof OnboardingRoute
   RankingRoute: typeof RankingRoute
   SingleRoute: typeof SingleRoute
   TimeattackRoute: typeof TimeattackRoute
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/ranking'
       fullPath: '/ranking'
       preLoaderRoute: typeof RankingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mypage': {
@@ -313,6 +333,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MultiRoute: MultiRouteWithChildren,
   MypageRoute: MypageRoute,
+  OnboardingRoute: OnboardingRoute,
   RankingRoute: RankingRoute,
   SingleRoute: SingleRoute,
   TimeattackRoute: TimeattackRoute,
