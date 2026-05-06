@@ -30,8 +30,11 @@ public class DictionaryCommand {
 	@Column(name = "description", columnDefinition = "TEXT")
 	private String description;
 
-	@Column(name = "image_url", length = 500)
-	private String imageUrl;
+	@Column(name = "tip", length = 500)
+	private String tip;
+
+	@Column(name = "example", length = 500)
+	private String example;
 
 	@Column(name = "is_in_game", nullable = false)
 	private boolean isInGame = true;
@@ -40,11 +43,12 @@ public class DictionaryCommand {
 	private List<DictionaryCommandOption> options = new ArrayList<>();
 
 	public static DictionaryCommand of(String name, String description,
-		String imageUrl, boolean isInGame) {
+		String tip, String example, boolean isInGame) {
 		DictionaryCommand command = new DictionaryCommand();
 		command.name = name;
 		command.description = description;
-		command.imageUrl = imageUrl;
+		command.tip = tip;
+		command.example = example;
 		command.isInGame = isInGame;
 		return command;
 	}

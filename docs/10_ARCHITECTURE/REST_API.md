@@ -904,8 +904,6 @@ PATCH /api/v1/members/me/password/reset
 GET /api/v1/dictionary/commands
 ```
 
-> 인증 불필요
-
 #### Response
 
 | 필드 | 타입 | 설명 |
@@ -914,7 +912,8 @@ GET /api/v1/dictionary/commands
 | `commands[].commandId` | UUID | 명령어 ID |
 | `commands[].name` | String | 명령어 이름 |
 | `commands[].description` | String | 명령어 설명 |
-| `commands[].imageUrl` | String | 명령어 이미지 URL |
+| `commands[].tip` | String | 명령어 팁 |
+| `commands[].example` | String | 명령어 예시 |
 | `commands[].isInGame` | Boolean | 게임 내 사용 여부 |
 | `commands[].options` | Array | 명령어 옵션 목록 |
 | `commands[].options[].option` | String | 옵션 |
@@ -930,7 +929,8 @@ GET /api/v1/dictionary/commands
         "commandId": "UUID",
         "name": "git commit",
         "description": "변경사항을 로컬 저장소에 저장합니다",
-        "imageUrl": "https://cdn.example.com/commands/commit.png",
+        "tip": "커밋 메시지는 현재형으로 작성하는 것이 관례입니다",
+        "example": "git commit -m \"feat: 로그인 기능 추가\"",
         "isInGame": true,
         "options": [
           { "option": "-m",      "description": "커밋 메시지를 인라인으로 작성" },

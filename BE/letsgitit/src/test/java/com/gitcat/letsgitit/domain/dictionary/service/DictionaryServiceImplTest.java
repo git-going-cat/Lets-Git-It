@@ -32,7 +32,7 @@ class DictionaryServiceImplTest {
 		// given
 		UUID commandId = UUID.randomUUID();
 		DictionaryCommand command = DictionaryCommand.of(
-			"git commit", "변경 내용을 저장소에 기록합니다.", "https://example.com/commit.png", true);
+			"git commit", "변경 내용을 저장소에 기록합니다.", "커밋 팁입니다.", "git commit -m \"메시지\"", true);
 		setCommandId(command, commandId);
 
 		DictionaryCommandOption option1 = DictionaryCommandOption.of(command, "-m \"메시지\"", "커밋 메시지를 인라인으로 지정합니다.");
@@ -51,7 +51,8 @@ class DictionaryServiceImplTest {
 		assertThat(commandDto.commandId()).isEqualTo(commandId);
 		assertThat(commandDto.name()).isEqualTo("git commit");
 		assertThat(commandDto.description()).isEqualTo("변경 내용을 저장소에 기록합니다.");
-		assertThat(commandDto.imageUrl()).isEqualTo("https://example.com/commit.png");
+		assertThat(commandDto.tip()).isEqualTo("커밋 팁입니다.");
+		assertThat(commandDto.example()).isEqualTo("git commit -m \"메시지\"");
 		assertThat(commandDto.options()).hasSize(2);
 		assertThat(commandDto.options().get(0).option()).isEqualTo("-m \"메시지\"");
 		assertThat(commandDto.options().get(0).description()).isEqualTo("커밋 메시지를 인라인으로 지정합니다.");
@@ -74,7 +75,7 @@ class DictionaryServiceImplTest {
 	@Test
 	void 옵션이_없는_명령어도_빈_옵션_목록으로_정상_반환된다() {
 		// given
-		DictionaryCommand command = DictionaryCommand.of("git init", "저장소를 초기화합니다.", null, true);
+		DictionaryCommand command = DictionaryCommand.of("git init", "저장소를 초기화합니다.", null, null, true);
 		setCommandId(command, UUID.randomUUID());
 
 		given(dictionaryCommandRepository.findAllWithOptions()).willReturn(List.of(command));
@@ -85,19 +86,19 @@ class DictionaryServiceImplTest {
 		// then
 		assertThat(response.commands()).hasSize(1);
 		assertThat(response.commands().get(0).name()).isEqualTo("git init");
-		assertThat(response.commands().get(0).imageUrl()).isNull();
+		assertThat(response.commands().get(0).tip()).isNull();
 		assertThat(response.commands().get(0).options()).isEmpty();
 	}
 
 	@Test
 	void 여러_명령어가_각각의_옵션과_함께_반환된다() {
 		// given
-		DictionaryCommand commit = DictionaryCommand.of("git commit", "커밋 명령어", null, true);
+		DictionaryCommand commit = DictionaryCommand.of("git commit", "커밋 명령어", null, null, true);
 		setCommandId(commit, UUID.randomUUID());
 		addOptions(commit, List.of(
 			DictionaryCommandOption.of(commit, "-m \"메시지\"", "커밋 메시지를 인라인으로 지정합니다.")));
 
-		DictionaryCommand push = DictionaryCommand.of("git push", "원격 저장소에 반영합니다.", null, true);
+		DictionaryCommand push = DictionaryCommand.of("git push", "원격 저장소에 반영합니다.", null, null, true);
 		setCommandId(push, UUID.randomUUID());
 		addOptions(push, List.of(
 			DictionaryCommandOption.of(push, "--force", "강제로 푸시합니다."),

@@ -257,7 +257,8 @@ CREATE TABLE dictionary_command (
 dictionary_command_id BINARY(16)   NOT NULL,
 name                  VARCHAR(100) NOT NULL,
 description           TEXT         NULL,
-image_url             VARCHAR(500) NULL,
+tip                   VARCHAR(500) NULL,
+example               VARCHAR(500) NULL,
 is_in_game            TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '게임 내 사용 여부',
 PRIMARY KEY (dictionary_command_id)
 );

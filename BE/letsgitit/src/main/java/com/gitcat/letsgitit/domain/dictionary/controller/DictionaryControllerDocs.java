@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = "Dictionary", description = "도감 관련 API")
 public interface DictionaryControllerDocs {
 
-	@Operation(summary = "도감 조회", description = "Git 명령어 도감 전체 목록을 조회합니다. 인증 불필요.")
+	@Operation(summary = "도감 조회", description = "Git 명령어 도감 전체 목록을 조회합니다.")
 	@ApiResponse(responseCode = "200", description = "도감 조회 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{
 		  "status": 200,
@@ -22,7 +22,8 @@ public interface DictionaryControllerDocs {
 		        "commandId": "550e8400-e29b-41d4-a716-446655440001",
 		        "name": "git commit",
 		        "description": "변경사항을 로컬 저장소에 저장합니다",
-		        "imageUrl": "https://cdn.example.com/commands/commit.png",
+		        "tip": "커밋 메시지는 현재형으로 작성하는 것이 관례입니다",
+		        "example": "git commit -m \"feat: 로그인 기능 추가\"",
 		        "isInGame": true,
 		        "options": [
 		          {"option": "-m", "description": "커밋 메시지를 인라인으로 작성"},
