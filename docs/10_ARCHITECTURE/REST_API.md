@@ -84,11 +84,17 @@ POST /api/v1/auth/email/send?purpose=SIGN_UP
 ### 1-2. 이메일 인증 코드 검증
 
 ```
-POST /api/v1/auth/email/verify
+POST /api/v1/auth/email/verify?purpose={purpose}
 ```
 
 > 검증 성공 시 서버에서 인증 완료 상태를 Redis에 저장합니다.
 > 이후 회원가입 API 호출 시 인증 완료 여부를 확인합니다.
+
+#### Query
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `purpose` | String | Y | 인증 목적<br>• `SIGN_UP` : 로컬 회원가입용<br>• `PASSWORD_RESET` : 비밀번호 찾기용<br>• `WITHDRAW` : 탈퇴용 |
 
 #### Request Body
 
@@ -150,10 +156,22 @@ POST /api/v1/auth/register
 
 #### Response
 
+일반 회원가입:
+
 ```json
 {
   "status": 201,
   "message": "회원가입 성공",
+  "data": {}
+}
+```
+
+30일 이내 재가입 (기존 계정 재활성화):
+
+```json
+{
+  "status": 200,
+  "message": "계정이 재활성화되었습니다.",
   "data": {}
 }
 ```
@@ -408,7 +426,7 @@ POST /api/v1/auth/logout
 ### 1-9. 비밀번호 변경 (비밀번호 찾기용 · 인증 불필요)
 
 ```
-PATCH /api/v1/auth/password
+PATCH /api/v1/auth/password/reset
 ```
 
 > 인증 불필요. 이메일 인증 완료 후 호출. 서버에서 `email:verified:PASSWORD_RESET:{email}` 확인.
@@ -450,6 +468,10 @@ PATCH /api/v1/auth/password
 ---
 
 ### 1-10. 비밀번호 검증
+
+```
+POST /api/v1/auth/password/verify
+```
 
 비밀번호를 수정하기 전, 기존 비밀번호를 입력받아 검증합니다.
 
@@ -619,6 +641,10 @@ GET /api/v1/members/me
 
 ### 2-4. 캐릭터 에셋 저장
 
+```
+PATCH /api/v1/members/me/character
+```
+
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
@@ -736,15 +762,33 @@ GET /api/v1/members/nickname/check?nickname={nickname}
 ### 2-7. 회원탈퇴
 
 ```
-DELETE /api/v1/members/me
+DELETE /api/v1/members/withdraw
 ```
 
+> Authorization 헤더에 Access Token 필요.
+>
 > - 탈퇴 즉시 물리 삭제하지 않음
 > - `deletedAt` 기준 soft delete 처리
-> - email, nickname은 유지
+> - 탈퇴 성공 시 서버에서 자동 로그아웃 처리 (AT 블랙리스트 등록, RT 삭제, 쿠키 만료)
 > - 닉네임 재사용 불가
 > - 탈퇴 후 30일 이내 같은 이메일로 재가입 시 기존 계정 재활성화
-> - 30일 초과 시 삭제 또는 마스킹 대상
+> - 30일 초과 시 마스킹 처리 후 신규 계정 생성 가능
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `password` | String | N | 현재 비밀번호 (LOCAL 계정만 필수, OAuth 계정은 불필요) |
+
+```json
+// LOCAL 계정
+{
+  "password": "currentPassword123!"
+}
+
+// OAuth 계정
+{}
+```
 
 #### Response
 
@@ -760,27 +804,73 @@ DELETE /api/v1/members/me
 
 | 코드 | 설명 |
 | --- | --- |
-| `INVALID_CREDENTIALS` | 이메일 또는 비밀번호 불일치 |
+| `INVALID_CREDENTIALS` | 비밀번호 불일치 (LOCAL 계정) |
+| `INVALID_TOKEN` | Authorization 헤더 누락 또는 유효하지 않은 토큰 |
 
 ---
 
-### 2-8. 비밀번호 변경 (인증 필요)
+### 2-8. 비밀번호 검증 (인증 필요)
 
 ```
-PATCH /api/v1/members/me/password
+POST /api/v1/members/me/password/verify
 ```
 
-> Authorization 헤더에 Access Token 필요. 비밀번호 검증 API(1-10) 호출 후 사용.
+> Authorization 헤더에 Access Token 필요.
+> 검증 성공 시 서버에서 Redis에 인증 상태 저장 (TTL 5분).
+> 이후 비밀번호 변경 API(2-9) 호출 시 이 상태를 확인한다.
 
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
+| `password` | String | Y | 현재 비밀번호 |
+
+```json
+{
+  "password": "currentPassword123!"
+}
+```
+
+#### Response
+
+```json
+{
+  "status": 200,
+  "message": "비밀번호 검증 성공",
+  "data": {}
+}
+```
+
+#### 에러 코드
+
+| 코드 | 설명 |
+| --- | --- |
+| `PASSWORD_MISMATCH` | 입력한 비밀번호가 현재 비밀번호와 불일치 |
+| `OAUTH_ACCOUNT` | 소셜 로그인 계정 (비밀번호 없음) |
+
+---
+
+### 2-9. 비밀번호 변경 (인증 필요)
+
+```
+PATCH /api/v1/members/me/password/reset
+```
+
+> Authorization 헤더에 Access Token 필요.
+> 비밀번호 검증 API(2-8) 호출 후 Redis 인증 상태가 존재할 때만 변경 가능.
+> 변경 완료 후 Redis 키 즉시 삭제.
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `currentPassword` | String | Y | 현재 비밀번호 (토큰 탈취 시 Redis 키만으로 변경되는 것을 방지하기 위한 재검증) |
 | `newPassword` | String | Y | 새 비밀번호 |
 
 ```json
 {
-  "newPassword": "newPassword123!"
+  "currentPassword": "currentPassword123!",
+  "newPassword": "newPassword456!"
 }
 ```
 
@@ -798,9 +888,11 @@ PATCH /api/v1/members/me/password
 
 | 코드 | 설명 |
 | --- | --- |
+| `PASSWORD_VERIFY_REQUIRED` | 비밀번호 검증 단계를 거치지 않음 (Redis 키 없음 / 만료) |
+| `PASSWORD_MISMATCH` | currentPassword가 현재 비밀번호와 불일치 |
 | `INVALID_PASSWORD_FORMAT` | 비밀번호 형식 불일치 |
 | `OAUTH_ACCOUNT` | 소셜 로그인 계정 (비밀번호 없음) |
-| `SAME_AS_CURRENT_PASSWORD` | 현재 비밀번호와 동일 |
+| `SAME_AS_CURRENT_PASSWORD` | 새 비밀번호가 현재 비밀번호와 동일 |
 
 ---
 

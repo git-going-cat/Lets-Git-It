@@ -8,8 +8,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -128,16 +126,6 @@ public class SecurityConfig {
 				UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
-	}
-
-	/**
-	 * 비밀번호 암호화에 사용할 인코더
-	 * BCrypt: 단방향 해시 + 솔트 자동 추가 → 같은 비밀번호도 매번 다른 해시값
-	 * 회원가입 시 비밀번호 저장, 로그인 시 비교에 사용
-	 */
-	@Bean
-	public PasswordEncoder passwordEncoder() {
-		return new BCryptPasswordEncoder();
 	}
 
 	/**

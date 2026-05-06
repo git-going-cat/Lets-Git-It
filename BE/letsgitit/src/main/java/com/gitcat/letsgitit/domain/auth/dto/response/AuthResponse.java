@@ -18,6 +18,7 @@ public class AuthResponse {
 	public record LoginResponse(
 		String accessToken,
 		boolean isFirstLogin, // nickname이 null이면 최초 로그인으로 판단
+		boolean isReactivated,
 		String nickname,
 		OnboardingStatus onboardingStatus,
 		String characterHair,
@@ -28,10 +29,11 @@ public class AuthResponse {
 		String characterOutfitColor) {
 		// Member 엔티티 → LoginResponse 변환 팩토리 메서드
 		// Controller에서 LoginResponse.from(member, accessToken) 한 줄로 처리 가능
-		public static LoginResponse from(Member member, String accessToken) {
+		public static LoginResponse from(Member member, String accessToken, boolean isReactivated) {
 			return new LoginResponse(
 				accessToken,
 				member.getNickname() == null,
+				isReactivated,
 				member.getNickname(),
 				member.getOnboardingStatus(),
 				member.getCharacterHair(),

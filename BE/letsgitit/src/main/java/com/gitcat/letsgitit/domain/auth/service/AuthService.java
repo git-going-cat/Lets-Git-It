@@ -15,7 +15,9 @@ public interface AuthService {
 	void verifyEmailCode(AuthRequest.VerifyEmailCodeRequest request, AuthPurpose purpose);
 
 	// 회원가입
-	void register(AuthRequest.RegisterRequest request);
+	// 반환값 void → boolean 변경
+	// true: 재활성화, false: 신규 가입
+	boolean register(AuthRequest.RegisterRequest request);
 
 	// 로컬 로그인
 	AuthResponse.LoginResponse login(AuthRequest.LoginRequest request, HttpServletResponse response);

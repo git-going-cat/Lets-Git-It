@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,11 +18,15 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.gitcat.letsgitit.domain.member.dto.request.NicknameRequest;
 import com.gitcat.letsgitit.domain.member.dto.request.SaveCharacterRequest;
 import com.gitcat.letsgitit.domain.member.dto.response.MemberProfileResponse;
+import com.gitcat.letsgitit.domain.member.dto.response.OAuthMemberResponse;
 import com.gitcat.letsgitit.domain.member.entity.Member;
+import com.gitcat.letsgitit.domain.member.repository.MemberRedisRepository;
 import com.gitcat.letsgitit.domain.member.repository.MemberRepository;
 import com.gitcat.letsgitit.domain.record.entity.MemberBestRecord;
 import com.gitcat.letsgitit.domain.record.entity.MemberCoopBestRecord;
@@ -36,10 +41,18 @@ class MemberServiceImplTest {
 	private MemberRepository memberRepository;
 
 	@Mock
+	private MemberRedisRepository memberRedisRepository;
+
+	@Mock
 	private RecordService recordService;
+
+	@Mock
+	private PasswordEncoder passwordEncoder;
 
 	@InjectMocks
 	private MemberServiceImpl memberService;
+
+	// ===================== 튜토리얼 =====================
 
 	@Test
 	void 튜토리얼_완료_시_온보딩_상태를_완료로_변경한다() {
@@ -87,6 +100,8 @@ class MemberServiceImplTest {
 			.hasFieldOrPropertyWithValue("errorCode", TUTORIAL_ALREADY_COMPLETED);
 	}
 
+	// ===================== 내 정보 조회 =====================
+
 	@Test
 	void 내_정보_조회_시_회원과_기록을_응답으로_변환한다() {
 		// given
@@ -122,6 +137,8 @@ class MemberServiceImplTest {
 		assertThat(response.records().get(5).bestClearTime()).isEqualTo(61000);
 	}
 
+	// ===================== 캐릭터 에셋 저장 =====================
+
 	@Test
 	void 캐릭터_에셋_저장_시_회원의_캐릭터_필드를_수정한다() {
 		// given
@@ -148,6 +165,8 @@ class MemberServiceImplTest {
 		assertThat(member.getCharacterOutfit()).isEqualTo("Outfit_06");
 		assertThat(member.getCharacterOutfitColor()).isEqualTo("Outfit-color_07");
 	}
+
+	// ===================== 닉네임 =====================
 
 	@Test
 	void 닉네임_저장_시_중복이_아니면_닉네임과_온보딩_상태를_수정한다() {
@@ -306,10 +325,11 @@ class MemberServiceImplTest {
 			.willReturn(Optional.of(existingMember));
 
 		// when
-		Member result = memberService.findOrCreateOAuthMember(email, Provider.GOOGLE, providerId);
+		OAuthMemberResponse result = memberService.findOrCreateOAuthMember(email, Provider.GOOGLE, providerId);
 
 		// then
-		assertThat(result).isEqualTo(existingMember);
+		assertThat(result.member()).isEqualTo(existingMember);
+		assertThat(result.isReactivated()).isFalse();
 		then(memberRepository).should(never()).save(any());
 	}
 
@@ -322,26 +342,29 @@ class MemberServiceImplTest {
 
 		given(memberRepository.findByProviderAndProviderId(Provider.GOOGLE, providerId))
 			.willReturn(Optional.empty());
-		given(memberRepository.existsByEmail(email)).willReturn(false);
+		given(memberRepository.findByEmailIncludingDeleted(email)).willReturn(Optional.empty());
 		given(memberRepository.save(any())).willReturn(newMember);
 
 		// when
-		Member result = memberService.findOrCreateOAuthMember(email, Provider.GOOGLE, providerId);
+		OAuthMemberResponse result = memberService.findOrCreateOAuthMember(email, Provider.GOOGLE, providerId);
 
 		// then
-		assertThat(result).isEqualTo(newMember);
+		assertThat(result.member()).isEqualTo(newMember);
+		assertThat(result.isReactivated()).isFalse();
 		then(memberRepository).should().save(any());
 	}
 
 	@Test
-	void 신규_OAuth_회원인데_이메일이_이미_로컬_가입된_경우_EMAIL_DUPLICATE() {
+	void 신규_OAuth_회원인데_이메일이_이미_활성_계정인_경우_EMAIL_DUPLICATE() {
 		// given
 		String email = "existing@example.com";
 		String providerId = "google-789";
+		Member activeMember = Member.of(email, "encodedPassword"); // deletedAt == null
 
 		given(memberRepository.findByProviderAndProviderId(Provider.GOOGLE, providerId))
 			.willReturn(Optional.empty());
-		given(memberRepository.existsByEmail(email)).willReturn(true);
+		given(memberRepository.findByEmailIncludingDeleted(email))
+			.willReturn(Optional.of(activeMember));
 
 		// when & then
 		assertThatThrownBy(
@@ -350,5 +373,278 @@ class MemberServiceImplTest {
 			.hasFieldOrPropertyWithValue("errorCode", EMAIL_DUPLICATE);
 
 		then(memberRepository).should(never()).save(any());
+	}
+
+	@Test
+	void OAuth_탈퇴_후_30일_이내_재가입_시_기존_계정이_재활성화된다() {
+		// given
+		String email = "reactivate@example.com";
+		String providerId = "google-new";
+		Member deletedMember = Member.of(email, "encodedPassword");
+		deletedMember.delete(); // deletedAt = now() → 0일 경과
+
+		given(memberRepository.findByProviderAndProviderId(Provider.GOOGLE, providerId))
+			.willReturn(Optional.empty());
+		given(memberRepository.findByEmailIncludingDeleted(email))
+			.willReturn(Optional.of(deletedMember));
+
+		// when
+		OAuthMemberResponse result = memberService.findOrCreateOAuthMember(email, Provider.GOOGLE, providerId);
+
+		// then
+		assertThat(result.isReactivated()).isTrue();
+		assertThat(result.member()).isEqualTo(deletedMember);
+		assertThat(deletedMember.getDeletedAt()).isNull();
+		then(memberRepository).should(never()).save(any());
+	}
+
+	@Test
+	void OAuth_탈퇴_후_30일_초과_재가입_시_기존_계정을_마스킹하고_신규_회원을_생성한다() {
+		// given
+		String email = "masked@example.com";
+		String providerId = "google-new2";
+		Member deletedMember = Member.of(email, "encodedPassword");
+		ReflectionTestUtils.setField(deletedMember, "deletedAt", LocalDateTime.now().minusDays(31));
+
+		Member newMember = Member.ofOAuth(email, Provider.GOOGLE, providerId);
+
+		given(memberRepository.findByProviderAndProviderId(Provider.GOOGLE, providerId))
+			.willReturn(Optional.empty());
+		given(memberRepository.findByEmailIncludingDeleted(email))
+			.willReturn(Optional.of(deletedMember));
+		given(memberRepository.save(any())).willReturn(newMember);
+
+		// when
+		OAuthMemberResponse result = memberService.findOrCreateOAuthMember(email, Provider.GOOGLE, providerId);
+
+		// then
+		assertThat(result.isReactivated()).isFalse();
+		assertThat(result.member()).isEqualTo(newMember);
+		assertThat(deletedMember.getEmail()).isNotEqualTo(email); // 마스킹으로 이메일 변경됨
+		then(memberRepository).should().flush();
+		then(memberRepository).should().save(any());
+	}
+
+	// ===================== 회원탈퇴 =====================
+
+	@Test
+	void LOCAL_계정_탈퇴_시_비밀번호가_일치하면_soft_delete된다() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedPassword");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+		given(passwordEncoder.matches("rawPassword", "encodedPassword")).willReturn(true);
+
+		// when
+		memberService.withdraw(memberId, "rawPassword");
+
+		// then
+		assertThat(member.getDeletedAt()).isNotNull();
+	}
+
+	@Test
+	void LOCAL_계정_탈퇴_시_비밀번호가_null이면_INVALID_CREDENTIALS() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedPassword");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+
+		// when & then
+		assertThatThrownBy(() -> memberService.withdraw(memberId, null))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", INVALID_CREDENTIALS);
+		then(passwordEncoder).should(never()).matches(any(), any());
+	}
+
+	@Test
+	void LOCAL_계정_탈퇴_시_비밀번호가_불일치하면_INVALID_CREDENTIALS() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedPassword");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+		given(passwordEncoder.matches("wrongPassword", "encodedPassword")).willReturn(false);
+
+		// when & then
+		assertThatThrownBy(() -> memberService.withdraw(memberId, "wrongPassword"))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", INVALID_CREDENTIALS);
+		assertThat(member.getDeletedAt()).isNull();
+	}
+
+	@Test
+	void OAuth_계정_탈퇴_시_비밀번호_검증_없이_soft_delete된다() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.ofOAuth("user@example.com", Provider.GOOGLE, "google-id");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+
+		// when
+		memberService.withdraw(memberId, null);
+
+		// then
+		assertThat(member.getDeletedAt()).isNotNull();
+		then(passwordEncoder).should(never()).matches(any(), any());
+	}
+
+	// ===================== 비밀번호 검증 =====================
+
+	@Test
+	void LOCAL_계정_비밀번호_검증_성공_시_Redis에_저장된다() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedPassword");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+		given(passwordEncoder.matches("rawPassword", "encodedPassword")).willReturn(true);
+
+		// when
+		memberService.verifyPassword(memberId, "rawPassword");
+
+		// then
+		// 검증 성공 시 Redis 키가 저장되어야 changePassword에서 키 존재를 확인할 수 있음
+		then(memberRedisRepository).should().savePasswordVerified(memberId.toString());
+	}
+
+	@Test
+	void OAuth_계정_비밀번호_검증_시_OAUTH_ACCOUNT() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.ofOAuth("user@example.com", Provider.GOOGLE, "google-id");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+
+		// when & then
+		assertThatThrownBy(() -> memberService.verifyPassword(memberId, "anyPassword"))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", OAUTH_ACCOUNT);
+		then(memberRedisRepository).should(never()).savePasswordVerified(any());
+	}
+
+	@Test
+	void 비밀번호_검증_시_불일치하면_PASSWORD_MISMATCH() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedPassword");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+		given(passwordEncoder.matches("wrongPassword", "encodedPassword")).willReturn(false);
+
+		// when & then
+		assertThatThrownBy(() -> memberService.verifyPassword(memberId, "wrongPassword"))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PASSWORD_MISMATCH);
+		then(memberRedisRepository).should(never()).savePasswordVerified(any());
+	}
+
+	// ===================== 비밀번호 변경 =====================
+
+	@Test
+	void LOCAL_계정_비밀번호_변경_성공() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedOldPass");
+		String currentPassword = "OldPass123!";
+		String newPassword = "NewPass123!";
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+		// Redis 키 존재 → 검증 단계를 거친 것으로 판단
+		given(memberRedisRepository.isPasswordVerified(memberId.toString())).willReturn(true);
+		given(passwordEncoder.matches(currentPassword, "encodedOldPass")).willReturn(true);
+		given(passwordEncoder.matches(newPassword, "encodedOldPass")).willReturn(false);
+		given(passwordEncoder.encode(newPassword)).willReturn("encodedNewPass");
+		given(memberRepository.save(member)).willReturn(member);
+
+		// when
+		memberService.changePassword(memberId, currentPassword, newPassword);
+
+		// then
+		assertThat(member.getPassword()).isEqualTo("encodedNewPass");
+		// 변경 성공 후 Redis 키 즉시 삭제 확인
+		then(memberRedisRepository).should().deletePasswordVerified(memberId.toString());
+	}
+
+	@Test
+	void 비밀번호_검증_단계를_거치지_않으면_PASSWORD_VERIFY_REQUIRED() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedOldPass");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+		// Redis 키 없음 → 검증 API를 호출하지 않은 것
+		given(memberRedisRepository.isPasswordVerified(memberId.toString())).willReturn(false);
+
+		// when & then
+		assertThatThrownBy(() -> memberService.changePassword(memberId, "OldPass123!", "NewPass123!"))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PASSWORD_VERIFY_REQUIRED);
+	}
+
+	@Test
+	void currentPassword_불일치_시_PASSWORD_MISMATCH() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedOldPass");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+		given(memberRedisRepository.isPasswordVerified(memberId.toString())).willReturn(true);
+		// 재검증 실패 — 토큰 탈취 후 Redis 키만으로 변경 시도하는 케이스
+		given(passwordEncoder.matches("wrongCurrentPass", "encodedOldPass")).willReturn(false);
+
+		// when & then
+		assertThatThrownBy(() -> memberService.changePassword(memberId, "wrongCurrentPass", "NewPass123!"))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PASSWORD_MISMATCH);
+	}
+
+	@Test
+	void OAuth_계정_비밀번호_변경_시_OAUTH_ACCOUNT() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.ofOAuth("user@example.com", Provider.GOOGLE, "google-id");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+
+		// when & then
+		assertThatThrownBy(() -> memberService.changePassword(memberId, "OldPass123!", "NewPass123!"))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", OAUTH_ACCOUNT);
+	}
+
+	@Test
+	void 비밀번호_형식_불일치_시_INVALID_PASSWORD_FORMAT() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedOldPass");
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+		given(memberRedisRepository.isPasswordVerified(memberId.toString())).willReturn(true);
+		given(passwordEncoder.matches("OldPass123!", "encodedOldPass")).willReturn(true);
+
+		// when & then
+		assertThatThrownBy(() -> memberService.changePassword(memberId, "OldPass123!", "weak"))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", INVALID_PASSWORD_FORMAT);
+	}
+
+	@Test
+	void 현재_비밀번호와_동일_시_SAME_AS_CURRENT_PASSWORD() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		Member member = Member.of("user@example.com", "encodedOldPass");
+		String samePassword = "SamePass123!";
+
+		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+		given(memberRedisRepository.isPasswordVerified(memberId.toString())).willReturn(true);
+		// currentPassword 재검증은 통과, newPassword가 현재와 동일한 경우
+		given(passwordEncoder.matches(samePassword, "encodedOldPass")).willReturn(true);
+
+		// when & then
+		assertThatThrownBy(() -> memberService.changePassword(memberId, samePassword, samePassword))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", SAME_AS_CURRENT_PASSWORD);
 	}
 }

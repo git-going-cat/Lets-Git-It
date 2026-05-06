@@ -56,4 +56,9 @@ public class MemberRepositoryImpl implements MemberRepository {
 	public Optional<Member> findByProviderAndProviderId(Provider provider, String providerId) {
 		return memberJpaRepository.findByProviderAndProviderId(provider, providerId);
 	}
+
+	@Override
+	public Optional<Member> findByEmailIncludingDeleted(String email) {
+		return memberJpaRepository.findByEmailIncludingDeleted(email);
+	}
 }

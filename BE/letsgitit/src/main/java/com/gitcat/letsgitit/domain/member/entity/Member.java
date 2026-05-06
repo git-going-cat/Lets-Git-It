@@ -129,4 +129,25 @@ public class Member extends BaseEntity {
 	public void delete() {
 		this.deletedAt = LocalDateTime.now();
 	}
+
+	public void reactivate() {
+		this.deletedAt = null;
+	}
+
+	public void mask() {
+		// UUID 기반 랜덤 문자열로 마스킹
+		// → 실제 이메일/닉네임과 충돌 가능성 없음
+		String randomSuffix = UUID.randomUUID().toString().replace("-", "");
+		this.email = "deleted_" + randomSuffix + "@deleted.invalid";
+		this.nickname = "deleted_" + randomSuffix.substring(0, 12);
+		this.password = null;
+		this.providerId = null;
+	}
+
+	public void updateOAuth(Provider provider, String providerId) {
+		this.provider = provider;
+		this.providerId = providerId;
+		this.authType = AuthType.OAUTH;
+		this.password = null;
+	}
 }
