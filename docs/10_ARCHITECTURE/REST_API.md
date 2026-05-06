@@ -886,6 +886,7 @@ GET /api/v1/dictionary/commands
 | `commands[].name` | String | 명령어 이름 |
 | `commands[].description` | String | 명령어 설명 |
 | `commands[].imageUrl` | String | 명령어 이미지 URL |
+| `commands[].isInGame` | Boolean | 게임 내 사용 여부 |
 | `commands[].options` | Array | 명령어 옵션 목록 |
 | `commands[].options[].option` | String | 옵션 |
 | `commands[].options[].description` | String | 옵션 설명 |
