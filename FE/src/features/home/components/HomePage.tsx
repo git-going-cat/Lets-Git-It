@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import bgImage from '@/assets/bg/screen.png';
+import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
 import MyPageModal from '@/features/mypage/components/MyPageModal';
 import RankingModal from '@/features/ranking/components/RankingModal';
 
@@ -74,21 +75,7 @@ export function HomePage() {
       )}
 
       {activeModal === 'ranking' && <RankingModal onClose={handleCloseModal} />}
-
-      {/* TODO: 도감 모달 구현 */}
-      {activeModal === 'dictionary' && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={handleCloseModal}
-        >
-          <div
-            className="rounded-xl bg-white p-8 font-bold shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            도감 모달 (구현 예정)
-          </div>
-        </div>
-      )}
+      {activeModal === 'dictionary' && <DictionaryModal onClose={handleCloseModal} />}
     </div>
   );
 }
