@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 
 import { onboardingApi } from '../api/onboardingApi';
 import { characterFormSchema, type CharacterFormValues } from '../schemas/onboarding.schema';
@@ -19,7 +21,6 @@ export const CHARACTER_OPTIONS = CHARACTER_ASSET_OPTIONS;
  */
 export function useCharacterSetup(onComplete: () => void) {
   const updateUser = useAuthStore((s) => s.updateUser);
-  const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const form = useForm<CharacterFormValues>({
@@ -27,19 +28,23 @@ export function useCharacterSetup(onComplete: () => void) {
     defaultValues: DEFAULT_CHARACTER,
   });
 
-  const onSubmit = async (values: CharacterFormValues) => {
-    setApiError(null);
-    setIsSaving(true);
-    try {
-      await onboardingApi.saveCharacter(values);
+  const { mutate: saveCharacter, isPending: isSaving } = useMutation({
+    mutationFn: (values: CharacterFormValues) => onboardingApi.saveCharacter(values),
+    onSuccess: (_, values) => {
       updateUser(values);
       onComplete();
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setApiError(e.response?.data?.message ?? '캐릭터 저장에 실패했습니다.');
-    } finally {
-      setIsSaving(false);
-    }
+    },
+    onError: (err) => {
+      const message = isAxiosError(err)
+        ? (err.response?.data as { message?: string })?.message
+        : undefined;
+      setApiError(message ?? '캐릭터 저장에 실패했습니다.');
+    },
+  });
+
+  const onSubmit = (values: CharacterFormValues) => {
+    setApiError(null);
+    saveCharacter(values);
   };
 
   return { form, isSaving, apiError, onSubmit };

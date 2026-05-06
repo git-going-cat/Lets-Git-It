@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import { onboardingApi } from '../api/onboardingApi';
 
 import type { TutorialStep } from '../types/onboarding.types';
+import type { KeyboardEvent } from 'react';
 
 /**
  * 튜토리얼 진행 단계의 상태와 핸들러를 제공합니다.
@@ -12,30 +14,23 @@ import type { TutorialStep } from '../types/onboarding.types';
  * - 마지막 명령어 완료 시 onComplete 호출
  */
 export function useTutorialStep(onComplete: () => void) {
-  const [steps, setSteps] = useState<TutorialStep[]>([]);
   const [stepIndex, setStepIndex] = useState(0);
   const [commandIndex, setCommandIndex] = useState(0);
   const [input, setInput] = useState('');
   const [isError, setIsError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
   });
 
-  useEffect(() => {
-    onboardingApi
-      .getTutorialSteps()
-      .then((data) => {
-        setSteps(data);
-        setIsLoading(false);
-      })
-      .catch(() => {
-        setLoadError(true);
-        setIsLoading(false);
-      });
-  }, []);
+  const {
+    data: steps = [],
+    isLoading,
+    isError: loadError,
+  } = useQuery<TutorialStep[]>({
+    queryKey: ['tutorialSteps'],
+    queryFn: () => onboardingApi.getTutorialSteps(),
+  });
 
   const currentStep = steps[stepIndex] ?? null;
   const currentCommand = currentStep?.commands[commandIndex] ?? null;
@@ -66,7 +61,7 @@ export function useTutorialStep(onComplete: () => void) {
     }
   }, [input, currentCommand, commandIndex, currentStep, isLastCommand]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') submitInput();
     if (isError) setIsError(false);
   };
