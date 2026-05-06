@@ -1,7 +1,7 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useRankingWindow } from '../hooks/useRankingWindow';
-import { formatScore, getGrade, getValueLabel, GRADE_COLORS } from '../utils/rankingFormat';
+import { formatScore, getGrade, getValueLabel, GRADE_COLOR_CLASSES } from '../utils/rankingFormat';
 
 import type { useRanking } from '../hooks/useRanking';
 import type { MyRank, RankingEntry, RankingMode, WeekParam } from '../types/ranking.types';
@@ -219,18 +219,10 @@ export default function RankingList({
         {/* Tailwind 기본 색상으로 표현하기 어려운 반투명 내 순위 하이라이트 */}
         <div
           className={`flex items-center px-4 py-2.5 text-sm transition-colors ${
-            isMe ? 'font-medium' : 'text-gray-700'
-          }`}
-          style={
             isMe
-              ? {
-                  background: 'rgba(5,175,242,0.1)',
-                  borderTop: '1px solid rgba(5,175,242,0.3)',
-                  borderBottom: '1px solid rgba(5,175,242,0.3)',
-                  color: '#0078D4',
-                }
-              : { borderBottom: '1px solid rgba(100,140,200,0.07)' }
-          }
+              ? 'border-y border-y-[rgba(5,175,242,0.3)] bg-[rgba(5,175,242,0.1)] font-medium text-[#0078D4]'
+              : 'border-b border-b-[rgba(100,140,200,0.07)] text-gray-700'
+          }`}
         >
           <span className="w-12 text-center font-bold">{entry.rank}</span>
           <span className="flex flex-1 items-center gap-1.5">
@@ -246,12 +238,7 @@ export default function RankingList({
             <span className="flex w-14 justify-center">
               {grade && (
                 <span
-                  className="rounded-full px-2 py-0.5 text-xs font-bold"
-                  style={{
-                    backgroundColor: GRADE_COLORS[grade].bg,
-                    color: GRADE_COLORS[grade].text,
-                    border: GRADE_COLORS[grade].border,
-                  }}
+                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_COLOR_CLASSES[grade]}`}
                 >
                   {grade}
                 </span>
@@ -266,10 +253,7 @@ export default function RankingList({
   return (
     <div className="flex flex-col">
       {/* Tailwind 기본 색상으로 표현하기 어려운 연한 헤더 배경 */}
-      <div
-        className="flex items-center px-4 py-2 text-xs font-semibold"
-        style={{ background: 'rgba(100,140,200,0.07)', color: '#7a8aaa' }}
-      >
+      <div className="flex items-center bg-[rgba(100,140,200,0.07)] px-4 py-2 text-xs font-semibold text-[#7a8aaa]">
         <span className="w-12 text-center">순위</span>
         <span className="flex-1">닉네임</span>
         <span className="w-24 text-right">{valueLabel}</span>
@@ -298,14 +282,7 @@ export default function RankingList({
       )}
 
       {/* Tailwind 기본 색상으로 표현하기 어려운 연한 하단 안내 배경 */}
-      <div
-        className="px-4 py-2 text-center text-xs"
-        style={{
-          background: 'rgba(100,140,200,0.05)',
-          borderTop: '1px solid rgba(100,140,200,0.1)',
-          color: '#9aaac8',
-        }}
-      >
+      <div className="border-t border-t-[rgba(100,140,200,0.1)] bg-[rgba(100,140,200,0.05)] px-4 py-2 text-center text-xs text-[#9aaac8]">
         매주 월요일 00:00 초기화
       </div>
     </div>

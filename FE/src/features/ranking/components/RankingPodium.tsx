@@ -1,4 +1,4 @@
-import { formatScore, getGrade, GRADE_COLORS } from '../utils/rankingFormat';
+import { formatScore, getGrade, GRADE_COLOR_CLASSES } from '../utils/rankingFormat';
 
 import type { RankGrade, RankingEntry, RankingMode } from '../types/ranking.types';
 
@@ -22,6 +22,16 @@ export default function RankingPodium({ mode, top3 }: RankingPodiumProps) {
   const medals = ['🥈', '🥇', '🥉'];
   // 1위가 가장 높은 시상대 — 각 높이는 Tailwind 기본 스케일로 표현
   const podiumHeights = ['h-20', 'h-28', 'h-16'];
+  const podiumClasses = [
+    'border-[1.5px] border-[rgba(140,170,210,0.35)] bg-[linear-gradient(180deg,#DDE8F5_0%,#B8CCE8_100%)]',
+    'border-[1.5px] border-[rgba(220,170,30,0.3)] bg-[linear-gradient(180deg,#FFE5A0_0%,#F5C842_100%)]',
+    'border-[1.5px] border-[rgba(190,140,90,0.3)] bg-[linear-gradient(180deg,#F5DEC8_0%,#E0B888_100%)]',
+  ];
+  const rankTextClasses = [
+    'text-[#5a6a8a] opacity-[0.55]',
+    'text-[#8a6a00] opacity-[0.55]',
+    'text-[#7a5030] opacity-[0.55]',
+  ];
 
   return (
     <div className="flex items-end justify-center gap-4 py-4">
@@ -43,32 +53,10 @@ export default function RankingPodium({ mode, top3 }: RankingPodiumProps) {
             {/* 시상대 기둥 */}
             {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
             <div
-              className={`${podiumHeights[idx]} flex w-20 items-end justify-center rounded-t-lg text-lg font-bold`}
-              style={{
-                background:
-                  idx === 1
-                    ? 'linear-gradient(180deg, #FFE5A0 0%, #F5C842 100%)'
-                    : idx === 0
-                      ? 'linear-gradient(180deg, #DDE8F5 0%, #B8CCE8 100%)'
-                      : 'linear-gradient(180deg, #F5DEC8 0%, #E0B888 100%)',
-                border:
-                  idx === 1
-                    ? '1.5px solid rgba(220,170,30,0.3)'
-                    : idx === 0
-                      ? '1.5px solid rgba(140,170,210,0.35)'
-                      : '1.5px solid rgba(190,140,90,0.3)',
-              }}
+              className={`${podiumHeights[idx]} ${podiumClasses[idx]} flex w-20 items-end justify-center rounded-t-lg text-lg font-bold`}
             >
               {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-              <span
-                className="mb-2"
-                style={{
-                  color: idx === 1 ? '#8a6a00' : idx === 0 ? '#5a6a8a' : '#7a5030',
-                  opacity: 0.55,
-                }}
-              >
-                {entry.rank}
-              </span>
+              <span className={`mb-2 ${rankTextClasses[idx]}`}>{entry.rank}</span>
             </div>
           </div>
         );
@@ -84,14 +72,11 @@ interface GradeBadgeProps {
 }
 
 function GradeBadge({ grade }: GradeBadgeProps) {
-  const colors = GRADE_COLORS[grade];
-
   return (
     <>
       {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
       <span
-        className="rounded-full px-2.5 py-0.5 text-xs font-bold"
-        style={{ backgroundColor: colors.bg, color: colors.text, border: colors.border }}
+        className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${GRADE_COLOR_CLASSES[grade]}`}
       >
         {grade}
       </span>

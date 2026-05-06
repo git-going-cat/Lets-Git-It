@@ -88,6 +88,13 @@ export const GRADE_COLORS: Record<RankGrade, { bg: string; text: string; border:
   C: { bg: '#FFD8AA', text: '#7a4010', border: '1px solid rgba(200,120,50,0.2)' },
 };
 
+export const GRADE_COLOR_CLASSES: Record<RankGrade, string> = {
+  S: 'bg-[#FFE080] text-[#7a5a00] border border-[rgba(200,160,0,0.25)]',
+  A: 'bg-[#C8DEFF] text-[#2a4a8a] border border-[rgba(100,140,220,0.25)]',
+  B: 'bg-[#C0EDD8] text-[#1a6a40] border border-[rgba(50,160,100,0.2)]',
+  C: 'bg-[#FFD8AA] text-[#7a4010] border border-[rgba(200,120,50,0.2)]',
+};
+
 /** 모드별 컬럼 헤더 라벨 */
 export function getValueLabel(mode: RankingMode): string {
   if (mode === 'coop') return '클리어 타임';

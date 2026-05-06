@@ -71,13 +71,7 @@ export default function RankingSidebar({ activeMode, onSelectMode }: RankingSide
   return (
     <>
       {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-      <div
-        className="flex w-44 shrink-0 flex-col gap-1 overflow-y-auto py-4 pr-2 pl-3 backdrop-blur-md"
-        style={{
-          background: 'rgba(255,255,255,0.45)',
-          borderRight: '1px solid rgba(255,255,255,0.6)',
-        }}
-      >
+      <div className="flex w-44 shrink-0 flex-col gap-1 overflow-y-auto border-r border-r-[rgba(255,255,255,0.6)] bg-[rgba(255,255,255,0.45)] py-4 pr-2 pl-3 backdrop-blur-md">
         {SIDEBAR_DATA.map((folder) => (
           <div key={folder.label}>
             {/* 폴더 헤더 */}
@@ -85,8 +79,7 @@ export default function RankingSidebar({ activeMode, onSelectMode }: RankingSide
             <button
               type="button"
               onClick={() => handleToggle(folder.label)}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-semibold transition-colors hover:bg-white/50"
-              style={{ color: '#5a6a8a' }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-semibold text-[#5a6a8a] transition-colors hover:bg-white/50"
             >
               <img
                 src={folder.icon}
@@ -96,7 +89,7 @@ export default function RankingSidebar({ activeMode, onSelectMode }: RankingSide
               />
               <span className="flex-1 text-left">{folder.label}</span>
               {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-              <span className="text-xs" style={{ color: 'rgba(90, 106, 138, 0.5)' }}>
+              <span className="text-xs text-[rgba(90,106,138,0.5)]">
                 {openFolders[folder.label] ? '▾' : '▸'}
               </span>
             </button>
@@ -111,18 +104,10 @@ export default function RankingSidebar({ activeMode, onSelectMode }: RankingSide
                       type="button"
                       onClick={() => onSelectMode(item.mode)}
                       className={`flex items-center gap-2 rounded-md px-2 py-2 text-xs transition-colors ${
-                        activeMode !== item.mode ? 'hover:bg-white/50' : ''
-                      }`}
-                      style={
                         activeMode === item.mode
-                          ? {
-                              background: 'rgba(255,255,255,0.65)',
-                              color: '#3a5a9a',
-                              borderLeft: '3px solid #F2CB05',
-                              fontWeight: 600,
-                            }
-                          : { color: '#4a5a7a' }
-                      }
+                          ? 'border-l-[3px] border-l-[#F2CB05] bg-[rgba(255,255,255,0.65)] font-semibold text-[#3a5a9a]'
+                          : 'text-[#4a5a7a] hover:bg-white/50'
+                      }`}
                     >
                       <img
                         src={item.icon}

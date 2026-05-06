@@ -80,19 +80,12 @@ export default function RankingModal({ onClose }: RankingModalProps) {
 
       {/* 모달 본체 */}
       {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-      <div
-        className="relative z-10 flex w-modal-lg overflow-hidden shadow-2xl"
-        style={{
-          borderRadius: '16px',
-          height: '600px',
-          background: 'linear-gradient(160deg, #7ECFEA 0%, #9DDAF0 35%, #C5EDF8 65%, #E8C4C4 100%)',
-        }}
-      >
+      <div className="relative z-10 flex h-[600px] w-modal-lg overflow-hidden rounded-[16px] bg-[linear-gradient(160deg,#7ECFEA_0%,#9DDAF0_35%,#C5EDF8_65%,#E8C4C4_100%)] shadow-2xl">
         {/* 좌측 사이드바 */}
         <RankingSidebar activeMode={activeMode} onSelectMode={handleModeChange} />
 
         {/* 중앙 콘텐츠 영역 */}
-        <div className="flex flex-1 flex-col overflow-y-auto">
+        <div className="flex flex-1 flex-col overflow-hidden">
           {/* 헤더 바 */}
           <div className="flex items-center justify-between px-6 py-3">
             <h2 className="text-lg font-bold text-gray-800">{getModeLabel(activeMode)} 랭킹</h2>
@@ -118,7 +111,7 @@ export default function RankingModal({ onClose }: RankingModalProps) {
               ←
             </button>
             {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-            <span className="text-lg font-semibold" style={{ color: '#3a5a8a' }}>
+            <span className="text-lg font-semibold text-[#3a5a8a]">
               {displayWeek
                 ? `${displayWeek.year}년 ${displayWeek.month}월 ${displayWeek.week}주차`
                 : '로딩 중...'}
@@ -136,28 +129,27 @@ export default function RankingModal({ onClose }: RankingModalProps) {
 
           {/* 콘텐츠 카드 */}
           {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-          <div
-            className="mx-4 mb-4 flex flex-1 flex-col overflow-hidden rounded-xl shadow-lg backdrop-blur-md"
-            style={{ backgroundColor: 'rgba(255, 255, 255, 0.72)' }}
-          >
+          <div className="mx-4 mb-4 flex flex-1 flex-col overflow-hidden rounded-xl bg-[rgba(255,255,255,0.72)] shadow-lg backdrop-blur-md">
             {isLoading && !data ? (
               <div className="flex flex-1 items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-500" />
               </div>
             ) : initialData ? (
-              <div ref={rankingScrollRef} className="flex flex-1 flex-col overflow-y-auto">
+              <div className="flex flex-1 flex-col overflow-hidden">
                 <RankingPodium mode={activeMode} top3={initialData.top3 as RankingEntry[]} />
-                <RankingList
-                  key={rankingListKey}
-                  mode={activeMode}
-                  data={data}
-                  fetchNextPage={fetchNextPage}
-                  hasNextPage={hasNextPage}
-                  isFetchingNextPage={isFetchingNextPage}
-                  scrollContainerRef={rankingScrollRef}
-                  scrollResetKey={rankingListKey}
-                  selectedWeek={selectedWeek}
-                />
+                <div ref={rankingScrollRef} className="flex-1 overflow-y-auto">
+                  <RankingList
+                    key={rankingListKey}
+                    mode={activeMode}
+                    data={data}
+                    fetchNextPage={fetchNextPage}
+                    hasNextPage={hasNextPage}
+                    isFetchingNextPage={isFetchingNextPage}
+                    scrollContainerRef={rankingScrollRef}
+                    scrollResetKey={rankingListKey}
+                    selectedWeek={selectedWeek}
+                  />
+                </div>
               </div>
             ) : (
               <div className="flex flex-1 items-center justify-center text-sm text-gray-400">
