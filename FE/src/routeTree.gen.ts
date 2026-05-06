@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TutorialRouteImport } from './routes/tutorial'
 import { Route as TimeattackRouteImport } from './routes/timeattack'
 import { Route as SingleRouteImport } from './routes/single'
 import { Route as RankingRouteImport } from './routes/ranking'
@@ -24,6 +25,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MultiRoomIdRouteImport } from './routes/multi.$roomId'
 import { Route as AuthCallbackGoogleRouteImport } from './routes/auth.callback.google'
 
+const TutorialRoute = TutorialRouteImport.update({
+  id: '/tutorial',
+  path: '/tutorial',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TimeattackRoute = TimeattackRouteImport.update({
   id: '/timeattack',
   path: '/timeattack',
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
+  '/tutorial': typeof TutorialRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
   '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
+  '/tutorial': typeof TutorialRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
   '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
+  '/tutorial': typeof TutorialRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
   '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/ranking'
     | '/single'
     | '/timeattack'
+    | '/tutorial'
     | '/multi/$roomId'
     | '/auth/callback/google'
   fileRoutesByTo: FileRoutesByTo
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/ranking'
     | '/single'
     | '/timeattack'
+    | '/tutorial'
     | '/multi/$roomId'
     | '/auth/callback/google'
   id:
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/ranking'
     | '/single'
     | '/timeattack'
+    | '/tutorial'
     | '/multi/$roomId'
     | '/auth/callback/google'
   fileRoutesById: FileRoutesById
@@ -208,11 +220,19 @@ export interface RootRouteChildren {
   RankingRoute: typeof RankingRoute
   SingleRoute: typeof SingleRoute
   TimeattackRoute: typeof TimeattackRoute
+  TutorialRoute: typeof TutorialRoute
   AuthCallbackGoogleRoute: typeof AuthCallbackGoogleRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tutorial': {
+      id: '/tutorial'
+      path: '/tutorial'
+      fullPath: '/tutorial'
+      preLoaderRoute: typeof TutorialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/timeattack': {
       id: '/timeattack'
       path: '/timeattack'
@@ -337,6 +357,7 @@ const rootRouteChildren: RootRouteChildren = {
   RankingRoute: RankingRoute,
   SingleRoute: SingleRoute,
   TimeattackRoute: TimeattackRoute,
+  TutorialRoute: TutorialRoute,
   AuthCallbackGoogleRoute: AuthCallbackGoogleRoute,
 }
 export const routeTree = rootRouteImport
