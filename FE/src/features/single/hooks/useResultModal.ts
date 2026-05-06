@@ -31,7 +31,7 @@ export function useResultModal() {
   };
 
   const onRanking = () => navigate({ to: '/ranking' });
-  const onHome = () => navigate({ to: '/' });
+  const onHome = () => navigate({ to: '/home' });
 
   return { isVisible, result, difficulty, isNewRecord, onRestart, onRanking, onHome };
 }

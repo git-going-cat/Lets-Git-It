@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 
 import PixelButton from '@/shared/components/PixelButton';
 import PixelModal from '@/shared/components/PixelModal';
@@ -13,8 +13,8 @@ function SettingsSection() {
   const [sfxVolume, setSfxVolume] = useState(60);
 
   return (
-    <div className="nes-container is-dark w-full" style={{ padding: '1rem' }}>
-      <p className="title">SETTINGS</p>
+    <div className="nes-container is-dark w-full p-4">
+      <p className="title text-base">SETTINGS</p>
 
       <div className="flex flex-col gap-4">
         {/* BGM */}
@@ -26,7 +26,7 @@ function SettingsSection() {
               checked={bgmEnabled}
               onChange={(e) => setBgmEnabled(e.target.checked)}
             />
-            <span>♪ BGM</span>
+            <span className="text-base">♪ BGM</span>
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -38,7 +38,7 @@ function SettingsSection() {
               onChange={(e) => setBgmVolume(Number(e.target.value))}
               className="w-full"
             />
-            <span className="w-8 text-right text-xs">{bgmVolume}%</span>
+            <span className="w-12 text-right text-xl">{bgmVolume}%</span>
           </div>
         </div>
 
@@ -51,7 +51,7 @@ function SettingsSection() {
               checked={sfxEnabled}
               onChange={(e) => setSfxEnabled(e.target.checked)}
             />
-            <span>🔊 SFX</span>
+            <span className="text-base">🔊 SFX</span>
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -63,7 +63,7 @@ function SettingsSection() {
               onChange={(e) => setSfxVolume(Number(e.target.value))}
               className="w-full"
             />
-            <span className="w-8 text-right text-xs">{sfxVolume}%</span>
+            <span className="w-12 text-right text-xl">{sfxVolume}%</span>
           </div>
         </div>
       </div>
