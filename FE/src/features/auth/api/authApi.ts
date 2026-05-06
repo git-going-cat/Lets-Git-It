@@ -2,14 +2,23 @@
 
 import {
   apiResponseSchema,
+  emptyResponseSchema,
   loginResponseDataSchema,
   reissueResponseDataSchema,
-} from '../types/auth.types';
+  sendEmailCodeResponseDataSchema,
+} from '../schemas/response.schema';
+
 import type {
+  EmailCodePurpose,
   LoginRequest,
   LoginResponseData,
   OAuthTokenRequest,
+  RegisterRequest,
   ReissueResponseData,
+  ResetPasswordRequest,
+  SendEmailCodeRequest,
+  SendEmailCodeResponseData,
+  VerifyEmailCodeRequest,
 } from '../types/auth.types';
 
 /** 로그인 API 응답 Zod 파싱 헬퍼 */
@@ -40,4 +49,34 @@ export const authApi = {
 
   /** 로그아웃 */
   logout: () => http.post('/api/v1/auth/logout'),
+
+  // ── 회원가입 / 이메일 인증 / 비밀번호 재설정 ──────────────────────────
+
+  /** 이메일 인증 코드 발송 */
+  sendEmailCode: async (
+    purpose: EmailCodePurpose,
+    body: SendEmailCodeRequest
+  ): Promise<{ data: { data: SendEmailCodeResponseData } }> => {
+    const res = await http.post(`/api/v1/auth/email/send?purpose=${purpose}`, body);
+    const parsed = apiResponseSchema(sendEmailCodeResponseDataSchema).parse(res.data);
+    return { data: parsed };
+  },
+
+  /** 이메일 인증 코드 검증 */
+  verifyEmailCode: async (purpose: EmailCodePurpose, body: VerifyEmailCodeRequest) => {
+    const res = await http.post(`/api/v1/auth/email/verify?purpose=${purpose}`, body);
+    emptyResponseSchema.parse(res.data);
+  },
+
+  /** 회원가입 */
+  register: async (body: RegisterRequest) => {
+    const res = await http.post('/api/v1/auth/register', body);
+    emptyResponseSchema.parse(res.data);
+  },
+
+  /** 비밀번호 재설정 */
+  resetPassword: async (body: ResetPasswordRequest) => {
+    const res = await http.patch('/api/v1/auth/password/reset', body);
+    emptyResponseSchema.parse(res.data);
+  },
 };

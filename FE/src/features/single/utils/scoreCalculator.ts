@@ -9,7 +9,7 @@ interface ScoreConfig {
   livesPenalty: number;
 }
 
-const SCORE_CONFIG: Record<Difficulty, ScoreConfig> = {
+export const SCORE_CONFIG: Record<Difficulty, ScoreConfig> = {
   EASY: { idealTimeSec: 360, timeRate: 3, typoPenalty: 20, livesPenalty: 100 },
   NORMAL: { idealTimeSec: 240, timeRate: 7, typoPenalty: 40, livesPenalty: 180 },
   HARD: { idealTimeSec: 180, timeRate: 12, typoPenalty: 70, livesPenalty: 280 },

@@ -1,6 +1,7 @@
-// TODO: import { RankingPage } from '@/features/ranking/components/RankingPage'
 import { createFileRoute } from '@tanstack/react-router';
 
+import { RankingPage } from '@/features/ranking/components/RankingPage';
+
 export const Route = createFileRoute('/ranking')({
-  component: () => <div />,
+  component: RankingPage,
 });

@@ -15,7 +15,7 @@ export interface PixelButtonProps extends Omit<
 
 export default function PixelButton({ label, onClick, variant = 'secondary' }: PixelButtonProps) {
   return (
-    <button type="button" className={`nes-btn ${NES_VARIANT[variant]}`} onClick={onClick}>
+    <button type="button" className={`nes-btn text-base ${NES_VARIANT[variant]}`} onClick={onClick}>
       {label}
     </button>
   );

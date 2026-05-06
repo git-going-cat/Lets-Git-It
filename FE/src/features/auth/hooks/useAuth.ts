@@ -29,29 +29,39 @@ function toAuthUser(data: LoginResponseData): AuthUser {
  * - `isAuthenticated`: 로그인 여부
  */
 export function useAuth() {
-  const { setAuth, clearAuth, user, isAuthenticated } = useAuthStore();
+  const { setAuth, clearAuth, setReactivated, user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
+
+  const handleLoginResponse = useCallback(
+    async (res: LoginResponseData & { isFirstLogin: boolean; isReactivated: boolean }) => {
+      setAuth(res.accessToken, toAuthUser(res));
+      if (res.isReactivated) {
+        setReactivated(true);
+      }
+      // 온보딩 미완료(NONE, NICKNAME_SET_DONE)이면 중간 재진입 포함 온보딩 라우트로 이동
+      if (res.onboardingStatus !== 'TUTORIAL_DONE') {
+        await navigate({ to: '/onboarding' });
+      } else {
+        await navigate({ to: '/' });
+      }
+    },
+    [setAuth, setReactivated, navigate]
+  );
 
   const login = useCallback(
     async (body: LoginRequest) => {
       const { data } = await authApi.login(body);
-      const res = data.data;
-      setAuth(res.accessToken, toAuthUser(res));
-      // TODO: /onboarding 라우트 등록 후 as never 제거
-      await navigate({ to: res.isFirstLogin ? ('/onboarding' as never) : '/' });
+      await handleLoginResponse(data.data);
     },
-    [setAuth, navigate]
+    [handleLoginResponse]
   );
 
   const loginWithOAuth = useCallback(
     async (code: string) => {
       const { data } = await authApi.exchangeOAuthCode({ code });
-      const res = data.data;
-      setAuth(res.accessToken, toAuthUser(res));
-      // TODO: /onboarding 라우트 등록 후 as never 제거
-      await navigate({ to: res.isFirstLogin ? ('/onboarding' as never) : '/' });
+      await handleLoginResponse(data.data);
     },
-    [setAuth, navigate]
+    [handleLoginResponse]
   );
 
   const logout = useCallback(async () => {

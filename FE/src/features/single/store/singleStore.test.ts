@@ -19,6 +19,7 @@ const mockSession = {
   difficulty: 'NORMAL' as const,
   bestScore: 8000,
   commandSet: mockCommandSet,
+  githubName: 'gitcat-dev',
 };
 
 beforeEach(() => {

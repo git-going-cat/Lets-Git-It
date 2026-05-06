@@ -1,18 +1,89 @@
-﻿import PixelButton from '@/shared/components/PixelButton';
+import { useState } from 'react';
+
+import PixelButton from '@/shared/components/PixelButton';
 import PixelModal from '@/shared/components/PixelModal';
 
 import { usePauseModal } from '../hooks/usePauseModal';
 
-export default function PauseModal() {
-  const { isVisible, onResume, onRestart, onSettings, onExit } = usePauseModal();
+// TODO: BGM/SFX 상태를 Zustand settingsStore로 이관 (홈 SettingsModal과 공유)
+function SettingsSection() {
+  const [bgmEnabled, setBgmEnabled] = useState(true);
+  const [bgmVolume, setBgmVolume] = useState(75);
+  const [sfxEnabled, setSfxEnabled] = useState(true);
+  const [sfxVolume, setSfxVolume] = useState(60);
 
   return (
-    <PixelModal isOpen={isVisible} onClose={onResume} title="PAUSED">
-      <div className="flex flex-col gap-3 w-full">
-        <PixelButton label="▶  이어하기" onClick={onResume} variant="primary" />
-        <PixelButton label="↺  다시하기" onClick={onRestart} variant="secondary" />
-        <PixelButton label="⚙  설정" onClick={onSettings} variant="secondary" />
-        <PixelButton label="✕  나가기" onClick={onExit} variant="danger" />
+    <div className="nes-container is-dark w-full p-4">
+      <p className="title text-base">SETTINGS</p>
+
+      <div className="flex flex-col gap-4">
+        {/* BGM */}
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="nes-checkbox is-dark"
+              checked={bgmEnabled}
+              onChange={(e) => setBgmEnabled(e.target.checked)}
+            />
+            <span className="text-base">♪ BGM</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={bgmVolume}
+              disabled={!bgmEnabled}
+              onChange={(e) => setBgmVolume(Number(e.target.value))}
+              className="w-full"
+            />
+            <span className="w-12 text-right text-xl">{bgmVolume}%</span>
+          </div>
+        </div>
+
+        {/* SFX */}
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="nes-checkbox is-dark"
+              checked={sfxEnabled}
+              onChange={(e) => setSfxEnabled(e.target.checked)}
+            />
+            <span className="text-base">🔊 SFX</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={sfxVolume}
+              disabled={!sfxEnabled}
+              onChange={(e) => setSfxVolume(Number(e.target.value))}
+              className="w-full"
+            />
+            <span className="w-12 text-right text-xl">{sfxVolume}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function PauseModal() {
+  const { isVisible, onResume, onRestart, onExit } = usePauseModal();
+
+  return (
+    // onClose 미전달 → useModal의 ESC 핸들러 비활성화 (ESC는 useSingleGame이 단독 처리)
+    <PixelModal isOpen={isVisible} title="PAUSED">
+      <div className="flex flex-col items-center gap-4 w-full">
+        <SettingsSection />
+        <div className="flex flex-col gap-3 w-full">
+          <PixelButton label="▶  이어하기" onClick={onResume} variant="primary" />
+          <PixelButton label="↺  다시하기" onClick={onRestart} variant="secondary" />
+          <PixelButton label="✕  나가기" onClick={onExit} variant="danger" />
+        </div>
       </div>
     </PixelModal>
   );

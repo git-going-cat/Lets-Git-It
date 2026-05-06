@@ -1,6 +1,7 @@
 ﻿import Phaser from 'phaser';
 
 export interface EventMap {
+  'game:start': void;
   'game:pause': void;
   'game:resume': void;
   'game:over': void;
@@ -11,8 +12,10 @@ export interface EventMap {
   'lives:update': number;
   'timer:tick': number;
   'command:complete': { index: number };
-  'command:miss': void;
+  'command:miss': { index: number };
   'item:use': { slot: 0 | 1 | 2 };
+  'branch:switch': { branch: string };
+  'lane:create': { branch: string };
 }
 
 type EventKey = keyof EventMap;

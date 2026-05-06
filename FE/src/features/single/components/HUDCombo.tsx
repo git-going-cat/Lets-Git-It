@@ -6,8 +6,13 @@ export default function HUDCombo() {
   const combo = useAtomValue(comboAtom);
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-4xl font-bold">{combo}</span>
+    <div className="font-pixel flex flex-col items-center gap-3">
+      <span
+        key={combo}
+        className={`text-4xl ${combo > 0 ? 'combo-pop nes-text is-error' : 'text-gray-600'}`}
+      >
+        x{combo}
+      </span>
     </div>
   );
 }
