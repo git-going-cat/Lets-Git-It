@@ -1,7 +1,7 @@
 package com.gitcat.letsgitit.domain.member.controller;
 
-import java.util.Map;
-
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -9,8 +9,11 @@ import jakarta.validation.constraints.Size;
 
 import org.springframework.http.ResponseEntity;
 
+import com.gitcat.letsgitit.domain.member.dto.request.ChangePasswordRequest;
 import com.gitcat.letsgitit.domain.member.dto.request.NicknameRequest;
 import com.gitcat.letsgitit.domain.member.dto.request.SaveCharacterRequest;
+import com.gitcat.letsgitit.domain.member.dto.request.VerifyPasswordRequest;
+import com.gitcat.letsgitit.domain.member.dto.request.WithdrawRequest;
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -192,50 +195,25 @@ public interface MemberControllerDocs {
 		String nickname);
 
 	@Operation(summary = "회원탈퇴", description = "soft delete 처리. 탈퇴 후 30일 이내 재가입 시 기존 계정 재활성화.")
-	@ApiResponse(responseCode = "200", description = "회원탈퇴 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
-		{"status": 200, "message": "회원탈퇴 성공", "data": {}}
-		""")))
-	ResponseEntity<?> withdraw();
-
-	@Operation(summary = "비밀번호 변경 (마이페이지, 인증 필요)", description = """
-		Authorization 헤더에 Access Token 필요. 비밀번호 검증 API 호출 후 사용.
-
-		**Mock 에러 트리거 (테스트용)**
-		| 요청값 | 발생 에러 |
-		|---|---|
-		| newPassword: "weak" | 400 INVALID_PASSWORD_FORMAT |
-		| newPassword: "samepass" | 409 SAME_AS_CURRENT_PASSWORD |
-		""")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
-		{"newPassword": "newPassword123!"}
+		{"password": "currentPassword123!"}
 		""")))
 	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "비밀번호 변경 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
-			{"status": 200, "message": "비밀번호 변경 성공", "data": {}}
+		@ApiResponse(responseCode = "200", description = "회원탈퇴 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+			{"status": 200, "message": "회원탈퇴 성공", "data": {}}
 			"""))),
-		@ApiResponse(responseCode = "400", description = "비밀번호 형식 불일치 또는 소셜 로그인 계정", content = @Content(mediaType = "application/json", examples = {
-			@ExampleObject(name = "INVALID_PASSWORD_FORMAT", value = """
-				{"status": 400, "code": "INVALID_PASSWORD_FORMAT", "message": "비밀번호 형식이 올바르지 않습니다.", "errors": []}
-				"""),
-			@ExampleObject(name = "OAUTH_ACCOUNT", value = """
-				{"status": 400, "code": "OAUTH_ACCOUNT", "message": "소셜 로그인 계정은 비밀번호를 사용할 수 없습니다.", "errors": []}
-				""")
-		})),
-		@ApiResponse(responseCode = "409", description = "현재 비밀번호와 동일", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "SAME_AS_CURRENT_PASSWORD", value = """
-			{"status": 409, "code": "SAME_AS_CURRENT_PASSWORD", "message": "현재 비밀번호와 동일합니다.", "errors": []}
+		@ApiResponse(responseCode = "401", description = "비밀번호 불일치 (LOCAL 계정)", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "INVALID_CREDENTIALS", value = """
+			{"status": 401, "code": "INVALID_CREDENTIALS", "message": "이메일 또는 비밀번호가 올바르지 않습니다.", "errors": []}
 			""")))
 	})
-	ResponseEntity<?> changePassword(Map<String, Object> body);
+	ResponseEntity<?> withdraw(
+		@Parameter(hidden = true)
+		CustomUserDetails userDetails,
+		WithdrawRequest request,
+		HttpServletRequest httpRequest,
+		HttpServletResponse httpResponse);
 
-	@Operation(summary = "비밀번호 검증", description = """
-		비밀번호 변경 전 현재 비밀번호를 검증합니다.
-
-		**Mock 에러 트리거 (테스트용)**
-		| 요청값 | 발생 에러 |
-		|---|---|
-		| password: "wrongpass" | 401 PASSWORD_MISMATCH |
-		| password: "oauth" | 400 OAUTH_ACCOUNT |
-		""")
+	@Operation(summary = "비밀번호 검증 (마이페이지, 인증 필요)", description = "현재 비밀번호를 검증하고 Redis에 인증 상태를 저장한다. 이후 비밀번호 변경 API 호출 시 이 상태를 확인한다.")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{"password": "currentPassword123!"}
 		""")))
@@ -250,5 +228,36 @@ public interface MemberControllerDocs {
 			{"status": 400, "code": "OAUTH_ACCOUNT", "message": "소셜 로그인 계정은 비밀번호를 사용할 수 없습니다.", "errors": []}
 			""")))
 	})
-	ResponseEntity<?> verifyPassword(Map<String, Object> body);
+	ResponseEntity<?> verifyPassword(@Parameter(hidden = true)
+	CustomUserDetails userDetails,
+		@Valid
+		VerifyPasswordRequest request);
+
+	@Operation(summary = "비밀번호 변경 (마이페이지, 인증 필요)", description = "비밀번호 검증 API 호출 후 Redis 키가 존재할 때만 변경 가능. 변경 성공 시 Redis 키 즉시 삭제.")
+	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+		{"currentPassword": "currentPassword123!", "newPassword": "newPassword456!"}
+		""")))
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "비밀번호 변경 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+			{"status": 200, "message": "비밀번호 변경 성공", "data": {}}
+			"""))),
+		@ApiResponse(responseCode = "403", description = "비밀번호 검증 단계 미수행", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "PASSWORD_VERIFY_REQUIRED", value = """
+			{"status": 403, "code": "PASSWORD_VERIFY_REQUIRED", "message": "비밀번호 검증이 필요합니다. 먼저 비밀번호를 검증해주세요.", "errors": []}
+			"""))),
+		@ApiResponse(responseCode = "400", description = "비밀번호 형식 불일치 또는 소셜 로그인 계정", content = @Content(mediaType = "application/json", examples = {
+			@ExampleObject(name = "INVALID_PASSWORD_FORMAT", value = """
+				{"status": 400, "code": "INVALID_PASSWORD_FORMAT", "message": "비밀번호 형식이 올바르지 않습니다.", "errors": []}
+				"""),
+			@ExampleObject(name = "OAUTH_ACCOUNT", value = """
+				{"status": 400, "code": "OAUTH_ACCOUNT", "message": "소셜 로그인 계정은 비밀번호를 사용할 수 없습니다.", "errors": []}
+				""")
+		})),
+		@ApiResponse(responseCode = "409", description = "현재 비밀번호와 동일", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "SAME_AS_CURRENT_PASSWORD", value = """
+			{"status": 409, "code": "SAME_AS_CURRENT_PASSWORD", "message": "현재 비밀번호와 동일합니다.", "errors": []}
+			""")))
+	})
+	ResponseEntity<?> changePassword(@Parameter(hidden = true)
+	CustomUserDetails userDetails,
+		@Valid
+		ChangePasswordRequest request);
 }
