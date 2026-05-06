@@ -5,7 +5,7 @@ import logoImg from '@/assets/logo.png';
  */
 export default function LogoSection() {
   return (
-    <div className="absolute top-14 left-1/2 -translate-x-1/2 select-none">
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 select-none">
       <img
         src={logoImg}
         alt="Let's Git it"
