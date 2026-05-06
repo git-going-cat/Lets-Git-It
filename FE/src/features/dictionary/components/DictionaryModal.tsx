@@ -28,8 +28,7 @@ export default function DictionaryModal({ onClose }: DictionaryModalProps) {
       aria-label="도감"
     >
       <div
-        className="flex w-modal-lg max-w-full overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
-        style={{ height: '600px' }}
+        className="flex h-modal-lg w-modal-lg max-w-full overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 좌측 패널: 명령어 목록 */}
