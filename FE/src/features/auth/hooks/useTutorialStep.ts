@@ -18,16 +18,23 @@ export function useTutorialStep(onComplete: () => void) {
   const [input, setInput] = useState('');
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
   });
 
   useEffect(() => {
-    onboardingApi.getTutorialSteps().then((data) => {
-      setSteps(data);
-      setIsLoading(false);
-    });
+    onboardingApi
+      .getTutorialSteps()
+      .then((data) => {
+        setSteps(data);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setLoadError(true);
+        setIsLoading(false);
+      });
   }, []);
 
   const currentStep = steps[stepIndex] ?? null;
@@ -74,6 +81,7 @@ export function useTutorialStep(onComplete: () => void) {
     setInput,
     isError,
     isLoading,
+    loadError,
     isLastCommand,
     submitInput,
     handleKeyDown,

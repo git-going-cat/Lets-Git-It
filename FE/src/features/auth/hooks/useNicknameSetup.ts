@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -29,6 +29,12 @@ export function useNicknameSetup(onComplete: () => void) {
   });
 
   const nickname = watch('nickname') ?? '';
+
+  // 닉네임이 변경되면 중복확인 결과 초기화 → 재확인 강제
+  useEffect(() => {
+    setIsAvailable(null);
+    setApiError(null);
+  }, [nickname]);
 
   const checkAvailability = async () => {
     setIsAvailable(null);

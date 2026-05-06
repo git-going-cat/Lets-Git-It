@@ -18,6 +18,7 @@ export default function TutorialStep({ onComplete }: TutorialStepProps) {
     setInput,
     isError,
     isLoading,
+    loadError,
     handleKeyDown,
     submitInput,
   } = useTutorialStep(onComplete);
@@ -26,6 +27,16 @@ export default function TutorialStep({ onComplete }: TutorialStepProps) {
     return (
       <div className="flex items-center justify-center h-40">
         <p className="text-white/50 text-sm animate-pulse">튜토리얼 로딩 중...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <p className="text-red-400 text-sm">
+          튜토리얼 데이터를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.
+        </p>
       </div>
     );
   }
