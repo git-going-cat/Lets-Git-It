@@ -20,4 +20,14 @@ public class SingleResultRepositoryImpl implements SingleResultRepository {
 	public Optional<SingleResult> findTopByMemberIdAndDifficultyOrderByScoreDesc(UUID memberId, Difficulty difficulty) {
 		return singleResultJpaRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(memberId, difficulty);
 	}
+
+	@Override
+	public boolean existsBySessionId(String sessionId) {
+		return singleResultJpaRepository.existsBySessionId(sessionId);
+	}
+
+	@Override
+	public SingleResult save(SingleResult singleResult) {
+		return singleResultJpaRepository.save(singleResult);
+	}
 }

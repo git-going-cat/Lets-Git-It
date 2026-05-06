@@ -26,4 +26,8 @@ public interface MemberRepository {
 
 	// OAuth 소셜 로그인 회원 조회
 	Optional<Member> findByProviderAndProviderId(Provider provider, String providerId);
+
+	// 탈퇴 회원 포함 이메일로 조회 (재가입 시 기존 계정 존재 여부 확인용)
+	// @SQLRestriction(deleted_at IS NULL) 우회
+	Optional<Member> findByEmailIncludingDeleted(String email);
 }

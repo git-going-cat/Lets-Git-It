@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
+import com.gitcat.letsgitit.global.enums.Difficulty;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,9 +28,9 @@ public interface RankingControllerDocs {
 			    "difficulty": "NORMAL",
 			    "year": 2026, "month": 4, "week": 18,
 			    "top3": [
-			      {"rank": 1, "nickname": "gitmaster", "score": 9800},
-			      {"rank": 2, "nickname": "branchking", "score": 9200},
-			      {"rank": 3, "nickname": "mergelord", "score": 8700}
+			      {"rank": 1, "nickname": "gitcat", "score": 9800},
+			      {"rank": 2, "nickname": "brnch", "score": 9200},
+			      {"rank": 3, "nickname": "merge", "score": 8700}
 			    ],
 			    "myRank": {"rank": 42, "score": 7200},
 			    "around": [
@@ -58,7 +59,7 @@ public interface RankingControllerDocs {
 		@Parameter(hidden = true)
 		CustomUserDetails userDetails,
 		@Parameter(name = "difficulty", description = "난이도 (EASY / NORMAL / HARD)", required = true)
-		String difficulty,
+		Difficulty difficulty,
 		@Parameter(name = "cursor", description = "무한 스크롤 커서. 생략 시 초기 응답. 0 이상") @Min(0)
 		Integer cursor,
 		@Parameter(name = "size", description = "페이지 크기 (기본값 20, 최솟값 1, 최댓값 100)") @Min(1) @Max(100)
@@ -73,9 +74,9 @@ public interface RankingControllerDocs {
 			  "data": {
 			    "year": 2026, "month": 4, "week": 18,
 			    "top3": [
-			      {"rank": 1, "nickname": "speedking", "contribution": 12000},
-			      {"rank": 2, "nickname": "fastuser", "contribution": 11500},
-			      {"rank": 3, "nickname": "quickdraw", "contribution": 10900}
+			      {"rank": 1, "nickname": "speed", "contribution": 12000},
+			      {"rank": 2, "nickname": "fastu", "contribution": 11500},
+			      {"rank": 3, "nickname": "quick", "contribution": 10900}
 			    ],
 			    "myRank": {"rank": 15, "contribution": 8800},
 			    "around": [
@@ -113,9 +114,9 @@ public interface RankingControllerDocs {
 			  "data": {
 			    "year": 2026, "month": 4, "week": 18,
 			    "top3": [
-			      {"rank": 1, "nickname": "timemaster", "totalCount": 15000},
-			      {"rank": 2, "nickname": "clockking", "totalCount": 14200},
-			      {"rank": 3, "nickname": "ticktock", "totalCount": 13800}
+			      {"rank": 1, "nickname": "timer", "totalCount": 15000},
+			      {"rank": 2, "nickname": "clock", "totalCount": 14200},
+			      {"rank": 3, "nickname": "tick", "totalCount": 13800}
 			    ],
 			    "myRank": {"rank": 7, "totalCount": 10500},
 			    "around": [
@@ -154,9 +155,9 @@ public interface RankingControllerDocs {
 			    "mapId": 1, "mapName": "기초 브랜치",
 			    "year": 2026, "month": 4, "week": 18,
 			    "top3": [
-			      {"rank": 1, "nickname": "coopmaster", "clearTime": 61000},
-			      {"rank": 2, "nickname": "teamwork", "clearTime": 65000},
-			      {"rank": 3, "nickname": "syncpro", "clearTime": 70000}
+			      {"rank": 1, "nickname": "coop", "clearTime": 61000},
+			      {"rank": 2, "nickname": "team", "clearTime": 65000},
+			      {"rank": 3, "nickname": "sync", "clearTime": 70000}
 			    ],
 			    "myRank": {"rank": 5, "clearTime": 83000},
 			    "around": [
@@ -198,7 +199,7 @@ public interface RankingControllerDocs {
 		    "difficulty": "NORMAL",
 		    "year": 2025, "month": 4, "week": 3,
 		    "top3": [
-		      {"rank": 1, "nickname": "gitmaster", "score": 9800}
+		      {"rank": 1, "nickname": "gitcat", "score": 9800}
 		    ],
 		    "myRank": {"rank": 42, "score": 7200},
 		    "around": [{"rank": 42, "nickname": "dobby", "score": 7200}],
@@ -207,17 +208,19 @@ public interface RankingControllerDocs {
 		}
 		""")))
 	ResponseEntity<?> getSingleRankingHistory(
+		@Parameter(hidden = true)
+		CustomUserDetails userDetails,
 		@Parameter(name = "difficulty", description = "난이도 (EASY / NORMAL / HARD)", required = true)
-		String difficulty,
-		@Parameter(name = "year", description = "조회 연도 (예: 2025)", required = true)
+		Difficulty difficulty,
+		@Parameter(name = "year", description = "조회 연도 (예: 2025)", required = true) @Min(1)
 		Integer year,
-		@Parameter(name = "month", description = "조회 월 (예: 4)", required = true)
+		@Parameter(name = "month", description = "조회 월 (예: 4)", required = true) @Min(1) @Max(12)
 		Integer month,
-		@Parameter(name = "week", description = "조회 주차 (예: 3)", required = true)
+		@Parameter(name = "week", description = "조회 주차 (예: 3)", required = true) @Min(1) @Max(6)
 		Integer week,
-		@Parameter(name = "cursor", description = "무한 스크롤 커서. 생략 시 초기 응답")
+		@Parameter(name = "cursor", description = "무한 스크롤 커서. 생략 시 초기 응답") @Min(0)
 		Integer cursor,
-		@Parameter(name = "size", description = "페이지 크기 (기본값 20)")
+		@Parameter(name = "size", description = "페이지 크기 (기본값 20)") @Min(1) @Max(100)
 		Integer size);
 
 	@Operation(summary = "과거주 기여도 뺏기 랭킹 조회", description = "RDB에서 조회. cursor 생략 시 초기 응답, cursor 포함 시 무한 스크롤 응답.")
@@ -227,7 +230,7 @@ public interface RankingControllerDocs {
 		  "message": "스피드런 랭킹 조회 성공",
 		  "data": {
 		    "year": 2025, "month": 4, "week": 3,
-		    "top3": [{"rank": 1, "nickname": "speedking", "contribution": 12000}],
+		    "top3": [{"rank": 1, "nickname": "speed", "contribution": 12000}],
 		    "myRank": {"rank": 15, "contribution": 8800},
 		    "around": [{"rank": 15, "nickname": "dobby", "contribution": 8800}],
 		    "nextCursor": 17, "hasNext": true
@@ -253,7 +256,7 @@ public interface RankingControllerDocs {
 		  "message": "타임어택 랭킹 조회 성공",
 		  "data": {
 		    "year": 2025, "month": 4, "week": 3,
-		    "top3": [{"rank": 1, "nickname": "timemaster", "totalCount": 15000}],
+		    "top3": [{"rank": 1, "nickname": "timer", "totalCount": 15000}],
 		    "myRank": {"rank": 7, "totalCount": 10500},
 		    "around": [{"rank": 7, "nickname": "dobby", "totalCount": 10500}],
 		    "nextCursor": 9, "hasNext": true
@@ -280,7 +283,7 @@ public interface RankingControllerDocs {
 		  "data": {
 		    "mapId": 1, "mapName": "기초 브랜치",
 		    "year": 2025, "month": 4, "week": 3,
-		    "top3": [{"rank": 1, "nickname": "coopmaster", "clearTime": 61000}],
+		    "top3": [{"rank": 1, "nickname": "coop", "clearTime": 61000}],
 		    "myRank": {"rank": 5, "clearTime": 83000},
 		    "around": [{"rank": 5, "nickname": "dobby", "clearTime": 83000}],
 		    "nextCursor": 7, "hasNext": true

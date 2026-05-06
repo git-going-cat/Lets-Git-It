@@ -2,11 +2,13 @@ package com.gitcat.letsgitit.domain.member.service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.gitcat.letsgitit.domain.member.dto.request.NicknameRequest;
 import com.gitcat.letsgitit.domain.member.dto.request.SaveCharacterRequest;
 import com.gitcat.letsgitit.domain.member.dto.response.MemberProfileResponse;
+import com.gitcat.letsgitit.domain.member.dto.response.OAuthMemberResponse;
 import com.gitcat.letsgitit.domain.member.entity.Member;
 import com.gitcat.letsgitit.global.enums.Provider;
 
@@ -38,7 +40,21 @@ public interface MemberService {
 
 	void updatePassword(Member member, String encodedPassword);
 
-	Member findOrCreateOAuthMember(String email, Provider provider, String providerId);
+	void addPlayTime(UUID memberId, int seconds);
+
+	OAuthMemberResponse findOrCreateOAuthMember(String email, Provider provider, String providerId);
 
 	Member findById(UUID memberId);
+
+	void withdraw(UUID memberId, String password);
+
+	// 비밀번호 검증 성공 시 Redis에 member:password:verified:{memberId} 키 저장
+	void verifyPassword(UUID memberId, String password);
+
+	// Redis 검증 키 확인 → currentPassword 재검증 → 비밀번호 변경 → Redis 키 삭제
+	void changePassword(UUID memberId, String currentPassword, String newPassword);
+
+	void flush();
+
+	Optional<Member> findByEmailIncludingDeleted(String email);
 }

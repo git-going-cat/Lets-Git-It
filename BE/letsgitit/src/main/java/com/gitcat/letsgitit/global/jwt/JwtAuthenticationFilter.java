@@ -1,6 +1,7 @@
 package com.gitcat.letsgitit.global.jwt;
 
 import java.io.IOException;
+import java.util.List;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -13,6 +14,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,10 +31,34 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+	private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
+
+	private static final List<String> PUBLIC_PATHS = List.of(
+		"/api/v1/auth/login",
+		"/api/v1/auth/register",
+		"/api/v1/auth/email/send",
+		"/api/v1/auth/email/verify",
+		"/api/v1/auth/token",
+		"/api/v1/auth/password/reset",
+		"/api/v1/auth/reissue",
+		"/api/v1/oauth2/authorization/**",
+		"/oauth2/**",
+		"/login/oauth2/**",
+		"/swagger-ui/**",
+		"/api-docs/**",
+		"/actuator/**",
+		"/ws/**");
+
 	private final JwtProvider jwtProvider;
 	private final UserDetailsService userDetailsService;
 	private final AuthRedisRepository authRedisRepository;
 	private final ObjectMapper objectMapper;
+
+	@Override
+	protected boolean shouldNotFilter(HttpServletRequest request) {
+		String path = request.getRequestURI();
+		return PUBLIC_PATHS.stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path));
+	}
 
 	@Override
 	protected void doFilterInternal(

@@ -243,4 +243,24 @@ public class AuthRedisRepositoryImpl implements AuthRedisRepository {
 	public void deleteOAuthTempCode(String code) {
 		authStringRedisTemplate.delete(oauthTempCodeKey(code));
 	}
+
+	@Override
+	public void saveOAuthReactivated(String tempCode, boolean isReactivated) {
+		// key: auth:oauth:reactivated:{tempCode}
+		// TTL은 tempCode와 동일하게 30초
+		authStringRedisTemplate.opsForValue()
+			.set(oauthReactivatedKey(tempCode), String.valueOf(isReactivated),
+				AuthConstants.OAUTH_TEMP_CODE_TTL_SECONDS, TimeUnit.SECONDS);
+	}
+
+	@Override
+	public boolean getOAuthReactivated(String tempCode) {
+		// 키가 없으면 null → 재활성화 아님으로 처리
+		String value = authStringRedisTemplate.opsForValue().get(oauthReactivatedKey(tempCode));
+		return Boolean.parseBoolean(value);
+	}
+
+	private String oauthReactivatedKey(String tempCode) {
+		return "auth:oauth:reactivated:" + tempCode;
+	}
 }
