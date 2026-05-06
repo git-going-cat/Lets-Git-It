@@ -52,7 +52,7 @@ const SINGLE_ITEMS: ExplorerItem[] = [
     img: singleHardImg,
     description: '브랜치 최대 5개로 진행되는 고급 모드',
     detail:
-      'Normal 명령어 + rebase / force push / diff\nConflict 미니게임 포함\n\nGit 전문가를 위한 난이도',
+      'Normal 명령어 + rebase / force push / diff\nConflict 미니게임 포함\nGit 전문가를 위한 난이도',
   },
 ];
 
@@ -86,9 +86,6 @@ const SIDEBAR_TREE = [
   { label: '바탕화면', isFolder: true, depth: 0 },
   { label: '싱글모드', isFolder: true, depth: 1, tab: 'single' as ExplorerTab },
   { label: '멀티모드', isFolder: true, depth: 1, tab: 'multi' as ExplorerTab },
-  { label: '싱글 랭킹', isFolder: false, depth: 1 },
-  { label: '멀티 랭킹', isFolder: false, depth: 1 },
-  { label: '도감', isFolder: false, depth: 1 },
 ];
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────
@@ -137,32 +134,33 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
           {/* 탭 목록 */}
           <div className="flex flex-1 gap-0.5">
             {(['single', 'multi'] as ExplorerTab[]).map((tab) => (
-              <button
+              <div
                 key={tab}
-                type="button"
-                onClick={() => handleTabChange(tab)}
                 className={`flex items-center gap-2 rounded-t-md px-4 py-2 text-sm transition-colors ${
                   activeTab === tab
                     ? 'bg-[#f3f3f3] text-gray-800 shadow-sm'
                     : 'text-gray-500 hover:bg-white/60'
                 }`}
               >
-                <span className="text-base">📁</span>
-                {tab === 'single' ? '싱글모드' : '멀티모드'}
+                <button
+                  type="button"
+                  onClick={() => handleTabChange(tab)}
+                  className="flex items-center gap-2"
+                >
+                  <span className="text-base">📁</span>
+                  {tab === 'single' ? '싱글모드' : '멀티모드'}
+                </button>
                 {activeTab === tab && (
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onClose();
-                    }}
+                    onClick={onClose}
                     className="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-gray-400 hover:bg-gray-200"
                     aria-label="닫기"
                   >
                     ✕
                   </button>
                 )}
-              </button>
+              </div>
             ))}
             <button type="button" className="px-3 py-2 text-gray-400 hover:text-gray-600 text-sm">
               +
@@ -228,15 +226,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 // depth별 동적 들여쓰기: Tailwind 정적 클래스로 표현 불가
                 style={{ paddingLeft: `${(item.depth + 1) * 12}px` }}
               >
-                <span>
-                  {item.isFolder
-                    ? '📁'
-                    : item.label === '싱글 랭킹' || item.label === '멀티 랭킹'
-                      ? '📊'
-                      : item.label === '도감'
-                        ? '📖'
-                        : '🖥'}
-                </span>
+                <span>{item.isFolder ? '📁' : '🖥'}</span>
                 {item.label}
               </button>
             ))}

@@ -1,4 +1,4 @@
-﻿import type { CharacterInfo, OnboardingStatus } from '../schemas/response.schema';
+import type { CharacterInfo, OnboardingStatus } from '../schemas/response.schema';
 
 export type {
   CharacterInfo,
