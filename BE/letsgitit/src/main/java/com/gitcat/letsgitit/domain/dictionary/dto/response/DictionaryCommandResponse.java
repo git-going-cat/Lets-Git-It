@@ -20,7 +20,8 @@ public record DictionaryCommandResponse(
 		UUID commandId,
 		String name,
 		String description,
-		String imageUrl,
+		String tip,
+		String example,
 		boolean isInGame,
 		List<OptionDto> options) {
 		public static CommandDto of(DictionaryCommand command) {
@@ -28,7 +29,8 @@ public record DictionaryCommandResponse(
 				command.getId(),
 				command.getName(),
 				command.getDescription(),
-				command.getImageUrl(),
+				command.getTip(),
+				command.getExample(),
 				command.isInGame(),
 				command.getOptions().stream()
 					.map(OptionDto::of)

@@ -38,15 +38,13 @@ List<DictionaryCommand> findAllInGameWithOptions();
 })
 ```
 
-### 3. 이미지: Spring Boot static 리소스 서빙
+### 3. tip / example: 텍스트 필드로 직접 저장
 
-커맨드 이미지는 별도 업로드 기능 없이 **조회 전용**이다. 이미지 파일은 Spring Boot 프로젝트의 `src/main/resources/static/images/dictionary/` 경로에 정적으로 배치하고, `imageUrl`은 해당 경로를 가리키는 URL 문자열을 DB에 직접 저장한다.
+`tip`과 `example`은 별도 로직 없이 DB에 VARCHAR(500)으로 저장된 텍스트를 그대로 반환한다. 값이 없으면 `null`로 응답된다.
 
-이미지 추가·변경은 파일을 교체하고 서버를 재배포하는 방식으로만 이루어진다. 런타임 중 이미지 업로드 API는 존재하지 않는다.
+### 4. 인증 필요
 
-### 4. 인증 불필요
-
-도감 조회는 비로그인 사용자도 접근 가능한 공개 API이므로 Security 설정에서 인증을 요구하지 않는다.
+도감 조회는 로그인한 사용자만 접근 가능하다. Security 설정에서 인증을 요구한다.
 
 ### 5. 응답 구조: 내부 Record 계층화
 
@@ -74,8 +72,6 @@ DictionaryCommandResponse
 
 - `DictionaryCommandOption`의 `option` 컬럼은 SQL 예약어(`OPTION`)와 충돌할 수 있어 백틱으로 감쌌다 (`` `option` ``). JPA 설정에서 컬럼명 그대로 사용 시 쿼리 오류가 발생할 수 있으니 주의한다.
 
-- `imageUrl`은 Spring Boot static 리소스 경로를 가리키는 문자열이다. 파일이 실제로 `src/main/resources/static/` 하위에 존재해야 URL 접근이 가능하다. DB에 경로가 저장되어 있어도 파일이 없으면 404가 반환된다.
-
 - 현재 `findAllInGameWithOptions()`는 `isInGame` 여부와 관계없이 전체 커맨드를 반환한다. 추후 게임용 커맨드만 필터링해서 조회하는 요구사항이 생기면 쿼리에 `where c.isInGame = true` 조건을 추가해야 한다.
 
 - 커맨드 수가 많아져도 전체 목록을 한 번에 반환하는 구조다. 현재는 도감 데이터셋이 작고 정적이므로 페이지네이션 없이 허용 가능하지만, 데이터가 늘어나면 페이지네이션 또는 캐싱 전략을 검토해야 한다.
@@ -88,7 +84,7 @@ DictionaryCommandResponse
 
 - `dictionary_command` 테이블: Git 커맨드 다수 등록 (`git commit`, `git add`, `git merge` 등)
 - `dictionary_command_option` 테이블: 각 커맨드별 주요 옵션 등록 (`-m`, `--amend`, `-u` 등)
-- 이미지는 아직 static 파일이 준비되지 않은 경우 `imageUrl`이 `null`이거나 플레이스홀더 URL일 수 있다.
+- `tip`, `example`이 없는 커맨드는 `null`로 반환된다.
 
 ---
 
@@ -98,7 +94,7 @@ DictionaryCommandResponse
 |------|------|
 | Method | `GET` |
 | Path | `/api/v1/dictionary/commands` |
-| 인증 | 불필요 |
+| 인증 | 필요 |
 | 응답 | `ApiResponse<DictionaryCommandResponse>` |
 
 **응답 예시**
@@ -113,7 +109,8 @@ DictionaryCommandResponse
         "commandId": "550e8400-e29b-41d4-a716-446655440001",
         "name": "git commit",
         "description": "변경사항을 로컬 저장소에 저장합니다.",
-        "imageUrl": "https://cdn.example.com/commands/commit.png",
+        "tip": "커밋 메시지는 현재형으로 작성하는 것이 관례입니다",
+        "example": "git commit -m \"feat: 로그인 기능 추가\"",
         "isInGame": true,
         "options": [
           { "option": "-m", "description": "커밋 메시지를 인라인으로 작성" },
