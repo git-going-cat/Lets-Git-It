@@ -1,17 +1,13 @@
-export interface CommandOption {
-  option: string;
-  description: string;
-}
+import { z } from 'zod';
 
-export interface Command {
-  commandId: string;
-  name: string;
-  description: string;
-  imageUrl: string;
-  isInGame: boolean;
-  options: CommandOption[];
-}
+import {
+  commandOptionSchema,
+  commandSchema,
+  dictionaryResponseSchema,
+} from '../schemas/dictionary.schema';
 
-export interface DictionaryResponse {
-  commands: Command[];
-}
+export type CommandOption = z.infer<typeof commandOptionSchema>;
+
+export type Command = z.infer<typeof commandSchema>;
+
+export type DictionaryResponse = z.infer<typeof dictionaryResponseSchema>;

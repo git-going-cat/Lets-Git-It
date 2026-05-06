@@ -1,10 +1,19 @@
 import { http } from '@/core/http';
 
+import { dictionaryResponseSchema } from '../schemas/dictionary.schema';
+
 import type { DictionaryResponse } from '../types/dictionary.types';
 
 export const fetchDictionary = async (): Promise<DictionaryResponse> => {
-  const { data } = await http.get<{ message: string; data: DictionaryResponse }>(
+  const { data } = await http.get<{ message: string; data: unknown }>(
     '/api/v1/dictionary/commands'
   );
-  return data.data;
+
+  const parsed = dictionaryResponseSchema.safeParse(data.data);
+  if (!parsed.success) {
+    console.error('도감 데이터 Zod 파싱 에러:', parsed.error);
+    throw new Error('올바르지 않은 도감 데이터 형식입니다.');
+  }
+
+  return parsed.data;
 };
