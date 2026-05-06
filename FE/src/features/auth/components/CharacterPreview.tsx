@@ -67,8 +67,7 @@ export default function CharacterPreview({ values }: Props) {
       ref={canvasRef}
       width={48}
       height={96}
-      style={{ imageRendering: 'pixelated' }}
-      className="w-36 h-72"
+      className="w-36 h-72 [image-rendering:pixelated]"
     />
   );
 }

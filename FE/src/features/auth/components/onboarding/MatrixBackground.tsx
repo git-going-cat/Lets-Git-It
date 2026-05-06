@@ -63,12 +63,5 @@ export default function MatrixBackground() {
     };
   }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 w-full h-full"
-      style={{ zIndex: 0 }}
-      aria-hidden="true"
-    />
-  );
+  return <canvas ref={canvasRef} className="fixed inset-0 w-full h-full z-0" aria-hidden="true" />;
 }

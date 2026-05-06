@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 
 import { onboardingApi } from '../api/onboardingApi';
 import { nicknameFormSchema, type NicknameFormValues } from '../schemas/onboarding.schema';
@@ -14,55 +16,60 @@ import { useAuthStore } from '../store/authStore';
 export function useNicknameSetup(onComplete: () => void) {
   const updateUser = useAuthStore((s) => s.updateUser);
   const [isChecking, setIsChecking] = useState(false);
-  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  /** 중복확인이 완료된 시점의 닉네임 */
+  const [checkedNickname, setCheckedNickname] = useState<string | null>(null);
+  const [rawIsAvailable, setRawIsAvailable] = useState<boolean | null>(null);
+  const [rawApiError, setRawApiError] = useState<string | null>(null);
 
   const {
+    control,
     register,
     handleSubmit,
-    watch,
     formState: { errors, isValid },
   } = useForm<NicknameFormValues>({
     resolver: zodResolver(nicknameFormSchema),
     mode: 'onChange',
   });
 
-  const nickname = watch('nickname') ?? '';
+  const nickname = useWatch({ control, name: 'nickname' }) ?? '';
 
-  // 닉네임이 변경되면 중복확인 결과 초기화 → 재확인 강제
-  useEffect(() => {
-    setIsAvailable(null);
-    setApiError(null);
-  }, [nickname]);
+  // 닉네임이 바뀌면 이전 중복확인 결과는 무효 → 파생값으로 자동 처리
+  const isAvailable = checkedNickname === nickname ? rawIsAvailable : null;
+  const apiError = checkedNickname === nickname ? rawApiError : null;
+
+  const { mutate: saveNickname, isPending: isSaving } = useMutation({
+    mutationFn: (values: NicknameFormValues) => onboardingApi.saveNickname(values.nickname),
+    onSuccess: (_, values) => {
+      updateUser({ nickname: values.nickname, onboardingStatus: 'NICKNAME_SET_DONE' });
+      onComplete();
+    },
+    onError: (err) => {
+      const message = isAxiosError(err)
+        ? (err.response?.data as { message?: string })?.message
+        : undefined;
+      setRawApiError(message ?? '닉네임 저장에 실패했습니다.');
+      setCheckedNickname(nickname);
+    },
+  });
 
   const checkAvailability = async () => {
-    setIsAvailable(null);
-    setApiError(null);
+    setRawIsAvailable(null);
+    setRawApiError(null);
+    setCheckedNickname(null);
     setIsChecking(true);
     try {
       const available = await onboardingApi.checkNickname(nickname);
-      setIsAvailable(available);
-      if (!available) setApiError('이미 사용 중인 닉네임입니다.');
+      setCheckedNickname(nickname);
+      setRawIsAvailable(available);
+      if (!available) setRawApiError('이미 사용 중인 닉네임입니다.');
     } finally {
       setIsChecking(false);
     }
   };
 
-  const onSubmit = async (values: NicknameFormValues) => {
+  const onSubmit = (values: NicknameFormValues) => {
     if (!isAvailable) return;
-    setApiError(null);
-    setIsSaving(true);
-    try {
-      await onboardingApi.saveNickname(values.nickname);
-      updateUser({ nickname: values.nickname, onboardingStatus: 'NICKNAME_SET_DONE' });
-      onComplete();
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setApiError(e.response?.data?.message ?? '닉네임 저장에 실패했습니다.');
-    } finally {
-      setIsSaving(false);
-    }
+    saveNickname(values);
   };
 
   return {

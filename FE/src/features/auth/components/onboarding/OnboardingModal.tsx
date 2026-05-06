@@ -3,9 +3,15 @@ import { type ReactNode, useState } from 'react';
 interface OnboardingModalProps {
   title: string;
   children: ReactNode;
-  /** 모달 위에 겹쳐 보이는 유령 창 개수 (기본 2) */
+  /** 모달 위에 겹쳐 보이는 유령 창 개수 (기본 2, 최대 2) */
   ghostCount?: number;
 }
+
+/** 유령 창 단계별 고정 Tailwind 클래스 (최대 2개) */
+const GHOST_CLASSES = [
+  'w-[400px] h-[320px] bg-[rgba(10,10,10,0.70)] translate-x-[20px] -translate-y-[20px] z-[10]',
+  'w-[400px] h-[320px] bg-[rgba(10,10,10,0.75)] translate-x-[10px] -translate-y-[10px] z-[11]',
+] as const;
 
 /**
  * Win11 스타일 온보딩 모달 래퍼.
@@ -21,53 +27,35 @@ export default function OnboardingModal({ title, children, ghostCount = 2 }: Onb
     setTimeout(() => setTooltipVisible(false), 1800);
   };
 
+  const visibleGhostCount = Math.min(ghostCount, GHOST_CLASSES.length);
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 10 }}>
+    <div className="fixed inset-0 flex items-center justify-center z-10">
       {/* 유령 창 (뒤에서부터 쌓임) */}
-      {Array.from({ length: ghostCount }).map((_, i) => {
-        const offset = (ghostCount - i) * 10;
-        return (
-          <div
-            key={i}
-            className="absolute rounded-lg border border-white/5"
-            style={{
-              width: 400,
-              height: 320,
-              background: `rgba(10, 10, 10, ${0.7 + i * 0.05})`,
-              transform: `translate(${offset}px, ${-offset}px)`,
-              zIndex: 10 + i,
-            }}
-          >
-            {/* 유령 창 타이틀 바 */}
-            <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
-              <div className="flex items-center gap-2 text-white/20 text-xs">
-                <span>⚠</span>
-                <span>{title}</span>
-              </div>
-              <div className="flex gap-1.5">
-                {['−', '□', '×'].map((btn) => (
-                  <div
-                    key={btn}
-                    className="w-4 h-4 rounded-sm bg-white/5 flex items-center justify-center text-[9px] text-white/20"
-                  >
-                    {btn}
-                  </div>
-                ))}
-              </div>
+      {Array.from({ length: visibleGhostCount }).map((_, i) => (
+        <div key={i} className={`absolute rounded-lg border border-white/5 ${GHOST_CLASSES[i]}`}>
+          {/* 유령 창 타이틀 바 */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+            <div className="flex items-center gap-2 text-white/20 text-xs">
+              <span>⚠</span>
+              <span>{title}</span>
+            </div>
+            <div className="flex gap-1.5">
+              {['−', '□', '×'].map((btn) => (
+                <div
+                  key={btn}
+                  className="w-4 h-4 rounded-sm bg-white/5 flex items-center justify-center text-[9px] text-white/20"
+                >
+                  {btn}
+                </div>
+              ))}
             </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
 
       {/* 메인 모달 */}
-      <div
-        className="relative rounded-lg border border-white/10 shadow-2xl"
-        style={{
-          width: 400,
-          background: 'rgba(19, 19, 19, 0.97)',
-          zIndex: 10 + ghostCount + 1,
-        }}
-      >
+      <div className="relative w-[400px] bg-[rgba(19,19,19,0.97)] rounded-lg border border-white/10 shadow-2xl z-[13]">
         {/* 타이틀 바 */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
           <div className="flex items-center gap-2 text-white/70 text-sm">
