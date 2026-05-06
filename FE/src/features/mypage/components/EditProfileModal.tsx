@@ -1,13 +1,18 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { isAxiosError } from 'axios';
 
+import { useAuthStore } from '@/features/auth/store/authStore';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Win11Window } from '@/shared/components/Win11Window';
 
-import { useCheckNickname, useUpdateNickname } from '../hooks/useEditProfile';
+import { ACCOUNT_ACTION_COPY, WITHDRAWAL_DELETED_ITEMS } from '../constants/accountActions';
+import { useCheckNickname, useUpdateNickname, useWithdrawMember } from '../hooks/useEditProfile';
 import { editNicknameSchema } from '../schemas/editProfile.schema';
 
+import AccountConfirmModal from './AccountConfirmModal';
 import { ChangePasswordModal } from './ChangePasswordModal';
 
 import type { AuthType } from '../types/mypage.types';
@@ -30,16 +35,22 @@ export function EditProfileModal({
   const [isNicknameChecked, setIsNicknameChecked] = useState(false);
   const [nicknameError, setNicknameError] = useState('');
   const [nicknameSuccess, setNicknameSuccess] = useState('');
-
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [withdrawError, setWithdrawError] = useState('');
 
+  const updateUser = useAuthStore((state) => state.updateUser);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const checkNicknameMutation = useCheckNickname();
   const updateNicknameMutation = useUpdateNickname();
+  const withdrawMutation = useWithdrawMember();
 
   if (!isOpen) return null;
 
-  const handleNicknameChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setNickname(e.target.value);
+  const handleNicknameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setNickname(event.target.value);
     setIsNicknameChecked(false);
     setNicknameError('');
     setNicknameSuccess('');
@@ -69,9 +80,10 @@ export function EditProfileModal({
         const errorCode = isAxiosError(error) ? error.response?.data?.code : null;
         if (errorCode === 'NICKNAME_DUPLICATE') {
           setNicknameError('이미 사용 중인 닉네임입니다.');
-        } else {
-          setNicknameError('중복 확인에 실패했습니다.');
+          return;
         }
+
+        setNicknameError('중복 확인에 실패했습니다.');
       },
     });
   };
@@ -81,6 +93,8 @@ export function EditProfileModal({
 
     updateNicknameMutation.mutate(nickname, {
       onSuccess: () => {
+        updateUser({ nickname });
+        queryClient.invalidateQueries({ queryKey: ['myRecord'] });
         alert('닉네임이 성공적으로 변경되었습니다.'); // TODO: Use Toast
         onClose();
       },
@@ -90,19 +104,46 @@ export function EditProfileModal({
     });
   };
 
+  const handleCloseWithdrawModal = () => {
+    if (withdrawMutation.isPending) return;
+
+    setWithdrawError('');
+    setIsWithdrawModalOpen(false);
+  };
+
+  const handleWithdraw = (password?: string) => {
+    setWithdrawError('');
+
+    withdrawMutation.mutate(password, {
+      onSuccess: () => {
+        clearAuth();
+        void navigate({ to: '/login' });
+      },
+      onError: (error) => {
+        const errorCode = isAxiosError(error) ? error.response?.data?.code : null;
+
+        if (errorCode === 'INVALID_CREDENTIALS') {
+          setWithdrawError('현재 비밀번호가 일치하지 않습니다.');
+          return;
+        }
+
+        setWithdrawError('회원탈퇴에 실패했습니다.');
+      },
+    });
+  };
+
   return (
     <>
       <Win11Window title="내 정보 수정" onClose={onClose}>
-        <div className="flex flex-col gap-6 w-[360px]">
-          {/* 섹션 1: 닉네임 변경 */}
+        <div className="flex w-[360px] flex-col gap-6">
           <section className="flex flex-col gap-2">
             <h3 className="text-sm font-bold text-gray-800">닉네임 변경</h3>
             <div className="flex gap-2">
               <Input
                 value={nickname}
                 onChange={handleNicknameChange}
-                placeholder="2~6자, 한글/영문"
-                className="flex-1"
+                placeholder="2~6자 한글/영문"
+                className="flex-1 rounded-lg"
               />
               <Button
                 onClick={handleCheckDuplicate}
@@ -116,7 +157,7 @@ export function EditProfileModal({
             </div>
             {nicknameError && <span className="text-xs text-red-500">{nicknameError}</span>}
             {nicknameSuccess && <span className="text-xs text-green-600">{nicknameSuccess}</span>}
-            <div className="flex justify-end mt-1">
+            <div className="mt-1 flex justify-end">
               <Button
                 onClick={handleSaveNickname}
                 disabled={!isNicknameChecked || updateNicknameMutation.isPending}
@@ -128,13 +169,12 @@ export function EditProfileModal({
 
           <hr className="border-gray-200" />
 
-          {/* 섹션 2: 비밀번호 재설정 */}
           <section className="flex flex-col gap-2">
             <h3 className="text-sm font-bold text-gray-800">비밀번호 재설정</h3>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-600 leading-tight flex-1 mr-2">
+              <span className="mr-2 flex-1 text-xs leading-tight text-gray-600">
                 {authType === 'OAUTH'
-                  ? '소셜 로그인(Google) 사용자는 비밀번호 변경이 불가합니다'
+                  ? '소셜 로그인(Google) 사용자는 비밀번호 변경이 불가합니다.'
                   : '주기적인 비밀번호 변경으로 계정을 안전하게 보호하세요.'}
               </span>
               <Button
@@ -147,20 +187,39 @@ export function EditProfileModal({
             </div>
           </section>
 
-          {/* 하단: 탈퇴하기 */}
           <div className="mt-4 flex justify-start">
-            <button className="text-sm text-red-500 hover:text-red-600 underline opacity-80 hover:opacity-100 transition-opacity">
-              탈퇴하기
+            <button
+              type="button"
+              onClick={() => setIsWithdrawModalOpen(true)}
+              className="rounded-lg px-2 py-1 text-sm text-red-500 opacity-80 transition-colors hover:bg-red-50 hover:text-red-600 hover:opacity-100"
+            >
+              회원탈퇴
             </button>
           </div>
         </div>
       </Win11Window>
 
-      {/* Change Password Modal */}
       <ChangePasswordModal
         isOpen={isChangePasswordModalOpen}
         onClose={() => setIsChangePasswordModalOpen(false)}
       />
+
+      {isWithdrawModalOpen && (
+        <AccountConfirmModal
+          title={ACCOUNT_ACTION_COPY.withdraw.title}
+          description={ACCOUNT_ACTION_COPY.withdraw.description}
+          confirmLabel={ACCOUNT_ACTION_COPY.withdraw.confirmLabel}
+          cancelLabel={ACCOUNT_ACTION_COPY.withdraw.cancelLabel}
+          deletedItems={WITHDRAWAL_DELETED_ITEMS}
+          requiresPassword={authType === 'LOCAL'}
+          passwordLabel={ACCOUNT_ACTION_COPY.withdraw.passwordLabel}
+          passwordPlaceholder={ACCOUNT_ACTION_COPY.withdraw.passwordPlaceholder}
+          isPending={withdrawMutation.isPending}
+          errorMessage={withdrawError}
+          onConfirm={handleWithdraw}
+          onClose={handleCloseWithdrawModal}
+        />
+      )}
     </>
   );
 }

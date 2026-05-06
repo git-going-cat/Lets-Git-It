@@ -6,6 +6,7 @@ import {
   updateNickname,
   updatePassword,
   verifyPassword,
+  withdrawMember,
 } from '../api/mypageApi';
 
 export function useCheckNickname() {
@@ -45,5 +46,11 @@ export function useUpdatePassword() {
         console.error(error.response.data.message);
       }
     },
+  });
+}
+
+export function useWithdrawMember() {
+  return useMutation({
+    mutationFn: (password?: string) => withdrawMember(password ? { password } : {}),
   });
 }
