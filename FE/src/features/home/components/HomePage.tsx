@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import bgImage from '@/assets/bg/screen.png';
 import MyPageModal from '@/features/mypage/components/MyPageModal';
+import RankingModal from '@/features/ranking/components/RankingModal';
 
 import LogoSection from './LogoSection';
 import LogoutModal from './modals/LogoutModal';
@@ -72,20 +73,9 @@ export function HomePage() {
         <Win11ExplorerModal initialTab="multi" onClose={handleCloseModal} />
       )}
 
-      {/* TODO: 랭킹, 도감 모달 구현 */}
-      {activeModal === 'ranking' && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={handleCloseModal}
-        >
-          <div
-            className="rounded-xl bg-white p-8 font-bold shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            랭킹 모달 (구현 예정)
-          </div>
-        </div>
-      )}
+      {activeModal === 'ranking' && <RankingModal onClose={handleCloseModal} />}
+
+      {/* TODO: 도감 모달 구현 */}
       {activeModal === 'dictionary' && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
