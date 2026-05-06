@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { isAxiosError } from 'axios';
 import { Eye, EyeOff } from 'lucide-react';
 
+import AccountConfirmModal from '@/features/mypage/components/AccountConfirmModal';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Win11Window } from '@/shared/components/Win11Window';
@@ -69,13 +70,14 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
   const [isCurrentPasswordVisible, setIsCurrentPasswordVisible] = useState(false);
   const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  const [isSuccessNoticeOpen, setIsSuccessNoticeOpen] = useState(false);
 
   const verifyMutation = useVerifyPassword();
   const updateMutation = useUpdatePassword();
 
   if (!isOpen) return null;
 
-  const handleClose = () => {
+  const resetForm = () => {
     setStep('verify');
     setCurrentPassword('');
     setNewPassword('');
@@ -85,7 +87,16 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
     setIsCurrentPasswordVisible(false);
     setIsNewPasswordVisible(false);
     setIsConfirmPasswordVisible(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    setIsSuccessNoticeOpen(false);
     onClose();
+  };
+
+  const handleSuccessConfirm = () => {
+    handleClose();
   };
 
   const handleVerify = () => {
@@ -125,8 +136,8 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
       { currentPassword, newPassword },
       {
         onSuccess: () => {
-          alert('비밀번호가 성공적으로 변경되었습니다.'); // TODO: Use Toast
-          handleClose();
+          resetForm();
+          setIsSuccessNoticeOpen(true);
         },
         onError: (error) => {
           const code = isAxiosError(error) ? error.response?.data?.code : null;
@@ -147,54 +158,68 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
   };
 
   return (
-    <Win11Window title="비밀번호 변경" onClose={handleClose}>
-      <div className="flex w-[320px] flex-col gap-4">
-        {step === 'verify' && (
-          <>
-            <PasswordField
-              label="현재 비밀번호"
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-              placeholder="현재 비밀번호를 입력하세요"
-              isVisible={isCurrentPasswordVisible}
-              onToggleVisibility={() => setIsCurrentPasswordVisible((prev) => !prev)}
-            />
-            {verifyError && <span className="text-xs text-red-500">{verifyError}</span>}
-            <div className="mt-2 flex justify-end">
-              <Button onClick={handleVerify} disabled={verifyMutation.isPending}>
-                확인
-              </Button>
-            </div>
-          </>
-        )}
+    <>
+      <Win11Window title="비밀번호 변경" onClose={handleClose}>
+        <div className="flex w-[320px] flex-col gap-4">
+          {step === 'verify' && (
+            <>
+              <PasswordField
+                label="현재 비밀번호"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                placeholder="현재 비밀번호를 입력하세요"
+                isVisible={isCurrentPasswordVisible}
+                onToggleVisibility={() => setIsCurrentPasswordVisible((prev) => !prev)}
+              />
+              {verifyError && <span className="text-xs text-red-500">{verifyError}</span>}
+              <div className="mt-2 flex justify-end">
+                <Button onClick={handleVerify} disabled={verifyMutation.isPending}>
+                  확인
+                </Button>
+              </div>
+            </>
+          )}
 
-        {step === 'change' && (
-          <>
-            <PasswordField
-              label="새 비밀번호"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              placeholder="8자 이상, 영문+숫자+특수문자"
-              isVisible={isNewPasswordVisible}
-              onToggleVisibility={() => setIsNewPasswordVisible((prev) => !prev)}
-            />
-            <PasswordField
-              label="새 비밀번호 확인"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder="새 비밀번호를 다시 입력하세요"
-              isVisible={isConfirmPasswordVisible}
-              onToggleVisibility={() => setIsConfirmPasswordVisible((prev) => !prev)}
-            />
-            {changeError && <span className="text-xs text-red-500">{changeError}</span>}
-            <div className="mt-2 flex justify-end">
-              <Button onClick={handleChange} disabled={updateMutation.isPending}>
-                변경하기
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-    </Win11Window>
+          {step === 'change' && (
+            <>
+              <PasswordField
+                label="새 비밀번호"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="8자 이상, 영문+숫자+특수문자"
+                isVisible={isNewPasswordVisible}
+                onToggleVisibility={() => setIsNewPasswordVisible((prev) => !prev)}
+              />
+              <PasswordField
+                label="새 비밀번호 확인"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="새 비밀번호를 다시 입력하세요"
+                isVisible={isConfirmPasswordVisible}
+                onToggleVisibility={() => setIsConfirmPasswordVisible((prev) => !prev)}
+              />
+              {changeError && <span className="text-xs text-red-500">{changeError}</span>}
+              <div className="mt-2 flex justify-end">
+                <Button onClick={handleChange} disabled={updateMutation.isPending}>
+                  변경하기
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Win11Window>
+
+      {isSuccessNoticeOpen && (
+        <AccountConfirmModal
+          title="비밀번호 변경"
+          description="비밀번호가 성공적으로 변경되었습니다."
+          confirmLabel="확인"
+          cancelLabel="닫기"
+          onConfirm={handleSuccessConfirm}
+          onClose={handleSuccessConfirm}
+          confirmVariant="primary"
+        />
+      )}
+    </>
   );
 }

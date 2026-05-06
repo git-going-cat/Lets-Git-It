@@ -37,6 +37,7 @@ export function EditProfileModal({
   const [nicknameSuccess, setNicknameSuccess] = useState('');
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [isNicknameSuccessNoticeOpen, setIsNicknameSuccessNoticeOpen] = useState(false);
   const [withdrawError, setWithdrawError] = useState('');
 
   const updateUser = useAuthStore((state) => state.updateUser);
@@ -95,8 +96,7 @@ export function EditProfileModal({
       onSuccess: () => {
         updateUser({ nickname });
         queryClient.invalidateQueries({ queryKey: ['myRecord'] });
-        alert('닉네임이 성공적으로 변경되었습니다.'); // TODO: Use Toast
-        onClose();
+        setIsNicknameSuccessNoticeOpen(true);
       },
       onError: () => {
         setNicknameError('닉네임 변경에 실패했습니다.');
@@ -109,6 +109,11 @@ export function EditProfileModal({
 
     setWithdrawError('');
     setIsWithdrawModalOpen(false);
+  };
+
+  const handleNicknameSuccessConfirm = () => {
+    setIsNicknameSuccessNoticeOpen(false);
+    onClose();
   };
 
   const handleWithdraw = (password?: string) => {
@@ -191,7 +196,7 @@ export function EditProfileModal({
             <button
               type="button"
               onClick={() => setIsWithdrawModalOpen(true)}
-              className="rounded-lg px-2 py-1 text-sm text-red-500 opacity-80 transition-colors hover:bg-red-50 hover:text-red-600 hover:opacity-100"
+              className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-600 active:bg-red-700"
             >
               회원탈퇴
             </button>
@@ -203,6 +208,18 @@ export function EditProfileModal({
         isOpen={isChangePasswordModalOpen}
         onClose={() => setIsChangePasswordModalOpen(false)}
       />
+
+      {isNicknameSuccessNoticeOpen && (
+        <AccountConfirmModal
+          title="닉네임 변경"
+          description="닉네임이 성공적으로 변경되었습니다."
+          confirmLabel="확인"
+          cancelLabel="닫기"
+          onConfirm={handleNicknameSuccessConfirm}
+          onClose={handleNicknameSuccessConfirm}
+          confirmVariant="primary"
+        />
+      )}
 
       {isWithdrawModalOpen && (
         <AccountConfirmModal

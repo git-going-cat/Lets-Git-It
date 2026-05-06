@@ -72,11 +72,24 @@ export default function AccountConfirmModal({
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg px-2 py-1 text-gray-500 transition-colors hover:bg-white hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded p-1 text-gray-500 transition-colors hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="닫기"
             disabled={isPending}
           >
-            X
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
         </div>
 
