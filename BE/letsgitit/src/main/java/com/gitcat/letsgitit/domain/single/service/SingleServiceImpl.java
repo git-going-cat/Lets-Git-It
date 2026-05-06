@@ -139,7 +139,8 @@ public class SingleServiceImpl implements SingleService {
 			currentRank = singleRankingService.updateSingleScore(
 				difficulty,
 				memberId,
-				request.score());
+				request.score(),
+				request.grade());
 		}
 
 		// 8. 역대 최고 기록 갱신
@@ -149,7 +150,8 @@ public class SingleServiceImpl implements SingleService {
 			int rank = currentRank != null ? currentRank : singleRankingService.updateSingleScore(
 				difficulty,
 				memberId,
-				request.score());
+				request.score(),
+				request.grade());
 
 			recordService.updateSingleBestRecord(
 				memberId,

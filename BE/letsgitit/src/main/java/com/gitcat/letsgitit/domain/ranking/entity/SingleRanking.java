@@ -54,12 +54,12 @@ public class SingleRanking {
 	private LocalDateTime recordedAt;
 
 	public static SingleRanking of(UUID memberId, Difficulty difficulty,
-		int score, int rank, String week) {
+		int score, int rank, Grade grade, String week) {
 		SingleRanking ranking = new SingleRanking();
 		ranking.memberId = memberId;
 		ranking.difficulty = difficulty;
 		ranking.score = score;
-		ranking.grade = null;
+		ranking.grade = grade;
 		ranking.rank = rank;
 		ranking.week = week;
 		return ranking;

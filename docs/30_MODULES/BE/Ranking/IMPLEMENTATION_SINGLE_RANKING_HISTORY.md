@@ -38,7 +38,7 @@ Redis ZSet → RDB single_ranking 테이블로 정산 저장
 | `score` | Redis ZSet score | 반올림 후 int 저장 |
 | `rank` | ZSet 내림차순 순서 기반 1-indexed | 1등 = rank 1 |
 | `week` | `YYYY-MM-W` 형식 | 예: `2025-04-3` |
-| `grade` | null | API 미노출, 향후 결정 |
+| `grade` | Redis Hash(`ranking:SINGLE:{difficulty}:{week}:grade`)에서 조회한 등급 | `saveResult` 연동 전까지 null, nullable |
 
 ### 닉네임 동적 조회 방식
 
@@ -98,9 +98,13 @@ Redis ZSet의 0-indexed 방식과 달리 RDB의 `rank` 컬럼은 1-indexed 정�
 - 탈퇴 회원은 `Member`에 `@SQLRestriction("deleted_at IS NULL")`이 적용되어 `getNicknamesByIds` 결과에서 자동 제외 → `[Unknown]`으로 표시
 - `single_ranking` 테이블에 `nickname` 컬럼이 없어 정산 시 `MemberService` 의존성 불필요
 
-### grade 컬럼을 null로 저장하는 이유
+### grade를 Redis Hash에 별도 저장하는 이유
 
-API 명세에 grade 항목이 없고 Redis ZSet에도 grade 정보가 없다. 현재 정산 시점에 grade를 결정할 근거가 없으므로 nullable로 두고 null 저장한다. 향후 grade 산정 정책이 확정되면 별도 업데이트한다.
+grade는 ZSet score와 별개의 정보다. ZSet은 점수 기반 정렬에 특화되어 있어 부가 데이터를 저장하기 어렵다. Hash 자료구조(`ranking:SINGLE:{difficulty}:{week}:grade`)를 별도로 두고 `memberId → grade` 매핑을 저장함으로써 ZSet과 Hash를 같은 키 네임스페이스 아래 분리 관리한다.
+
+grade가 score와 항상 일치해야 하므로(한 게임에서 산출된 값이므로), 점수 갱신 시에만 grade도 함께 갱신한다. `saveScoreAndGrade()`가 이 원자성을 보장한다.
+
+grade 컬럼은 현재 `nullable = true`이다. `saveResult` API가 구현되지 않은 동안에는 grade가 Redis Hash에 저장되지 않아 정산 시 null이 저장된다. `saveResult` 연동 이후에는 항상 grade가 저장되므로, 해당 시점에 `nullable = false`로 변경할 수 있다.
 
 ---
 
@@ -108,7 +112,7 @@ API 명세에 grade 항목이 없고 Redis ZSet에도 grade 정보가 없다. �
 
 - `WeekUtil.getWeek()`는 `String.format("%02d", month)`로 월을 zero-pad한다. 과거 주 조회 API의 `buildWeekKey()`도 동일한 포맷을 사용하므로 키가 일치한다.
 - `deleteKey()`는 `TransactionSynchronizationManager.registerSynchronization()`의 `afterCommit()` 콜백 안에서 실행된다. DB 트랜잭션이 커밋된 이후에만 Redis 키가 삭제되므로, 중간에 예외가 발생해 트랜잭션이 롤백되어도 Redis 원본은 보존된다. 단, 커밋 성공 후 `afterCommit()` 내부에서 예외가 발생하면 Redis 키가 남을 수 있으나, 이 경우 다음 주 정산 시 중복 삽입이 시도된다(unique 제약 등으로 방어 필요).
-- `memberId = null`인 비로그인 유저는 `myRank`가 null로 반환된다. Security 연동 후 Controller 레벨에서 인증이 강제되면 이 분기는 실행되지 않는다.
+- `/single/history` 엔드포인트는 Spring Security가 적용되어 있어 미인증 요청은 401로 차단된다. `myRank` null 분기는 해당 주에 플레이 기록이 없는 인증 유저에만 해당한다.
 - `week` 파라미터의 최댓값을 `@Max(6)`으로 검증하나, 특정 월에 실제로 5주까지만 존재할 수 있다. 잘못된 week 값으로 조회해도 RDB에 해당 데이터가 없으면 빈 응답이 반환된다.
 - `MemberService.getNicknamesByIds()`는 과거 랭킹 조회 API 호출마다 실행된다. 초기 응답은 top3 + around 목록을 합산한 ID 1회 조회, 스크롤은 페이지 단위 ID 1회 조회다. 한 페이지 참가자 수는 제한적이나, `WHERE id IN (...)` 바인딩 파라미터 수가 많아지는 경우 배치 분할 처리를 검토한다.
 
@@ -523,6 +527,52 @@ DB에 이미 정산된 경우에도 Redis 키가 존재하면 `keysToDelete`에 
 ```java
 if (singleRankingRepository.countByDifficultyAndWeek(diff, week) > 0) {
     keysToDelete.add(key);  // Redis 키 잔존 시 afterCommit()에서 정리
+    keysToDelete.add(gradeKey);
     continue;
 }
 ```
+
+---
+
+### grade를 ZSet과 동일 키에 저장하면 score와 불일치 발생
+
+**상황**
+
+동일 유저가 여러 번 플레이하는 경우, 두 번째 게임의 score가 첫 번째보다 낮으면 ZSet의 score는 갱신되지 않는다. 그러나 grade를 별도로 `saveGrade()`로 저장하면 낮은 점수 게임의 grade로 덮어써진다. 결과적으로 ZSet의 score(1번 게임)와 Hash의 grade(2번 게임)가 서로 다른 게임에서 산출된 값이 된다.
+
+**원인**
+
+score 갱신 여부와 무관하게 grade를 항상 저장하는 구조이기 때문이다.
+
+**해결**
+
+`saveScore()`를 `saveScoreAndGrade()`로 교체해, score가 실제로 갱신될 때만 grade도 함께 갱신하도록 묶었다.
+
+```java
+// SingleRankingRedisRepositoryImpl
+public boolean saveScoreAndGrade(String scoreKey, String gradeKey, UUID memberId, double score, String grade) {
+    Double currentScore = rankingStringRedisTemplate.opsForZSet().score(scoreKey, memberId.toString());
+    if (currentScore == null || score > currentScore) {
+        rankingStringRedisTemplate.opsForZSet().add(scoreKey, memberId.toString(), score);
+        rankingStringRedisTemplate.opsForHash().put(gradeKey, memberId.toString(), grade);
+        return true;  // 갱신됨 → isNewRecord 판단에 활용
+    }
+    return false;
+}
+```
+
+반환값 `boolean`은 `saveResult` 서비스에서 `isNewRecord` 판단에도 활용할 수 있다.
+
+**변경 파일**
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `RankingKeyUtil` | `singleGradeKey()` 추가 |
+| `SingleRankingRedisRepository` | `saveScore` → `saveScoreAndGrade(boolean 반환)`, `getGrade`, `getGrades` 추가 |
+| `SingleRankingRedisRepositoryImpl` | 위 메서드 구현 (ZSet + Hash ops) |
+| `RankingEntry` | `grade` 필드 (`Grade` 타입) 추가 |
+| `SingleRanking.of()` | `grade` 파라미터 추가 |
+| `SingleRankingScheduler` | 청크별 `getGrades()` 배치 조회, gradeKey도 삭제 목록에 추가 |
+| `SingleRankingServiceImpl` | 이번 주·과거 주 조회 모두 grade 포함 응답 |
+| `SingleRankingSchedulerTest` | `getGrades` mock 추가, `deleteKey` 2회(ZSet + grade 키) 검증 |
+| `SingleRankingServiceImplTest` | `of()` grade 파라미터, `getGrades`/`getGrade` mock 추가 |

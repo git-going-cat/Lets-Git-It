@@ -28,6 +28,7 @@ import com.gitcat.letsgitit.domain.ranking.entity.SingleRanking;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRedisRepository;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRedisRepository.RankEntry;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRepository;
+import com.gitcat.letsgitit.domain.single.entity.enums.Grade;
 import com.gitcat.letsgitit.global.enums.Difficulty;
 
 @ExtendWith(MockitoExtension.class)
@@ -74,6 +75,8 @@ class SingleRankingServiceImplTest {
 				new RankEntry(memberId.toString(), 7200),
 				new RankEntry(UUID.randomUUID().toString(), 7100),
 				new RankEntry(UUID.randomUUID().toString(), 7000)));
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList())).willReturn(Map.of());
+		given(singleRankingRedisRepository.getGrade(anyString(), any())).willReturn(null);
 		given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
 		given(memberService.getNicknameById(memberId)).willReturn("dobby");
 
@@ -95,12 +98,13 @@ class SingleRankingServiceImplTest {
 	}
 
 	@Test
-	void 초기_랭킹_조회_시_이번주_기록이_없으면_myRank와_around가_null과_빈_리스트로_반환된다() {
+	void 초기_랭킹_조회_시_이번주_기록이_없으면_myRank가_null이고_top3이후_스크롤_가능하다() {
 		// given
 		given(singleRankingRedisRepository.getTotalCount(anyString())).willReturn(50L);
 		given(singleRankingRedisRepository.getTopEntries(anyString(), eq(3))).willReturn(List.of());
 		given(singleRankingRedisRepository.getRankZeroBased(anyString(), eq(memberId))).willReturn(null);
 		given(singleRankingRedisRepository.getScore(anyString(), eq(memberId))).willReturn(null);
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList())).willReturn(Map.of());
 		given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
 
 		// when
@@ -109,8 +113,8 @@ class SingleRankingServiceImplTest {
 		// then
 		assertThat(response.myRank()).isNull();
 		assertThat(response.around()).isEmpty();
-		assertThat(response.nextCursor()).isNull();
-		assertThat(response.hasNext()).isFalse();
+		assertThat(response.nextCursor()).isEqualTo(3);
+		assertThat(response.hasNext()).isTrue();
 	}
 
 	@Test
@@ -125,6 +129,8 @@ class SingleRankingServiceImplTest {
 				new RankEntry(memberId.toString(), 9800),
 				new RankEntry(UUID.randomUUID().toString(), 9200),
 				new RankEntry(UUID.randomUUID().toString(), 8700)));
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList())).willReturn(Map.of());
+		given(singleRankingRedisRepository.getGrade(anyString(), any())).willReturn(null);
 		given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
 		given(memberService.getNicknameById(memberId)).willReturn("dobby");
 
@@ -147,6 +153,8 @@ class SingleRankingServiceImplTest {
 				new RankEntry(UUID.randomUUID().toString(), 3000),
 				new RankEntry(UUID.randomUUID().toString(), 2000),
 				new RankEntry(memberId.toString(), 1000)));
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList())).willReturn(Map.of());
+		given(singleRankingRedisRepository.getGrade(anyString(), any())).willReturn(null);
 		given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
 		given(memberService.getNicknameById(memberId)).willReturn("dobby");
 
@@ -170,6 +178,7 @@ class SingleRankingServiceImplTest {
 			new RankEntry(UUID.randomUUID().toString(), 6800));
 		given(singleRankingRedisRepository.getTotalCount(anyString())).willReturn(200L);
 		given(singleRankingRedisRepository.getRangeByRank(anyString(), eq(44L), eq(63L))).willReturn(raw);
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList())).willReturn(Map.of());
 		given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
 
 		// when
@@ -193,6 +202,7 @@ class SingleRankingServiceImplTest {
 			new RankEntry(UUID.randomUUID().toString(), 100));
 		given(singleRankingRedisRepository.getTotalCount(anyString())).willReturn(50L);
 		given(singleRankingRedisRepository.getRangeByRank(anyString(), eq(45L), eq(64L))).willReturn(raw);
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList())).willReturn(Map.of());
 		given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
 
 		// when
@@ -214,6 +224,7 @@ class SingleRankingServiceImplTest {
 		}
 		given(singleRankingRedisRepository.getTotalCount(anyString())).willReturn(100L);
 		given(singleRankingRedisRepository.getRangeByRank(anyString(), eq(0L), eq(19L))).willReturn(raw);
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList())).willReturn(Map.of());
 		given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
 
 		// when
@@ -234,18 +245,18 @@ class SingleRankingServiceImplTest {
 		// given
 		UUID id1 = UUID.randomUUID();
 		List<SingleRanking> top3 = List.of(
-			SingleRanking.of(id1, Difficulty.NORMAL, 9800, 1, "2025-04-3"),
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 9200, 2, "2025-04-3"),
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 8700, 3, "2025-04-3"));
+			SingleRanking.of(id1, Difficulty.NORMAL, 9800, 1, null, "2025-04-3"),
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 9200, 2, null, "2025-04-3"),
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 8700, 3, null, "2025-04-3"));
 
-		SingleRanking myEntity = SingleRanking.of(memberId, Difficulty.NORMAL, 7200, 42, "2025-04-3");
+		SingleRanking myEntity = SingleRanking.of(memberId, Difficulty.NORMAL, 7200, 42, null, "2025-04-3");
 
 		List<SingleRanking> around = List.of(
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 7400, 40, "2025-04-3"),
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 7300, 41, "2025-04-3"),
-			SingleRanking.of(memberId, Difficulty.NORMAL, 7200, 42, "2025-04-3"),
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 7100, 43, "2025-04-3"),
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 7000, 44, "2025-04-3"));
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 7400, 40, null, "2025-04-3"),
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 7300, 41, null, "2025-04-3"),
+			SingleRanking.of(memberId, Difficulty.NORMAL, 7200, 42, null, "2025-04-3"),
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 7100, 43, null, "2025-04-3"),
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 7000, 44, null, "2025-04-3"));
 
 		given(singleRankingRepository.findTop3ByDifficultyAndWeek(any(), anyString())).willReturn(top3);
 		given(singleRankingRepository.countByDifficultyAndWeek(any(), anyString())).willReturn(100L);
@@ -299,12 +310,12 @@ class SingleRankingServiceImplTest {
 	@Test
 	void 과거_랭킹_초기_조회_시_내가_1위면_around_시작이_1위부터다() {
 		// given — aroundMinRank = max(1, 1-2) = 1
-		SingleRanking myEntity = SingleRanking.of(memberId, Difficulty.NORMAL, 9800, 1, "2025-04-3");
+		SingleRanking myEntity = SingleRanking.of(memberId, Difficulty.NORMAL, 9800, 1, null, "2025-04-3");
 
 		List<SingleRanking> around = List.of(
-			SingleRanking.of(memberId, Difficulty.NORMAL, 9800, 1, "2025-04-3"),
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 9200, 2, "2025-04-3"),
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 8700, 3, "2025-04-3"));
+			SingleRanking.of(memberId, Difficulty.NORMAL, 9800, 1, null, "2025-04-3"),
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 9200, 2, null, "2025-04-3"),
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 8700, 3, null, "2025-04-3"));
 
 		given(singleRankingRepository.findTop3ByDifficultyAndWeek(any(), anyString())).willReturn(List.of());
 		given(singleRankingRepository.countByDifficultyAndWeek(any(), anyString())).willReturn(50L);
@@ -325,12 +336,12 @@ class SingleRankingServiceImplTest {
 	@Test
 	void 과거_랭킹_초기_조회_시_마지막_페이지면_nextCursor가_null이다() {
 		// given — 전체 50명, 내 rank=50 → aroundMaxRank=50=total → hasNext=false
-		SingleRanking myEntity = SingleRanking.of(memberId, Difficulty.NORMAL, 1000, 50, "2025-04-3");
+		SingleRanking myEntity = SingleRanking.of(memberId, Difficulty.NORMAL, 1000, 50, null, "2025-04-3");
 
 		List<SingleRanking> around = List.of(
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 1200, 48, "2025-04-3"),
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 1100, 49, "2025-04-3"),
-			SingleRanking.of(memberId, Difficulty.NORMAL, 1000, 50, "2025-04-3"));
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 1200, 48, null, "2025-04-3"),
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 1100, 49, null, "2025-04-3"),
+			SingleRanking.of(memberId, Difficulty.NORMAL, 1000, 50, null, "2025-04-3"));
 
 		given(singleRankingRepository.findTop3ByDifficultyAndWeek(any(), anyString())).willReturn(List.of());
 		given(singleRankingRepository.countByDifficultyAndWeek(any(), anyString())).willReturn(50L);
@@ -358,8 +369,8 @@ class SingleRankingServiceImplTest {
 		// given — cursor=44, size=1 → findScrollResult(size+1=2) → 2개 반환 → hasNext=true, page=첫 1개
 		UUID user5Id = UUID.randomUUID();
 		List<SingleRanking> raw = List.of(
-			SingleRanking.of(user5Id, Difficulty.NORMAL, 6900, 45, "2025-04-3"),
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 6800, 46, "2025-04-3"));
+			SingleRanking.of(user5Id, Difficulty.NORMAL, 6900, 45, null, "2025-04-3"),
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 6800, 46, null, "2025-04-3"));
 
 		given(singleRankingRepository.findScrollResult(any(), anyString(), eq(44), eq(2))).willReturn(raw);
 		given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of(user5Id, "user5"));
@@ -380,8 +391,8 @@ class SingleRankingServiceImplTest {
 	void 과거_랭킹_스크롤_조회_시_마지막_페이지면_nextCursor가_null이다() {
 		// given — cursor=48, size=20 → findScrollResult(size+1=21) → 2개 반환 → 2 < 20 → hasNext=false
 		List<SingleRanking> raw = List.of(
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 200, 49, "2025-04-3"),
-			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 100, 50, "2025-04-3"));
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 200, 49, null, "2025-04-3"),
+			SingleRanking.of(UUID.randomUUID(), Difficulty.NORMAL, 100, 50, null, "2025-04-3"));
 
 		given(singleRankingRepository.findScrollResult(any(), anyString(), eq(48), eq(21))).willReturn(raw);
 		given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
@@ -419,12 +430,12 @@ class SingleRankingServiceImplTest {
 			org.mockito.ArgumentMatchers.eq(memberId))).willReturn(4L);
 
 		// when
-		int rank = singleRankingService.updateSingleScore(Difficulty.NORMAL, memberId, 7200);
+		int rank = singleRankingService.updateSingleScore(Difficulty.NORMAL, memberId, 7200, Grade.A);
 
 		// then
 		assertThat(rank).isEqualTo(5);
 		then(singleRankingRedisRepository).should()
-			.saveScore(org.mockito.ArgumentMatchers.anyString(), eq(memberId), eq(7200.0));
+			.saveScoreAndGrade(anyString(), anyString(), eq(memberId), eq(7200.0), eq("A"));
 	}
 
 	@Test
@@ -458,7 +469,7 @@ class SingleRankingServiceImplTest {
 			org.mockito.ArgumentMatchers.eq(memberId))).willReturn(null);
 
 		// when
-		int rank = singleRankingService.updateSingleScore(Difficulty.HARD, memberId, 5000);
+		int rank = singleRankingService.updateSingleScore(Difficulty.HARD, memberId, 5000, Grade.B);
 
 		// then
 		assertThat(rank).isZero();

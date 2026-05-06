@@ -221,7 +221,7 @@ class SingleServiceImplTest {
 					"prev-session", MEMBER_ID, DIFFICULTY,
 					SingleResultStatus.SUCCESS, 1500, Grade.A, 60)));
 			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(1500);
-			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 2000)).willReturn(3);
+			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S)).willReturn(3);
 
 			// when
 			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
@@ -232,7 +232,7 @@ class SingleServiceImplTest {
 			assertThat(response.isNewRecord()).isTrue();
 			then(singleResultRepository).should().save(any(SingleResult.class));
 			then(memberService).should().addPlayTime(MEMBER_ID, 120);
-			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 2000);
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S);
 			then(recordService).should().updateSingleBestRecord(MEMBER_ID, DIFFICULTY, 2000, 3);
 			then(singleSessionRedisRepository).should().deleteBySessionId(sessionId);
 		}
@@ -291,7 +291,7 @@ class SingleServiceImplTest {
 			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
 				.willReturn(Optional.empty());
 			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(null);
-			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 0)).willReturn(1);
+			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 0, Grade.S)).willReturn(1);
 
 			// when
 			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
@@ -300,7 +300,7 @@ class SingleServiceImplTest {
 
 			// then
 			assertThat(response.isNewRecord()).isTrue();
-			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 0);
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 0, Grade.S);
 			then(recordService).should().updateSingleBestRecord(MEMBER_ID, DIFFICULTY, 0, 1);
 		}
 
@@ -331,7 +331,7 @@ class SingleServiceImplTest {
 			// then
 			assertThat(response.isNewRecord()).isFalse();
 			then(singleRankingService).should().getCurrentWeekScore(DIFFICULTY, MEMBER_ID);
-			then(singleRankingService).should(never()).updateSingleScore(any(), any(), anyInt());
+			then(singleRankingService).should(never()).updateSingleScore(any(), any(), anyInt(), any());
 			then(recordService).shouldHaveNoInteractions();
 			then(singleSessionRedisRepository).should().deleteBySessionId(sessionId);
 		}
@@ -362,7 +362,7 @@ class SingleServiceImplTest {
 
 			// then
 			assertThat(response.isNewRecord()).isFalse();
-			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 1200);
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 1200, Grade.A);
 			then(recordService).shouldHaveNoInteractions();
 		}
 	}
