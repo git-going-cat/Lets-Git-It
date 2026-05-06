@@ -19,6 +19,7 @@ import com.gitcat.letsgitit.domain.ranking.entity.SingleRanking;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRedisRepository;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRedisRepository.RankEntry;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRepository;
+import com.gitcat.letsgitit.domain.single.entity.enums.Grade;
 import com.gitcat.letsgitit.global.enums.Difficulty;
 import com.gitcat.letsgitit.global.util.WeekUtil;
 
@@ -41,17 +42,20 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		LocalDate now = LocalDate.now(KOREA_ZONE_ID);
 
 		String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
+		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
 		long total = singleRankingRedisRepository.getTotalCount(key);
 
 		List<RankEntry> top3Raw = singleRankingRedisRepository.getTopEntries(key, 3);
 		List<UUID> top3Ids = top3Raw.stream().map(r -> UUID.fromString(r.memberId())).toList();
 		Map<UUID, String> top3NicknameMap = memberService.getNicknamesByIds(top3Ids);
-		List<RankingEntry> top3 = toEntries(top3Raw, 1, top3NicknameMap);
+		Map<UUID, String> top3GradeMap = singleRankingRedisRepository.getGrades(gradeKey, top3Ids);
+		List<RankingEntry> top3 = toEntries(top3Raw, 1, top3NicknameMap, top3GradeMap);
 
 		Long myRankZeroBased = singleRankingRedisRepository.getRankZeroBased(key, memberId);
 		Double myScore = singleRankingRedisRepository.getScore(key, memberId);
 
 		if (myRankZeroBased == null || myScore == null) {
+			boolean hasNext = total > 3;
 			return new SingleRankingInitialResponse(
 				difficulty.name(),
 				WeekUtil.getYear(now),
@@ -60,16 +64,19 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 				top3,
 				null,
 				List.of(),
-				null,
-				false);
+				hasNext ? 3 : null,
+				hasNext);
 		}
 
 		String nickname = memberService.getNicknameById(memberId);
+		String myGradeStr = singleRankingRedisRepository.getGrade(gradeKey, memberId);
+		Grade myGrade = myGradeStr != null ? Grade.valueOf(myGradeStr) : null;
 
 		RankingEntry myRank = new RankingEntry(
 			(int)(myRankZeroBased + 1),
 			nickname,
-			(int)Math.round(myScore));
+			(int)Math.round(myScore),
+			myGrade);
 
 		long aroundStart = Math.max(0, myRankZeroBased - 2);
 		long aroundEnd = Math.min(total - 1, myRankZeroBased + 2);
@@ -77,7 +84,8 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		List<RankEntry> aroundRaw = singleRankingRedisRepository.getRangeByRank(key, aroundStart, aroundEnd);
 		List<UUID> aroundIds = aroundRaw.stream().map(r -> UUID.fromString(r.memberId())).toList();
 		Map<UUID, String> aroundNicknameMap = memberService.getNicknamesByIds(aroundIds);
-		List<RankingEntry> around = toEntries(aroundRaw, (int)aroundStart + 1, aroundNicknameMap);
+		Map<UUID, String> aroundGradeMap = singleRankingRedisRepository.getGrades(gradeKey, aroundIds);
+		List<RankingEntry> around = toEntries(aroundRaw, (int)aroundStart + 1, aroundNicknameMap, aroundGradeMap);
 
 		long nextCursorLong = aroundEnd + 1;
 		boolean hasNext = nextCursorLong < total;
@@ -102,6 +110,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		LocalDate now = LocalDate.now(KOREA_ZONE_ID);
 
 		String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
+		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
 		long total = singleRankingRedisRepository.getTotalCount(key);
 
 		long start = cursor;
@@ -110,7 +119,8 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		List<RankEntry> raw = singleRankingRedisRepository.getRangeByRank(key, start, end);
 		List<UUID> memberUuids = raw.stream().map(r -> UUID.fromString(r.memberId())).toList();
 		Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberUuids);
-		List<RankingEntry> rankings = toEntries(raw, cursor + 1, nicknameMap);
+		Map<UUID, String> gradeMap = singleRankingRedisRepository.getGrades(gradeKey, memberUuids);
+		List<RankingEntry> rankings = toEntries(raw, cursor + 1, nicknameMap, gradeMap);
 
 		long nextCursorLong = start + raw.size();
 		boolean hasNext = nextCursorLong < total;
@@ -173,7 +183,11 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 
 		List<RankingEntry> top3 = toHistoryEntries(top3Raw, nicknameMap);
 		String myNickname = nicknameMap.getOrDefault(myRankEntity.getMemberId(), "[Unknown]");
-		RankingEntry myRank = new RankingEntry(myRankEntity.getRank(), myNickname, myRankEntity.getScore());
+		RankingEntry myRank = new RankingEntry(
+			myRankEntity.getRank(),
+			myNickname,
+			myRankEntity.getScore(),
+			myRankEntity.getGrade());
 		List<RankingEntry> around = toHistoryEntries(aroundRaw, nicknameMap);
 
 		boolean hasNext = aroundMaxRank < total;
@@ -221,6 +235,19 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 	}
 
 	@Override
+	@Transactional
+	public int updateSingleScore(Difficulty difficulty, UUID memberId, int score, Grade grade) {
+		LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		String scoreKey = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
+		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
+
+		singleRankingRedisRepository.saveScoreAndGrade(scoreKey, gradeKey, memberId, score, grade.name());
+
+		Long rankZeroBased = singleRankingRedisRepository.getRankZeroBased(scoreKey, memberId);
+		return rankZeroBased == null ? 0 : rankZeroBased.intValue() + 1;
+	}
+
+	@Override
 	@Transactional(readOnly = true)
 	public Integer getCurrentWeekScore(Difficulty difficulty, UUID memberId) {
 		String key = RankingKeyUtil.singleKey(
@@ -231,37 +258,29 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		return score == null ? null : (int)Math.round(score);
 	}
 
-	@Override
-	public int updateSingleScore(Difficulty difficulty, UUID memberId, int score) {
-		String key = RankingKeyUtil.singleKey(
-			difficulty.name(),
-			WeekUtil.getWeek(LocalDate.now(KOREA_ZONE_ID)));
-
-		singleRankingRedisRepository.saveScore(key, memberId, score);
-
-		Long rankZeroBased = singleRankingRedisRepository.getRankZeroBased(key, memberId);
-		return rankZeroBased == null ? 0 : rankZeroBased.intValue() + 1;
-	}
-
 	private List<RankingEntry> toHistoryEntries(List<SingleRanking> raw, Map<UUID, String> nicknameMap) {
 		return raw.stream()
 			.map(sr -> new RankingEntry(
 				sr.getRank(),
 				nicknameMap.getOrDefault(sr.getMemberId(), "[Unknown]"),
-				sr.getScore()))
+				sr.getScore(),
+				sr.getGrade()))
 			.toList();
 	}
 
-	private List<RankingEntry> toEntries(List<RankEntry> raw, int startRank, Map<UUID, String> nicknameMap) {
+	private List<RankingEntry> toEntries(List<RankEntry> raw, int startRank,
+		Map<UUID, String> nicknameMap, Map<UUID, String> gradeMap) {
 		List<RankingEntry> result = new ArrayList<>(raw.size());
 
 		for (int i = 0; i < raw.size(); i++) {
 			RankEntry r = raw.get(i);
 			UUID id = UUID.fromString(r.memberId());
+			String gradeStr = gradeMap.get(id);
 			result.add(new RankingEntry(
 				startRank + i,
 				nicknameMap.getOrDefault(id, "[Unknown]"),
-				(int)Math.round(r.score())));
+				(int)Math.round(r.score()),
+				gradeStr != null ? Grade.valueOf(gradeStr) : null));
 		}
 
 		return result;

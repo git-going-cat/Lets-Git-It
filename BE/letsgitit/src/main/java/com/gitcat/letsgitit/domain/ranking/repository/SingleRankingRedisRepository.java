@@ -1,6 +1,7 @@
 package com.gitcat.letsgitit.domain.ranking.repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface SingleRankingRedisRepository {
@@ -8,8 +9,8 @@ public interface SingleRankingRedisRepository {
 	record RankEntry(String memberId, double score) {
 	}
 
-	// ZSet에 점수 저장 (기존 점수보다 높은 경우에만 갱신)
-	void saveScore(String key, UUID memberId, double score);
+	// ZSet에 점수 저장 + Hash에 grade 저장 (기존 점수보다 높은 경우에만 갱신). 갱신 여부 반환
+	boolean saveScoreAndGrade(String scoreKey, String gradeKey, UUID memberId, double score, String grade);
 
 	// 상위 count명 내림차순 조회
 	List<RankEntry> getTopEntries(String key, int count);
@@ -19,6 +20,12 @@ public interface SingleRankingRedisRepository {
 
 	// 특정 멤버의 점수 (없으면 null)
 	Double getScore(String key, UUID memberId);
+
+	// 특정 멤버의 grade (없으면 null)
+	String getGrade(String gradeKey, UUID memberId);
+
+	// 여러 멤버의 grade 일괄 조회
+	Map<UUID, String> getGrades(String gradeKey, List<UUID> memberIds);
 
 	// 0-based [start, end] 범위 내림차순 조회
 	List<RankEntry> getRangeByRank(String key, long start, long end);

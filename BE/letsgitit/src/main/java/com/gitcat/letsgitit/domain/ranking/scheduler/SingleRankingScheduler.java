@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.scheduling.annotation.Scheduled;
@@ -16,6 +17,7 @@ import com.gitcat.letsgitit.domain.ranking.constants.RankingKeyUtil;
 import com.gitcat.letsgitit.domain.ranking.entity.SingleRanking;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRedisRepository;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRepository;
+import com.gitcat.letsgitit.domain.single.entity.enums.Grade;
 import com.gitcat.letsgitit.global.enums.Difficulty;
 import com.gitcat.letsgitit.global.util.WeekUtil;
 
@@ -40,6 +42,7 @@ public class SingleRankingScheduler {
 
 		for (Difficulty diff : Difficulty.values()) {
 			String key = RankingKeyUtil.singleKey(diff.name(), week);
+			String gradeKey = RankingKeyUtil.singleGradeKey(diff.name(), week);
 			long total = singleRankingRedisRepository.getTotalCount(key);
 
 			if (total == 0) {
@@ -49,6 +52,7 @@ public class SingleRankingScheduler {
 			if (singleRankingRepository.countByDifficultyAndWeek(diff, week) > 0) {
 				// DB에 이미 정산됐지만 Redis 키가 남아 있는 경우 — afterCommit()에서 정리
 				keysToDelete.add(key);
+				keysToDelete.add(gradeKey);
 				continue;
 			}
 
@@ -62,14 +66,22 @@ public class SingleRankingScheduler {
 					break;
 				}
 
+				List<UUID> memberIds = new ArrayList<>(chunk.size());
+				for (SingleRankingRedisRepository.RankEntry entry : chunk) {
+					memberIds.add(UUID.fromString(entry.memberId()));
+				}
+				Map<UUID, String> gradeMap = singleRankingRedisRepository.getGrades(gradeKey, memberIds);
+
 				List<SingleRanking> rankings = new ArrayList<>(chunk.size());
 				for (int i = 0; i < chunk.size(); i++) {
 					SingleRankingRedisRepository.RankEntry entry = chunk.get(i);
-					UUID memberId = UUID.fromString(entry.memberId());
+					UUID memberId = memberIds.get(i);
 					int rank = (int)offset + i + 1;
 					int score = (int)Math.round(entry.score());
+					String gradeStr = gradeMap.get(memberId);
+					Grade grade = gradeStr != null ? Grade.valueOf(gradeStr) : null;
 
-					rankings.add(SingleRanking.of(memberId, diff, score, rank, week));
+					rankings.add(SingleRanking.of(memberId, diff, score, rank, grade, week));
 				}
 
 				singleRankingRepository.saveAll(rankings);
@@ -77,6 +89,7 @@ public class SingleRankingScheduler {
 			}
 
 			keysToDelete.add(key);
+			keysToDelete.add(gradeKey);
 		}
 
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
