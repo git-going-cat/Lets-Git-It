@@ -8,15 +8,21 @@ const BRANCH_COLORS: Record<string, { line: number; text: string }> = {
   hotfix: { line: 0xef4444, text: '#f87171' },
   develop: { line: 0x22c55e, text: '#4ade80' },
 };
+const FALLBACK_COLORS = [
+  { line: 0xa855f7, text: '#c084fc' },
+  { line: 0x22c55e, text: '#4ade80' },
+  { line: 0xf97316, text: '#fb923c' },
+  { line: 0xeab308, text: '#fbbf24' },
+];
 const DEFAULT_COLOR = { line: 0x6b7280, text: '#9ca3af' };
 
-const PIXEL_FONT = "'Press Start 2P', monospace";
+const PIXEL_FONT = "'NeoDunggeunGothicPro', monospace";
 
 const LANE = {
   LINE_WIDTH: 2,
   LINE_ALPHA: 0.7,
   LABEL_OFFSET_Y: 16,
-  LABEL_FONT_SIZE: '14px',
+  LABEL_FONT_SIZE: '22px',
 } as const;
 
 const NODE = {
@@ -28,9 +34,9 @@ const NODE = {
   // 텍스트는 원 위쪽에 배치 (origin bottom-center)
   TEXT_OFFSET_Y: -28, // 원 중심 기준 위쪽 거리
   TEXT_GAP: 10, // 원 상단과 텍스트 하단 사이 여백
-  TEXT_FONT_SIZE: '13px',
+  TEXT_FONT_SIZE: '22px',
   TEXT_COLOR: '#e0e0ff',
-  TEXT_MAX_WIDTH: 260,
+  TEXT_MAX_WIDTH: 380,
   TEXT_BG_COLOR: '#000000cc',
   TEXT_BG_PADDING_X: 10,
   TEXT_BG_PADDING_Y: 6,
@@ -38,12 +44,19 @@ const NODE = {
   END_OVERSHOOT: 60,
 } as const;
 
+/**
+ * 브랜치 레인 렌더링 컨테이너.
+ * 세로 라인, 브랜치 레이블, 낙하 명령어 노드를 관리하며
+ * 활성 글로우·miss 플래시 애니메이션을 제공합니다.
+ */
 export class BranchLane extends Phaser.GameObjects.Container {
   private readonly laneWidth: number;
   private readonly canvasHeight: number;
   private readonly branchColor: { line: number; text: string };
   private commandNode: Phaser.GameObjects.Container | null = null;
   private fallTween: Phaser.Tweens.Tween | null = null;
+  private flashGraphic: Phaser.GameObjects.Graphics | null = null;
+  private activeGlow: Phaser.GameObjects.Graphics | null = null;
 
   constructor(scene: Phaser.Scene, laneIndex: number, totalLanes: number, branchName: string) {
     const canvasHeight = scene.scale.height;
@@ -52,13 +65,17 @@ export class BranchLane extends Phaser.GameObjects.Container {
 
     this.laneWidth = laneWidth;
     this.canvasHeight = canvasHeight;
-    this.branchColor = BRANCH_COLORS[branchName] ?? DEFAULT_COLOR;
+    this.branchColor =
+      BRANCH_COLORS[branchName] ??
+      FALLBACK_COLORS[laneIndex % FALLBACK_COLORS.length] ??
+      DEFAULT_COLOR;
 
     this.drawBranchLine();
     this.drawBranchLabel(branchName);
     scene.add.existing(this);
   }
 
+  /** 명령어 노드를 상단에서 하단까지 낙하시킵니다. 시간 초과 시 `onTimeout`을 호출합니다. */
   showCommand(command: Command, fallDuration: number, onTimeout: () => void): void {
     this.clearCommand();
 
@@ -79,6 +96,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
     });
   }
 
+  /** 진행 중인 낙하 트윈과 노드를 즉시 제거합니다. */
   clearCommand(): void {
     if (this.fallTween) {
       this.fallTween.stop();
@@ -88,6 +106,62 @@ export class BranchLane extends Phaser.GameObjects.Container {
       this.commandNode.destroy();
       this.commandNode = null;
     }
+  }
+
+  /** 비활성(alpha=0) 레인을 페이드인으로 표시합니다. CREATE 명령어 완료 시 호출됩니다. */
+  revealLane(): void {
+    this.scene.tweens.add({ targets: this, alpha: 1, duration: 500, ease: 'Power2' });
+  }
+
+  /** 레인을 페이드아웃으로 숨깁니다. MERGE 명령어 완료 시 병합된 브랜치에 호출됩니다. */
+  hideLane(): void {
+    this.scene.tweens.add({ targets: this, alpha: 0, duration: 500, ease: 'Power2' });
+  }
+
+  /** 활성 브랜치 여부에 따라 레인 배경 글로우를 표시하거나 숨깁니다. */
+  setLaneActive(isActive: boolean): void {
+    if (isActive && !this.activeGlow) {
+      const glow = this.scene.add.graphics();
+      glow.fillStyle(this.branchColor.line, 0.12);
+      glow.fillRect(0, 0, this.laneWidth, this.canvasHeight);
+      glow.setAlpha(0);
+      this.addAt(glow, 0);
+      this.activeGlow = glow;
+      this.scene.tweens.add({ targets: glow, alpha: 1, duration: 300, ease: 'Power2' });
+    } else if (!isActive && this.activeGlow) {
+      const glow = this.activeGlow;
+      this.activeGlow = null;
+      this.scene.tweens.add({
+        targets: glow,
+        alpha: 0,
+        duration: 300,
+        ease: 'Power2',
+        onComplete: () => glow.destroy(),
+      });
+    }
+  }
+
+  /** 레인 하단에 빨간 플래시 애니메이션을 재생합니다. 명령어 시간 초과(miss) 시 호출됩니다. */
+  flashMiss(): void {
+    if (this.flashGraphic) {
+      this.flashGraphic.destroy();
+    }
+    const flash = this.scene.add.graphics();
+    this.flashGraphic = flash;
+    flash.fillStyle(0xef4444, 0.6);
+    flash.fillRect(0, this.canvasHeight - NODE.END_OVERSHOOT, this.laneWidth, NODE.END_OVERSHOOT);
+    this.add(flash);
+
+    this.scene.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 400,
+      ease: 'Power2',
+      onComplete: () => {
+        if (this.flashGraphic === flash) this.flashGraphic = null;
+        flash.destroy();
+      },
+    });
   }
 
   private drawBranchLine(): void {
