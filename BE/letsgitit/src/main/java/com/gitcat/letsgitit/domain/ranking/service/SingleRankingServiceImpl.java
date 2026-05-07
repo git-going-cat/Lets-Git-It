@@ -3,6 +3,7 @@ package com.gitcat.letsgitit.domain.ranking.service;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -64,6 +65,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 				top3,
 				null,
 				List.of(),
+				null, false,
 				hasNext ? 3 : null,
 				hasNext);
 		}
@@ -87,6 +89,8 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		Map<UUID, String> aroundGradeMap = singleRankingRedisRepository.getGrades(gradeKey, aroundIds);
 		List<RankingEntry> around = toEntries(aroundRaw, (int)aroundStart + 1, aroundNicknameMap, aroundGradeMap);
 
+		boolean hasPrev = aroundStart > 0;
+		Integer prevCursor = hasPrev ? (int)aroundStart + 1 : null;
 		long nextCursorLong = aroundEnd + 1;
 		boolean hasNext = nextCursorLong < total;
 
@@ -98,13 +102,14 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			top3,
 			myRank,
 			around,
+			prevCursor, hasPrev,
 			hasNext ? (int)nextCursorLong : null,
 			hasNext);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public SingleRankingScrollResponse getSingleRankingScroll(Difficulty difficulty, int cursor, int size,
+	public SingleRankingScrollResponse getSingleRankingScrollAfter(Difficulty difficulty, int afterRank, int size,
 		UUID memberId) {
 
 		LocalDate now = LocalDate.now(KOREA_ZONE_ID);
@@ -113,21 +118,65 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
 		long total = singleRankingRedisRepository.getTotalCount(key);
 
-		long start = cursor;
-		long end = cursor + (long)size - 1;
+		long start = afterRank;
+		long end = afterRank + (long)size - 1;
 
 		List<RankEntry> raw = singleRankingRedisRepository.getRangeByRank(key, start, end);
 		List<UUID> memberUuids = raw.stream().map(r -> UUID.fromString(r.memberId())).toList();
 		Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberUuids);
 		Map<UUID, String> gradeMap = singleRankingRedisRepository.getGrades(gradeKey, memberUuids);
-		List<RankingEntry> rankings = toEntries(raw, cursor + 1, nicknameMap, gradeMap);
+		List<RankingEntry> rankings = toEntries(raw, (int)start + 1, nicknameMap, gradeMap);
 
+		Integer prevCursor = raw.isEmpty() ? null : (int)start + 1;
+		boolean hasPrev = !raw.isEmpty() && afterRank > 0;
 		long nextCursorLong = start + raw.size();
 		boolean hasNext = nextCursorLong < total;
 
 		return new SingleRankingScrollResponse(
 			rankings,
+			prevCursor, hasPrev,
 			hasNext ? (int)nextCursorLong : null,
+			hasNext);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public SingleRankingScrollResponse getSingleRankingScrollBefore(Difficulty difficulty, int beforeRank, int size,
+		UUID memberId) {
+
+		LocalDate now = LocalDate.now(KOREA_ZONE_ID);
+
+		String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
+		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
+		long total = singleRankingRedisRepository.getTotalCount(key);
+
+		long endIdx = Math.min(total - 1, (long)beforeRank - 2);
+		if (endIdx < 0) {
+			return new SingleRankingScrollResponse(List.of(), null, false, null, false);
+		}
+		long startIdx = Math.max(0, endIdx - size);
+
+		List<RankEntry> raw = singleRankingRedisRepository.getRangeByRank(key, startIdx, endIdx);
+		if (raw.isEmpty()) {
+			return new SingleRankingScrollResponse(List.of(), null, false, null, false);
+		}
+		boolean hasPrev = raw.size() > size;
+		List<RankEntry> page = hasPrev ? raw.subList(1, raw.size()) : raw;
+
+		List<UUID> memberUuids = page.stream().map(r -> UUID.fromString(r.memberId())).toList();
+		Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberUuids);
+		Map<UUID, String> gradeMap = singleRankingRedisRepository.getGrades(gradeKey, memberUuids);
+		int pageStartRank = hasPrev ? (int)startIdx + 2 : (int)startIdx + 1;
+		List<RankingEntry> rankings = toEntries(page, pageStartRank, nicknameMap, gradeMap);
+
+		Integer prevCursor = hasPrev ? pageStartRank : null;
+		long nextCursorLong = endIdx + 1;
+		boolean hasNext = nextCursorLong < total;
+
+		return new SingleRankingScrollResponse(
+			rankings,
+			prevCursor, hasPrev,
+			page.isEmpty() ? null : (int)nextCursorLong,
 			hasNext);
 	}
 
@@ -161,6 +210,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 				top3,
 				null,
 				List.of(),
+				null, false,
 				hasNext ? 3 : null,
 				hasNext);
 		}
@@ -190,7 +240,10 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			myRankEntity.getGrade());
 		List<RankingEntry> around = toHistoryEntries(aroundRaw, nicknameMap);
 
+		boolean hasPrev = aroundMinRank > 1;
+		Integer prevCursor = hasPrev ? aroundMinRank : null;
 		boolean hasNext = aroundMaxRank < total;
+		Integer nextCursor = hasNext ? aroundMaxRank : null;
 
 		return new SingleRankingInitialResponse(
 			difficulty.name(),
@@ -200,24 +253,25 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			top3,
 			myRank,
 			around,
-			hasNext ? aroundMaxRank : null,
+			prevCursor, hasPrev,
+			nextCursor,
 			hasNext);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public SingleRankingScrollResponse getSingleRankingHistoryScroll(Difficulty difficulty, int year, int month,
-		int week, int cursor, int size, UUID memberId) {
+	public SingleRankingScrollResponse getSingleRankingHistoryScrollAfter(Difficulty difficulty, int year, int month,
+		int week, int afterRank, int size, UUID memberId) {
 		String weekKey = WeekUtil.getWeek(year, month, week);
 
 		List<SingleRanking> raw = singleRankingRepository.findScrollResult(
 			difficulty,
 			weekKey,
-			cursor,
+			afterRank,
 			size + 1);
 
 		if (raw.isEmpty()) {
-			return new SingleRankingScrollResponse(List.of(), null, false);
+			return new SingleRankingScrollResponse(List.of(), null, false, null, false);
 		}
 
 		boolean hasNext = raw.size() > size;
@@ -226,12 +280,44 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		List<UUID> memberIds = page.stream().map(SingleRanking::getMemberId).toList();
 		Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberIds);
 		List<RankingEntry> rankings = toHistoryEntries(page, nicknameMap);
+
+		Integer prevCursor = page.isEmpty() ? null : page.get(0).getRank();
+		boolean hasPrev = afterRank > 0;
 		Integer nextCursor = hasNext ? page.get(page.size() - 1).getRank() : null;
 
-		return new SingleRankingScrollResponse(
-			rankings,
-			nextCursor,
-			hasNext);
+		return new SingleRankingScrollResponse(rankings, prevCursor, hasPrev, nextCursor, hasNext);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public SingleRankingScrollResponse getSingleRankingHistoryScrollBefore(Difficulty difficulty, int year, int month,
+		int week, int beforeRank, int size, UUID memberId) {
+		String weekKey = WeekUtil.getWeek(year, month, week);
+		long total = singleRankingRepository.countByDifficultyAndWeek(difficulty, weekKey);
+
+		List<SingleRanking> raw = singleRankingRepository.findScrollResultBefore(
+			difficulty,
+			weekKey,
+			beforeRank,
+			size);
+
+		if (raw.isEmpty()) {
+			return new SingleRankingScrollResponse(List.of(), null, false, null, false);
+		}
+
+		boolean hasPrev = raw.size() > size;
+		List<SingleRanking> page = new ArrayList<>(hasPrev ? raw.subList(0, size) : raw);
+		Collections.reverse(page);
+
+		List<UUID> memberIds = page.stream().map(SingleRanking::getMemberId).toList();
+		Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberIds);
+		List<RankingEntry> rankings = toHistoryEntries(page, nicknameMap);
+
+		Integer prevCursor = hasPrev ? page.get(0).getRank() : null;
+		Integer nextCursor = page.isEmpty() ? null : page.get(page.size() - 1).getRank();
+		boolean hasNext = nextCursor != null && (long)nextCursor < total;
+
+		return new SingleRankingScrollResponse(rankings, prevCursor, hasPrev, nextCursor, hasNext);
 	}
 
 	@Override

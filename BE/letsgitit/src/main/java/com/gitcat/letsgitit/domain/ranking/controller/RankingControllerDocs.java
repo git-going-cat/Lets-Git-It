@@ -1,8 +1,5 @@
 package com.gitcat.letsgitit.domain.ranking.controller;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-
 import org.springframework.http.ResponseEntity;
 
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
@@ -18,7 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = "Ranking", description = "랭킹 관련 API (로그인 유저는 myRank 반환)")
 public interface RankingControllerDocs {
 
-	@Operation(summary = "이번주 싱글 난이도별 랭킹 조회", description = "cursor 생략 시 초기 응답(top3 + myRank + around), cursor 포함 시 무한 스크롤 응답(rankings + nextCursor + hasNext).")
+	@Operation(summary = "이번주 싱글 난이도별 랭킹 조회", description = "afterRank/beforeRank 모두 생략 시 초기 응답(top3 + myRank + around + prevCursor + nextCursor). afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤.")
 	@ApiResponse(responseCode = "200", description = "싱글 랭킹 조회 성공", content = @Content(mediaType = "application/json", examples = {
 		@ExampleObject(name = "초기 진입", value = """
 			{
@@ -38,19 +35,36 @@ public interface RankingControllerDocs {
 			      {"rank": 42, "nickname": "dobby", "score": 7200},
 			      {"rank": 44, "nickname": "user4", "score": 7000}
 			    ],
+			    "prevCursor": 40, "hasPrev": true,
 			    "nextCursor": 44, "hasNext": true
 			  }
 			}
 			"""),
-		@ExampleObject(name = "무한 스크롤", value = """
+		@ExampleObject(name = "아래 방향 스크롤 (afterRank=44)", value = """
 			{
 			  "status": 200,
 			  "message": "싱글 랭킹 조회 성공",
 			  "data": {
 			    "rankings": [
-			      {"rank": 45, "nickname": "user5", "score": 6900}
+			      {"rank": 45, "nickname": "user5", "score": 6900},
+			      {"rank": 46, "nickname": "user6", "score": 6800}
 			    ],
-			    "nextCursor": 64, "hasNext": true
+			    "prevCursor": 45, "hasPrev": true,
+			    "nextCursor": 46, "hasNext": true
+			  }
+			}
+			"""),
+		@ExampleObject(name = "위 방향 스크롤 (beforeRank=40)", value = """
+			{
+			  "status": 200,
+			  "message": "싱글 랭킹 조회 성공",
+			  "data": {
+			    "rankings": [
+			      {"rank": 20, "nickname": "user1", "score": 8100},
+			      {"rank": 39, "nickname": "user2", "score": 7600}
+			    ],
+			    "prevCursor": 20, "hasPrev": true,
+			    "nextCursor": 39, "hasNext": true
 			  }
 			}
 			""")
@@ -60,9 +74,11 @@ public interface RankingControllerDocs {
 		CustomUserDetails userDetails,
 		@Parameter(name = "difficulty", description = "난이도 (EASY / NORMAL / HARD)", required = true)
 		Difficulty difficulty,
-		@Parameter(name = "cursor", description = "무한 스크롤 커서. 생략 시 초기 응답. 0 이상") @Min(0)
-		Integer cursor,
-		@Parameter(name = "size", description = "페이지 크기 (기본값 20, 최솟값 1, 최댓값 100)") @Min(1) @Max(100)
+		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상")
+		Integer afterRank,
+		@Parameter(name = "beforeRank", description = "위 방향 스크롤 커서 (첫 번째로 확인한 순위). 1 이상")
+		Integer beforeRank,
+		@Parameter(name = "size", description = "페이지 크기 (기본값 20, 최솟값 1, 최댓값 100)")
 		Integer size);
 
 	@Operation(summary = "이번주 기여도 뺏기 랭킹 조회", description = "cursor 생략 시 초기 응답, cursor 포함 시 무한 스크롤 응답.")
@@ -190,7 +206,7 @@ public interface RankingControllerDocs {
 		@Parameter(name = "size", description = "페이지 크기 (기본값 20)")
 		Integer size);
 
-	@Operation(summary = "과거주 싱글 난이도별 랭킹 조회", description = "RDB에서 조회. cursor 생략 시 초기 응답, cursor 포함 시 무한 스크롤 응답.")
+	@Operation(summary = "과거주 싱글 난이도별 랭킹 조회", description = "RDB에서 조회. afterRank/beforeRank 모두 생략 시 초기 응답, afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤.")
 	@ApiResponse(responseCode = "200", description = "싱글 랭킹 조회 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{
 		  "status": 200,
@@ -203,6 +219,7 @@ public interface RankingControllerDocs {
 		    ],
 		    "myRank": {"rank": 42, "score": 7200},
 		    "around": [{"rank": 42, "nickname": "dobby", "score": 7200}],
+		    "prevCursor": 40, "hasPrev": true,
 		    "nextCursor": 44, "hasNext": true
 		  }
 		}
@@ -212,15 +229,17 @@ public interface RankingControllerDocs {
 		CustomUserDetails userDetails,
 		@Parameter(name = "difficulty", description = "난이도 (EASY / NORMAL / HARD)", required = true)
 		Difficulty difficulty,
-		@Parameter(name = "year", description = "조회 연도 (예: 2025)", required = true) @Min(1)
+		@Parameter(name = "year", description = "조회 연도 (예: 2025)", required = true)
 		Integer year,
-		@Parameter(name = "month", description = "조회 월 (예: 4)", required = true) @Min(1) @Max(12)
+		@Parameter(name = "month", description = "조회 월 (예: 4)", required = true)
 		Integer month,
-		@Parameter(name = "week", description = "조회 주차 (예: 3)", required = true) @Min(1) @Max(6)
+		@Parameter(name = "week", description = "조회 주차 (예: 3)", required = true)
 		Integer week,
-		@Parameter(name = "cursor", description = "무한 스크롤 커서. 생략 시 초기 응답") @Min(0)
-		Integer cursor,
-		@Parameter(name = "size", description = "페이지 크기 (기본값 20)") @Min(1) @Max(100)
+		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상")
+		Integer afterRank,
+		@Parameter(name = "beforeRank", description = "위 방향 스크롤 커서 (첫 번째로 확인한 순위). 1 이상")
+		Integer beforeRank,
+		@Parameter(name = "size", description = "페이지 크기 (기본값 20)")
 		Integer size);
 
 	@Operation(summary = "과거주 기여도 뺏기 랭킹 조회", description = "RDB에서 조회. cursor 생략 시 초기 응답, cursor 포함 시 무한 스크롤 응답.")

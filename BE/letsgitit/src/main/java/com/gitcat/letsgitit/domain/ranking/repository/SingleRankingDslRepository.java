@@ -31,4 +31,19 @@ public class SingleRankingDslRepository {
 			.limit(size)
 			.fetch();
 	}
+
+	public List<SingleRanking> findScrollResultBefore(Difficulty difficulty, String week,
+		int beforeRank, int size) {
+		QSingleRanking sr = QSingleRanking.singleRanking;
+
+		return jpaQueryFactory
+			.selectFrom(sr)
+			.where(
+				sr.difficulty.eq(difficulty),
+				sr.week.eq(week),
+				sr.rank.lt(beforeRank))
+			.orderBy(sr.rank.desc())
+			.limit(size + 1)
+			.fetch();
+	}
 }

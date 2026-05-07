@@ -11,7 +11,11 @@ public interface SingleRankingService {
 
 	SingleRankingInitialResponse getSingleRanking(Difficulty difficulty, int size, UUID memberId);
 
-	SingleRankingScrollResponse getSingleRankingScroll(Difficulty difficulty, int cursor, int size, UUID memberId);
+	SingleRankingScrollResponse getSingleRankingScrollAfter(Difficulty difficulty, int afterRank, int size,
+		UUID memberId);
+
+	SingleRankingScrollResponse getSingleRankingScrollBefore(Difficulty difficulty, int beforeRank, int size,
+		UUID memberId);
 
 	Integer getCurrentWeekScore(Difficulty difficulty, UUID memberId);
 
@@ -23,12 +27,21 @@ public interface SingleRankingService {
 		int size,
 		UUID memberId);
 
-	SingleRankingScrollResponse getSingleRankingHistoryScroll(
+	SingleRankingScrollResponse getSingleRankingHistoryScrollAfter(
 		Difficulty difficulty,
 		int year,
 		int month,
 		int week,
-		int cursor,
+		int afterRank,
+		int size,
+		UUID memberId);
+
+	SingleRankingScrollResponse getSingleRankingHistoryScrollBefore(
+		Difficulty difficulty,
+		int year,
+		int month,
+		int week,
+		int beforeRank,
 		int size,
 		UUID memberId);
 
