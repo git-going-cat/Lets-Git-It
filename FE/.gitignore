@@ -16,7 +16,8 @@ dist
 dist-ssr
 *.local
 
-# TanStack Router 개발 도구 캐시
+# 캐시 폴더
+.vite/
 .tanstack/
 
 # 환경변수 파일 (git에 올리지 않음)

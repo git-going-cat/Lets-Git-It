@@ -8,6 +8,7 @@ import { comboAtom } from '../store/comboAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
 import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
+import { tutorialInputBlockedAtom } from '../store/tutorialInputBlockedAtom';
 import { totalAttemptsAtom, typoCountAtom } from '../store/typoAtom';
 import { isSwitchCommand, parseSwitchTarget } from '../utils/branchParser';
 
@@ -31,7 +32,8 @@ export function useCommandInput() {
   const [isError, setIsError] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const isPlaying = gameStatus === 'playing';
+  const isTutorialBlocked = useAtomValue(tutorialInputBlockedAtom);
+  const isPlaying = gameStatus === 'playing' && !isTutorialBlocked;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);

@@ -57,6 +57,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
   private fallTween: Phaser.Tweens.Tween | null = null;
   private flashGraphic: Phaser.GameObjects.Graphics | null = null;
   private activeGlow: Phaser.GameObjects.Graphics | null = null;
+  private blinkIndicator: Phaser.GameObjects.Graphics | null = null;
 
   constructor(scene: Phaser.Scene, laneIndex: number, totalLanes: number, branchName: string) {
     const canvasHeight = scene.scale.height;
@@ -96,16 +97,97 @@ export class BranchLane extends Phaser.GameObjects.Container {
     });
   }
 
-  /** 진행 중인 낙하 트윈과 노드를 즉시 제거합니다. */
-  clearCommand(): void {
+  /**
+   * 튜토리얼 전용: 명령어 노드를 상단에서 targetY까지 fallDuration ms 동안 낙하시킵니다.
+   * 낙하 완료 후 자동으로 위치가 고정됩니다.
+   */
+  startTutorialFall(command: Command, targetY: number, fallDuration: number): void {
+    this.clearCommand();
+    const node = this.buildNode(command.displayText);
+    node.setPosition(this.laneWidth / 2, NODE.START_Y);
+    this.add(node);
+    this.commandNode = node;
+
+    this.fallTween = this.scene.tweens.add({
+      targets: node,
+      y: targetY,
+      duration: fallDuration,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        this.fallTween = null;
+      },
+    });
+  }
+
+  /**
+   * 튜토리얼 전용: 낙하 중인 명령어를 현재 위치에서 멈추고 점선 깜빡임 인디케이터를 표시합니다.
+   */
+  freezeWithBlink(): void {
     if (this.fallTween) {
       this.fallTween.stop();
       this.fallTween = null;
     }
     if (this.commandNode) {
+      this.addBlinkIndicator();
+    }
+  }
+
+  /** 진행 중인 낙하 트윈, 노드, 점선 인디케이터를 즉시 제거합니다. */
+  clearCommand(): void {
+    if (this.fallTween) {
+      this.fallTween.stop();
+      this.fallTween = null;
+    }
+    // blinkIndicator는 commandNode의 자식 — commandNode.destroy()로 같이 제거됨
+    this.blinkIndicator = null;
+    if (this.commandNode) {
       this.commandNode.destroy();
       this.commandNode = null;
     }
+  }
+
+  /** 명령어 원 주변에 점선 깜빡임 인디케이터를 추가합니다. */
+  private addBlinkIndicator(): void {
+    if (!this.commandNode || this.blinkIndicator) return;
+
+    // 브랜치별 밝은 색상 매핑 (fallback: 기존 색상)
+    const BRIGHT_COLORS: Record<string, number> = {
+      main: 0x93c5fd, // 밝은 파랑
+      feature: 0xe0aaff, // 밝은 보라
+      hotfix: 0xfca5a5, // 밝은 빨강
+      develop: 0x6ee7b7, // 밝은 초록
+    };
+    // branchColor는 생성자에서 결정됨
+    const brightColor =
+      BRIGHT_COLORS[
+        (Object.keys(BRANCH_COLORS).find(
+          (k) => BRANCH_COLORS[k].line === this.branchColor.line
+        ) as keyof typeof BRIGHT_COLORS) || ''
+      ] ?? 0xffffff;
+
+    const r = NODE.RADIUS + 10;
+    const TOTAL_SEGS = 14;
+    const g = this.scene.add.graphics();
+    g.lineStyle(3, brightColor, 1); // 더 굵고 밝은 색상
+    for (let i = 0; i < TOTAL_SEGS; i++) {
+      if (i % 2 !== 0) continue; // 짝수 세그먼트만 그려서 점선 효과
+      const startAngle = (i / TOTAL_SEGS) * Math.PI * 2;
+      const endAngle = ((i + 0.65) / TOTAL_SEGS) * Math.PI * 2;
+      g.beginPath();
+      g.arc(0, 0, r, startAngle, endAngle);
+      g.strokePath();
+    }
+    this.commandNode.add(g);
+    this.blinkIndicator = g;
+
+    this.scene.tweens.add({
+      targets: g,
+      alpha: 0,
+      duration: 500,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
   }
 
   /** 비활성(alpha=0) 레인을 페이드인으로 표시합니다. CREATE 명령어 완료 시 호출됩니다. */

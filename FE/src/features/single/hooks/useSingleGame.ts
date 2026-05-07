@@ -89,6 +89,10 @@ export function useSingleGame() {
     };
 
     const handleMiss = ({ index }: { index: number }) => {
+      // 튜토리얼 모드: 낙하 시간이 매우 길어 miss가 사실상 발생하지 않으나,
+      // 혹시 발생하더라도 목숨 차감 및 게임오버 처리를 건너뜀
+      if (useSingleStore.getState().isTutorial) return;
+
       const newLives = stateRef.lives - 1;
       stateRef.lives = newLives;
       stateRef.livesLost += 1;
@@ -169,10 +173,14 @@ export function useSingleGame() {
 
     const handleGameOver = () => {
       isPlaying = false;
+      // 튜토리얼 모드에서는 결과 모달 표시 없이 useTutorialMode가 완료 처리
+      if (useSingleStore.getState().isTutorial) return;
       finishGame('GAMEOVER');
     };
     const handleGameComplete = () => {
       isPlaying = false;
+      // 튜토리얼 모드에서는 결과 모달 표시 없이 useTutorialMode가 완료 처리
+      if (useSingleStore.getState().isTutorial) return;
       finishGame('SUCCESS');
     };
     const handleGameRestart = () => {
