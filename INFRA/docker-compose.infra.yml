@@ -12,6 +12,8 @@ services:
     restart: always
     networks:
       - letsgit-dev
+    environment:
+      - TZ=Asia/Seoul
 
   redis-auth:
     image: redis:7-alpine
@@ -27,6 +29,8 @@ services:
     restart: always
     networks:
       - letsgit-dev
+    environment:
+      - TZ=Asia/Seoul
 
   redis-game:
     image: redis:7-alpine
@@ -41,6 +45,8 @@ services:
     restart: always
     networks:
       - letsgit-dev
+    environment:
+      - TZ=Asia/Seoul
 
   redis-ranking:
     image: redis:7-alpine
@@ -57,6 +63,8 @@ services:
     restart: always
     networks:
       - letsgit-dev
+    environment:
+      - TZ=Asia/Seoul
 
   redisinsight:
     image: redis/redisinsight:latest
@@ -68,6 +76,8 @@ services:
     restart: always
     networks:
       - letsgit-dev
+    environment:
+      - TZ=Asia/Seoul
 
 volumes:
   mysql-dev-data:
