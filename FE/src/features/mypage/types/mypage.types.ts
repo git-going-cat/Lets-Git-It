@@ -1,4 +1,13 @@
-export interface MyRecord {
+export interface CharacterAsset {
+  characterHair: string;
+  characterHairColor: string;
+  characterBody: string;
+  characterEye: string;
+  characterOutfit: string;
+  characterOutfitColor: string;
+}
+
+export interface MyRecord extends CharacterAsset {
   nickname: string;
   authType: AuthType;
   singleEasyBest: number;
@@ -22,3 +31,11 @@ export interface ChangePasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+export interface EditCharacterModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentAsset: CharacterAsset;
+}
+
+export type CharacterSelectState = CharacterAsset;

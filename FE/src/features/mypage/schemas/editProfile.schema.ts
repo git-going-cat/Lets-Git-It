@@ -4,7 +4,7 @@ export const editNicknameSchema = z.object({
   nickname: z
     .string()
     .min(2, '닉네임은 2자 이상이어야 합니다.')
-    .max(6, '닉네임은 6자 이하이어야 합니다.')
+    .max(6, '닉네임은 6자 이하여야 합니다.')
     .regex(/^[가-힣a-zA-Z]+$/, '닉네임은 한글과 영어만 사용할 수 있습니다.'),
 });
 
