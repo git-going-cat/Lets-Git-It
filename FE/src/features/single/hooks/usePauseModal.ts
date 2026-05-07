@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
+import { analytics } from '@/lib/analytics';
 
 import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
@@ -30,7 +31,10 @@ export function usePauseModal() {
     EventBus.emit('game:restart');
   };
 
-  const onExit = () => navigate({ to: '/home', replace: true });
+  const onExit = () => {
+    analytics.gameAbandoned();
+    navigate({ to: '/home', replace: true });
+  };
 
   return { isVisible, onResume, onRestart, onExit };
 }

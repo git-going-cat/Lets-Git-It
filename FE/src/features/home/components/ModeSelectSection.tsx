@@ -1,5 +1,6 @@
 import multiFolderImg from '@/assets/home/multi-folder.png';
 import singleFolderImg from '@/assets/home/single-folder.png';
+import { analytics } from '@/lib/analytics';
 
 import type { HomeModalType } from '../types/home.types';
 
@@ -13,7 +14,10 @@ export default function ModeSelectSection({ onOpen }: ModeSelectSectionProps) {
       <button
         id="btn-single-mode"
         type="button"
-        onClick={() => onOpen('explorer-single')}
+        onClick={() => {
+          analytics.gameModeSelected('single');
+          onOpen('explorer-single');
+        }}
         className="group flex flex-col items-center gap-0 transition-transform duration-150 hover:scale-110 active:scale-95"
         aria-label="싱글 모드"
       >
@@ -31,7 +35,10 @@ export default function ModeSelectSection({ onOpen }: ModeSelectSectionProps) {
       <button
         id="btn-multi-mode"
         type="button"
-        onClick={() => onOpen('explorer-multi')}
+        onClick={() => {
+          analytics.gameModeSelected('multi');
+          onOpen('explorer-multi');
+        }}
         className="group flex flex-col items-center gap-0 transition-transform duration-150 hover:scale-110 active:scale-95"
         aria-label="멀티 모드"
       >

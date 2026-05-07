@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { faro } from '@/lib/faro';
 
 import type { InternalAxiosRequestConfig } from 'axios';
 
@@ -10,12 +11,14 @@ export const http = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ── 요청 인터셉터: Bearer 토큰 주입 ──────────────────────────────────
+// ── 요청 인터셉터: Bearer 토큰 주입 + X-Request-Id 부착 ──────────────
 http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // BE MDC 로그와 연결하기 위한 요청 추적 ID — BE 팀과 헤더명 'X-Request-Id' 합의 필요
+  config.headers['X-Request-Id'] = crypto.randomUUID();
   return config;
 });
 
@@ -65,6 +68,18 @@ http.interceptors.response.use(
       } finally {
         isRefreshing = false;
       }
+    }
+
+    // 401 외 API 에러를 Faro에 기록 — requestId로 BE 로그와 연결
+    const status = axiosError.response?.status;
+    if (status && status !== 401) {
+      faro?.api.pushError(new Error(`API ${status}: ${original?.url ?? ''}`), {
+        context: {
+          request_id: String(original?.headers?.['X-Request-Id'] ?? ''),
+          url: original?.url ?? '',
+          status: String(status),
+        },
+      });
     }
 
     return Promise.reject(error);

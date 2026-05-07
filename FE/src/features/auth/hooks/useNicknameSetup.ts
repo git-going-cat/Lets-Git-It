@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 
+import { analytics } from '@/lib/analytics';
+
 import { onboardingApi } from '../api/onboardingApi';
 import { nicknameFormSchema, type NicknameFormValues } from '../schemas/onboarding.schema';
 import { useAuthStore } from '../store/authStore';
@@ -40,6 +42,7 @@ export function useNicknameSetup(onComplete: () => void) {
   const { mutate: saveNickname, isPending: isSaving } = useMutation({
     mutationFn: (values: NicknameFormValues) => onboardingApi.saveNickname(values.nickname),
     onSuccess: (_, values) => {
+      analytics.identifyUser(values.nickname);
       updateUser({ nickname: values.nickname, onboardingStatus: 'NICKNAME_SET_DONE' });
       onComplete();
     },

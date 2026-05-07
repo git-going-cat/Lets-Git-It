@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
+import { analytics } from '@/lib/analytics';
 
 import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
@@ -35,6 +36,7 @@ export default function StartModal() {
     e.preventDefault();
 
     if (inputValue.trim() === expectedCommand) {
+      analytics.gameStarted(isTutorial ? 'tutorial' : 'single', difficulty ?? undefined);
       setGameStatus('playing');
       EventBus.emit('game:start');
     } else {

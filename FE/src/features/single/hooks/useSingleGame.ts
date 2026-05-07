@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
+import { analytics } from '@/lib/analytics';
 
 import { activeBranchAtom } from '../store/activeBranchAtom';
 import { churuCountAtom } from '../store/churuAtom';
@@ -160,6 +161,7 @@ export function useSingleGame() {
       const missCount = stateRef.livesLost;
       const typoCount = typoRef.current;
       if (status === 'GAMEOVER') {
+        analytics.gameOver(diff, playTimeMs);
         setGameResult({ status, score: 0, grade: 'F', playTimeMs, missCount, typoCount });
       } else {
         const { score, grade } = calcScore({
@@ -168,6 +170,7 @@ export function useSingleGame() {
           livesLost: missCount,
           difficulty: diff,
         });
+        analytics.gameCompleted(diff, score, playTimeMs);
         setGameResult({ status, score, grade, playTimeMs, missCount, typoCount });
       }
       setGameStatus(status === 'SUCCESS' ? 'cleared' : 'gameover');
