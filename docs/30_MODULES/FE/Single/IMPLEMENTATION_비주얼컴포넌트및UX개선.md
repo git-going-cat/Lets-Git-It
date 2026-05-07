@@ -172,7 +172,7 @@ NES.css 클래스를 제거하면 픽셀 아트 스타일이 사라진다.
 
 - `totalCommands`가 0이면 step 계산에서 `Math.max(totalCommands, 1)`로 나눗셈 오류 방지.
 - `churuCountAtom`은 SWITCH 타입 명령어를 제외하고 증가한다. `totalCommands` 계산도 동일하게 SWITCH를 제외해야 step이 정확히 맞는다.
-- API 연동 전까지 `commandSet`은 mock 데이터다. API 연동 후 실제 SWITCH 제외 명령어 수 검증 필요.
+- ~~API 연동 전까지 `commandSet`은 mock 데이터다~~ → **연동 완료**. `singleApi.startSession(difficulty)` 응답의 실제 `commandSet`이 사용됨. SWITCH 제외 명령어 수 산출 로직은 그대로 유효하다.
 - CatSprite는 게임 상태와 무관하게 항상 키 입력에 반응한다. 일시정지 / 게임오버 상태에서도 타이핑하면 고양이가 움직인다. 의도된 동작이지만 필요 시 `gameStatusAtom` 구독 후 `isPlaying`이 아닐 때 비활성화 가능.
 - ChuruItem은 `containerH > 0` 이전에는 렌더되지 않는다. ResizeObserver가 발화하기 전 count가 증가하면 그 항목들은 측정 완료 후 한꺼번에 렌더된다 (애니메이션은 각각 독립적으로 재생됨).
 

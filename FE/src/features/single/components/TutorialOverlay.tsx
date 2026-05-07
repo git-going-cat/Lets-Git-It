@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { TUTORIAL_BLUR_DURATION_MS } from '../constants/tutorialData';
 import { useSingleStore } from '../store/singleStore';
@@ -21,10 +21,28 @@ interface TutorialOverlayProps {
  *   - 딤 배경 + 중앙 해설 카드 (Enter 키 또는 버튼으로 다음 이동)
  */
 export default function TutorialOverlay({ state, onNext }: TutorialOverlayProps) {
-  const tutorialStepMeta = useSingleStore((s) => s.tutorialStepMeta);
-  const meta = tutorialStepMeta[state.metaIndex];
+  const tutorialSteps = useSingleStore((s) => s.tutorialSteps);
   const [blurActive, setBlurActive] = useState(true);
   const nextBtnRef = useRef<HTMLButtonElement>(null);
+
+  // clone을 제외한 커맨드를 순서대로 flatten — metaIndex 1 → flatCommands[0]
+  const flatCommands = useMemo(
+    () =>
+      tutorialSteps.flatMap((step) =>
+        step.commands
+          .filter((c) => !/^git\s+clone/.test(c.command))
+          .map((c) => ({
+            title: step.title,
+            description: step.description,
+            explanation: c.explanation,
+          }))
+      ),
+    [tutorialSteps]
+  );
+
+  const meta = flatCommands[state.metaIndex - 1];
+  const stepNumber = state.metaIndex;
+  const isLast = state.metaIndex >= flatCommands.length;
 
   // description: 블러 타이머
   useEffect(() => {
@@ -53,10 +71,7 @@ export default function TutorialOverlay({ state, onNext }: TutorialOverlayProps)
 
   if (!meta) return null;
 
-  // commandSet에서 clone(1개)을 제외한 수 = tutorialStepMeta.length - 1
-  const totalSteps = tutorialStepMeta.length - 1;
-  const stepNumber = state.metaIndex;
-  const isLast = state.metaIndex + 1 >= tutorialStepMeta.length;
+  const totalSteps = flatCommands.length;
 
   /* ── description 단계 ── */
   if (state.phase === 'description') {
@@ -73,12 +88,12 @@ export default function TutorialOverlay({ state, onNext }: TutorialOverlayProps)
         <div className="font-pixel absolute top-3 left-[15%] w-[70%] z-40 pointer-events-none tutorial-bubble-wrap">
           <div className="nes-container is-dark with-title px-3 py-2">
             <p className="title text-xs">
-              STEP {stepNumber} / {totalSteps - 1}
+              STEP {stepNumber} / {totalSteps}
             </p>
 
             {/* 진행 바 */}
             <div className="flex gap-0.5 mb-2">
-              {Array.from({ length: totalSteps - 1 }, (_, i) => (
+              {Array.from({ length: totalSteps }, (_, i) => (
                 <div
                   key={i}
                   className={`h-1 flex-1 rounded-full ${
@@ -115,12 +130,12 @@ export default function TutorialOverlay({ state, onNext }: TutorialOverlayProps)
     <div className="font-pixel absolute inset-0 z-50 flex items-center justify-center bg-black/65 pointer-events-auto tutorial-bubble-wrap">
       <div className="nes-container is-dark with-title w-full max-w-lg px-4 py-3">
         <p className="title text-xs">
-          STEP {stepNumber} / {totalSteps - 1} — 해설
+          STEP {stepNumber} / {totalSteps} — 해설
         </p>
 
         {/* 진행 바 */}
         <div className="flex gap-0.5 mb-3">
-          {Array.from({ length: totalSteps - 1 }, (_, i) => (
+          {Array.from({ length: totalSteps }, (_, i) => (
             <div
               key={i}
               className={`h-1 flex-1 rounded-full ${

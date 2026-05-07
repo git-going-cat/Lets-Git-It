@@ -30,27 +30,34 @@ export const ITEM_SLOT_MAP = ['stash', 'cherry-pick', 'restore'] as const;
 슬롯이 모두 차 있으면 드롭 없이 소멸한다.
 
 ```ts
-const DROP_RATE: Record<Difficulty, number> = { EASY: 0.4, NORMAL: 0.3, HARD: 0.2 };
+const DROP_RATE = { EASY: 0.4, NORMAL: 0.3, HARD: 0.2 } as const;
 
 // useSingleGame.handleComplete
-const emptyIndices = itemSlotsRef.current
+// itemSlotsRef는 useRef가 아닌 useEffect 클로저 내 plain 배열 ([boolean, boolean, boolean])
+const emptyIndices = itemSlotsRef
   .map((filled, i) => (!filled ? i : -1))
   .filter((i) => i !== -1);
 if (emptyIndices.length > 0) {
   const slotToFill = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
-  setItemSlots((prev) => { const next = [...prev]; next[slotToFill] = true; return next; });
+  itemSlotsRef[slotToFill] = true;
+  setItemSlots([itemSlotsRef[0], itemSlotsRef[1], itemSlotsRef[2]]);
 }
 ```
 
-### 3. 아이템 사용 (Alt+1/2/3)
+### 3. 아이템 사용 (Alt+1/2/3 키보드 / HUD 버튼 클릭)
 
-`useSingleGame` 내 `window.addEventListener('keydown', handleAltKey)`로 처리한다.  
-게임이 `playing` 상태일 때만 동작하며, 해당 슬롯이 비어 있으면 무시한다.
+두 가지 입력 경로를 모두 지원한다.
+
+**키보드**: `useSingleGame` 내 `window.addEventListener('keydown', handleAltKey)`로 처리.
+
+**버튼 클릭**: `HUDItemSlots` 각 버튼의 `onClick`에서 `EventBus.emit('item:click', { slot: i })`를 emit하면, `useSingleGame`의 `handleItemClick` 핸들러가 동일한 `applyItemSlot(slot)` 함수를 호출한다.
+
+두 경로 모두 `applyItemSlot(slotIndex)`로 수렴하며, 게임이 `playing` 상태이고 해당 슬롯이 채워져 있을 때만 동작한다. 버튼은 `disabled={!active || !isPlaying}`으로 UI에서도 차단된다.
 
 ```
-Alt+1 (slot 0, stash)       → EventBus.emit('item:use', { slot: 0 }) → SingleScene 처리
-Alt+2 (slot 1, cherry-pick) → activeBranch 사이드이펙트 처리 후 EventBus.emit('item:use', { slot: 1 })
-Alt+3 (slot 2, restore)     → useSingleGame에서 직접 lives +1 처리 (Phaser 불필요)
+Alt+1 또는 HUD 버튼 클릭 (slot 0, stash)       → EventBus.emit('item:use', { slot: 0 }) → SingleScene 처리
+Alt+2 또는 HUD 버튼 클릭 (slot 1, cherry-pick) → activeBranch 사이드이펙트 처리 후 EventBus.emit('item:use', { slot: 1 })
+Alt+3 또는 HUD 버튼 클릭 (slot 2, restore)     → useSingleGame에서 직접 lives +1 처리 (Phaser 불필요)
 ```
 
 아이템 슬롯은 사용 즉시 소비(`false`)된다.

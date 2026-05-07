@@ -8,6 +8,7 @@ import {
 } from '@/features/auth/schemas/response.schema';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { RouteErrorFallback } from '@/shared/components/RouteErrorFallback';
+import { useBgm } from '@/shared/hooks/useBgm';
 
 /** 인증 없이 접근 가능한 경로 */
 const PUBLIC_PATHS = ['/login', '/auth/callback/google'];
@@ -37,6 +38,11 @@ export const Route = createRootRoute({
       }
     }
   },
-  component: () => <Outlet />,
+  component: RootComponent,
   errorComponent: RouteErrorFallback,
 });
+
+function RootComponent() {
+  useBgm();
+  return <Outlet />;
+}

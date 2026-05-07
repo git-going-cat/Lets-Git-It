@@ -1,13 +1,18 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
+import { z } from 'zod';
 
 import SinglePage from '@/features/single/components/SinglePage';
 
-// TODO: API 연동 후 beforeLoad 가드 추가
-// import { redirect } from '@tanstack/react-router';
-// import { useSingleStore } from '@/features/single/store/singleStore';
-// beforeLoad: () => {
-//   if (!useSingleStore.getState().sessionId) throw redirect({ to: '/home' });
-// },
+import { DIFFICULTIES } from '@/features/single/types/single.types';
+
+const searchSchema = z.object({
+  difficulty: z.enum(DIFFICULTIES).optional(),
+});
+
 export const Route = createFileRoute('/single')({
+  validateSearch: searchSchema,
+  beforeLoad: ({ search }) => {
+    if (!search.difficulty) throw redirect({ to: '/home' });
+  },
   component: SinglePage,
 });

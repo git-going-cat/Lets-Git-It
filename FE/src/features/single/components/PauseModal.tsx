@@ -1,16 +1,11 @@
-import { useState } from 'react';
-
 import PixelButton from '@/shared/components/PixelButton';
 import PixelModal from '@/shared/components/PixelModal';
+import { useAudioStore } from '@/shared/store/audioStore';
 
 import { usePauseModal } from '../hooks/usePauseModal';
 
-// TODO: BGM/SFX 상태를 Zustand settingsStore로 이관 (홈 SettingsModal과 공유)
 function SettingsSection() {
-  const [bgmEnabled, setBgmEnabled] = useState(true);
-  const [bgmVolume, setBgmVolume] = useState(75);
-  const [sfxEnabled, setSfxEnabled] = useState(true);
-  const [sfxVolume, setSfxVolume] = useState(60);
+  const { bgmEnabled, bgmVolume, setBgmEnabled, setBgmVolume } = useAudioStore();
 
   return (
     <div className="nes-container is-dark w-full p-4">
@@ -42,28 +37,15 @@ function SettingsSection() {
           </div>
         </div>
 
-        {/* SFX */}
-        <div className="flex flex-col gap-2">
+        {/* SFX — 준비 중 */}
+        <div className="flex flex-col gap-2 opacity-40">
           <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              className="nes-checkbox is-dark"
-              checked={sfxEnabled}
-              onChange={(e) => setSfxEnabled(e.target.checked)}
-            />
-            <span className="text-base">🔊 SFX</span>
+            <input type="checkbox" className="nes-checkbox is-dark" disabled />
+            <span className="text-base">🔊 SFX (준비 중)</span>
           </label>
           <div className="flex items-center gap-2">
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={sfxVolume}
-              disabled={!sfxEnabled}
-              onChange={(e) => setSfxVolume(Number(e.target.value))}
-              className="w-full"
-            />
-            <span className="w-12 text-right text-xl">{sfxVolume}%</span>
+            <input type="range" min={0} max={100} defaultValue={60} disabled className="w-full" />
+            <span className="w-12 text-right text-xl">60%</span>
           </div>
         </div>
       </div>

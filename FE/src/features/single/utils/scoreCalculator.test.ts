@@ -38,7 +38,7 @@ describe('calcScore', () => {
   });
 
   describe('시간 감점', () => {
-    it('EASY: 기준 시간 초과 10초 시 30점 감점된다 (10 × 3 = 30)', () => {
+    it('EASY: 기준 시간 초과 10초 시 timeRate만큼 감점된다', () => {
       const excessSec = 10;
       const { score } = calcScore({
         playTimeMs: (SCORE_CONFIG.EASY.idealTimeSec + excessSec) * 1000,
@@ -49,7 +49,7 @@ describe('calcScore', () => {
       expect(score).toBe(10000 - excessSec * SCORE_CONFIG.EASY.timeRate);
     });
 
-    it('NORMAL: 기준 시간 초과 60초 시 420점 감점된다 (60 × 7 = 420)', () => {
+    it('NORMAL: 기준 시간 초과 60초 시 timeRate만큼 감점된다', () => {
       const excessSec = 60;
       const { score } = calcScore({
         playTimeMs: (SCORE_CONFIG.NORMAL.idealTimeSec + excessSec) * 1000,
@@ -60,7 +60,7 @@ describe('calcScore', () => {
       expect(score).toBe(10000 - excessSec * SCORE_CONFIG.NORMAL.timeRate);
     });
 
-    it('HARD: 기준 시간 초과 30초 시 360점 감점된다 (30 × 12 = 360)', () => {
+    it('HARD: 기준 시간 초과 30초 시 timeRate만큼 감점된다', () => {
       const excessSec = 30;
       const { score } = calcScore({
         playTimeMs: (SCORE_CONFIG.HARD.idealTimeSec + excessSec) * 1000,
@@ -83,7 +83,7 @@ describe('calcScore', () => {
   });
 
   describe('오타 감점', () => {
-    it('EASY: 오타 1개 → 20점 감점된다', () => {
+    it('EASY: 오타 1개 → typoPenalty만큼 감점된다', () => {
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 1,
@@ -93,7 +93,7 @@ describe('calcScore', () => {
       expect(score).toBe(10000 - SCORE_CONFIG.EASY.typoPenalty * 1);
     });
 
-    it('EASY: 오타 5개 → 100점 감점된다', () => {
+    it('EASY: 오타 5개 → typoPenalty × 5만큼 감점된다', () => {
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 5,
@@ -103,7 +103,7 @@ describe('calcScore', () => {
       expect(score).toBe(10000 - SCORE_CONFIG.EASY.typoPenalty * 5);
     });
 
-    it('NORMAL: 오타 1개 → 40점 감점된다', () => {
+    it('NORMAL: 오타 1개 → typoPenalty만큼 감점된다', () => {
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 1,
@@ -113,7 +113,7 @@ describe('calcScore', () => {
       expect(score).toBe(10000 - SCORE_CONFIG.NORMAL.typoPenalty * 1);
     });
 
-    it('HARD: 오타 1개 → 70점 감점된다', () => {
+    it('HARD: 오타 1개 → typoPenalty만큼 감점된다', () => {
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 1,
@@ -125,7 +125,7 @@ describe('calcScore', () => {
   });
 
   describe('목숨 손실 감점', () => {
-    it('EASY: 목숨 1개 손실 → 100점 감점된다', () => {
+    it('EASY: 목숨 1개 손실 → livesPenalty만큼 감점된다', () => {
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 0,
@@ -135,7 +135,7 @@ describe('calcScore', () => {
       expect(score).toBe(10000 - SCORE_CONFIG.EASY.livesPenalty * 1);
     });
 
-    it('EASY: 목숨 2개 손실 → 200점 감점된다', () => {
+    it('EASY: 목숨 2개 손실 → livesPenalty × 2만큼 감점된다', () => {
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 0,
@@ -145,7 +145,7 @@ describe('calcScore', () => {
       expect(score).toBe(10000 - SCORE_CONFIG.EASY.livesPenalty * 2);
     });
 
-    it('NORMAL: 목숨 1개 손실 → 180점 감점된다', () => {
+    it('NORMAL: 목숨 1개 손실 → livesPenalty만큼 감점된다', () => {
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 0,
@@ -155,7 +155,7 @@ describe('calcScore', () => {
       expect(score).toBe(10000 - SCORE_CONFIG.NORMAL.livesPenalty * 1);
     });
 
-    it('HARD: 목숨 1개 손실 → 280점 감점된다', () => {
+    it('HARD: 목숨 1개 손실 → livesPenalty만큼 감점된다', () => {
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 0,
@@ -168,31 +168,31 @@ describe('calcScore', () => {
 
   describe('복합 감점', () => {
     it('EASY: 시간 초과 10초 + 오타 3개 + 목숨 1개 손실 시 올바르게 계산된다', () => {
-      // timePenalty = 10 × 3 = 30
-      // typoPenalty = 3 × 20 = 60
-      // livesPenalty = 1 × 100 = 100
-      // score = 10000 - 30 - 60 - 100 = 9810
+      // timePenalty = 10 × 15 = 150
+      // typoPenalty = 3 × 110 = 330
+      // livesPenalty = 1 × 500 = 500
+      // score = 10000 - 150 - 330 - 500 = 9020
       const { score } = calcScore({
         playTimeMs: (SCORE_CONFIG.EASY.idealTimeSec + 10) * 1000,
         typoCount: 3,
         livesLost: 1,
         difficulty: 'EASY',
       });
-      expect(score).toBe(9810);
+      expect(score).toBe(9020);
     });
 
     it('NORMAL: 시간 초과 120초 + 오타 10개 + 목숨 2개 손실 시 올바르게 계산된다', () => {
-      // timePenalty = 120 × 7 = 840
-      // typoPenalty = 10 × 40 = 400
-      // livesPenalty = 2 × 180 = 360
-      // score = 10000 - 840 - 400 - 360 = 8400
+      // timePenalty = 120 × 30 = 3600
+      // typoPenalty = 10 × 200 = 2000
+      // livesPenalty = 2 × 700 = 1400
+      // score = 10000 - 3600 - 2000 - 1400 = 3000
       const { score } = calcScore({
         playTimeMs: (SCORE_CONFIG.NORMAL.idealTimeSec + 120) * 1000,
         typoCount: 10,
         livesLost: 2,
         difficulty: 'NORMAL',
       });
-      expect(score).toBe(8400);
+      expect(score).toBe(3000);
     });
   });
 

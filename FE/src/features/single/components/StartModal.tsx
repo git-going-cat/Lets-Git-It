@@ -7,24 +7,28 @@ import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
 /**
- * 게임 시작 전 `git clone <githubName>` 명령어를 입력받는 모달.
+ * 게임 시작 전 `git clone` 명령어를 입력받는 모달.
  * 튜토리얼 모드에서는 step 1 설명과 해설을 함께 표시합니다.
  * 정확한 명령어 입력 시 game:start 이벤트를 발행하고 게임 상태를 'playing'으로 전환합니다.
  */
 export default function StartModal() {
   const gameStatus = useAtomValue(gameStatusAtom);
   const setGameStatus = useSetAtom(gameStatusAtom);
-  const { githubName, isTutorial } = useSingleStore();
-  const tutorialStepMeta = useSingleStore((s) => s.tutorialStepMeta);
+  const difficulty = useSingleStore((s) => s.difficulty);
+  const isTutorial = useSingleStore((s) => s.isTutorial);
+  const tutorialSteps = useSingleStore((s) => s.tutorialSteps);
 
   const [inputValue, setInputValue] = useState('');
   const [isError, setIsError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  if (gameStatus !== 'idle' || !githubName) return null;
+  if (gameStatus !== 'idle' || !difficulty) return null;
 
-  const tutorialMeta = tutorialStepMeta[0];
-  const expectedCommand = `git clone ${githubName}`;
+  const cloneCommand = tutorialSteps[0]?.commands[0];
+
+  const expectedCommand = isTutorial
+    ? (cloneCommand?.command ?? '')
+    : `git clone https://${difficulty.toLowerCase()}.git`;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return;
@@ -46,13 +50,13 @@ export default function StartModal() {
         <p className="title text-base">{isTutorial ? 'TUTORIAL' : 'MISSION START'}</p>
 
         <div className="flex flex-col gap-5 p-2">
-          {isTutorial && tutorialMeta && (
+          {isTutorial && tutorialSteps[0] && (
             <>
-              <p className="text-xl font-bold text-yellow-400">{tutorialMeta.title}</p>
+              <p className="text-xl font-bold text-yellow-400">{tutorialSteps[0].title}</p>
               <div className="nes-container is-dark px-4 py-3">
-                <p className="text-xl leading-relaxed text-white">{tutorialMeta.description}</p>
+                <p className="text-xl leading-relaxed text-white">{tutorialSteps[0].description}</p>
               </div>
-              <p className="text-base text-gray-400">{tutorialMeta.explanation}</p>
+              <p className="text-base text-gray-400">{cloneCommand?.explanation}</p>
             </>
           )}
 

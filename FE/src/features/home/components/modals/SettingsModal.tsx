@@ -1,47 +1,11 @@
-import { useSoundSettingsStore } from '../../store/soundSettingsStore';
+import { useAudioStore } from '@/shared/store/audioStore';
 
 interface SettingsModalProps {
   onClose: () => void;
 }
 
 export default function SettingsModal({ onClose }: SettingsModalProps) {
-  const { bgmEnabled, bgmVolume, sfxEnabled, sfxVolume, updateSettings } = useSoundSettingsStore();
-
-  const updateBgmEnabled = (nextBgmEnabled: boolean) => {
-    updateSettings({
-      bgmEnabled: nextBgmEnabled,
-      bgmVolume,
-      sfxEnabled,
-      sfxVolume,
-    });
-  };
-
-  const updateBgmVolume = (nextBgmVolume: number) => {
-    updateSettings({
-      bgmEnabled,
-      bgmVolume: nextBgmVolume,
-      sfxEnabled,
-      sfxVolume,
-    });
-  };
-
-  const updateSfxEnabled = (nextSfxEnabled: boolean) => {
-    updateSettings({
-      bgmEnabled,
-      bgmVolume,
-      sfxEnabled: nextSfxEnabled,
-      sfxVolume,
-    });
-  };
-
-  const updateSfxVolume = (nextSfxVolume: number) => {
-    updateSettings({
-      bgmEnabled,
-      bgmVolume,
-      sfxEnabled,
-      sfxVolume: nextSfxVolume,
-    });
-  };
+  const { bgmEnabled, bgmVolume, setBgmEnabled, setBgmVolume } = useAudioStore();
 
   return (
     <div
@@ -84,7 +48,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               <input
                 type="checkbox"
                 checked={bgmEnabled}
-                onChange={(event) => updateBgmEnabled(event.target.checked)}
+                onChange={(e) => setBgmEnabled(e.target.checked)}
                 className="rounded border-gray-300 text-[#0078d4] focus:ring-[#0078d4]"
               />
               배경음악 사용
@@ -96,7 +60,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                 min="0"
                 max="100"
                 value={bgmVolume}
-                onChange={(event) => updateBgmVolume(Number(event.target.value))}
+                onChange={(e) => setBgmVolume(Number(e.target.value))}
                 disabled={!bgmEnabled}
                 className="flex-1 accent-[#0078d4]"
               />
@@ -104,29 +68,17 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-bold text-gray-800">효과음</h3>
+          {/* 효과음 섹션 — 준비 중 */}
+          <div className="flex flex-col gap-3 opacity-40">
+            <h3 className="text-sm font-bold text-gray-800">🔊 효과음 (준비 중)</h3>
             <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={sfxEnabled}
-                onChange={(event) => updateSfxEnabled(event.target.checked)}
-                className="rounded border-gray-300 text-[#0078d4] focus:ring-[#0078d4]"
-              />
+              <input type="checkbox" disabled className="rounded border-gray-300" />
               효과음 사용
             </label>
             <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-500">볼륨</span>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={sfxVolume}
-                onChange={(event) => updateSfxVolume(Number(event.target.value))}
-                disabled={!sfxEnabled}
-                className="flex-1 accent-[#0078d4]"
-              />
-              <span className="w-8 text-right text-xs text-gray-500">{sfxVolume}%</span>
+              <span className="text-xs text-gray-500">음량</span>
+              <input type="range" min="0" max="100" defaultValue={60} disabled className="flex-1" />
+              <span className="w-8 text-right text-xs text-gray-500">60%</span>
             </div>
           </div>
         </div>

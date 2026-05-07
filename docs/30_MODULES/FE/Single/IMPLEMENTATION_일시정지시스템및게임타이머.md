@@ -11,27 +11,32 @@
 
 ## Decision
 
-### 1. ESC 단일 리스너 (`useSingleGame`)
+### 1. ESC 단일 리스너 (`useEscHandler`)
 
-ESC 키 처리를 `useSingleGame` 훅의 단일 `keydown` 리스너 한 곳에서만 담당한다.
+ESC 키 처리를 `useEscHandler` 훅으로 분리했다. `useSingleGame`이 내부에서 `useEscHandler()`를 호출하는 방식이다.
 
 ```ts
-const statusRef = useRef(gameStatus);
-useEffect(() => { statusRef.current = gameStatus; }, [gameStatus]);
+// useEscHandler.ts
+export function useEscHandler() {
+  const [gameStatus, setGameStatus] = useAtom(gameStatusAtom);
+  const statusRef = useRef(gameStatus);
 
-useEffect(() => {
-  const handleEsc = (e: KeyboardEvent) => {
-    if (e.key !== 'Escape') return;
-    if (statusRef.current === 'playing') {
-      EventBus.emit('game:pause');
-    } else if (statusRef.current === 'paused') {
-      setGameStatus('playing');
-      EventBus.emit('game:resume');
-    }
-  };
-  window.addEventListener('keydown', handleEsc);
-  return () => window.removeEventListener('keydown', handleEsc);
-}, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { statusRef.current = gameStatus; }, [gameStatus]);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (statusRef.current === 'playing') {
+        EventBus.emit('game:pause');
+      } else if (statusRef.current === 'paused') {
+        setGameStatus('playing');
+        EventBus.emit('game:resume');
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+}
 ```
 
 `gameStatus` 최신값은 `statusRef`로 동기화해 stale closure를 방지한다.  
@@ -42,7 +47,8 @@ useEffect(() => {
 `gameStatusAtom`이 `'paused'`일 때 표시되며, 인라인으로 BGM/SFX 설정 섹션을 포함한다.
 
 - 구성: BGM/SFX 토글 + 볼륨 슬라이더 / 이어하기 / 다시하기 / 나가기 버튼
-- BGM/SFX 상태는 `PauseModal` 내부 `useState`로 임시 관리
+- BGM/SFX 상태는 `shared/store/audioStore`의 `useAudioStore`에 연결됨 → 홈 설정 모달(`SettingsModal`)과 상태를 공유한다
+- SFX 섹션은 미구현으로 `opacity-40` + `disabled` 처리
 - 이벤트 처리 로직은 `usePauseModal` 훅으로 분리
 
 ```
@@ -107,10 +113,11 @@ ESC 리스너는 마운트 시 한 번만 등록한다(`deps: []`).
 클로저가 초기 `gameStatus` 값을 캡처하므로, ref 없이는 항상 초기값(`'idle'`)을 읽게 된다.  
 `useEffect`로 `statusRef.current`를 `gameStatus`에 동기화해 항상 최신 상태를 참조한다.
 
-### BGM/SFX 상태를 Zustand로 이관하지 않은 이유
+### BGM/SFX 상태를 `audioStore`(Zustand)로 관리하는 이유
 
-홈의 `SettingsModal`과 공유하려면 `settingsStore` 연결이 필요하나, 해당 store가 아직 구현되지 않았다.  
-현재는 `PauseModal` 내부 `useState`로 임시 관리하고, `settingsStore` 완성 후 이관한다.
+홈 `SettingsModal`과 인게임 `PauseModal`이 같은 설정값을 공유해야 한다.  
+Zustand `persist` 미들웨어로 localStorage에 저장해 새로고침 후에도 설정이 유지된다.  
+`shared/store/audioStore.ts`를 단일 소스로 두어 양쪽 모달이 모두 구독한다.
 
 ### BranchLane 오류의 근본 원인
 
@@ -135,9 +142,9 @@ Phaser 타이머(`this.time`)가 일시정지 여부를 제어하므로, 별도�
 
 ## Caution
 
-- `PauseModal`의 BGM/SFX 상태는 현재 로컬 `useState`로 관리된다. 페이지를 이탈하거나 재시작하면 초기화된다. → `settingsStore` 이관 필요 (TODO)
+- `PauseModal`의 BGM/SFX 상태는 `audioStore`(Zustand persist)에 연결돼 페이지 이탈·재시작 후에도 유지된다.
 - `😸` 캐릭터는 이모지 임시 대체다. 실제 캐릭터 에셋으로 교체 필요 (TODO)
-- `/single` 경로 직접 접근이 현재 허용된다. API 연동 후 `routes/single.tsx`의 `beforeLoad`에서 `useSingleStore.getState().sessionId` 유무로 가드를 추가해야 한다 (TODO).
+- ~~`/single` 경로 직접 접근이 허용된다~~ → **구현 완료**. `routes/single.tsx`의 `validateSearch` + `beforeLoad`에서 `difficulty` search param 없으면 즉시 `/home`으로 redirect한다.
 - `game.events.once(DESTROY, this.shutdown, this)` 픽스는 `shutdown()` 이중 호출이 발생할 수 있다. `shutdown()` 내부의 `EventBus.off`는 이미 해제된 핸들러를 다시 해제해도 오류가 발생하지 않으므로 안전하다.
 - `SingleScene`에 `isUserPaused` 플래그가 추가되었다. `handleGamePause`에서 `true`, `handleGameResume`에서 `false`로 관리하며, stash 아이템(`item:use slot 0`)의 자동 재개 여부를 판단하는 데 사용된다. stash 중 ESC 일시정지 → stash 만료 후 자동 재개 안 됨 → 유저가 이어하기를 눌러야 재개된다. → `IMPLEMENTATION_아이템드롭및사용.md` — "4. stash 구현" 참고.
 - `elapsedTimeAtom`은 ms 단위다. 결과 화면에서 `playTimeMs`로 전달할 때 단위 변환 주의.

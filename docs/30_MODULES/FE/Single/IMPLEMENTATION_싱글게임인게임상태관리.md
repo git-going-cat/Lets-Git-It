@@ -81,7 +81,7 @@ SingleHUD        ← 조립만
 
 - 저장 항목: `sessionId`, `difficulty`, `bestScore`, `commandSet`
 - 액션: `setSession` (게임 시작 시 API 응답 저장), `clearSession` (게임 종료 시 초기화)
-- Zustand v5 curried 문법 `create()()` 사용
+- `create<T>((set) => ...)` 단일 호출 형태 사용 — 타입 파라미터를 명시적으로 전달하므로 v5에서도 추론이 정확하게 동작한다
 
 ### 6. 타입 분리
 
@@ -89,6 +89,7 @@ SingleHUD        ← 조립만
 
 - `ItemType = 'restore' | 'stash' | 'cherry-pick'`
 - `ITEM_SLOT_MAP = ['stash', 'cherry-pick', 'restore']` — 슬롯 인덱스(0·1·2)와 아이템 종류의 고정 매핑
+- `DIFFICULTIES = ['EASY', 'NORMAL', 'HARD'] as const` + `Difficulty = (typeof DIFFICULTIES)[number]` — enum 대신 `as const` 배열을 사용한다. JavaScript에서 enum을 피하고 `z.enum(DIFFICULTIES)`처럼 Zod와 직접 조합할 수 있어 스키마와 타입이 단일 소스에서 파생된다.
 
 > **아이템 상세**: `IMPLEMENTATION_아이템드롭및사용.md` 참고  
 store 파일 내부에는 Zustand 구현 전용 인터페이스(`SingleSessionState`, `SingleSessionActions`)만 남겼다.  
@@ -98,7 +99,7 @@ store 파일 내부에는 Zustand 구현 전용 인터페이스(`SingleSessionSt
 
 `gameStatusAtom`을 구독해 표시 여부를 결정한다.
 
-- `PauseModal`: `'paused'` 상태일 때 표시. 이어하기 / 다시하기 / 설정 / 나가기 버튼 제공
+- `PauseModal`: `'paused'` 상태일 때 표시. BGM/SFX 인라인 설정 섹션(`SettingsSection`) + 이어하기 / 다시하기 / 나가기 버튼 제공
 - `ResultModal`: `'gameover'` 또는 `'cleared'` 상태일 때 표시.
   - 성공/실패 배지, 점수, 등급, 플레이 시간, 난이도, **MISS 횟수, TYPO 횟수** 표시
   - 본인 최고 기록 갱신 시 NEW! 뱃지 표시
@@ -147,6 +148,42 @@ score = max(0, 10000 - 시간감점 - 오타감점 - 목숨감점)
 - 플레이 중 점수를 표시하지 않으므로 게임 종료 시점에 한 번만 호출
 - 목숨 회복 아이템과 무관하게 `livesLost`는 누적 카운팅
 
+**감점 파라미터 (SCORE_CONFIG)**:
+
+| 난이도 | idealTimeSec | timeRate(초당) | typoPenalty(개당) | livesPenalty(개당) |
+|--------|-------------|----------------|-------------------|--------------------|
+| EASY   | 360         | 15             | 110               | 500                |
+| NORMAL | 240         | 30             | 200               | 700                |
+| HARD   | 180         | 50             | 350               | 1000               |
+
+S등급(9000점) 기준 EASY: 오타 9개 이하, 목숨 손실 1개 이하(2개면 경계), 기준시간 67초 이내 초과까지 허용.
+
+### 11. singleApi + Zod 스키마 구현
+
+`features/single/api/singleApi.ts`와 `features/single/schemas/single.schema.ts`를 구현했다.
+
+- `startSession(difficulty)` — `POST /api/v1/single/sessions` 호출 후 `startSessionDataSchema`로 응답 검증
+- `saveResult(sessionId, body)` — `POST /api/v1/single/sessions/:id/result` 호출 후 `saveResultDataSchema`로 응답 검증
+- `StartSessionData` 타입은 `z.infer<typeof startSessionDataSchema>`에서 파생해 스키마와 타입이 단일 소스를 갖는다
+
+`SinglePage`는 마운트 시 `singleApi.startSession(difficulty)`를 호출해 세션 데이터를 `singleStore.setSession()`에 저장한다. 언마운트 시 `clearSession()`으로 초기화한다. Phaser가 Zustand를 직접 읽어야 하므로 TanStack Query 대신 useEffect 직접 호출 방식을 쓴다 (컨벤션 예외 항목으로 `FE_CONVENTION.md` 등록됨).
+
+### 12. 라우트 가드 + difficulty 연결
+
+`routes/single.tsx`에 `validateSearch` + `beforeLoad`를 추가했다.
+
+- `validateSearch`: Zod로 `difficulty: z.enum(DIFFICULTIES).optional()` 검증
+- `beforeLoad`: `search.difficulty`가 없으면 즉시 `/home`으로 redirect
+- `SinglePage`는 `useSearch({ from: '/single' })`로 difficulty를 읽어 `startSession` 호출에 전달
+
+### 13. 전역 BGM 오디오 스토어 + 인게임 설정 연동
+
+`shared/store/audioStore.ts` (Zustand + persist)와 `shared/hooks/useBgm.ts`를 신규 생성했다.
+
+- `audioStore`: `bgmEnabled`, `bgmVolume`(기본 10%), `sfxEnabled`(비활성), `sfxVolume` 저장. localStorage `'audio-settings'` 키로 persist.
+- `useBgm`: 모듈 레벨 싱글톤 `_audio`로 Audio 인스턴스를 관리해 React Strict Mode 이중 마운트 시 두 개 생성을 방지. `__root.tsx`의 `RootComponent`에서 호출해 앱 전체 생명주기에 걸쳐 BGM이 유지된다.
+- `PauseModal` 인게임 설정이 `audioStore`에 연결됨으로써 홈 설정 모달과 상태를 공유한다. SFX 섹션은 미구현으로 `opacity-40` + `disabled` 처리.
+
 ### 11. SingleScene 껍데기
 
 `create()` / `shutdown()`에 EventBus 등록·해제 위치만 표시했다.  
@@ -188,10 +225,10 @@ store에 두면 타입 하나를 위해 store 전체를 import해야 하는 의�
 - `commandSet`을 Phaser Scene이 EventBus를 통해 접근해야 해서 Query 캐시에서 꺼내 쓰기 어렵다.
 - 프로젝트 전체에서 이 패턴을 쓰는 모드가 싱글뿐이라 예외 케이스를 추가할 만큼의 이유가 없다.
 
-### Zustand v5 curried 문법을 쓴 이유
+### Zustand v5에서 `create<T>(fn)` 단일 호출을 쓴 이유
 
-프로젝트가 `zustand@5.0.12`를 사용한다. v4의 `create()` 단일 호출 형태는 v5에서 TypeScript 타입 추론이 깨진다.  
-`create()()` curried 형태가 v5 공식 TypeScript 권장 문법이다.
+`create<T>((set) => ...)` 형태로 타입 파라미터를 명시적으로 전달하면 TypeScript 추론이 깨지지 않는다.  
+curried 형태(`create<T>()((set) => ...)`)는 타입 추론이 필요한 미들웨어 체인(immer 등) 상황에서 더 안전하지만, singleStore는 미들웨어 없이 단순 set만 사용하므로 단일 호출로도 충분하다.
 
 ### gameResultAtom에 missCount·typoCount를 추가한 이유
 
@@ -228,13 +265,11 @@ NES.css 기반 픽셀 UI는 게임 전반의 공통 디자인 언어로 쓰이�
 
 ## Caution
 
-- `Command`, `Difficulty`, `CommandType` 타입은 현재 `single.types.ts`에 직접 정의돼 있으나, API 응답 검증을 위해 `features/single/api/singleApi.ts`에 Zod 스키마 작성 후 `z.infer`로 교체해야 한다.
 - `GameStatus`의 값이 소문자(`'idle'`, `'playing'`)인 반면 `Difficulty`는 대문자(`'EASY'`, `'NORMAL'`)다. BE API 연동 값과 프론트 전용 값의 대소문자 기준이 컨벤션에 미확정 상태다. `FE_CONVENTION.md` 업데이트 필요.
 - `elapsedTimeAtom`은 ms 단위다. 점수 계산 공식 사용 시 단위 변환 주의.
-- `PauseModal`의 설정 버튼(`onSettings`)은 TODO 상태다. 팀원 설정 모달 구현 완료 후 연결 필요.
-- `scoreCalculator.ts`의 `SCORE_CONFIG` 수치(idealTimeSec, timeRate 등)는 플레이테스트 전 임시값이다. 실제 플레이 데이터 수집 후 조정 필요.
 - `churuCountAtom`은 SWITCH 타입 명령어를 제외하고 증가한다. `ChuruStack`의 `totalCommands` 계산도 동일하게 SWITCH를 제외해야 step이 정확히 맞는다. → `IMPLEMENTATION_비주얼컴포넌트및UX개선.md` 참고
-- `SinglePage`의 세션 데이터는 현재 `MOCK_SESSION` 하드코딩이다. API 연동 스프린트에서 `singleApi.ts` 구현 후 교체 필요.
+- `saveResult` API는 `singleApi.ts`에 구현돼 있으나, 게임 종료 시 실제 호출하는 로직이 아직 연결되지 않았다. `ResultModal` 또는 `useSingleGame`에서 `game:complete`/`game:over` 수신 시 호출해야 한다.
+- SFX(효과음)는 미구현 상태로 `audioStore`에 `sfxEnabled: false`로 저장되고 UI는 비활성화 처리됐다. 효과음 에셋 준비 후 `useSfx` 훅을 추가해야 한다.
 
 ---
 
