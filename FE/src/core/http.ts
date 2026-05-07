@@ -1,12 +1,13 @@
 import axios from 'axios';
 
+import { env } from '@/config/env'; // 환경변수 추가
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { faro } from '@/lib/faro';
 
 import type { InternalAxiosRequestConfig } from 'axios';
 
 export const http = axios.create({
-  baseURL: '',
+  baseURL: env.API_BASE_URL, // 환경변수 개발주소 연결
   withCredentials: true, // HttpOnly refreshToken 쿠키 자동 전송
   headers: { 'Content-Type': 'application/json' },
 });
@@ -18,6 +19,7 @@ http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   // BE MDC 로그와 연결하기 위한 요청 추적 ID — BE 팀과 헤더명 'X-Request-Id' 합의 필요
+
   config.headers['X-Request-Id'] = crypto.randomUUID();
   return config;
 });
@@ -51,14 +53,16 @@ http.interceptors.response.use(
       isRefreshing = true;
       try {
         const { data } = await axios.post<{ data: { accessToken: string } }>(
-          '/api/v1/auth/reissue',
+          `${env.API_BASE_URL}/api/v1/auth/reissue`, // 앞에 개발 주소 추가
           {},
           { withCredentials: true }
         );
+
         const newToken = data.data.accessToken;
         useAuthStore.getState().setAccessToken(newToken);
         pendingQueue.forEach((cb) => cb(newToken));
         pendingQueue = [];
+
         original.headers.Authorization = `Bearer ${newToken}`;
         return http(original);
       } catch {
