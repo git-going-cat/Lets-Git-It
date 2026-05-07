@@ -32,7 +32,10 @@ export default function OnboardingPage() {
     <div className="relative w-full h-screen overflow-hidden bg-black">
       <MatrixBackground />
 
-      <OnboardingModal title={STEP_TITLE[step]}>
+      <OnboardingModal
+        title={STEP_TITLE[step]}
+        modalClassName={step === 'intro' ? 'w-[680px]' : undefined}
+      >
         {step === 'intro' && <IntroStep onDone={() => goToStep('nickname')} />}
 
         {step === 'nickname' && <NicknameSetup onComplete={() => goToStep('character')} />}

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useSearch } from '@tanstack/react-router';
 
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useAuthStore } from '@/features/auth/store/authStore';
 
 /**
  * GET /auth/callback/google?code={임시코드}
@@ -11,17 +12,24 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
  */
 export default function GoogleCallbackPage() {
   const { loginWithOAuth } = useAuth();
-  const { code } = useSearch({ strict: false }) as { code?: string };
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+  const { code, error } = useSearch({ strict: false }) as { code?: string; error?: string };
   const called = useRef(false);
 
   useEffect(() => {
+    if (error) {
+      // 백엔드 OAuth 처리 실패 → 기존 세션 초기화 후 로그인 페이지로 복귀
+      clearAuth();
+      window.location.href = '/login';
+      return;
+    }
     if (called.current || !code) return;
     called.current = true;
     loginWithOAuth(code).catch(() => {
       // 코드 만료·무효 → 로그인 페이지로 복귀
       window.location.href = '/login';
     });
-  }, [code, loginWithOAuth]);
+  }, [code, error, loginWithOAuth]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#1b1a4b]">
