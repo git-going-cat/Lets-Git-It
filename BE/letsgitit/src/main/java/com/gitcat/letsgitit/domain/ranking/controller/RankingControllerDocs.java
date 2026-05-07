@@ -1,5 +1,8 @@
 package com.gitcat.letsgitit.domain.ranking.controller;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+
 import org.springframework.http.ResponseEntity;
 
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
@@ -74,11 +77,11 @@ public interface RankingControllerDocs {
 		CustomUserDetails userDetails,
 		@Parameter(name = "difficulty", description = "난이도 (EASY / NORMAL / HARD)", required = true)
 		Difficulty difficulty,
-		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상")
+		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상") @Min(1)
 		Integer afterRank,
-		@Parameter(name = "beforeRank", description = "위 방향 스크롤 커서 (첫 번째로 확인한 순위). 1 이상")
+		@Parameter(name = "beforeRank", description = "위 방향 스크롤 커서 (첫 번째로 확인한 순위). 1 이상") @Min(1)
 		Integer beforeRank,
-		@Parameter(name = "size", description = "페이지 크기 (기본값 20, 최솟값 1, 최댓값 100)")
+		@Parameter(name = "size", description = "페이지 크기 (기본값 20, 최솟값 1, 최댓값 100)") @Min(1) @Max(100)
 		Integer size);
 
 	@Operation(summary = "이번주 기여도 뺏기 랭킹 조회", description = "cursor 생략 시 초기 응답, cursor 포함 시 무한 스크롤 응답.")
@@ -229,17 +232,17 @@ public interface RankingControllerDocs {
 		CustomUserDetails userDetails,
 		@Parameter(name = "difficulty", description = "난이도 (EASY / NORMAL / HARD)", required = true)
 		Difficulty difficulty,
-		@Parameter(name = "year", description = "조회 연도 (예: 2025)", required = true)
+		@Parameter(name = "year", description = "조회 연도 (예: 2025)", required = true) @Min(1)
 		Integer year,
-		@Parameter(name = "month", description = "조회 월 (예: 4)", required = true)
+		@Parameter(name = "month", description = "조회 월 (예: 4)", required = true) @Min(1) @Max(12)
 		Integer month,
-		@Parameter(name = "week", description = "조회 주차 (예: 3)", required = true)
+		@Parameter(name = "week", description = "조회 주차 (예: 3)", required = true) @Min(1) @Max(6)
 		Integer week,
-		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상")
+		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상") @Min(1)
 		Integer afterRank,
-		@Parameter(name = "beforeRank", description = "위 방향 스크롤 커서 (첫 번째로 확인한 순위). 1 이상")
+		@Parameter(name = "beforeRank", description = "위 방향 스크롤 커서 (첫 번째로 확인한 순위). 1 이상") @Min(1)
 		Integer beforeRank,
-		@Parameter(name = "size", description = "페이지 크기 (기본값 20)")
+		@Parameter(name = "size", description = "페이지 크기 (기본값 20)") @Min(1) @Max(100)
 		Integer size);
 
 	@Operation(summary = "과거주 기여도 뺏기 랭킹 조회", description = "RDB에서 조회. cursor 생략 시 초기 응답, cursor 포함 시 무한 스크롤 응답.")
