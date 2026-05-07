@@ -33,6 +33,7 @@ function ChuruItem({ finalBottom, startBottom }: ChuruItemProps) {
       alt=""
       draggable={false}
       className={`pixel-art absolute left-1/2 w-11/12 -translate-x-1/2 ${transitionClass}`}
+      // 명령 진행도와 컨테이너 높이에 따라 bottom 값이 매번 달라지므로 Tailwind 정적 spacing 클래스로 표현할 수 없습니다.
       style={{
         bottom: dropped ? finalBottom : startBottom,
       }}

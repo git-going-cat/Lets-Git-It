@@ -15,10 +15,14 @@ export default function LandingPage() {
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   return (
-    <div
-      className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-cover bg-center"
-      style={{ backgroundImage: `url(${screen})` }}
-    >
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden">
+      <img
+        src={screen}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+        aria-hidden="true"
+        draggable={false}
+      />
       <div className="absolute inset-0 bg-[#020F33] opacity-[0.67]" />
 
       {/* 로고 */}
