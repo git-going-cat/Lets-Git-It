@@ -1,4 +1,7 @@
-﻿// TODO: 구현 필요
-export default function Routes() {
-  return <div />;
-}
+﻿import { createFileRoute } from '@tanstack/react-router';
+
+import HomeRedirect from '@/features/auth/components/HomeRedirect';
+
+export const Route = createFileRoute('/')({
+  component: HomeRedirect,
+});
