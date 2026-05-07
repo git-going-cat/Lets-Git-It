@@ -14,6 +14,8 @@ services:
       - REDIS_GAME_HOST=redis-game
       - REDIS_RANKING_HOST=redis-ranking
       - MYSQL_HOST=mysql
+      - TZ=Asia/Seoul
+      - JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Seoul
     restart: always
     networks:
       - letsgit-dev

@@ -13,6 +13,8 @@ services:
     restart: always
     networks:
       - letsgit-dev
+    environment:
+      - TZ=Asia/Seoul
 networks:
   letsgit-dev:
     name: letsgit-dev
