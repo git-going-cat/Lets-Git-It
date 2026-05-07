@@ -5,9 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -182,11 +179,11 @@ public class RankingController implements RankingControllerDocs {
 		CustomUserDetails userDetails,
 		@RequestParam
 		Difficulty difficulty,
-		@RequestParam @Min(1)
+		@RequestParam
 		Integer year,
-		@RequestParam @Min(1) @Max(12)
+		@RequestParam
 		Integer month,
-		@RequestParam @Min(1) @Max(6)
+		@RequestParam
 		Integer week,
 		@RequestParam(required = false)
 		Integer afterRank,
