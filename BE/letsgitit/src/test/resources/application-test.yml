@@ -15,6 +15,24 @@ spring:
     show-sql: false
     database-platform: org.hibernate.dialect.H2Dialect
 
+  mail:
+    host: localhost
+    port: 25
+    username: test@test.com
+    password: test
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-client-id
+            client-secret: test-client-secret
+            redirect-uri: "{baseUrl}/login/oauth2/code/google"
+            scope:
+              - email
+              - profile
+
 server:
   port: 8080
 
@@ -29,3 +47,11 @@ redis:
   ranking:
     host: localhost
     port: 6381
+
+jwt:
+  secret: test-secret-key-must-be-at-least-256-bits-long-for-hs256-algorithm
+  access-expiration: 1800000
+  refresh-expiration: 604800000
+
+oauth2:
+  frontend-redirect-uri: http://localhost:5173/auth/callback/google

@@ -1,5 +1,5 @@
 -- =============================================
--- Let's Git it — ERD DDL v16
+-- Let's Git it — ERD DDL v18
 -- =============================================
 
 
@@ -60,9 +60,9 @@ single_ranking_id BINARY(16)  NOT NULL,
 member_id         BINARY(16)  NOT NULL,
 difficulty        VARCHAR(20) NOT NULL COMMENT 'EASY / NORMAL / HARD',
 score             INT         NOT NULL DEFAULT 0,
-grade             VARCHAR(1)  NOT NULL COMMENT 'S / A / B / C / D',
+grade             VARCHAR(1)  NULL     COMMENT 'S / A / B / C / D — 정산 시 미결정, 향후 업데이트',
 rank              INT         NOT NULL,
-week              VARCHAR(10) NOT NULL COMMENT '예: 2025-04-3 (year-month-weekOfMonth)'
+week              VARCHAR(10) NOT NULL COMMENT '예: 2025-04-3 (year-month-weekOfMonth)',
 recorded_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 PRIMARY KEY (single_ranking_id),
 UNIQUE KEY uq_single_ranking (member_id, difficulty, week),
@@ -257,7 +257,8 @@ CREATE TABLE dictionary_command (
 dictionary_command_id BINARY(16)   NOT NULL,
 name                  VARCHAR(100) NOT NULL,
 description           TEXT         NULL,
-image_url             VARCHAR(500) NULL,
+tip                   VARCHAR(500) NULL,
+example               VARCHAR(500) NULL,
 is_in_game            TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '게임 내 사용 여부',
 PRIMARY KEY (dictionary_command_id)
 );
@@ -300,7 +301,6 @@ single_command_set_id      BINARY(16)   NOT NULL,
 sequence                   INT          NOT NULL COMMENT '명령어 순서',
 command_text               VARCHAR(255) NOT NULL COMMENT '명령어 텍스트',
 branch_name                VARCHAR(100) NULL     COMMENT '명령어가 속한 브랜치명',
-display_text               VARCHAR(255) NULL     COMMENT '화면 표시용 텍스트',
 command_type               VARCHAR(10)  NOT NULL DEFAULT 'COMMON' COMMENT 'CREATE / MERGE / COMMON',
 PRIMARY KEY (single_command_set_item_id),
 UNIQUE KEY uq_single_command_set_item (single_command_set_id, sequence),

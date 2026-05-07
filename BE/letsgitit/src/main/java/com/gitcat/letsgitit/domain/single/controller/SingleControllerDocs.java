@@ -1,8 +1,10 @@
 package com.gitcat.letsgitit.domain.single.controller;
 
-import java.util.Map;
-
 import org.springframework.http.ResponseEntity;
+
+import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
+import com.gitcat.letsgitit.domain.single.dto.request.SingleResultSaveRequest;
+import com.gitcat.letsgitit.domain.single.dto.request.SingleSessionStartRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,21 +34,24 @@ public interface SingleControllerDocs {
 		      {
 		        "commandSequence": 0,
 		        "text": "git commit -m 'fix login bug'",
-		        "displayText": "fix login bug",
 		        "branchName": "main",
 		        "type": "COMMON"
 		      },
 		      {
 		        "commandSequence": 1,
 		        "text": "git switch -c feature/login",
-		        "displayText": "feature/login",
-		        "branchName": "feature/login",
+		        "branchName": "main",
 		        "type": "CREATE"
 		      },
 		      {
-		        "commandSequence": 5,
+		        "commandSequence": 2,
+		        "text": "git switch main",
+		        "branchName": "feature/login",
+		        "type": "SWITCH"
+		      },
+		      {
+		        "commandSequence": 3,
 		        "text": "git merge feature/login",
-		        "displayText": "merge feature/login",
 		        "branchName": "main",
 		        "type": "MERGE"
 		      }
@@ -54,7 +59,10 @@ public interface SingleControllerDocs {
 		  }
 		}
 		""")))
-	ResponseEntity<?> startSession(Map<String, Object> body);
+	ResponseEntity<?> startSession(
+		@Parameter(hidden = true)
+		CustomUserDetails userDetails,
+		SingleSessionStartRequest request);
 
 	@Operation(summary = "싱글 게임 결과 저장", description = """
 		점수 및 등급 계산은 프론트에서 처리 후 전송. 서버는 저장 및 랭킹 업데이트만 수행.
@@ -94,7 +102,9 @@ public interface SingleControllerDocs {
 			""")))
 	})
 	ResponseEntity<?> saveResult(
+		@Parameter(hidden = true)
+		CustomUserDetails userDetails,
 		@Parameter(name = "sessionId", description = "세션 ID", required = true)
 		String sessionId,
-		Map<String, Object> body);
+		SingleResultSaveRequest request);
 }

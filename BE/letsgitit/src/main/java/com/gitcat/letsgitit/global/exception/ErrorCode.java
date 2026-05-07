@@ -36,11 +36,20 @@ public enum ErrorCode {
 	OAUTH_ACCOUNT(HttpStatus.BAD_REQUEST.value(), "OAUTH_ACCOUNT", "소셜 로그인 계정은 비밀번호를 사용할 수 없습니다."),
 	SAME_AS_CURRENT_PASSWORD(HttpStatus.CONFLICT.value(), "SAME_AS_CURRENT_PASSWORD", "현재 비밀번호와 동일합니다."),
 	PASSWORD_MISMATCH(HttpStatus.UNAUTHORIZED.value(), "PASSWORD_MISMATCH", "비밀번호가 일치하지 않습니다."),
+	// verifyPassword API를 호출하지 않고 바로 changePassword를 호출한 경우
+	// Redis 키 없음/만료로 검증 단계 우회를 차단
+	PASSWORD_VERIFY_REQUIRED(HttpStatus.FORBIDDEN.value(), "PASSWORD_VERIFY_REQUIRED",
+		"비밀번호 검증이 필요합니다. 먼저 비밀번호를 검증해주세요."),
 
 	// member
 	MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "MEMBER_NOT_FOUND", "존재하지 않는 회원입니다."),
+	AUTH_MEMBER_NOT_FOUND(HttpStatus.UNAUTHORIZED.value(), "AUTH_MEMBER_NOT_FOUND", "해당 이메일의 회원을 찾을 수 없습니다."),
 	NICKNAME_DUPLICATED(HttpStatus.CONFLICT.value(), "NICKNAME_DUPLICATED", "이미 사용 중인 닉네임입니다."),
+	NICKNAME_DUPLICATE(HttpStatus.CONFLICT.value(), "NICKNAME_DUPLICATE", "이미 사용 중인 닉네임입니다."),
 	NICKNAME_INVALID(HttpStatus.BAD_REQUEST.value(), "NICKNAME_INVALID", "닉네임 형식이 올바르지 않습니다."),
+	NICKNAME_NOT_SET(HttpStatus.BAD_REQUEST.value(), "NICKNAME_NOT_SET", "닉네임이 설정되지 않았습니다."),
+	NICKNAME_ALREADY_SET(HttpStatus.BAD_REQUEST.value(), "NICKNAME_ALREADY_SET", "이미 닉네임이 설정되어 있습니다. 닉네임 수정을 요청해주세요."),
+	TUTORIAL_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST.value(), "TUTORIAL_ALREADY_COMPLETED", "이미 튜토리얼을 완료했습니다."),
 
 	// room
 	ROOM_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "ROOM_NOT_FOUND", "존재하지 않는 방입니다."),
