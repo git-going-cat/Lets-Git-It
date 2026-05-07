@@ -54,9 +54,12 @@ export default function SingleGameContent() {
 
   return (
     <div className="relative flex h-screen overflow-hidden text-white">
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-60"
-        style={{ backgroundImage: `url(${screenBg})` }}
+      <img
+        src={screenBg}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover opacity-60"
+        aria-hidden="true"
+        draggable={false}
       />
       <div className="relative flex w-[15%] flex-col">
         <SingleHUD />

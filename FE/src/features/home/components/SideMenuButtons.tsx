@@ -10,7 +10,7 @@ interface SideMenuButtonsProps {
 /** 우측 중단 수직 배치 랭킹/도감 버튼 */
 export default function SideMenuButtons({ onOpen }: SideMenuButtonsProps) {
   return (
-    <div className="absolute right-8 top-1/2 flex -translate-y-1/2 flex-col gap-4">
+    <div className="absolute right-8 top-22 flex flex-col gap-3">
       <button
         id="btn-ranking"
         type="button"

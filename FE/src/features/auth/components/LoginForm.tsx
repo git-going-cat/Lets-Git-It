@@ -42,7 +42,6 @@ export default function LoginForm({ onOpenSignUp, onOpenForgotPassword }: LoginF
               disabled={isSubmitting}
               aria-label="로그인"
               className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full! border-none! bg-[#E4E4E4]/40 text-white flex items-center justify-center hover:bg-[#E4E4E4]/60 disabled:opacity-50 transition-colors shrink-0 overflow-hidden"
-              style={{ borderRadius: '50%' }}
             >
               <ChevronRight size={16} />
             </button>

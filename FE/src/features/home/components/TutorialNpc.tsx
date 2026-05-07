@@ -3,6 +3,8 @@ import { useNavigate } from '@tanstack/react-router';
 
 import npcDogImg from '@/assets/home/npc-dog.png';
 
+const TUTORIAL_BUBBLE_CLOSED_KEY = 'tutorial-npc-bubble-closed';
+
 /**
  * 하단 우측 튜토리얼 NPC (강아지 캐릭터 + 말풍선)
  *
@@ -10,20 +12,22 @@ import npcDogImg from '@/assets/home/npc-dog.png';
  */
 export default function TutorialNpc() {
   const navigate = useNavigate();
-  const [showBubble, setShowBubble] = useState(true);
+  const [showBubble, setShowBubble] = useState(
+    () => localStorage.getItem(TUTORIAL_BUBBLE_CLOSED_KEY) !== 'true'
+  );
 
   const handleNpcClick = () => {
-    // TODO: /tutorial 라우트 미등록 상태 — 튜토리얼 담당자 구현 완료 후 제거
-    void navigate({ to: '/tutorial' as never });
+    void navigate({ to: '/tutorial' });
   };
 
   const handleCloseBubble = (e: React.MouseEvent) => {
     e.stopPropagation();
+    localStorage.setItem(TUTORIAL_BUBBLE_CLOSED_KEY, 'true');
     setShowBubble(false);
   };
 
   return (
-    <div className="absolute right-0 bottom-0 flex flex-col items-end gap-0">
+    <div className="absolute bottom-14 right-12 flex flex-col items-end gap-0">
       {showBubble && (
         <div className="relative -mb-6 max-w-48 rounded-xl bg-white px-4 py-3 text-base font-medium text-gray-800 shadow-xl">
           튜토리얼이 필요하면 저를 클릭해주세요
@@ -48,7 +52,7 @@ export default function TutorialNpc() {
         <img
           src={npcDogImg}
           alt="튜토리얼 NPC"
-          className="pixel-art h-60 w-48 object-contain drop-shadow-lg"
+          className="pixel-art h-40 w-40 object-contain drop-shadow-lg"
           draggable={false}
         />
       </button>
