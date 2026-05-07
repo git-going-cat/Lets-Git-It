@@ -53,27 +53,37 @@ Redis ZSet → RDB single_ranking 테이블로 정산 저장
 ```
 GET /api/v1/rankings/single/history
   ?difficulty={difficulty}&year={year}&month={month}&week={week}
-  &cursor={cursor}&size={size}
+  &afterRank={afterRank}&beforeRank={beforeRank}&size={size}
 ```
 
-- cursor 없음: 초기 응답 (top3 + myRank + around ±2)
-- cursor 있음: cursor 이후 size개 반환
+- `afterRank` / `beforeRank` 모두 없음: 초기 응답 (top3 + myRank + around ±2)
+- `afterRank` 있음: afterRank 이후 size개 반환 (아래 방향)
+- `beforeRank` 있음: beforeRank 이전 size개 반환 (위 방향, DESC 조회 후 역순 정렬)
 - week 키 복원: `year + "-" + %02d(month) + "-" + week` → 예: `"2025-04-3"`
 
-### cursor 기반 페이지네이션 (RDB)
+### `afterRank` / `beforeRank` 기반 페이지네이션 (RDB)
 
-Redis ZSet의 0-indexed 방식과 달리 RDB의 `rank` 컬럼은 1-indexed 정수로 저장된다.
+RDB의 `rank` 컬럼은 1-indexed 정수로 저장된다. 양방향 스크롤을 위해 두 가지 쿼리를 지원한다.
 
-- 스크롤 쿼리: `WHERE rank > cursor ORDER BY rank ASC LIMIT size`
+**아래 방향 (`afterRank`)**
+- 쿼리: `WHERE rank > afterRank ORDER BY rank ASC LIMIT size+1`
+- hasNext: `raw.size() > size` (size+1 trick)
 - nextCursor: 반환된 마지막 항목의 rank
-- hasNext: `lastRank < total`
+- prevCursor: 반환된 첫 번째 항목의 rank
+
+**위 방향 (`beforeRank`)**
+- 쿼리: `WHERE rank < beforeRank ORDER BY rank DESC LIMIT size+1`
+- hasPrev: `raw.size() > size` (size+1 trick)
+- Service에서 `Collections.reverse()` 후 ASC 순서로 응답
+- prevCursor: 역순 정렬 후 첫 번째 항목의 rank (null이면 위쪽 끝)
+- nextCursor: 역순 정렬 후 마지막 항목의 rank
 
 ### 파일 구성
 
 | 파일 | 역할 |
 |------|------|
 | `SingleRankingJpaRepository` | Spring Data JPA 쿼리 메서드 |
-| `SingleRankingDslRepository` | QueryDSL cursor 기반 스크롤 쿼리 |
+| `SingleRankingDslRepository` | QueryDSL 양방향 스크롤 쿼리 (afterRank / beforeRank) |
 | `SingleRankingRepository` | Service가 의존하는 인터페이스 |
 | `SingleRankingRepositoryImpl` | JPA·DSL 위임 구현체 |
 | `SingleRankingScheduler` | 주간 정산 스케줄러 |
@@ -122,10 +132,12 @@ grade 컬럼은 현재 `nullable = true`이다. `saveResult` API가 구현되지
 
 - Redis에 테스트 데이터를 직접 삽입 후 스케줄러를 수동 호출하여 `single_ranking` 테이블에 데이터가 정상 저장되는지 확인
 - 정산 후 Redis 키가 삭제되었는지 확인
-- `GET /api/v1/rankings/single/history?difficulty=NORMAL&year=...&month=...&week=...` 호출하여 top3 / myRank / around 응답 확인
-- cursor 포함 요청으로 무한 스크롤 동작 확인
+- `GET /api/v1/rankings/single/history?difficulty=NORMAL&year=...&month=...&week=...` 호출하여 top3 / myRank / around / prevCursor / nextCursor 응답 확인
+- `afterRank` 포함 요청으로 아래 방향 무한 스크롤 동작 확인
+- `beforeRank` 포함 요청으로 위 방향 무한 스크롤 동작 확인 (역순 정렬 확인)
+- `hasPrev = false`일 때 `prevCursor: null` 반환 확인
 - `hasNext = false`일 때 `nextCursor: null` 반환 확인
-- 해당 주 기록이 없는 유저의 경우 `myRank: null`, `around: []` 반환 확인
+- 해당 주 기록이 없는 유저의 경우 `myRank: null`, `around: []`, `hasPrev: false` 반환 확인
 - 존재하지 않는 difficulty / week 값 입력 시 400 또는 빈 응답 확인
 - 탈퇴한 유저가 포함된 과거 랭킹에서 `[Unknown]`으로 표시되는지 확인
 - 닉네임 변경 후 과거 랭킹 조회 시 변경된 닉네임이 표시되는지 확인
@@ -254,7 +266,7 @@ if (myRankEntity == null) {
 }
 ```
 
-cursor 기반 스크롤 쿼리가 `WHERE rank > cursor`이므로, `cursor=3`으로 호출하면 rank 4부터 조회된다. top3 다음부터 무한 스크롤이 가능해진다.
+아래 방향 스크롤 쿼리가 `WHERE rank > afterRank`이므로, `afterRank=3`으로 호출하면 rank 4부터 조회된다. top3 다음부터 무한 스크롤이 가능해진다.
 
 ---
 
@@ -262,9 +274,9 @@ cursor 기반 스크롤 쿼리가 `WHERE rank > cursor`이므로, `cursor=3`으�
 
 **상황**
 
-`getSingleRankingHistoryScroll`에서 스크롤 1회마다 쿼리가 2번 실행됐다.
+`getSingleRankingHistoryScrollAfter`에서 스크롤 1회마다 쿼리가 2번 실행됐다.
 
-1. `findScrollResult` — `SELECT ... WHERE rank > cursor LIMIT size`
+1. `findScrollResult` — `SELECT ... WHERE rank > afterRank LIMIT size`
 2. `countByDifficultyAndWeek` — `SELECT COUNT(*) ...`
 
 `hasNext` 판단을 위해 전체 건수를 매 스크롤마다 DB에 질의했기 때문이다.
@@ -279,10 +291,10 @@ boolean hasNext = lastRank < total;
 
 **해결**
 
-`size + 1`개를 조회한 뒤, 실제 반환 건수가 `size`를 초과하는지로 `hasNext`를 판단하도록 변경했다. COUNT 쿼리를 완전히 제거하여 스크롤 1회당 쿼리 1번으로 줄었다.
+`size + 1`개를 조회한 뒤, 실제 반환 건수가 `size`를 초과하는지로 `hasNext`를 판단하도록 변경했다. COUNT 쿼리를 완전히 제거하여 스크롤 1회당 쿼리 1번으로 줄었다. (`beforeRank` 기반 위 방향 스크롤은 `countByDifficultyAndWeek`를 `hasNext` 계산에 활용한다.)
 
 ```java
-List<SingleRanking> raw = singleRankingRepository.findScrollResult(diff, weekKey, cursor, size + 1);
+List<SingleRanking> raw = singleRankingRepository.findScrollResult(diff, weekKey, afterRank, size + 1);
 
 boolean hasNext = raw.size() > size;
 List<SingleRanking> page = hasNext ? raw.subList(0, size) : raw;
