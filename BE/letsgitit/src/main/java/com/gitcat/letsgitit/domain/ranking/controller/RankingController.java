@@ -35,11 +35,11 @@ public class RankingController implements RankingControllerDocs {
 		CustomUserDetails userDetails,
 		@RequestParam
 		Difficulty difficulty,
-		@RequestParam(required = false) @Min(1)
+		@RequestParam(required = false)
 		Integer afterRank,
-		@RequestParam(required = false) @Min(1)
+		@RequestParam(required = false)
 		Integer beforeRank,
-		@RequestParam(required = false, defaultValue = "20") @Min(1) @Max(100)
+		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 		UUID memberId = userDetails.getMemberId();
 
@@ -188,11 +188,11 @@ public class RankingController implements RankingControllerDocs {
 		Integer month,
 		@RequestParam @Min(1) @Max(6)
 		Integer week,
-		@RequestParam(required = false) @Min(1)
+		@RequestParam(required = false)
 		Integer afterRank,
-		@RequestParam(required = false) @Min(1)
+		@RequestParam(required = false)
 		Integer beforeRank,
-		@RequestParam(required = false, defaultValue = "20") @Min(1) @Max(100)
+		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 
 		UUID memberId = userDetails.getMemberId();
