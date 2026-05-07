@@ -91,6 +91,16 @@ export function useSignUpModal() {
     }
   };
 
+  // 인증 완료 후 이메일을 변경하고 싶을 때 호출 — 인증 상태 초기화, 이메일 값 유지
+  const handleResetEmail = () => {
+    setStep('email');
+    setVerifiedEmail('');
+    setApiError(null);
+    setCodeExpiredAt(null);
+    verifyForm.reset();
+    passwordForm.reset();
+  };
+
   const reset = () => {
     setStep('email');
     setVerifiedEmail('');
@@ -115,6 +125,7 @@ export function useSignUpModal() {
     handleSendCode,
     handleVerifyCode,
     handleRegister,
+    handleResetEmail,
     reset,
   };
 }

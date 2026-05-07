@@ -2,6 +2,7 @@ import catFacePng from '../assets/Web (mobile + desktop)/cat-face.png';
 import googleIconSvg from '../assets/Web (mobile + desktop)/svg/neutral/web_neutral_rd_na.svg';
 import { useCountdown } from '../hooks/useCountdown';
 import { useSignUpModal } from '../hooks/useSignUpModal';
+import { useVerificationCodeInput } from '../hooks/useVerificationCodeInput';
 
 const GOOGLE_AUTH_URL = '/api/v1/oauth2/authorization/google';
 
@@ -40,6 +41,7 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
     handleSendCode,
     handleVerifyCode,
     handleRegister,
+    handleResetEmail,
     reset,
   } = useSignUpModal();
 
@@ -51,22 +53,30 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
   const emailValue = emailForm.watch('email');
   const codeValue = verifyForm.watch('code');
   const passwordValue = passwordForm.watch('password') ?? '';
+  const passwordConfirmValue = passwordForm.watch('passwordConfirm') ?? '';
 
   const { timeLeft, formattedTime } = useCountdown(codeExpiredAt);
 
   const codeSent = step !== 'email';
   const codeVerified = step === 'password' || step === 'done';
+
+  const { codeInputProps } = useVerificationCodeInput({
+    setCode: (val) => verifyForm.setValue('code', val, { shouldValidate: true }),
+    codeSent,
+  });
   const isCodeExpired = codeSent && !codeVerified && timeLeft === 0 && !!codeExpiredAt;
-  // 비밀번호 폼이 Zod 스키마를 완전히 통과했을 때만 활성화
+  // watch 기반 직접 계산 — formState.isValid의 비동기 반영 지연 문제 방지
+  const isPasswordFormatValid =
+    passwordValue.length >= 8 &&
+    /[A-Za-z]/.test(passwordValue) &&
+    /[0-9]/.test(passwordValue) &&
+    /[^A-Za-z0-9]/.test(passwordValue);
   const isRegisterReady =
-    codeVerified && passwordForm.formState.isValid && passwordForm.formState.isDirty;
+    codeVerified && isPasswordFormatValid && passwordValue === passwordConfirmValue;
 
   if (step === 'done') {
     return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-        onClick={handleClose}
-      >
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
         <div
           className="relative w-96 rounded-2xl bg-[#131313]/95 p-8 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
@@ -95,10 +105,7 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={handleClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div
         className="relative w-96 rounded-2xl bg-[#131313]/95 p-8 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -122,24 +129,44 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
         <div className="flex flex-col gap-3">
           {/* 이메일 행 */}
           <div className="flex flex-col gap-2">
-            <input
-              {...emailForm.register('email')}
-              type="email"
-              placeholder="이메일 입력"
-              className="w-full rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50"
-            />
-            <button
-              type="button"
-              disabled={!emailValue || isSendingCode}
-              onClick={emailForm.handleSubmit(handleSendCode)}
-              className={bigBtn(!!emailValue && !isSendingCode)}
-            >
-              {isSendingCode ? '전송 중...' : codeSent ? '재전송' : '인증코드 전송'}
-            </button>
-            {emailForm.formState.errors.email && (
-              <p className="ml-2 mt-2 text-xs text-red-400">
-                {emailForm.formState.errors.email.message}
-              </p>
+            {codeVerified ? (
+              <>
+                <div className="flex gap-2">
+                  <input
+                    value={emailForm.getValues('email')}
+                    disabled
+                    type="email"
+                    className="min-w-0 flex-1 rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white disabled:opacity-60 focus:outline-none"
+                  />
+                  <button type="button" onClick={handleResetEmail} className={inlineBtn(true)}>
+                    변경
+                  </button>
+                </div>
+                <p className="ml-2 text-xs text-green-400">✓ 인증완료</p>
+              </>
+            ) : (
+              <>
+                <input
+                  {...emailForm.register('email')}
+                  type="email"
+                  placeholder="이메일 입력"
+                  disabled={codeSent}
+                  className="w-full rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-40"
+                />
+                <button
+                  type="button"
+                  disabled={!emailValue || isSendingCode}
+                  onClick={emailForm.handleSubmit(handleSendCode)}
+                  className={bigBtn(!!emailValue && !isSendingCode)}
+                >
+                  {isSendingCode ? '전송 중...' : codeSent ? '재전송' : '인증코드 전송'}
+                </button>
+                {emailForm.formState.errors.email && (
+                  <p className="ml-2 mt-2 text-xs text-red-400">
+                    {emailForm.formState.errors.email.message}
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -148,10 +175,9 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
             <div className="flex gap-2">
               <input
                 {...verifyForm.register('code')}
+                {...codeInputProps}
                 type="text"
                 placeholder="인증코드 입력"
-                maxLength={6}
-                disabled={!codeSent}
                 className="min-w-0 flex-1 rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-40"
               />
               <button
