@@ -3,7 +3,10 @@ import { useEffect, useState } from 'react';
 /**
  * 서버에서 받은 만료 시각(ISO 문자열)을 기반으로 남은 시간을 1초 단위로 카운트다운합니다.
  *
- * @param expiredAt - 만료 시각 ISO 문자열 (Z 없는 UTC도 허용). null이면 비활성 상태.
+ * 서버가 KST 시간을 Z 없이 반환하므로, 브라우저가 로컬 시간(KST)으로 파싱하도록 그대로 사용합니다.
+ * 추후 BE에서 +09:00 오프셋을 포함한 ISO 8601 형식으로 변경 시 이 처리는 제거해도 됩니다.
+ *
+ * @param expiredAt - 만료 시각 ISO 문자열 (KST, Z/오프셋 없음). null이면 비활성 상태.
  * @returns `timeLeft` — null: 초기화 전, 0: 만료됨, 양수: 남은 초
  * @returns `formattedTime` — "MM:SS" 형식 문자열
  */
@@ -14,9 +17,11 @@ export function useCountdown(expiredAt: string | null) {
     if (!expiredAt) return;
 
     const calculateTimeLeft = () => {
-      // 서버가 UTC 시간을 Z 없이 반환하므로 명시적으로 UTC로 파싱
-      const utcString = expiredAt.endsWith('Z') ? expiredAt : expiredAt + 'Z';
-      const expirationTime = new Date(utcString).getTime();
+      // 서버가 KST 시간을 Z 없이 반환 → 브라우저가 로컬 시간(KST)으로 파싱하도록 그대로 사용
+      // TODO: BE에서 +09:00 오프셋 포함 시 아래 임시 처리 제거 가능
+      const kstString =
+        expiredAt.includes('+') || expiredAt.endsWith('Z') ? expiredAt : expiredAt + '+09:00';
+      const expirationTime = new Date(kstString).getTime();
       const now = new Date().getTime();
       const diff = Math.max(0, Math.floor((expirationTime - now) / 1000));
       setRawTimeLeft(diff);

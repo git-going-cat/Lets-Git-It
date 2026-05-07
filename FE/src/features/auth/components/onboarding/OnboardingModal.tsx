@@ -5,6 +5,12 @@ interface OnboardingModalProps {
   children: ReactNode;
   /** 모달 위에 겹쳐 보이는 유령 창 개수 (기본 2, 최대 2) */
   ghostCount?: number;
+  /**
+   * 메인 모달 너비 등 커스텀 Tailwind 클래스.
+   * 기본값: `w-100` (= 400px)
+   * 예시: `'w-[680px]'` (인트로 영상 단계처럼 더 넓은 모달이 필요한 경우)
+   */
+  modalClassName?: string;
 }
 
 /** 유령 창 단계별 고정 Tailwind 클래스 (최대 2개) */
@@ -19,7 +25,12 @@ const GHOST_CLASSES = [
  * - 뒤에 ghostCount개의 더 어두운 유령 창을 겹쳐 깊이감을 연출합니다.
  * - 타이틀 바의 창 제어 버튼(×, □, −)을 클릭하면 "작동하지 않습니다" 툴팁이 표시됩니다.
  */
-export default function OnboardingModal({ title, children, ghostCount = 2 }: OnboardingModalProps) {
+export default function OnboardingModal({
+  title,
+  children,
+  ghostCount = 2,
+  modalClassName,
+}: OnboardingModalProps) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
 
   const showTooltip = () => {
@@ -55,7 +66,9 @@ export default function OnboardingModal({ title, children, ghostCount = 2 }: Onb
       ))}
 
       {/* 메인 모달 */}
-      <div className="relative w-[400px] bg-[rgba(19,19,19,0.97)] rounded-lg border border-white/10 shadow-2xl z-[13]">
+      <div
+        className={`relative bg-[rgba(19,19,19,0.97)] rounded-lg border border-white/10 shadow-2xl z-13 ${modalClassName ?? 'w-100'}`}
+      >
         {/* 타이틀 바 */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
           <div className="flex items-center gap-2 text-white/70 text-sm">
