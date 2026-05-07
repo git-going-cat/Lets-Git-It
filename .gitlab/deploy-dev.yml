@@ -1,6 +1,9 @@
 deploy-dev:
   stage: deploy
+  image: docker:latest
   tags: [dev]
+  before_script:
+    - apk add --no-cache git
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"
   script:

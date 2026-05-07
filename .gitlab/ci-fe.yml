@@ -1,11 +1,7 @@
 fe-ci:
   stage: ci
-  image: node:24
+  image: node:24.13.0
   tags: [dev]
-  before_script:
-    - export NVM_DIR="$HOME/.nvm"
-    - source "$NVM_DIR/nvm.sh"
-    - nvm use 24.13.0
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
