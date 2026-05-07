@@ -1,4 +1,4 @@
-import { useTutorialStep } from '../../hooks/useTutorialStep';
+import { useTutorialStep } from '@/features/auth/hooks/useTutorialStep';
 
 interface TutorialStepProps {
   onComplete: () => void;

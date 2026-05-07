@@ -1,5 +1,6 @@
 import { useCountdown } from '../hooks/useCountdown';
 import { useForgotPasswordModal } from '../hooks/useForgotPasswordModal';
+import { useVerificationCodeInput } from '../hooks/useVerificationCodeInput';
 
 import type React from 'react';
 
@@ -66,11 +67,13 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
   const { timeLeft, formattedTime } = useCountdown(codeExpiredAt);
   const isCodeExpired = codeSent && timeLeft === 0 && !!codeExpiredAt;
 
+  const { codeInputProps } = useVerificationCodeInput({
+    setCode: (val) => emailForm.setValue('code', val, { shouldValidate: true }),
+    codeSent,
+  });
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={handleClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div
         className="relative w-96 rounded-2xl bg-[#131313]/95 p-8 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -120,14 +123,13 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
             </div>
 
             {/* 인증코드 행 */}
-            <div>
+            <div className="flex flex-col gap-2">
               <div className="flex gap-2">
                 <input
                   {...emailForm.register('code')}
+                  {...codeInputProps}
                   type="text"
                   placeholder="인증코드 입력"
-                  maxLength={6}
-                  disabled={!codeSent}
                   className="min-w-0 flex-1 rounded-full bg-[#E4E4E4]/20 px-4 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-40"
                 />
                 <button
