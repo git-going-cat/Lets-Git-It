@@ -22,6 +22,7 @@ import com.gitcat.letsgitit.global.jwt.CustomAccessDeniedHandler;
 import com.gitcat.letsgitit.global.jwt.CustomAuthenticationEntryPoint;
 import com.gitcat.letsgitit.global.jwt.JwtAuthenticationFilter;
 import com.gitcat.letsgitit.global.jwt.JwtProvider;
+import com.gitcat.letsgitit.global.oauth2.CookieOAuth2AuthorizationRequestRepository;
 import com.gitcat.letsgitit.global.oauth2.OAuth2FailureHandler;
 import com.gitcat.letsgitit.global.oauth2.OAuth2SuccessHandler;
 
@@ -41,6 +42,7 @@ public class SecurityConfig {
 	private final CustomOAuth2UserService customOAuth2UserService;
 	private final OAuth2SuccessHandler oAuth2SuccessHandler;
 	private final OAuth2FailureHandler oAuth2FailureHandler;
+	private final CookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
 
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
@@ -110,7 +112,9 @@ public class SecurityConfig {
 
 			.oauth2Login(oauth2 -> oauth2
 				// 진입 URI를 /api/v1/oauth2/authorization/{provider}로 커스텀
-				.authorizationEndpoint(endpoint -> endpoint.baseUri("/api/v1/oauth2/authorization"))
+				.authorizationEndpoint(endpoint -> endpoint
+					.baseUri("/api/v1/oauth2/authorization")
+					.authorizationRequestRepository(cookieAuthorizationRequestRepository))
 				// 구글 콜백 처리 URI (구글 Console에 등록한 redirect_uri와 일치해야 함)
 				.redirectionEndpoint(endpoint -> endpoint.baseUri("/login/oauth2/code/*"))
 				// 유저 정보 처리
