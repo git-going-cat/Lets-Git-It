@@ -6,6 +6,7 @@ import type { CharacterFormValues } from '../schemas/onboarding.schema';
 
 interface Props {
   values: CharacterFormValues;
+  className?: string;
 }
 
 /**
@@ -17,7 +18,7 @@ interface Props {
  *   - y=96: Row 2 — walk 애니메이션
  * 렌더 순서: body → eyes → outfit → hair
  */
-export default function CharacterPreview({ values }: Props) {
+export default function CharacterPreview({ values, className = 'w-36 h-72' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function CharacterPreview({ values }: Props) {
       ref={canvasRef}
       width={48}
       height={96}
-      className="w-36 h-72 [image-rendering:pixelated]"
+      className={`${className} [image-rendering:pixelated]`}
     />
   );
 }
