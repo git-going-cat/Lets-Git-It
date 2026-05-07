@@ -1,0 +1,21 @@
+services:
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - gitlab-runner-config:/etc/gitlab-runner
+      - /home/ubuntu:/home/ubuntu
+    networks:
+      - letsgit-dev
+    environment:
+      - TZ=Asia/Seoul
+
+volumes:
+  gitlab-runner-config:
+
+networks:
+  letsgit-dev:
+    name: letsgit-dev
+    external: true

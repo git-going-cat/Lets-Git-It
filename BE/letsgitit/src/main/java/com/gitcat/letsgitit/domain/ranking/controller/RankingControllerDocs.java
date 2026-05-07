@@ -1,8 +1,5 @@
 package com.gitcat.letsgitit.domain.ranking.controller;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-
 import org.springframework.http.ResponseEntity;
 
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
@@ -232,11 +229,11 @@ public interface RankingControllerDocs {
 		CustomUserDetails userDetails,
 		@Parameter(name = "difficulty", description = "난이도 (EASY / NORMAL / HARD)", required = true)
 		Difficulty difficulty,
-		@Parameter(name = "year", description = "조회 연도 (예: 2025)", required = true) @Min(1)
+		@Parameter(name = "year", description = "조회 연도 (예: 2025)", required = true)
 		Integer year,
-		@Parameter(name = "month", description = "조회 월 (예: 4)", required = true) @Min(1) @Max(12)
+		@Parameter(name = "month", description = "조회 월 (예: 4)", required = true)
 		Integer month,
-		@Parameter(name = "week", description = "조회 주차 (예: 3)", required = true) @Min(1) @Max(6)
+		@Parameter(name = "week", description = "조회 주차 (예: 3)", required = true)
 		Integer week,
 		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상") @Min(1)
 		Integer afterRank,
