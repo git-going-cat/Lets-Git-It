@@ -47,6 +47,11 @@ public class SingleRankingRepositoryImpl implements SingleRankingRepository {
 	}
 
 	@Override
+	public List<SingleRanking> findScrollResultBefore(Difficulty difficulty, String week, int beforeRank, int size) {
+		return singleRankingDslRepository.findScrollResultBefore(difficulty, week, beforeRank, size);
+	}
+
+	@Override
 	public void saveAll(List<SingleRanking> rankings) {
 		singleRankingJpaRepository.saveAll(rankings);
 	}

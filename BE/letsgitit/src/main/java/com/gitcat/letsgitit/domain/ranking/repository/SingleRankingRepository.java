@@ -19,5 +19,7 @@ public interface SingleRankingRepository {
 
 	List<SingleRanking> findScrollResult(Difficulty difficulty, String week, int cursor, int size);
 
+	List<SingleRanking> findScrollResultBefore(Difficulty difficulty, String week, int beforeRank, int size);
+
 	void saveAll(List<SingleRanking> rankings);
 }

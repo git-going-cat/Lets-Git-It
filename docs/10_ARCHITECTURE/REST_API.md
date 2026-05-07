@@ -948,8 +948,9 @@ GET /api/v1/dictionary/commands
 
 > 모든 랭킹 API는 **인증 필요**
 > - 로그인 유저: `myRank` 필드 반환
-> - 초기 진입 시 `cursor`, `size` 파라미터 생략 → `top3` + `myRank` + `around` 포함 응답
-> - 무한 스크롤 시 `cursor`, `size` 포함 → `rankings` + `nextCursor` + `hasNext` 응답
+> - 초기 진입 시 `afterRank` / `beforeRank` 파라미터 모두 생략 → `top3` + `myRank` + `around` + `prevCursor` + `nextCursor` 포함 응답
+> - 아래 방향 스크롤: `afterRank` 포함 → `rankings` + `prevCursor` + `hasPrev` + `nextCursor` + `hasNext` 응답
+> - 위 방향 스크롤: `beforeRank` 포함 → `rankings` + `prevCursor` + `hasPrev` + `nextCursor` + `hasNext` 응답
 
 ### 4-1. 싱글 난이도별 랭킹 조회 (이번 주)
 
@@ -957,7 +958,7 @@ GET /api/v1/dictionary/commands
 - 주간 정산 시점: **매주 월요일 00:00**
 
 ```
-GET /api/v1/rankings/single?difficulty={difficulty}&cursor={cursor}&size={size}
+GET /api/v1/rankings/single?difficulty={difficulty}&afterRank={afterRank}&beforeRank={beforeRank}&size={size}
 ```
 
 #### Query Parameters
@@ -965,8 +966,11 @@ GET /api/v1/rankings/single?difficulty={difficulty}&cursor={cursor}&size={size}
 | 파라미터 | 필수 | 설명 |
 | --- | --- | --- |
 | `difficulty` | ✅ | `EASY` / `NORMAL` / `HARD` |
-| `cursor` | ❌ | 무한 스크롤 커서, 생략 시 초기 응답 |
+| `afterRank` | ❌ | 아래 방향 스크롤 커서 (마지막으로 확인한 순위). 생략 시 초기 응답 |
+| `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
+
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
 
 #### 초기 진입 Response
 
@@ -990,8 +994,10 @@ GET /api/v1/rankings/single?difficulty={difficulty}&cursor={cursor}&size={size}
 | `around[].nickname` | String | 닉네임 |
 | `around[].score` | Integer | 점수 |
 | `around[].grade` | String | 등급, null 가능 |
-| `nextCursor` | Integer | 다음 스크롤 시작 커서, null이면 마지막 |
-| `hasNext` | Boolean | 다음 페이지 존재 여부 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (around 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (around 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
 
 ```json
 {
@@ -1015,19 +1021,27 @@ GET /api/v1/rankings/single?difficulty={difficulty}&cursor={cursor}&size={size}
       { "rank": 43, "nickname": "user3", "score": 7100, "grade": "C" },
       { "rank": 44, "nickname": "user4", "score": 7000, "grade": "C" }
     ],
+    "prevCursor": 40,
+    "hasPrev": true,
     "nextCursor": 44,
     "hasNext": true
   }
 }
 ```
 
-#### 무한 스크롤 Request
+#### 아래 방향 스크롤 Request
 
 ```
-GET /api/v1/rankings/single?difficulty=NORMAL&cursor=44&size=20
+GET /api/v1/rankings/single?difficulty=NORMAL&afterRank=44&size=20
 ```
 
-#### 무한 스크롤 Response
+#### 위 방향 스크롤 Request
+
+```
+GET /api/v1/rankings/single?difficulty=NORMAL&beforeRank=40&size=20
+```
+
+#### 스크롤 Response
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
@@ -1036,8 +1050,10 @@ GET /api/v1/rankings/single?difficulty=NORMAL&cursor=44&size=20
 | `rankings[].nickname` | String | 닉네임 |
 | `rankings[].score` | Integer | 점수 |
 | `rankings[].grade` | String | 등급, null 가능 |
-| `nextCursor` | Integer | 다음 커서, null이면 마지막 |
-| `hasNext` | Boolean | 다음 페이지 존재 여부 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (현재 페이지 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (현재 페이지 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
 
 ```json
 {
@@ -1047,6 +1063,8 @@ GET /api/v1/rankings/single?difficulty=NORMAL&cursor=44&size=20
     "rankings": [
       { "rank": 45, "nickname": "user5", "score": 6900, "grade": "C" }
     ],
+    "prevCursor": 45,
+    "hasPrev": true,
     "nextCursor": 64,
     "hasNext": true
   }
@@ -1226,7 +1244,7 @@ GET /api/v1/rankings/coop?mapName={맵이름}&difficulty={맵난이도}&cursor={
 - RDB 저장 시점: **매주 월요일 00:00**
 
 ```
-GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={month}&week={week}&cursor={cursor}&size={size}
+GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={month}&week={week}&afterRank={afterRank}&beforeRank={beforeRank}&size={size}
 ```
 
 #### Query Parameters
@@ -1237,7 +1255,8 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
 | `year` | ✅ | 조회할 연도, 예: `2025` |
 | `month` | ✅ | 조회할 월, 예: `4` |
 | `week` | ✅ | 조회할 주차, 예: `3` |
-| `cursor` | ❌ | 무한 스크롤 커서, 생략 시 초기 응답 |
+| `afterRank` | ❌ | 아래 방향 스크롤 커서 (마지막으로 확인한 순위). 생략 시 초기 응답 |
+| `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
 #### 초기 진입 Response Fields
@@ -1262,8 +1281,10 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
 | `around[].nickname` | String | 닉네임 |
 | `around[].score` | Integer | 점수 |
 | `around[].grade` | String | 등급, null 가능 |
-| `nextCursor` | Integer | 다음 스크롤 시작 커서, null이면 마지막 |
-| `hasNext` | Boolean | 다음 페이지 존재 여부 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (around 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (around 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
 
 #### 초기 진입 Response 예시
 
@@ -1289,19 +1310,27 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
       { "rank": 43, "nickname": "user3", "score": 7100, "grade": "C" },
       { "rank": 44, "nickname": "user4", "score": 7000, "grade": "C" }
     ],
+    "prevCursor": 40,
+    "hasPrev": true,
     "nextCursor": 44,
     "hasNext": true
   }
 }
 ```
 
-#### 무한 스크롤 Request
+#### 아래 방향 스크롤 Request
 
 ```
-GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=17&cursor=44&size=20
+GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=3&afterRank=44&size=20
 ```
 
-#### 무한 스크롤 Response Fields
+#### 위 방향 스크롤 Request
+
+```
+GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=3&beforeRank=40&size=20
+```
+
+#### 스크롤 Response Fields
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
@@ -1310,10 +1339,12 @@ GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=17&
 | `rankings[].nickname` | String | 닉네임 |
 | `rankings[].score` | Integer | 점수 |
 | `rankings[].grade` | String | 등급, null 가능 |
-| `nextCursor` | Integer | 다음 커서, null이면 마지막 |
-| `hasNext` | Boolean | 다음 페이지 존재 여부 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (현재 페이지 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (현재 페이지 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
 
-#### 무한 스크롤 Response 예시
+#### 스크롤 Response 예시
 
 ```json
 {
@@ -1323,6 +1354,8 @@ GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=17&
     "rankings": [
       { "rank": 45, "nickname": "user5", "score": 6900, "grade": "C" }
     ],
+    "prevCursor": 45,
+    "hasPrev": true,
     "nextCursor": 64,
     "hasNext": true
   }
