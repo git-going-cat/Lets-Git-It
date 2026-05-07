@@ -100,3 +100,5 @@ jwt:
 # 프론트 콜백 URL (리다이렉트 대상)
 oauth2:
   frontend-redirect-uri: ${FRONTEND_REDIRECT_URI:http://localhost:5173/auth/callback/google}
+  cookie:
+    secure: ${OAUTH2_COOKIE_SECURE:false}
