@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
+import { analytics } from '@/lib/analytics';
 
 import { TUTORIAL_FALL_DURATION_MS } from '../constants/tutorialData';
 import { useSingleStore } from '../store/singleStore';
@@ -98,6 +99,7 @@ export function useTutorialMode(isTutorial: boolean) {
 
   const handleNext = useCallback(
     (currentMetaIndex: number) => {
+      analytics.tutorialStepCompleted(currentMetaIndex, totalCommands);
       const nextMeta = currentMetaIndex + 1;
       if (nextMeta > totalCommands) {
         setOverlayState(null);
@@ -116,10 +118,11 @@ export function useTutorialMode(isTutorial: boolean) {
   }, []);
 
   const handleSkip = useCallback(() => {
+    analytics.tutorialSkipped(overlayState?.metaIndex ?? 0);
     setInputBlocked(false);
     setOverlayState(null);
     setModalPhase('skipped');
-  }, [setInputBlocked]);
+  }, [overlayState?.metaIndex, setInputBlocked]);
 
   return { overlayState, modalPhase, handleNext, handleResume, handleSkip };
 }

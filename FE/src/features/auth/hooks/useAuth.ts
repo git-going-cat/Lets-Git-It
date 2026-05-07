@@ -1,6 +1,8 @@
 ﻿import { useCallback } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
+import { analytics } from '@/lib/analytics';
+
 import { authApi } from '../api/authApi';
 import { useAuthStore } from '../store/authStore';
 
@@ -35,6 +37,7 @@ export function useAuth() {
   const handleLoginResponse = useCallback(
     async (res: LoginResponseData & { isFirstLogin: boolean; isReactivated: boolean }) => {
       setAuth(res.accessToken, toAuthUser(res));
+      if (res.nickname) analytics.identifyUser(res.nickname);
       if (res.isReactivated) {
         setReactivated(true);
       }
@@ -68,6 +71,7 @@ export function useAuth() {
     try {
       await authApi.logout();
     } finally {
+      analytics.resetUser();
       clearAuth();
       await navigate({ to: '/login' });
     }

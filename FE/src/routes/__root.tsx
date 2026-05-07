@@ -7,6 +7,7 @@ import {
   reissueResponseDataSchema,
 } from '@/features/auth/schemas/response.schema';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { PostHogPageView } from '@/providers/PostHogProvider';
 import { RouteErrorFallback } from '@/shared/components/RouteErrorFallback';
 import { useBgm } from '@/shared/hooks/useBgm';
 
@@ -44,5 +45,10 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   useBgm();
-  return <Outlet />;
+  return (
+    <>
+      <PostHogPageView />
+      <Outlet />
+    </>
+  );
 }
