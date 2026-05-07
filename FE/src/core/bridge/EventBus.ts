@@ -13,6 +13,7 @@ export interface EventMap {
   'timer:tick': number;
   'command:complete': { index: number };
   'command:miss': { index: number };
+  'item:click': { slot: 0 | 1 | 2 };
   'item:use': { slot: 0 | 1 | 2 };
   'branch:switch': { branch: string };
   'lane:create': { branch: string };

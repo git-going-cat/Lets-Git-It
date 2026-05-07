@@ -22,8 +22,17 @@ function formatTime(ms: number): string {
 }
 
 export default function ResultModal() {
-  const { isVisible, result, difficulty, isNewRecord, onRestart, onRanking, onHome } =
-    useResultModal();
+  const {
+    isVisible,
+    result,
+    difficulty,
+    isNewRecord,
+    isSaving,
+    saveError,
+    onRestart,
+    onRanking,
+    onHome,
+  } = useResultModal();
 
   if (!result) return null;
 
@@ -63,6 +72,10 @@ export default function ResultModal() {
           </div>
         ))}
       </div>
+
+      {/* 점수 저장 상태 */}
+      {isSaving && <p className="text-xs text-gray-400 mt-1">점수 저장 중...</p>}
+      {saveError && <p className="text-xs text-red-400 mt-1">점수 저장에 실패했습니다.</p>}
 
       {/* 버튼 */}
       <div className="flex flex-col gap-2 w-full mt-2">

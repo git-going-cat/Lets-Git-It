@@ -202,6 +202,21 @@ const { data: ranking } = useQuery({
 });
 ```
 
+**예외 — 게임 세션 초기화 데이터:**
+
+Phaser Scene은 React 컨텍스트에 접근할 수 없으므로, Phaser가 직접 읽어야 하는 게임 초기화 데이터(커맨드셋, 세션 ID 등)는 TanStack Query 대신 `useEffect`에서 API를 직접 호출한 뒤 Zustand store에 저장하는 패턴을 허용한다.
+
+```ts
+// ✅ Phaser가 접근해야 하는 게임 세션 데이터 — useEffect + Zustand 직접 저장 허용
+useEffect(() => {
+  singleApi.startSession(difficulty)
+    .then((data) => useSingleStore.getState().setSession(data))
+    .catch(() => navigate({ to: '/home', replace: true }));
+
+  return () => { useSingleStore.getState().clearSession(); };
+}, [difficulty]);
+```
+
 ### TanStack Router
 
 - 라우트 타입 수동 정의 금지 — `routeTree.gen.ts` 자동 생성 타입 그대로 사용

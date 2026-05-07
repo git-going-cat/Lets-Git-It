@@ -10,9 +10,9 @@ interface ScoreConfig {
 }
 
 export const SCORE_CONFIG: Record<Difficulty, ScoreConfig> = {
-  EASY: { idealTimeSec: 360, timeRate: 3, typoPenalty: 20, livesPenalty: 100 },
-  NORMAL: { idealTimeSec: 240, timeRate: 7, typoPenalty: 40, livesPenalty: 180 },
-  HARD: { idealTimeSec: 180, timeRate: 12, typoPenalty: 70, livesPenalty: 280 },
+  EASY: { idealTimeSec: 360, timeRate: 15, typoPenalty: 110, livesPenalty: 500 },
+  NORMAL: { idealTimeSec: 240, timeRate: 30, typoPenalty: 200, livesPenalty: 700 },
+  HARD: { idealTimeSec: 180, timeRate: 50, typoPenalty: 350, livesPenalty: 1000 },
 };
 
 const MAX_SCORE = 10000;

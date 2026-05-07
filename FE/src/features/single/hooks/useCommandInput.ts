@@ -83,6 +83,7 @@ export function useCommandInput() {
         setTotalAttempts((prev) => prev + 1);
         setCombo(0);
         setTypoCount((prev) => prev + 1);
+        useSingleStore.getState().appendLog({ seq: commandIndex, event: 'typo' });
       }
 
       setInputValue('');

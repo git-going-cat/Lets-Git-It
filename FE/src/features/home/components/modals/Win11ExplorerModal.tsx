@@ -111,9 +111,9 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
   const handleGameStart = () => {
     if (!selectedItem) return;
     if (activeTab === 'single') {
-      void navigate({ to: '/single', search: { difficulty: selectedItem } });
+      void navigate({ to: '/single', search: { difficulty: selectedItem as SingleDifficulty } });
     } else {
-      void navigate({ to: '/multi', search: { mode: selectedItem } });
+      void navigate({ to: '/multi', search: { mode: selectedItem as MultiMode } });
     }
   };
 

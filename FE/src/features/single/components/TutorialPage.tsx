@@ -11,11 +11,10 @@ import PauseModal from './PauseModal';
 import SingleGameContent from './SingleGameContent';
 import StartModal from './StartModal';
 
-import type { TutorialStepMeta } from '../constants/tutorialData';
 import type { Command, CommandType } from '../types/single.types';
 import type { TutorialStep } from '@/features/auth/schemas/onboarding.schema';
 
-// ── API 응답 → 게임 데이터 매핑 ─────────────────────────────────────────────
+// ── API 응답 → 게임 커맨드셋 추출 ─────────────────────────────────────────────
 
 function deriveCommandType(cmd: string): CommandType {
   if (/^git\s+switch\s+-c\s+/.test(cmd)) return 'CREATE';
@@ -24,60 +23,32 @@ function deriveCommandType(cmd: string): CommandType {
   return 'COMMON';
 }
 
-function mapTutorialSteps(steps: TutorialStep[]): {
-  commandSet: Command[];
-  stepMeta: TutorialStepMeta[];
-  cloneUrl: string;
-} {
+function extractCommandSet(steps: TutorialStep[]): Command[] {
   const commandSet: Command[] = [];
-  const stepMeta: TutorialStepMeta[] = [];
   let currentBranch = 'main';
   let cmdSeq = 0;
-  let cloneUrl = 'https://tutorial.git';
 
   for (const step of steps) {
     for (const cmd of step.commands) {
-      const isClone = /^git\s+clone\s+/.test(cmd.command);
-
-      if (isClone) {
-        // git clone URL 추출
-        const match = cmd.command.match(/^git\s+clone\s+(.+)$/);
-        if (match) cloneUrl = match[1].trim();
-        // stepMeta[0] = clone 단계
-        stepMeta.push({
-          title: step.title,
-          description: step.description,
-          explanation: cmd.explanation,
-        });
-        continue;
-      }
+      if (/^git\s+clone\s+/.test(cmd.command)) continue;
 
       const type = deriveCommandType(cmd.command);
       commandSet.push({
         commandSequence: cmdSeq,
         text: cmd.command,
-        displayText: cmd.command,
         branchName: currentBranch,
         type,
       });
       cmdSeq++;
 
-      // 브랜치 추적: CREATE/SWITCH 후 현재 브랜치 갱신
       if (type === 'CREATE' || type === 'SWITCH') {
         const parts = cmd.command.trim().split(/\s+/);
         currentBranch = parts[parts.length - 1];
       }
-
-      // stepMeta[1..N] = 명령어 1개 당 1개 (같은 step의 여러 command는 각자 항목 생성)
-      stepMeta.push({
-        title: step.title,
-        description: step.description,
-        explanation: cmd.explanation,
-      });
     }
   }
 
-  return { commandSet, stepMeta, cloneUrl };
+  return commandSet;
 }
 
 // ── 컴포넌트 ─────────────────────────────────────────────────────────────────
@@ -100,15 +71,14 @@ export default function TutorialPage() {
         const steps = await onboardingApi.getTutorialSteps();
         if (cancelled) return;
 
-        const { commandSet, stepMeta, cloneUrl } = mapTutorialSteps(steps);
+        const commandSet = extractCommandSet(steps);
         useSingleStore.getState().setSession({
           sessionId: 'tutorial-session',
           difficulty: 'EASY',
           bestScore: 0,
-          githubName: cloneUrl,
           commandSet,
           isTutorial: true,
-          tutorialStepMeta: stepMeta,
+          tutorialSteps: steps,
         });
         setReady(true);
       } catch {

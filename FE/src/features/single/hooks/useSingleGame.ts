@@ -101,6 +101,7 @@ export function useSingleGame() {
       setCombo(0);
       setCommandIndex(index + 1); // Phaser가 확정한 index 기준으로 동기화
       addChuruForCommand(index);
+      useSingleStore.getState().appendLog({ seq: index, event: 'miss' });
       // miss여도 CREATE·SWITCH 커맨드의 activeBranch를 갱신해야 NORMAL 브랜치 판정이 정확함
       const cmd = useSingleStore.getState().commandSet[index];
       if (cmd && (cmd.type === 'CREATE' || cmd.type === 'SWITCH')) {
@@ -116,6 +117,7 @@ export function useSingleGame() {
       commandIndexRef.current = index + 1;
       setCommandIndex(index + 1);
       setCombo((prev) => prev + 1);
+      useSingleStore.getState().appendLog({ seq: index, event: 'complete' });
 
       addChuruForCommand(index);
 
@@ -189,11 +191,8 @@ export function useSingleGame() {
     };
 
     // Alt+1(stash) / Alt+2(cherry-pick) / Alt+3(restore) 아이템 사용
-    const handleAltKey = (e: KeyboardEvent) => {
-      if (!e.altKey || !isPlaying) return;
-      const slotIndex = e.key === '1' ? 0 : e.key === '2' ? 1 : e.key === '3' ? 2 : -1;
-      if (slotIndex === -1 || !itemSlotsRef[slotIndex]) return;
-      e.preventDefault();
+    const applyItemSlot = (slotIndex: 0 | 1 | 2) => {
+      if (!isPlaying || !itemSlotsRef[slotIndex]) return;
 
       itemSlotsRef[slotIndex] = false;
       setItemSlots([itemSlotsRef[0], itemSlotsRef[1], itemSlotsRef[2]]);
@@ -217,6 +216,18 @@ export function useSingleGame() {
       }
     };
 
+    const handleAltKey = (e: KeyboardEvent) => {
+      if (!e.altKey) return;
+      const slotIndex = e.key === '1' ? 0 : e.key === '2' ? 1 : e.key === '3' ? 2 : -1;
+      if (slotIndex === -1 || !isPlaying || !itemSlotsRef[slotIndex]) return;
+      e.preventDefault();
+      applyItemSlot(slotIndex as 0 | 1 | 2);
+    };
+
+    const handleItemClick = ({ slot }: { slot: 0 | 1 | 2 }) => {
+      applyItemSlot(slot);
+    };
+
     EventBus.on('game:start', handleGameStart);
     EventBus.on('command:miss', handleMiss);
     EventBus.on('command:complete', handleComplete);
@@ -226,6 +237,7 @@ export function useSingleGame() {
     EventBus.on('game:over', handleGameOver);
     EventBus.on('game:complete', handleGameComplete);
     EventBus.on('game:restart', handleGameRestart);
+    EventBus.on('item:click', handleItemClick);
     window.addEventListener('keydown', handleAltKey);
 
     return () => {
@@ -238,6 +250,7 @@ export function useSingleGame() {
       EventBus.off('game:over', handleGameOver);
       EventBus.off('game:complete', handleGameComplete);
       EventBus.off('game:restart', handleGameRestart);
+      EventBus.off('item:click', handleItemClick);
       window.removeEventListener('keydown', handleAltKey);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
@@ -11,7 +11,7 @@ export type TutorialOverlayPhase = 'description' | 'explanation';
 
 /**
  * 튜토리얼 오버레이(설명/해설) 상태.
- * metaIndex: TUTORIAL_STEP_META 인덱스 (1~13)
+ * metaIndex: 게임 커맨드 인덱스 (1~N)
  */
 export interface TutorialOverlayState {
   phase: TutorialOverlayPhase;
@@ -42,20 +42,27 @@ export function useTutorialMode(isTutorial: boolean) {
   const [overlayState, setOverlayState] = useState<TutorialOverlayState | null>(null);
   const [modalPhase, setModalPhase] = useState<TutorialModalPhase>('game');
   const setInputBlocked = useSetAtom(tutorialInputBlockedAtom);
-  const tutorialStepMeta = useSingleStore((s) => s.tutorialStepMeta);
+  const tutorialSteps = useSingleStore((s) => s.tutorialSteps);
+
+  const totalCommands = useMemo(
+    () =>
+      tutorialSteps.reduce(
+        (sum, step) => sum + step.commands.filter((c) => !/^git\s+clone/.test(c.command)).length,
+        0
+      ),
+    [tutorialSteps]
+  );
 
   useEffect(() => {
     if (!isTutorial) return;
 
     const handleGameStart = () => {
-      // StartModal에서 git clone 입력 완료 → 명령어 즉시 표시 + 설명 오버레이 (입력 허용)
       setInputBlocked(false);
       setOverlayState({ phase: 'description', metaIndex: 1 });
       EventBus.emit('tutorial:show_command');
     };
 
     const handleCommandComplete = ({ index }: { index: number }) => {
-      // 커맨드 완료 → 해설 오버레이 (metaIndex = 완료된 커맨드 인덱스 + 1)
       setInputBlocked(true);
       setOverlayState({ phase: 'explanation', metaIndex: index + 1 });
     };
@@ -74,7 +81,6 @@ export function useTutorialMode(isTutorial: boolean) {
     };
   }, [isTutorial, setInputBlocked]);
 
-  // 언마운트 시 입력 차단 해제
   useEffect(() => {
     return () => {
       setInputBlocked(false);
@@ -90,28 +96,25 @@ export function useTutorialMode(isTutorial: boolean) {
     return () => clearTimeout(timer);
   }, [overlayState?.phase, overlayState?.metaIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** description → 다음 description 또는 완료 모달 */
   const handleNext = useCallback(
     (currentMetaIndex: number) => {
       const nextMeta = currentMetaIndex + 1;
-      if (nextMeta >= tutorialStepMeta.length) {
+      if (nextMeta > totalCommands) {
         setOverlayState(null);
         setModalPhase('completed');
       } else {
-        setInputBlocked(false); // 다음 명령어 입력 허용
+        setInputBlocked(false);
         setOverlayState({ phase: 'description', metaIndex: nextMeta });
-        EventBus.emit('tutorial:show_command'); // Phaser에 다음 명령어 표시 요청
+        EventBus.emit('tutorial:show_command');
       }
     },
-    [setInputBlocked, tutorialStepMeta]
+    [setInputBlocked, totalCommands]
   );
 
-  /** pause 모달 "계속하기" */
   const handleResume = useCallback(() => {
     setModalPhase('game');
   }, []);
 
-  /** pause 모달 "스킵하기" */
   const handleSkip = useCallback(() => {
     setInputBlocked(false);
     setOverlayState(null);

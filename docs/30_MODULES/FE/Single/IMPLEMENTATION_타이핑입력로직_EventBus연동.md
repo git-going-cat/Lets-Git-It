@@ -83,7 +83,7 @@ React의 `commandIndex` state보다 Phaser Scene이 들고 있는 `commandIndex`
 - `command:miss` 수신 후 `isGameEnded` 플래그가 설정되기 전에 `showCurrentCommand()`가 호출될 수 있다. `SingleScene.onCommandTimeout()`에서 `if (this.isGameEnded) return` 가드로 방어하고 있다.
 - `useSingleGame`의 `useEffect` 의존 배열이 `[]` (eslint-disable 처리)다. 게임 시작 시 한 번만 등록되어야 하며 difficulty 등이 변경될 때 재등록하면 이벤트 핸들러가 중복 등록된다. `stateRef`로 최신 값을 참조하는 방식으로 처리했다.
 - `typoRef`로 최신 오타 수를 읽는 패턴은 이벤트 핸들러 클로저 stale 문제를 피하기 위함이다. atom 값이 클로저에 캡처되면 항상 초기값(0)이 읽힌다.
-- `SinglePage`의 세션 데이터는 현재 `MOCK_SESSION` 하드코딩이다. API 연동 스프린트에서 `singleApi.ts` 구현 후 교체 필요.
+- ~~`SinglePage`의 세션 데이터는 현재 `MOCK_SESSION` 하드코딩이다~~ → **구현 완료**. `singleApi.startSession(difficulty)` 호출로 교체됨. `IMPLEMENTATION_싱글게임인게임상태관리.md` — "11. singleApi + Zod 스키마 구현" 참고.
 - ~~아이템 사용(Alt+1/2/3) 로직은 미구현 상태다~~ → **구현 완료**. `IMPLEMENTATION_아이템드롭및사용.md` 참고.
 - `commandIndexRef`는 `useSingleGame` 내 `handleComplete` / `handleMiss`에서 수동으로 갱신한다. React 배치 업데이트로 atom 구독 ref가 stale해지는 것을 방지하기 위함이다.
 

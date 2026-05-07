@@ -16,9 +16,9 @@ dist
 dist-ssr
 *.local
 
-# 캐시 폴더
-.vite/
+# 개발 도구 캐시
 .tanstack/
+.vite/
 
 # 환경변수 파일 (git에 올리지 않음)
 .env

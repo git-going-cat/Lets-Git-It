@@ -80,7 +80,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
   showCommand(command: Command, fallDuration: number, onTimeout: () => void): void {
     this.clearCommand();
 
-    const node = this.buildNode(command.displayText);
+    const node = this.buildNode(command.text);
     node.setPosition(this.laneWidth / 2, NODE.START_Y);
     this.add(node);
     this.commandNode = node;
@@ -103,7 +103,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
    */
   startTutorialFall(command: Command, targetY: number, fallDuration: number): void {
     this.clearCommand();
-    const node = this.buildNode(command.displayText);
+    const node = this.buildNode(command.text);
     node.setPosition(this.laneWidth / 2, NODE.START_Y);
     this.add(node);
     this.commandNode = node;

@@ -5,8 +5,6 @@ import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
 import MyPageModal from '@/features/mypage/components/MyPageModal';
 import RankingModal from '@/features/ranking/components/RankingModal';
 
-import { useApplySoundSettings } from '../hooks/useApplySoundSettings';
-
 import LogoSection from './LogoSection';
 import LogoutModal from './modals/LogoutModal';
 import SettingsModal from './modals/SettingsModal';
@@ -22,7 +20,6 @@ import type { HomeModalType } from '../types/home.types';
 export function HomePage() {
   const [activeModal, setActiveModal] = useState<HomeModalType | null>(null);
   const [isMyPageOpen, setIsMyPageOpen] = useState(false);
-  useApplySoundSettings();
 
   const handleOpenModal = (modal: HomeModalType) => {
     setActiveModal(modal);

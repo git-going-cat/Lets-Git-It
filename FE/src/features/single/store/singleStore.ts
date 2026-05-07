@@ -1,28 +1,29 @@
 import { create } from 'zustand';
 
-import { TUTORIAL_STEP_META } from '../constants/tutorialData';
-
-import type { TutorialStepMeta } from '../constants/tutorialData';
-import type { Command, Difficulty } from '../types/single.types';
+import type { StartSessionData } from '../schemas/single.schema';
+import type { Command, Difficulty, PlayLogEntry } from '../types/single.types';
+import type { TutorialStep } from '@/features/auth/schemas/onboarding.schema';
 
 interface SingleSessionState {
   sessionId: string | null;
   difficulty: Difficulty | null;
   bestScore: number;
   commandSet: Command[];
-  githubName: string | null;
   isTutorial: boolean;
-  /** 튜토리얼 단계 메타 정보. API 응답으로 교체되기 전까지 기본값으로 하드코딩 사용 */
-  tutorialStepMeta: TutorialStepMeta[];
+  tutorialSteps: TutorialStep[];
+  // playLog는 현재 BE API에서 미지원 — 악성 유저 대응을 위해 FE에서 구조만 선행 구현
+  playLog: PlayLogEntry[];
 }
 
 interface SingleSessionActions {
   setSession: (
-    session: Omit<SingleSessionState, 'tutorialStepMeta'> & {
-      tutorialStepMeta?: TutorialStepMeta[];
+    session: StartSessionData & {
+      isTutorial?: boolean;
+      tutorialSteps?: TutorialStep[];
     }
   ) => void;
   clearSession: () => void;
+  appendLog: (entry: PlayLogEntry) => void;
 }
 
 const initialState: SingleSessionState = {
@@ -30,9 +31,9 @@ const initialState: SingleSessionState = {
   difficulty: null,
   bestScore: 0,
   commandSet: [],
-  githubName: null,
   isTutorial: false,
-  tutorialStepMeta: TUTORIAL_STEP_META,
+  tutorialSteps: [],
+  playLog: [],
 };
 
 export const useSingleStore = create<SingleSessionState & SingleSessionActions>((set) => ({
@@ -40,7 +41,10 @@ export const useSingleStore = create<SingleSessionState & SingleSessionActions>(
   setSession: (session) =>
     set((prev) => ({
       ...session,
-      tutorialStepMeta: session.tutorialStepMeta ?? prev.tutorialStepMeta,
+      isTutorial: session.isTutorial ?? false,
+      tutorialSteps: session.tutorialSteps ?? prev.tutorialSteps,
+      playLog: [],
     })),
   clearSession: () => set(initialState),
+  appendLog: (entry) => set((state) => ({ playLog: [...state.playLog, entry] })),
 }));

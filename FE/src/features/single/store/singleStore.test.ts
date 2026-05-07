@@ -2,65 +2,73 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useSingleStore } from './singleStore';
 
-import type { Command } from '../types/single.types';
-
-const mockCommandSet: Command[] = [
-  {
-    commandSequence: 0,
-    text: "git commit -m 'init'",
-    displayText: 'init',
-    branchName: 'main',
-    type: 'COMMON',
-  },
-];
-
-const mockSession = {
-  sessionId: 'session-abc-123',
-  difficulty: 'NORMAL' as const,
-  bestScore: 8000,
-  commandSet: mockCommandSet,
-  githubName: 'gitcat-dev',
-};
-
-beforeEach(() => {
-  useSingleStore.getState().clearSession();
-});
-
 describe('useSingleStore', () => {
+  beforeEach(() => {
+    useSingleStore.getState().clearSession();
+  });
+
+  it('초기 상태에서 세션 필드는 null, playLog는 빈 배열', () => {
+    const state = useSingleStore.getState();
+    expect(state.sessionId).toBeNull();
+    expect(state.difficulty).toBeNull();
+    expect(state.bestScore).toBe(0);
+    expect(state.commandSet).toEqual([]);
+    expect(state.playLog).toEqual([]);
+  });
+
   describe('setSession', () => {
-    it('세션 데이터를 저장하면 모든 필드가 정확히 반영된다', () => {
-      useSingleStore.getState().setSession(mockSession);
-
-      const { sessionId, difficulty, bestScore, commandSet } = useSingleStore.getState();
-
-      expect(sessionId).toBe(mockSession.sessionId);
-      expect(difficulty).toBe(mockSession.difficulty);
-      expect(bestScore).toBe(mockSession.bestScore);
-      expect(commandSet).toEqual(mockSession.commandSet);
+    it('API 응답 데이터를 스토어에 저장한다', () => {
+      useSingleStore.getState().setSession({
+        sessionId: 'abc-123',
+        difficulty: 'NORMAL',
+        bestScore: 200,
+        commandSet: [],
+      });
+      const state = useSingleStore.getState();
+      expect(state.sessionId).toBe('abc-123');
+      expect(state.difficulty).toBe('NORMAL');
+      expect(state.bestScore).toBe(200);
     });
 
-    it('bestScore 0인 세션을 저장하면 0으로 설정된다', () => {
-      useSingleStore.getState().setSession({ ...mockSession, bestScore: 0 });
+    it('세션 교체 시 기존 playLog를 초기화한다', () => {
+      useSingleStore.getState().appendLog({ seq: 0, event: 'typo' });
+      useSingleStore.getState().setSession({
+        sessionId: 'new-session',
+        difficulty: 'EASY',
+        bestScore: 0,
+        commandSet: [],
+      });
+      expect(useSingleStore.getState().playLog).toEqual([]);
+    });
+  });
 
-      expect(useSingleStore.getState().bestScore).toBe(0);
+  describe('appendLog', () => {
+    it('항목을 순서대로 누적한다', () => {
+      useSingleStore.getState().appendLog({ seq: 0, event: 'complete' });
+      useSingleStore.getState().appendLog({ seq: 1, event: 'miss' });
+      useSingleStore.getState().appendLog({ seq: 2, event: 'typo' });
+      expect(useSingleStore.getState().playLog).toEqual([
+        { seq: 0, event: 'complete' },
+        { seq: 1, event: 'miss' },
+        { seq: 2, event: 'typo' },
+      ]);
     });
   });
 
   describe('clearSession', () => {
-    it('clearSession 호출 후 모든 필드가 초기값으로 복귀된다', () => {
-      useSingleStore.getState().setSession(mockSession);
+    it('세션 데이터와 playLog를 초기 상태로 리셋한다', () => {
+      useSingleStore.getState().setSession({
+        sessionId: 'abc',
+        difficulty: 'HARD',
+        bestScore: 500,
+        commandSet: [],
+      });
+      useSingleStore.getState().appendLog({ seq: 0, event: 'typo' });
       useSingleStore.getState().clearSession();
-
-      const { sessionId, difficulty, bestScore, commandSet } = useSingleStore.getState();
-
-      expect(sessionId).toBeNull();
-      expect(difficulty).toBeNull();
-      expect(bestScore).toBe(0);
-      expect(commandSet).toEqual([]);
-    });
-
-    it('세션 저장 없이 clearSession을 호출해도 에러가 발생하지 않는다', () => {
-      expect(() => useSingleStore.getState().clearSession()).not.toThrow();
+      const state = useSingleStore.getState();
+      expect(state.sessionId).toBeNull();
+      expect(state.difficulty).toBeNull();
+      expect(state.playLog).toEqual([]);
     });
   });
 });
