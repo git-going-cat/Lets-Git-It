@@ -6,6 +6,7 @@ import { EventBus } from '@/core/bridge/EventBus';
 import { singleGameConfig } from '@/game/config';
 
 import { useSingleGame } from '../hooks/useSingleGame';
+import { useTutorialMode } from '../hooks/useTutorialMode';
 import { SingleScene } from '../scenes/SingleScene';
 import { useSingleStore } from '../store/singleStore';
 
@@ -14,18 +15,28 @@ import ChuruStack from './ChuruStack';
 import CommandInput from './CommandInput';
 import GameProgress from './GameProgress';
 import SingleHUD from './SingleHUD';
+import TutorialCompleteModal from './TutorialCompleteModal';
+import TutorialOverlay from './TutorialOverlay';
+import TutorialPauseModal from './TutorialPauseModal';
 
-export default function SingleGameContent() {
+interface SingleGameContentProps {
+  onTutorialComplete?: () => void;
+}
+
+export default function SingleGameContent({ onTutorialComplete }: SingleGameContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
 
-  const { sessionId, difficulty, commandSet } = useSingleStore();
+  const { sessionId, difficulty, commandSet, isTutorial } = useSingleStore();
   const totalCommands = useMemo(
     () => commandSet.filter((c) => c.type !== 'SWITCH').length,
     [commandSet]
   );
 
   useSingleGame();
+
+  const { overlayState, modalPhase, handleNext, handleResume, handleSkip } =
+    useTutorialMode(isTutorial);
 
   useEffect(() => {
     if (!containerRef.current || !sessionId || !difficulty) return;
@@ -43,6 +54,7 @@ export default function SingleGameContent() {
         sessionId,
         difficulty,
         commandSet,
+        isTutorial,
       });
     });
 
@@ -50,7 +62,7 @@ export default function SingleGameContent() {
       game.destroy(true);
       gameRef.current = null;
     };
-  }, [sessionId, difficulty, commandSet]);
+  }, [sessionId, difficulty, commandSet, isTutorial]);
 
   return (
     <div className="relative flex h-screen overflow-hidden text-white">
@@ -71,25 +83,40 @@ export default function SingleGameContent() {
       </div>
       <div className="relative flex w-[15%] flex-col">
         <div className="flex h-48 flex-col">
-          {/* 상단: 우측 정렬된 일시정지 버튼 */}
           <div className="flex justify-end p-2">
             <button
               type="button"
               className="nes-btn text-xl"
-              onClick={() => EventBus.emit('game:pause')}
+              onClick={() =>
+                isTutorial ? EventBus.emit('tutorial:pause') : EventBus.emit('game:pause')
+              }
               aria-label="일시정지"
             >
               ⏸
             </button>
           </div>
-
-          {/* 하단: 중앙 정렬된 캐릭터 */}
           <div className="flex flex-1 items-end justify-center border-b border-gray-600">
             <CatSprite />
           </div>
         </div>
         <ChuruStack totalCommands={totalCommands} />
       </div>
+
+      {/* 튜토리얼 전용 오버레이 및 모달 */}
+      {isTutorial && (
+        <>
+          {overlayState && <TutorialOverlay state={overlayState} onNext={handleNext} />}
+          {modalPhase === 'paused' && (
+            <TutorialPauseModal onResume={handleResume} onSkip={handleSkip} />
+          )}
+          {(modalPhase === 'completed' || modalPhase === 'skipped') && (
+            <TutorialCompleteModal
+              isSkipped={modalPhase === 'skipped'}
+              onHome={onTutorialComplete ?? (() => {})}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }

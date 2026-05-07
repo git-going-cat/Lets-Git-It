@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { EventBus } from '@/core/bridge/EventBus';
 
+import { TUTORIAL_FALL_DURATION_MS } from '../constants/tutorialData';
 import { parseSwitchTarget } from '../utils/branchParser';
 
 import { BranchLane } from './BranchLane';
@@ -38,6 +39,7 @@ export class SingleScene extends Phaser.Scene {
   private isGameEnded = false;
   private isUserPaused = false;
   private stashTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private isTutorialMode = false;
 
   constructor() {
     super({ key: 'SingleScene' });
@@ -52,6 +54,7 @@ export class SingleScene extends Phaser.Scene {
     this.commandIndex = 0;
     this.elapsedMs = 0;
     this.isGameEnded = false;
+    this.isTutorialMode = raw.isTutorial ?? false;
     this.fallDuration = FALL_DURATION_MS[difficulty];
 
     this.initLanes(commandSet);
@@ -87,6 +90,8 @@ export class SingleScene extends Phaser.Scene {
     EventBus.off('game:over', this.handleGameEnd);
     EventBus.off('game:complete', this.handleGameEnd);
     EventBus.off('item:use', this.handleItemUse);
+    EventBus.off('tutorial:show_command', this.handleTutorialShowCommand);
+    EventBus.off('tutorial:freeze_command', this.handleTutorialFreezeCommand);
   }
 
   private initLanes(commandSet: Command[]): void {
@@ -110,6 +115,8 @@ export class SingleScene extends Phaser.Scene {
     EventBus.on('game:over', this.handleGameEnd);
     EventBus.on('game:complete', this.handleGameEnd);
     EventBus.on('item:use', this.handleItemUse);
+    EventBus.on('tutorial:show_command', this.handleTutorialShowCommand);
+    EventBus.on('tutorial:freeze_command', this.handleTutorialFreezeCommand);
   }
 
   private startTimer(): void {
@@ -180,7 +187,10 @@ export class SingleScene extends Phaser.Scene {
     this.lanes.get(cmd.branchName)?.clearCommand();
     this.applyBranchEffect(cmd);
     this.commandIndex++;
-    this.showCurrentCommand();
+    // 튜토리얼 모드: useTutorialMode가 tutorial:show_command를 emit할 때까지 대기
+    if (!this.isTutorialMode) {
+      this.showCurrentCommand();
+    }
   };
 
   private readonly handleGamePause = (): void => {
@@ -216,8 +226,25 @@ export class SingleScene extends Phaser.Scene {
   };
 
   private readonly handleGameStart = (): void => {
+    // 튜토리얼 모드: 타이머 없이 useTutorialMode의 tutorial:show_command를 기다림
+    if (this.isTutorialMode) return;
     this.startTimer();
     this.showCurrentCommand();
+  };
+
+  /** 튜토리얼 전용: 현재 콌맨드를 레인 상단에서 TUTORIAL_FALL_DURATION_MS 동안 freeze Y까지 낙하시킵니다. */
+  private readonly handleTutorialShowCommand = (): void => {
+    if (this.commandIndex >= this.commandSet.length) return;
+    const cmd = this.commandSet[this.commandIndex];
+    const freezeY = this.scale.height * 0.45;
+    this.lanes.get(cmd.branchName)?.startTutorialFall(cmd, freezeY, TUTORIAL_FALL_DURATION_MS);
+  };
+
+  /** 튜토리얼 전용: 낙하 중인 콌맨드를 현위치에 멈춰 점선 깜빡임 인디케이터를 표시합니다. */
+  private readonly handleTutorialFreezeCommand = (): void => {
+    if (this.commandIndex >= this.commandSet.length) return;
+    const cmd = this.commandSet[this.commandIndex];
+    this.lanes.get(cmd.branchName)?.freezeWithBlink();
   };
 
   private readonly handleGameRestart = (): void => {

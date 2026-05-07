@@ -1,7 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
-import TutorialReplayPage from '@/features/auth/components/TutorialReplayPage';
+import { useAuthStore } from '@/features/auth/store/authStore';
+import TutorialPage from '@/features/single/components/TutorialPage';
 
 export const Route = createFileRoute('/tutorial')({
-  component: TutorialReplayPage,
+  beforeLoad: () => {
+    const { isAuthenticated, user } = useAuthStore.getState();
+    if (!isAuthenticated) {
+      throw redirect({ to: '/login' });
+    }
+    if (user?.onboardingStatus === 'TUTORIAL_DONE') {
+      throw redirect({ to: '/home' });
+    }
+  },
+  component: TutorialPage,
 });

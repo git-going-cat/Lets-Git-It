@@ -16,6 +16,9 @@ export interface EventMap {
   'item:use': { slot: 0 | 1 | 2 };
   'branch:switch': { branch: string };
   'lane:create': { branch: string };
+  'tutorial:pause': void;
+  'tutorial:show_command': void;
+  'tutorial:freeze_command': void;
 }
 
 type EventKey = keyof EventMap;

@@ -25,4 +25,5 @@ export interface SingleSceneData {
   sessionId: string;
   difficulty: Difficulty;
   commandSet: Command[];
+  isTutorial?: boolean;
 }

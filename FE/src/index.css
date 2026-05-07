@@ -28,6 +28,22 @@
   }
 }
 
+/* 튜토리얼 말풍선 슬라이드인 */
+@keyframes tutorial-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tutorial-bubble-wrap {
+  animation: tutorial-bubble-in 0.28s ease-out both;
+}
+
 @keyframes combo-pop {
   0% {
     transform: scale(1.7);

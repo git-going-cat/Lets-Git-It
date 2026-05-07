@@ -36,7 +36,7 @@ export const onboardingApi = {
   },
 
   /**
-   * 튜토리얼 단계 목록 조회 (인증 불필요).
+   * 튜토리얼 단계 목록 조회 (accessToken 인증 필요).
    */
   getTutorialSteps: async () => {
     const res = await http.get('/api/v1/tutorial');

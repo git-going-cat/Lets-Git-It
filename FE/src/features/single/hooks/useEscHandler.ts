@@ -4,6 +4,7 @@ import { useAtom } from 'jotai';
 import { EventBus } from '@/core/bridge/EventBus';
 
 import { gameStatusAtom } from '../store/gameStatusAtom';
+import { useSingleStore } from '../store/singleStore';
 
 /**
  * ESC 키로 게임 일시정지·재개를 처리하는 훅.
@@ -21,6 +22,11 @@ export function useEscHandler() {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      if (useSingleStore.getState().isTutorial) {
+        // 튜토리얼 모드: ESC → 스킵 확인 모달
+        EventBus.emit('tutorial:pause');
+        return;
+      }
       if (statusRef.current === 'playing') {
         EventBus.emit('game:pause');
       } else if (statusRef.current === 'paused') {

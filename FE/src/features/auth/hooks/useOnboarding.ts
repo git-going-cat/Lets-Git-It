@@ -12,7 +12,8 @@ import type { OnboardingStep } from '../types/onboarding.types';
 function resolveInitialStep(status: OnboardingStatus): OnboardingStep {
   switch (status) {
     case 'NICKNAME_SET_DONE':
-      return 'character';
+      // 닉네임+캐릭터 설정 완료 → 튜토리얼 여부 선택 단계부터 재개
+      return 'tutorial-prompt';
     case 'TUTORIAL_DONE':
       return 'completing';
     default:
@@ -34,9 +35,17 @@ export function useOnboarding() {
     resolveInitialStep(user?.onboardingStatus ?? 'NONE')
   );
 
-  const goToStep = useCallback((next: OnboardingStep) => {
-    setStep(next);
-  }, []);
+  const goToStep = useCallback(
+    (next: OnboardingStep) => {
+      if (next === 'tutorial') {
+        // 실제 게임 환경의 튜토리얼 페이지로 이동
+        navigate({ to: '/tutorial' });
+        return;
+      }
+      setStep(next);
+    },
+    [navigate]
+  );
 
   const { mutateAsync: completeTutorial } = useMutation({
     mutationFn: () => onboardingApi.completeTutorial(),

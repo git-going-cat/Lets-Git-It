@@ -4,6 +4,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { EventBus } from '@/core/bridge/EventBus';
 
 import { gameStatusAtom } from '../store/gameStatusAtom';
+import { useSingleStore } from '../store/singleStore';
 
 /**
  * PauseModal의 표시 여부와 버튼 핸들러를 제공합니다.
@@ -16,7 +17,8 @@ export function usePauseModal() {
   const setGameStatus = useSetAtom(gameStatusAtom);
   const navigate = useNavigate();
 
-  const isVisible = gameStatus === 'paused';
+  const isTutorial = useSingleStore((s) => s.isTutorial);
+  const isVisible = gameStatus === 'paused' && !isTutorial;
 
   const onResume = () => {
     setGameStatus('playing');
