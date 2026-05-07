@@ -18,7 +18,7 @@ export default function CommandDetail({ command }: CommandDetailProps) {
       {/* 뱃지 */}
       <div className="mb-4">
         <span
-          className={`inline-block rounded px-2 py-1 text-xs font-semibold ${
+          className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
             command.isInGame ? 'bg-[#0078d4]/10 text-[#0078d4]' : 'bg-gray-100 text-gray-500'
           }`}
         >

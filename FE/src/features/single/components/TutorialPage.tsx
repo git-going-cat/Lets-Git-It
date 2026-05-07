@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Provider } from 'jotai';
 
 import { onboardingApi } from '@/features/auth/api/onboardingApi';
@@ -60,6 +60,7 @@ function extractCommandSet(steps: TutorialStep[]): Command[] {
  */
 export default function TutorialPage() {
   const navigate = useNavigate();
+  const { replay } = useSearch({ from: '/tutorial' });
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,9 +95,15 @@ export default function TutorialPage() {
   }, []);
 
   const handleTutorialComplete = useCallback(async () => {
+    const user = useAuthStore.getState().user;
+
+    if (replay || user?.onboardingStatus === 'TUTORIAL_DONE') {
+      await navigate({ to: '/home', replace: true });
+      return;
+    }
+
     try {
       await onboardingApi.completeTutorial();
-      const user = useAuthStore.getState().user;
       if (user) {
         useAuthStore.setState({ user: { ...user, onboardingStatus: 'TUTORIAL_DONE' } });
       }
@@ -104,7 +111,7 @@ export default function TutorialPage() {
       // 이미 TUTORIAL_DONE인 경우 무시
     }
     await navigate({ to: '/home', replace: true });
-  }, [navigate]);
+  }, [navigate, replay]);
 
   if (error) {
     return (

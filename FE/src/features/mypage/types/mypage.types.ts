@@ -10,6 +10,7 @@ export interface CharacterAsset {
 export interface MyRecord extends CharacterAsset {
   nickname: string;
   authType: AuthType;
+  totalPlayTime: string;
   singleEasyBest: number;
   singleNormalBest: number;
   singleHardBest: number;

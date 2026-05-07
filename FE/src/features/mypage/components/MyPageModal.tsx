@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Power } from 'lucide-react';
 
 import CharacterPreview from '@/features/auth/components/CharacterPreview';
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -46,21 +47,25 @@ export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) 
 
   return (
     <div
-      // -translate-x-[120%]: 슬라이드 아웃 시 요소 너비 기준 120% 이동해 화면에서 완전히 숨깁니다.
+      // translate-y-[120%]: 닫힘 상태에서 패널을 아래쪽으로 완전히 숨깁니다.
       className={`absolute bottom-12 left-0 z-40 flex h-auto w-modal-md flex-col rounded-t-xl rounded-br-xl bg-[#f3f3f3]/95 p-6 shadow-2xl backdrop-blur transition-all duration-300 ease-in-out ${
-        isOpen ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-[120%] opacity-0'
+        isOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-[120%] opacity-0'
       }`}
     >
       <div className="mb-4 flex shrink-0 items-center justify-between px-2">
-        <div className="flex items-center gap-2">
-          <span className="text-[#0078d4]">{nickname || '닉네임 없음'}</span>
-        </div>
         <button
           type="button"
-          className="rounded-lg px-2 py-1 text-sm text-gray-500 transition-colors hover:bg-white/70 hover:text-gray-800"
+          className="nes-rounded-button px-2 py-1 text-[#0078d4] transition-colors hover:bg-white/70"
           onClick={() => setIsEditProfileOpen(true)}
         >
-          내 정보 수정 &gt;
+          {nickname || '닉네임 없음'}
+        </button>
+        <button
+          type="button"
+          className="nes-rounded-button px-2 py-1 text-sm text-gray-500 transition-colors hover:bg-white/70 hover:text-gray-800"
+          onClick={() => setIsEditProfileOpen(true)}
+        >
+          내 정보 수정
         </button>
       </div>
 
@@ -72,7 +77,7 @@ export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) 
           <button
             type="button"
             onClick={() => setIsEditCharacterOpen(true)}
-            className="flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white py-2 shadow-sm transition-colors hover:bg-[#f0f0f0]"
+            className="nes-rounded-button flex w-full items-center justify-center border border-gray-300 bg-white py-2 shadow-sm transition-colors hover:bg-[#f0f0f0]"
           >
             <span className="text-xs font-bold text-gray-600">캐릭터 수정</span>
           </button>
@@ -86,9 +91,16 @@ export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) 
                 <div className="h-10 w-full animate-pulse rounded bg-gray-200" />
                 <div className="h-10 w-full animate-pulse rounded bg-gray-200" />
                 <div className="h-10 w-full animate-pulse rounded bg-gray-200" />
+                <div className="h-10 w-full animate-pulse rounded bg-gray-200" />
               </>
             ) : (
               <>
+                <RecordItem
+                  color="bg-sky-500"
+                  title="총 플레이 시간"
+                  subtitle="All Modes"
+                  value={record?.totalPlayTime ?? '00:00:00'}
+                />
                 <RecordItem
                   color="bg-green-500"
                   title="이지 Best"
@@ -135,9 +147,11 @@ export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) 
         <button
           type="button"
           onClick={onOpenLogout}
-          className="flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-600 active:bg-red-700"
+          className="nes-rounded-button flex h-10 w-10 items-center justify-center border border-red-300 bg-white text-red-500 shadow-sm transition-colors hover:border-red-500 hover:bg-red-50 active:bg-red-100"
+          aria-label="로그아웃"
+          title="로그아웃"
         >
-          로그아웃
+          <Power size={18} strokeWidth={2.2} aria-hidden="true" />
         </button>
       </div>
 

@@ -147,7 +147,7 @@ export default function EditCharacterModal({
           <button
             type="button"
             onClick={closeWithReset}
-            className="rounded-lg border border-[rgba(140,170,210,0.35)] bg-[rgba(255,255,255,0.72)] px-6 py-2.5 text-sm font-bold text-[#5a6a8a] shadow-sm transition-all hover:bg-white"
+            className="nes-rounded-button border border-[rgba(140,170,210,0.35)] bg-[rgba(255,255,255,0.72)] px-6 py-2.5 text-sm font-bold text-[#5a6a8a] shadow-sm transition-all hover:bg-white"
           >
             취소
           </button>
@@ -155,7 +155,7 @@ export default function EditCharacterModal({
             type="button"
             onClick={handleSave}
             disabled={!isDirty || saveCharacterMutation.isPending}
-            className="rounded-lg bg-[#3a5a8a] px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#2f4c78] disabled:cursor-not-allowed disabled:opacity-50"
+            className="nes-rounded-button bg-[#3a5a8a] px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#2f4c78] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saveCharacterMutation.isPending ? '저장 중...' : '저장'}
           </button>
@@ -213,7 +213,7 @@ function CharacterSaveNotice({ type, onConfirm }: CharacterSaveNoticeProps) {
         <button
           type="button"
           onClick={onConfirm}
-          className="mt-5 rounded-lg bg-[#3a5a8a] px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-[#2f4c78]"
+          className="nes-rounded-button mt-5 bg-[#3a5a8a] px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-[#2f4c78]"
         >
           확인
         </button>

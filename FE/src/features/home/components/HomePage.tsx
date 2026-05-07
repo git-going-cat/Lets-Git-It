@@ -56,6 +56,14 @@ export function HomePage() {
 
       <TutorialNpc />
 
+      {isMyPageOpen && (
+        <div
+          className="absolute inset-0 z-30"
+          onClick={() => setIsMyPageOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* 좌측 마이페이지 바 */}
       <MyPageModal isOpen={isMyPageOpen} onOpenLogout={() => handleOpenModal('logout')} />
 
