@@ -59,7 +59,7 @@ export default function DictionaryModal({ onClose }: DictionaryModalProps) {
                       key={cmd.commandId}
                       type="button"
                       onClick={() => setSelectedCommand(cmd)}
-                      className={`flex flex-col items-center justify-center gap-1 rounded border p-2 text-center transition-colors ${
+                      className={`nes-rounded-button flex flex-col items-center justify-center gap-1 border p-2 text-center transition-colors ${
                         isSelected
                           ? 'border-[#0078d4] bg-[#0078d4]/10'
                           : 'border-gray-200 bg-white hover:border-[#0078d4]/50'
@@ -73,11 +73,11 @@ export default function DictionaryModal({ onClose }: DictionaryModalProps) {
                         {cmd.name}
                       </span>
                       {cmd.isInGame ? (
-                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-bold text-blue-600">
+                        <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-bold text-blue-600">
                           게임 내 사용
                         </span>
                       ) : (
-                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-bold text-gray-500">
+                        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-bold text-gray-500">
                           게임 외
                         </span>
                       )}
@@ -99,7 +99,7 @@ export default function DictionaryModal({ onClose }: DictionaryModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+              className="nes-rounded-button flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
               aria-label="닫기"
             >
               ✕

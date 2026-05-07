@@ -39,7 +39,7 @@ export function useOnboarding() {
     (next: OnboardingStep) => {
       if (next === 'tutorial') {
         // 실제 게임 환경의 튜토리얼 페이지로 이동
-        navigate({ to: '/tutorial' });
+        navigate({ to: '/tutorial', search: { replay: false } });
         return;
       }
       setStep(next);

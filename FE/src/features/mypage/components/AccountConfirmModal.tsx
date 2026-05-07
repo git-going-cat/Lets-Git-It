@@ -45,8 +45,8 @@ export default function AccountConfirmModal({
   const isConfirmDisabled = isPending || (requiresPassword && password.trim().length === 0);
   const confirmButtonClassName =
     confirmVariant === 'danger'
-      ? 'rounded-lg bg-red-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50'
-      : 'rounded-lg bg-blue-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50';
+      ? 'nes-rounded-button bg-red-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50'
+      : 'nes-rounded-button bg-blue-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50';
 
   const handleClose = () => {
     if (isPending) return;
@@ -74,7 +74,7 @@ export default function AccountConfirmModal({
           <button
             type="button"
             onClick={handleClose}
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="nes-rounded-button p-1 text-gray-500 transition-colors hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="닫기"
             disabled={isPending}
           >
@@ -126,7 +126,7 @@ export default function AccountConfirmModal({
                   type="button"
                   aria-label={isPasswordVisible ? '비밀번호 숨기기' : '비밀번호 보기'}
                   onClick={() => setIsPasswordVisible((prev) => !prev)}
-                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                  className="nes-rounded-button absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
                 >
                   <VisibilityIcon size={16} />
                 </button>
@@ -144,7 +144,7 @@ export default function AccountConfirmModal({
             type="button"
             onClick={handleClose}
             disabled={isPending}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="nes-rounded-button border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {cancelLabel}
           </button>

@@ -66,3 +66,8 @@
 .pixel-art {
   image-rendering: pixelated;
 }
+
+/* nes.css button reset을 사용하는 화면에서 버튼 모서리 반경을 보장합니다. */
+.nes-rounded-button {
+  border-radius: 10px !important;
+}

@@ -114,7 +114,6 @@ export function EditProfileModal({
 
   const handleNicknameSuccessConfirm = () => {
     setIsNicknameSuccessNoticeOpen(false);
-    onClose();
   };
 
   const handleWithdraw = (password?: string) => {
@@ -140,12 +139,12 @@ export function EditProfileModal({
 
   return (
     <>
-      <Win11Window title="내 정보 수정" onClose={onClose}>
-        {/* w-[360px]: 계정 수정 모달의 입력 폼 폭을 고정해 버튼/인풋 배치를 안정화합니다. */}
-        <div className="flex w-[360px] flex-col gap-6">
+      {/* w-[540px], grid-cols-[minmax(0,1fr)_auto_auto]: 비밀번호 안내 문구와 닉네임 액션 버튼을 한 줄에 안정적으로 배치하기 위한 고정 폭/컬럼 구성입니다. */}
+      <Win11Window title="내 정보 수정" onClose={onClose} className="w-[540px]">
+        <div className="flex w-full flex-col gap-6">
           <section className="flex flex-col gap-2">
             <h3 className="text-sm font-bold text-gray-800">닉네임 변경</h3>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
               <Input
                 value={nickname}
                 onChange={handleNicknameChange}
@@ -161,17 +160,16 @@ export function EditProfileModal({
               >
                 중복확인
               </Button>
-            </div>
-            {nicknameError && <span className="text-xs text-red-500">{nicknameError}</span>}
-            {nicknameSuccess && <span className="text-xs text-green-600">{nicknameSuccess}</span>}
-            <div className="mt-1 flex justify-end">
               <Button
                 onClick={handleSaveNickname}
                 disabled={!isNicknameChecked || updateNicknameMutation.isPending}
+                className="whitespace-nowrap"
               >
                 저장
               </Button>
             </div>
+            {nicknameError && <span className="text-xs text-red-500">{nicknameError}</span>}
+            {nicknameSuccess && <span className="text-xs text-green-600">{nicknameSuccess}</span>}
           </section>
 
           <hr className="border-gray-200" />
@@ -198,7 +196,7 @@ export function EditProfileModal({
             <button
               type="button"
               onClick={() => setIsWithdrawModalOpen(true)}
-              className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-600 active:bg-red-700"
+              className="nes-rounded-button bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-600 active:bg-red-700"
             >
               회원탈퇴
             </button>
