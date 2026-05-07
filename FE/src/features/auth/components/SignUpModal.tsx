@@ -1,10 +1,12 @@
+import { env } from '@/config/env'; // 환경 변수 추가
+
 import catFacePng from '../assets/Web (mobile + desktop)/cat-face.png';
 import googleIconSvg from '../assets/Web (mobile + desktop)/svg/neutral/web_neutral_rd_na.svg';
 import { useCountdown } from '../hooks/useCountdown';
 import { useSignUpModal } from '../hooks/useSignUpModal';
 import { useVerificationCodeInput } from '../hooks/useVerificationCodeInput';
 
-const GOOGLE_AUTH_URL = '/api/v1/oauth2/authorization/google';
+const GOOGLE_AUTH_URL = `${env.API_BASE_URL}/api/v1/oauth2/authorization/google`; // 개발 주소 추가
 
 const inlineBtn = (active: boolean) =>
   `shrink-0 rounded-full! border-none! px-3 py-2 text-xs font-medium transition-colors ${
