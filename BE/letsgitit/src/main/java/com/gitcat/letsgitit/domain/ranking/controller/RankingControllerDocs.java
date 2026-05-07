@@ -1,5 +1,8 @@
 package com.gitcat.letsgitit.domain.ranking.controller;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+
 import org.springframework.http.ResponseEntity;
 
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
