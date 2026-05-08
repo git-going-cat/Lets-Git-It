@@ -5,6 +5,7 @@ import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
 import MyPageModal from '@/features/mypage/components/MyPageModal';
 import RankingModal from '@/features/ranking/components/RankingModal';
 
+import BoardButton from './BoardButton';
 import LogoSection from './LogoSection';
 import LogoutModal from './modals/LogoutModal';
 import SettingsModal from './modals/SettingsModal';
@@ -46,7 +47,13 @@ export function HomePage() {
       {/* 내부 컴포넌트들은 각각 absolute 클래스를 가지고 있으므로 그대로 렌더링 */}
       <LogoSection />
 
-      <SettingsButton onClick={() => handleOpenModal('settings')} />
+      <div className="absolute left-4 top-4 z-20">
+        <BoardButton />
+      </div>
+
+      <div className="absolute right-4 top-4 z-20">
+        <SettingsButton onClick={() => handleOpenModal('settings')} />
+      </div>
 
       <SideMenuButtons onOpen={handleOpenModal} />
 

@@ -39,7 +39,7 @@ export function Win11Window({
         {/* Title Bar */}
         <div className={`flex items-center justify-between px-3 py-2 select-none ${titleBg}`}>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">{title}</span>
+            <span className="text-base font-semibold">{title}</span>
           </div>
           <div className="flex items-center gap-1">
             <button

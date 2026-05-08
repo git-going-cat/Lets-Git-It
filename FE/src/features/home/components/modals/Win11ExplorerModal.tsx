@@ -316,20 +316,20 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
           {/* 세부 정보 패널 */}
           <div className="flex w-72 shrink-0 flex-col border-l border-gray-200 bg-[#f9f9f9]">
             {selectedData ? (
-              <div className="flex flex-col gap-3 p-4">
+              <div className="flex h-full flex-col gap-2 p-4">
                 <img
                   src={selectedData.img}
                   alt={selectedData.label}
-                  className="pixel-art mx-auto h-36 w-36 object-contain"
+                  className="pixel-art mx-auto h-32 w-32 object-contain"
                   draggable={false}
                 />
-                <p className="text-sm font-bold text-gray-800">{selectedData.label}</p>
-                <div className="h-px w-full bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
+                <p className="text-base font-bold text-gray-800">{selectedData.label}</p>
+                <div className="w-full border-t border-gray-300" />
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  <p className="mb-1 text-sm font-semibold uppercase tracking-wider text-gray-400">
                     세부 정보
                   </p>
-                  <p className="whitespace-pre-line break-words text-xs leading-relaxed text-gray-600">
+                  <p className="whitespace-pre-line break-words text-sm leading-snug text-gray-600">
                     {selectedData.description}
                     {'\n\n'}
                     {selectedData.detail}
@@ -345,7 +345,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 </button>
               </div>
             ) : (
-              <p className="mt-10 px-4 text-center text-xs text-gray-400">항목을 선택하세요</p>
+              <p className="mt-10 px-4 text-center text-sm text-gray-400">항목을 선택하세요</p>
             )}
           </div>
         </div>
