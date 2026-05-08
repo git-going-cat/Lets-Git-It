@@ -3,12 +3,12 @@ deploy-dev:
   image: docker:latest
   tags: [dev]
   before_script:
-    - apk add --no-cache git
+    - apk add --no-cache git curl   # curl 추가
     - git config --global --add safe.directory /home/ubuntu/develop/S14P31A304
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"
   script:
     - cd /home/ubuntu/develop/S14P31A304
     - git pull origin develop
-    - docker compose -f INFRA/docker-compose.be.yml up -d --build spring
+    - bash INFRA/deploy.sh
     - docker compose -f INFRA/docker-compose.fe.yml up -d --build nginx
