@@ -6,6 +6,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.gitcat.letsgitit.domain.member.entity.Member;
+import com.gitcat.letsgitit.domain.member.entity.enums.OnboardingStatus;
 import com.gitcat.letsgitit.domain.record.entity.BestRecordMode;
 import com.gitcat.letsgitit.domain.record.entity.MemberBestRecord;
 import com.gitcat.letsgitit.domain.record.entity.MemberCoopBestRecord;
@@ -17,6 +18,7 @@ public record MemberProfileResponse(
 	AuthType authType,
 	Provider provider,
 	String email,
+	OnboardingStatus onboardingStatus,
 	int totalPlayTime,
 	String characterHair,
 	String characterHairColor,
@@ -35,6 +37,7 @@ public record MemberProfileResponse(
 			member.getAuthType(),
 			member.getProvider(),
 			member.getEmail(),
+			member.getOnboardingStatus(),
 			member.getTotalPlayTime(),
 			member.getCharacterHair(),
 			member.getCharacterHairColor(),
