@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import type { ReactNode } from 'react';
@@ -17,6 +18,8 @@ export function Win11Window({
   glass = false,
   className = '',
 }: Win11WindowProps) {
+  const [isMaximized, setIsMaximized] = useState(false);
+
   const windowBg = glass
     ? 'bg-white/40 backdrop-blur-md border border-white/50 shadow-2xl'
     : 'bg-[#fafafa] shadow-lg';
@@ -28,15 +31,24 @@ export function Win11Window({
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
       <div
-        className={`rounded-lg overflow-hidden flex flex-col min-w-[300px] ${windowBg} ${className}`}
+        // h/w-[calc(...)]: Win11 스타일 최대화 상태에서 화면 여백을 유지하며 모달을 확장합니다.
+        className={`flex min-w-[300px] flex-col overflow-hidden rounded-lg ${windowBg} ${className} ${
+          isMaximized ? 'h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none' : ''
+        }`}
       >
         {/* Title Bar */}
-        <div className={`px-3 py-2 flex items-center justify-between select-none ${titleBg}`}>
+        <div className={`flex items-center justify-between px-3 py-2 select-none ${titleBg}`}>
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold">{title}</span>
           </div>
           <div className="flex items-center gap-1">
-            <button className="p-1 hover:bg-black/10 rounded transition-colors">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded p-1 transition-colors hover:bg-black/10"
+              aria-label="최소화"
+              title="최소화"
+            >
               <svg
                 width="12"
                 height="12"
@@ -47,7 +59,13 @@ export function Win11Window({
                 <rect x="2" y="5.5" width="8" height="1" fill="currentColor" />
               </svg>
             </button>
-            <button className="p-1 hover:bg-black/10 rounded transition-colors">
+            <button
+              type="button"
+              onClick={() => setIsMaximized((prev) => !prev)}
+              className="rounded p-1 transition-colors hover:bg-black/10"
+              aria-label={isMaximized ? '이전 크기로 복원' : '최대화'}
+              title={isMaximized ? '이전 크기로 복원' : '최대화'}
+            >
               <svg
                 width="12"
                 height="12"
@@ -59,8 +77,11 @@ export function Win11Window({
               </svg>
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className="p-1 hover:bg-red-500 hover:text-white rounded transition-colors"
+              className="rounded p-1 transition-colors hover:bg-red-500 hover:text-white"
+              aria-label="닫기"
+              title="닫기"
             >
               <svg
                 width="12"
@@ -80,7 +101,7 @@ export function Win11Window({
           </div>
         </div>
         {/* Content */}
-        <div className="p-4 flex-1 overflow-auto">{children}</div>
+        <div className="flex-1 overflow-auto p-4">{children}</div>
       </div>
     </div>,
     document.body

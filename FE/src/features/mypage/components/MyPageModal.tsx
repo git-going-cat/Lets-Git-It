@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Power } from 'lucide-react';
+import { Power, X } from 'lucide-react';
 
 import CharacterPreview from '@/features/auth/components/CharacterPreview';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { DEFAULT_CHARACTER_VALUES } from '@/features/auth/utils/characterAssets';
+import { useModal } from '@/shared/hooks/useModal';
 
 import { fetchMyRecord } from '../api/mypageApi';
 import { MYPAGE_QUERY_KEYS } from '../constants/queryKeys';
@@ -14,10 +15,13 @@ import { EditProfileModal } from './EditProfileModal';
 
 interface MyPageModalProps {
   isOpen: boolean;
+  onClose: () => void;
   onOpenLogout: () => void;
 }
 
-export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) {
+export default function MyPageModal({ isOpen, onClose, onOpenLogout }: MyPageModalProps) {
+  useModal({ isOpen, onClose });
+
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isEditCharacterOpen, setIsEditCharacterOpen] = useState(false);
   const user = useAuthStore((state) => state.user);
@@ -143,7 +147,16 @@ export default function MyPageModal({ isOpen, onOpenLogout }: MyPageModalProps) 
         </div>
       </div>
 
-      <div className="mt-4 flex shrink-0 justify-start border-t border-gray-300 pt-4">
+      <div className="mt-4 flex shrink-0 justify-between border-t border-gray-300 pt-4">
+        <button
+          type="button"
+          onClick={onClose}
+          className="nes-rounded-button flex h-10 w-10 items-center justify-center border border-gray-300 bg-white text-gray-500 shadow-sm transition-colors hover:border-gray-500 hover:bg-gray-50 hover:text-gray-700 active:bg-gray-100"
+          aria-label="창닫기"
+          title="창닫기"
+        >
+          <X size={18} strokeWidth={2.2} aria-hidden="true" />
+        </button>
         <button
           type="button"
           onClick={onOpenLogout}

@@ -29,6 +29,20 @@ export default function CommandDetail({ command }: CommandDetailProps) {
       <h2 className="mb-2 text-2xl font-bold text-gray-800">{command.name}</h2>
       <p className="mb-6 text-sm text-gray-600">{command.description}</p>
 
+      {command.tip && (
+        <div className="mb-4 rounded border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
+          <h3 className="mb-1 text-xs font-bold text-blue-700">팁</h3>
+          <p>{command.tip}</p>
+        </div>
+      )}
+
+      {command.example && (
+        <div className="mb-4 rounded border border-gray-200 bg-gray-50 p-3 text-sm">
+          <h3 className="mb-1 text-xs font-bold text-gray-700">예시</h3>
+          <code className="break-all text-blue-700">{command.example}</code>
+        </div>
+      )}
+
       {command.imageUrl && (
         <div className="mb-6 shrink-0 overflow-hidden rounded border border-gray-200">
           <img src={command.imageUrl} alt={command.name} className="w-full object-cover" />

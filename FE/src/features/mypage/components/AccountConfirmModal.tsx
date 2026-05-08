@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Eye, EyeOff } from 'lucide-react';
 
 import { Input } from '@/shared/components/Input';
+import { useModal } from '@/shared/hooks/useModal';
 
 import type { ReactNode } from 'react';
 
@@ -52,6 +53,8 @@ export default function AccountConfirmModal({
     if (isPending) return;
     onClose();
   };
+
+  useModal({ isOpen: true, onClose: handleClose });
 
   const handleConfirm = () => {
     if (isConfirmDisabled) return;

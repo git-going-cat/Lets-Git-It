@@ -7,6 +7,7 @@ import { useAuthStore } from '@/features/auth/store/authStore';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Win11Window } from '@/shared/components/Win11Window';
+import { useModal } from '@/shared/hooks/useModal';
 
 import { ACCOUNT_ACTION_COPY, WITHDRAWAL_DELETED_ITEMS } from '../constants/accountActions';
 import { MYPAGE_QUERY_KEYS } from '../constants/queryKeys';
@@ -32,6 +33,8 @@ export function EditProfileModal({
   authType,
   currentNickname = '',
 }: EditProfileModalProps) {
+  useModal({ isOpen, onClose });
+
   const [nickname, setNickname] = useState(currentNickname);
   const [isNicknameChecked, setIsNicknameChecked] = useState(false);
   const [nicknameError, setNicknameError] = useState('');

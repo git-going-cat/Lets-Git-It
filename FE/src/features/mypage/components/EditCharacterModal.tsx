@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import CharacterPreview from '@/features/auth/components/CharacterPreview';
 import { getHairColorOptions, getOutfitColorOptions } from '@/features/auth/utils/characterAssets';
 import { Win11Window } from '@/shared/components/Win11Window';
+import { useModal } from '@/shared/hooks/useModal';
 
 import { BODY_ASSETS, EYE_ASSETS, HAIR_ASSETS, OUTFIT_ASSETS } from '../constants/characterAssets';
 import { useEditCharacter } from '../hooks/useEditCharacter';
@@ -23,6 +24,8 @@ export default function EditCharacterModal({
   const [saveNotice, setSaveNotice] = useState<SaveNotice>(null);
   const { selected, handleSelect, closeWithReset, saveCharacterMutation, isDirty } =
     useEditCharacter(currentAsset, onClose);
+
+  useModal({ isOpen, onClose: closeWithReset });
 
   if (!isOpen) return null;
 

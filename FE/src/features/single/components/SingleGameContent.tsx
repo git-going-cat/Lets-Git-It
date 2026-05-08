@@ -21,9 +21,13 @@ import TutorialPauseModal from './TutorialPauseModal';
 
 interface SingleGameContentProps {
   onTutorialComplete?: () => void;
+  onTutorialExit?: () => void;
 }
 
-export default function SingleGameContent({ onTutorialComplete }: SingleGameContentProps) {
+export default function SingleGameContent({
+  onTutorialComplete,
+  onTutorialExit,
+}: SingleGameContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
 
@@ -37,6 +41,12 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
 
   const { overlayState, modalPhase, handleNext, handleResume, handleSkip } =
     useTutorialMode(isTutorial);
+
+  useEffect(() => {
+    if (modalPhase === 'skipped') {
+      void onTutorialComplete?.();
+    }
+  }, [modalPhase, onTutorialComplete]);
 
   useEffect(() => {
     if (!containerRef.current || !sessionId || !difficulty) return;
@@ -105,15 +115,14 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
       {/* 튜토리얼 전용 오버레이 및 모달 */}
       {isTutorial && (
         <>
-          {overlayState && <TutorialOverlay state={overlayState} onNext={handleNext} />}
+          {overlayState && (
+            <TutorialOverlay state={overlayState} onNext={handleNext} onExit={onTutorialExit} />
+          )}
           {modalPhase === 'paused' && (
             <TutorialPauseModal onResume={handleResume} onSkip={handleSkip} />
           )}
-          {(modalPhase === 'completed' || modalPhase === 'skipped') && (
-            <TutorialCompleteModal
-              isSkipped={modalPhase === 'skipped'}
-              onHome={onTutorialComplete ?? (() => {})}
-            />
+          {modalPhase === 'completed' && (
+            <TutorialCompleteModal isSkipped={false} onHome={onTutorialComplete ?? (() => {})} />
           )}
         </>
       )}

@@ -1,3 +1,5 @@
+import { useModal } from '@/shared/hooks/useModal';
+
 import { useDictionaryModal } from '../hooks/useDictionaryModal';
 
 import CommandDetail from './CommandDetail';
@@ -7,6 +9,8 @@ interface DictionaryModalProps {
 }
 
 export default function DictionaryModal({ onClose }: DictionaryModalProps) {
+  useModal({ isOpen: true, onClose });
+
   const {
     searchQuery,
     setSearchQuery,
