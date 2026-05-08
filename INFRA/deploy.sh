@@ -32,8 +32,8 @@ docker compose -f "$COMPOSE_FILE" up -d --build "spring-$NEXT"
 echo "[헬스체크] spring-$NEXT 응답 대기 중..."
 
 for i in $(seq 1 20); do
-  RESPONSE=$(curl -s --connect-timeout 3 \
-    "http://spring-$NEXT:8080/actuator/health" || true)
+  RESPONSE=$(docker exec gitlab-runner \
+    wget -qO- "http://spring-$NEXT:8080/actuator/health" || true)
 
   echo "[DEBUG] health response: $RESPONSE"
 
