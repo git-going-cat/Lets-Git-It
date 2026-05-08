@@ -36,6 +36,8 @@ export default function CharacterPreview({ values, className = 'w-36 h-72' }: Pr
     // 스프라이트 프레임 크기: 48×96
     const FRAME_W = 48;
     const FRAME_H = 96;
+    const CROP_TOP = 10;
+    const CROP_H = FRAME_H - CROP_TOP;
 
     // Idle 애니메이션: row 1 (y=96)
     // 정면 방향: right*6 + back*6 + left*6 = 18 프레임 건너뜀 → srcX = 18 * 48 = 864
@@ -51,7 +53,7 @@ export default function CharacterPreview({ values, className = 'w-36 h-72' }: Pr
         if (cancelled) return;
         const img = await loadImage(src);
         if (img && !cancelled) {
-          ctx.drawImage(img, srcX, srcY, FRAME_W, FRAME_H, 0, 0, FRAME_W, FRAME_H);
+          ctx.drawImage(img, srcX, srcY + CROP_TOP, FRAME_W, CROP_H, 0, 0, FRAME_W, FRAME_H);
         }
       }
     }

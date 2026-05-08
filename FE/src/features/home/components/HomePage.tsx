@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import bgImage from '@/assets/bg/screen.png';
 import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
 import MyPageModal from '@/features/mypage/components/MyPageModal';
 import RankingModal from '@/features/ranking/components/RankingModal';
+import { useBgm } from '@/shared/hooks/useBgm';
 
+import BoardButton from './BoardButton';
 import LogoSection from './LogoSection';
 import LogoutModal from './modals/LogoutModal';
 import SettingsModal from './modals/SettingsModal';
@@ -18,8 +20,13 @@ import TutorialNpc from './TutorialNpc';
 import type { HomeModalType } from '../types/home.types';
 
 export function HomePage() {
+  useBgm();
   const [activeModal, setActiveModal] = useState<HomeModalType | null>(null);
   const [isMyPageOpen, setIsMyPageOpen] = useState(false);
+
+  useEffect(() => {
+    void import('@/features/single/components/SinglePage');
+  }, []);
 
   const handleOpenModal = (modal: HomeModalType) => {
     setActiveModal(modal);
@@ -46,7 +53,13 @@ export function HomePage() {
       {/* 내부 컴포넌트들은 각각 absolute 클래스를 가지고 있으므로 그대로 렌더링 */}
       <LogoSection />
 
-      <SettingsButton onClick={() => handleOpenModal('settings')} />
+      <div className="absolute left-16 top-34 z-20">
+        <BoardButton />
+      </div>
+
+      <div className="absolute right-4 top-4 z-20">
+        <SettingsButton onClick={() => handleOpenModal('settings')} />
+      </div>
 
       <SideMenuButtons onOpen={handleOpenModal} />
 
@@ -56,8 +69,20 @@ export function HomePage() {
 
       <TutorialNpc />
 
+      {isMyPageOpen && (
+        <div
+          className="absolute inset-0 z-30"
+          onClick={() => setIsMyPageOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* 좌측 마이페이지 바 */}
-      <MyPageModal isOpen={isMyPageOpen} onOpenLogout={() => handleOpenModal('logout')} />
+      <MyPageModal
+        isOpen={isMyPageOpen}
+        onClose={() => setIsMyPageOpen(false)}
+        onOpenLogout={() => handleOpenModal('logout')}
+      />
 
       {/* 하단 작업표시줄 */}
       <div className="absolute bottom-0 left-0 right-0 z-50 flex h-12 items-center bg-white/30 px-4 backdrop-blur-md">

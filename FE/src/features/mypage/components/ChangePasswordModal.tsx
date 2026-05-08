@@ -5,6 +5,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Win11Window } from '@/shared/components/Win11Window';
+import { useModal } from '@/shared/hooks/useModal';
 
 import { useUpdatePassword, useVerifyPassword } from '../hooks/useEditProfile';
 import { changePasswordSchema } from '../schemas/editProfile.schema';
@@ -52,7 +53,7 @@ function PasswordField({
           type="button"
           aria-label={isVisible ? '비밀번호 숨기기' : '비밀번호 보기'}
           onClick={onToggleVisibility}
-          className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          className="nes-rounded-button absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
         >
           <VisibilityIcon size={16} />
         </button>
@@ -76,8 +77,6 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
   const verifyMutation = useVerifyPassword();
   const updateMutation = useUpdatePassword();
 
-  if (!isOpen) return null;
-
   const resetForm = () => {
     setStep('verify');
     setCurrentPassword('');
@@ -95,6 +94,10 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
     setIsSuccessNoticeOpen(false);
     onClose();
   };
+
+  useModal({ isOpen, onClose: handleClose });
+
+  if (!isOpen) return null;
 
   const handleSuccessConfirm = () => {
     handleClose();

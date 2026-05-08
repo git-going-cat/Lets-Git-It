@@ -1,10 +1,10 @@
-import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type RefObject, useCallback, useRef, useState } from 'react';
 
-import { useRankingWindow } from '../hooks/useRankingWindow';
+import { useRankingListScroll } from '../hooks/useRankingListScroll';
 import { formatScore, getGrade, getValueLabel, GRADE_COLOR_CLASSES } from '../utils/rankingFormat';
 
 import type { useRanking } from '../hooks/useRanking';
-import type { MyRank, RankingEntry, RankingMode, WeekParam } from '../types/ranking.types';
+import type { MyRank, RankingEntry, RankingMode } from '../types/ranking.types';
 
 type RankingQueryResult = ReturnType<typeof useRanking>;
 type RankingDirection = 'up' | 'down';
@@ -13,98 +13,101 @@ interface RankingListProps {
   mode: RankingMode;
   data: RankingQueryResult['data'];
   fetchNextPage: RankingQueryResult['fetchNextPage'];
+  fetchPreviousPage: RankingQueryResult['fetchPreviousPage'];
   hasNextPage: RankingQueryResult['hasNextPage'];
+  hasPreviousPage: RankingQueryResult['hasPreviousPage'];
   isFetchingNextPage: RankingQueryResult['isFetchingNextPage'];
+  isFetchingPreviousPage: RankingQueryResult['isFetchingPreviousPage'];
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   scrollResetKey: string;
-  selectedWeek: WeekParam | null;
 }
 
 interface InitialRankingPage {
+  top3?: RankingEntry[];
   around?: RankingEntry[];
   myRank?: MyRank;
-  nextCursor?: number | null;
-  hasNext?: boolean;
 }
 
-/**
- * 랭킹 모달의 리스트 영역을 렌더링한다.
- *
- * @description RankingPodium이 top3를 담당하므로 이 컴포넌트는 초기 around와
- *              사용자 스크롤 이후의 위/아래 추가 랭킹만 렌더링한다.
- */
 export default function RankingList({
   mode,
   data,
+  fetchNextPage,
+  fetchPreviousPage,
+  hasNextPage,
+  hasPreviousPage,
   isFetchingNextPage,
+  isFetchingPreviousPage,
   scrollContainerRef,
   scrollResetKey,
-  selectedWeek,
 }: RankingListProps) {
   const upperObserverTarget = useRef<HTMLDivElement>(null);
   const lowerObserverTarget = useRef<HTMLDivElement>(null);
-  const myRankTargetRef = useRef<HTMLDivElement | null>(null);
-  const hasScrolledToMyRankRef = useRef(false);
+  const hasScrolledToFocusRef = useRef(false);
   const suppressScrollRef = useRef(false);
   const lastScrollTopRef = useRef(0);
+  const previousScrollHeightRef = useRef<number | null>(null);
   const scrollDirectionRef = useRef<RankingDirection | null>(null);
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
 
-  const initialPage = data?.pages[0] as InitialRankingPage | undefined;
+  const initialPageIndex = data?.pages.findIndex((page) => 'around' in page) ?? -1;
+  const initialPage =
+    initialPageIndex >= 0 ? (data?.pages[initialPageIndex] as InitialRankingPage) : undefined;
   const around = mergeRankingEntries(initialPage?.around ?? []);
   const myRank = initialPage?.myRank ?? null;
+  const hasMyRankingWindow = myRank !== null || around.length > 0;
+  const baseRankings = hasMyRankingWindow ? around : mergeRankingEntries(initialPage?.top3 ?? []);
   const myRankValue = myRank?.rank ?? null;
-  const firstAroundRank = around[0]?.rank ?? null;
-  const lastAroundRank = around[around.length - 1]?.rank ?? null;
-  const initialLowerCursor = initialPage?.nextCursor ?? null;
-  const initialHasUpper = firstAroundRank !== null && firstAroundRank > 1;
-  const initialHasLower = Boolean(initialPage?.hasNext);
-
-  const {
-    upperList,
-    lowerList,
-    hasUpper,
-    hasLower,
-    loadUpperRankings,
-    loadLowerRankings,
-    shouldAdjustUpperScrollRef,
-    prevScrollHeightRef,
-  } = useRankingWindow({
-    mode,
-    selectedWeek,
-    scrollContainerRef,
-    scrollResetKey,
-    initialUpperCursor: firstAroundRank,
-    initialLowerCursor,
-    initialHasUpper,
-    initialHasLower,
-  });
+  const lastBaseRank = baseRankings[baseRankings.length - 1]?.rank ?? null;
 
   const valueLabel = getValueLabel(mode);
   const showGrade = mode !== 'coop';
-  const aroundRankSet = createRankSet(around);
-  const visibleUpperList = mergeRankingEntries(upperList).filter(
-    (entry) =>
-      !aroundRankSet.has(entry.rank) && (firstAroundRank === null || entry.rank < firstAroundRank)
+  const visibleAround = baseRankings;
+  const nextPageEntries = mergeRankingEntries(
+    data?.pages.flatMap((page, index) => {
+      if (index <= initialPageIndex || !('rankings' in page)) return [];
+      return page.rankings;
+    }) ?? []
   );
-  const visibleAround = around;
-  const loadedRankSet = createRankSet([...visibleUpperList, ...visibleAround]);
-  const visibleLowerList = mergeRankingEntries(lowerList).filter(
-    (entry) =>
-      !loadedRankSet.has(entry.rank) && (lastAroundRank === null || entry.rank > lastAroundRank)
+  const previousPageEntries = mergeRankingEntries(
+    data?.pages.flatMap((page, index) => {
+      if (index >= initialPageIndex || !('rankings' in page)) return [];
+      return page.rankings;
+    }) ?? []
   );
-  const showUpperGap = firstAroundRank !== null && firstAroundRank > 1 && hasUpper;
+  const loadedRankSet = createRankSet(visibleAround);
+  const visibleUpperList = previousPageEntries.filter((entry) => !loadedRankSet.has(entry.rank));
+  const loadedUpperAndAroundRankSet = createRankSet([...visibleUpperList, ...visibleAround]);
+  const visibleLowerList = nextPageEntries.filter(
+    (entry) =>
+      !loadedUpperAndAroundRankSet.has(entry.rank) &&
+      (lastBaseRank === null || entry.rank > lastBaseRank)
+  );
+  const focusRank = myRankValue;
+  const hasUpper = Boolean(hasPreviousPage);
+  const hasLower = Boolean(hasNextPage);
+  const shouldPreloadLowerRankings =
+    myRank === null && baseRankings.length > 0 && nextPageEntries.length === 0 && hasNextPage;
 
-  const myRankCallback = useCallback(
+  const loadUpperRankings = useCallback(() => {
+    if (isFetchingPreviousPage) return;
+    previousScrollHeightRef.current = scrollContainerRef.current?.scrollHeight ?? null;
+    void fetchPreviousPage();
+  }, [fetchPreviousPage, isFetchingPreviousPage, scrollContainerRef]);
+
+  const loadLowerRankings = useCallback(() => {
+    if (isFetchingNextPage) return;
+    void fetchNextPage();
+  }, [fetchNextPage, isFetchingNextPage]);
+
+  const focusTargetCallback = useCallback(
     (node: HTMLDivElement | null) => {
-      myRankTargetRef.current = node;
-      if (!scrollResetKey || !node || hasScrolledToMyRankRef.current || !scrollContainerRef.current)
+      if (!scrollResetKey || !node || hasScrolledToFocusRef.current || !scrollContainerRef.current)
         return;
 
       suppressScrollRef.current = true;
       node.scrollIntoView({ behavior: 'instant', block: 'center' });
       lastScrollTopRef.current = scrollContainerRef.current.scrollTop;
-      hasScrolledToMyRankRef.current = true;
+      hasScrolledToFocusRef.current = true;
       requestAnimationFrame(() => {
         suppressScrollRef.current = false;
       });
@@ -112,111 +115,33 @@ export default function RankingList({
     [scrollContainerRef, scrollResetKey]
   );
 
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer) return undefined;
-
-    const handleScroll = () => {
-      const nextScrollTop = scrollContainer.scrollTop;
-      if (nextScrollTop === lastScrollTopRef.current) return;
-
-      const direction: RankingDirection = nextScrollTop > lastScrollTopRef.current ? 'down' : 'up';
-      scrollDirectionRef.current = direction;
-      lastScrollTopRef.current = nextScrollTop;
-
-      if (suppressScrollRef.current) return;
-      if (!hasUserScrolled) {
-        setHasUserScrolled(true);
-      }
-
-      if (
-        direction === 'up' &&
-        upperObserverTarget.current &&
-        isElementVisible(upperObserverTarget.current, scrollContainer)
-      ) {
-        void loadUpperRankings();
-      }
-      if (
-        direction === 'down' &&
-        lowerObserverTarget.current &&
-        isElementVisible(lowerObserverTarget.current, scrollContainer)
-      ) {
-        void loadLowerRankings();
-      }
-    };
-
-    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-
-    if (!hasUserScrolled) {
-      return () => {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-      };
-    }
-
-    const upperObserver =
-      upperObserverTarget.current && showUpperGap
-        ? new IntersectionObserver(
-            (entries) => {
-              if (entries[0].isIntersecting && scrollDirectionRef.current === 'up') {
-                void loadUpperRankings();
-              }
-            },
-            { root: scrollContainer, threshold: 1.0 }
-          )
-        : null;
-    const lowerObserver =
-      lowerObserverTarget.current && hasLower
-        ? new IntersectionObserver(
-            (entries) => {
-              if (entries[0].isIntersecting && scrollDirectionRef.current === 'down') {
-                void loadLowerRankings();
-              }
-            },
-            { root: scrollContainer, threshold: 1.0 }
-          )
-        : null;
-
-    if (upperObserverTarget.current) {
-      upperObserver?.observe(upperObserverTarget.current);
-    }
-    if (lowerObserverTarget.current) {
-      lowerObserver?.observe(lowerObserverTarget.current);
-    }
-
-    return () => {
-      upperObserver?.disconnect();
-      lowerObserver?.disconnect();
-      scrollContainer.removeEventListener('scroll', handleScroll);
-    };
-  }, [
+  useRankingListScroll({
+    scrollContainerRef,
+    upperObserverTarget,
+    lowerObserverTarget,
+    lastScrollTopRef,
+    previousScrollHeightRef,
+    scrollDirectionRef,
+    suppressScrollRef,
+    hasUpper,
     hasLower,
     hasUserScrolled,
-    loadLowerRankings,
+    visibleUpperListLength: visibleUpperList.length,
+    shouldPreloadLowerRankings,
+    setHasUserScrolled,
     loadUpperRankings,
-    scrollContainerRef,
-    showUpperGap,
-  ]);
-
-  useLayoutEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer || !shouldAdjustUpperScrollRef.current) return;
-
-    const scrollHeightDiff = scrollContainer.scrollHeight - prevScrollHeightRef.current;
-    if (scrollHeightDiff > 0) {
-      scrollContainer.scrollTop += scrollHeightDiff;
-    }
-    shouldAdjustUpperScrollRef.current = false;
-  }, [prevScrollHeightRef, scrollContainerRef, shouldAdjustUpperScrollRef, upperList.length]);
+    loadLowerRankings,
+  });
 
   if (!data) return null;
 
   const renderEntry = (entry: RankingEntry) => {
     const isMe = myRankValue !== null && entry.rank === myRankValue;
+    const shouldFocusEntry = focusRank !== null && entry.rank === focusRank;
     const grade = getGrade(mode, entry);
 
     return (
-      <div key={entry.rank} ref={isMe ? myRankCallback : undefined}>
-        {/* Tailwind 기본 색상으로 표현하기 어려운 반투명 내 순위 하이라이트 */}
+      <div key={entry.rank} ref={shouldFocusEntry ? focusTargetCallback : undefined}>
         <div
           className={`flex items-center px-4 py-2.5 text-sm transition-colors ${
             isMe
@@ -229,7 +154,7 @@ export default function RankingList({
             {entry.nickname}
             {isMe && (
               <span className="rounded bg-cyan-500 px-1.5 py-0.5 text-xs font-bold text-white">
-                나
+                ME
               </span>
             )}
           </span>
@@ -252,7 +177,6 @@ export default function RankingList({
 
   return (
     <div className="flex flex-col">
-      {/* Tailwind 기본 색상으로 표현하기 어려운 연한 헤더 배경 */}
       <div className="flex items-center bg-[rgba(100,140,200,0.07)] px-4 py-2 text-xs font-semibold text-[#7a8aaa]">
         <span className="w-12 text-center">순위</span>
         <span className="flex-1">닉네임</span>
@@ -260,12 +184,13 @@ export default function RankingList({
         {showGrade && <span className="w-14 text-center">등급</span>}
       </div>
 
-      {showUpperGap && (
-        <div
-          ref={upperObserverTarget}
-          className="flex items-center justify-center py-2 text-sm text-gray-400"
-        >
-          ···
+      {hasUpper && (
+        <div ref={upperObserverTarget} className="flex justify-center py-2 text-sm text-gray-400">
+          {isFetchingPreviousPage ? (
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500" />
+          ) : (
+            '이전 순위 더 보기'
+          )}
         </div>
       )}
       {visibleUpperList.map((entry) => renderEntry(entry))}
@@ -276,12 +201,11 @@ export default function RankingList({
           {isFetchingNextPage ? (
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500" />
           ) : (
-            '···'
+            '아래 순위 더 보기'
           )}
         </div>
       )}
 
-      {/* Tailwind 기본 색상으로 표현하기 어려운 연한 하단 안내 배경 */}
       <div className="border-t border-t-[rgba(100,140,200,0.1)] bg-[rgba(100,140,200,0.05)] px-4 py-2 text-center text-xs text-[#9aaac8]">
         매주 월요일 00:00 초기화
       </div>
@@ -291,13 +215,6 @@ export default function RankingList({
 
 function createRankSet(entries: RankingEntry[]): Set<number> {
   return new Set(entries.map((entry) => entry.rank));
-}
-
-function isElementVisible(target: HTMLElement, scrollContainer: HTMLElement): boolean {
-  const targetRect = target.getBoundingClientRect();
-  const containerRect = scrollContainer.getBoundingClientRect();
-
-  return targetRect.bottom >= containerRect.top && targetRect.top <= containerRect.bottom;
 }
 
 function mergeRankingEntries(entries: RankingEntry[]): RankingEntry[] {

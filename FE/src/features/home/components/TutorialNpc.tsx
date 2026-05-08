@@ -17,7 +17,7 @@ export default function TutorialNpc() {
   );
 
   const handleNpcClick = () => {
-    void navigate({ to: '/tutorial' });
+    void navigate({ to: '/tutorial', search: { replay: true } });
   };
 
   const handleCloseBubble = (e: React.MouseEvent) => {

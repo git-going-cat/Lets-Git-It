@@ -12,13 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TutorialRouteImport } from './routes/tutorial'
 import { Route as TimeattackRouteImport } from './routes/timeattack'
 import { Route as SingleRouteImport } from './routes/single'
-import { Route as RankingRouteImport } from './routes/ranking'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as MypageRouteImport } from './routes/mypage'
 import { Route as MultiRouteImport } from './routes/multi'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomeRouteImport } from './routes/home'
-import { Route as DictionaryRouteImport } from './routes/dictionary'
 import { Route as CoopRouteImport } from './routes/coop'
 import { Route as ContributionRouteImport } from './routes/contribution'
 import { Route as IndexRouteImport } from './routes/index'
@@ -29,7 +26,7 @@ const TutorialRoute = TutorialRouteImport.update({
   id: '/tutorial',
   path: '/tutorial',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/tutorial.lazy').then((d) => d.Route))
 const TimeattackRoute = TimeattackRouteImport.update({
   id: '/timeattack',
   path: '/timeattack',
@@ -39,20 +36,10 @@ const SingleRoute = SingleRouteImport.update({
   id: '/single',
   path: '/single',
   getParentRoute: () => rootRouteImport,
-} as any)
-const RankingRoute = RankingRouteImport.update({
-  id: '/ranking',
-  path: '/ranking',
-  getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/single.lazy').then((d) => d.Route))
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MypageRoute = MypageRouteImport.update({
-  id: '/mypage',
-  path: '/mypage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MultiRoute = MultiRouteImport.update({
@@ -69,12 +56,7 @@ const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
   getParentRoute: () => rootRouteImport,
-} as any)
-const DictionaryRoute = DictionaryRouteImport.update({
-  id: '/dictionary',
-  path: '/dictionary',
-  getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/home.lazy').then((d) => d.Route))
 const CoopRoute = CoopRouteImport.update({
   id: '/coop',
   path: '/coop',
@@ -105,13 +87,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/contribution': typeof ContributionRoute
   '/coop': typeof CoopRoute
-  '/dictionary': typeof DictionaryRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
-  '/mypage': typeof MypageRoute
   '/onboarding': typeof OnboardingRoute
-  '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
   '/tutorial': typeof TutorialRoute
@@ -122,13 +101,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/contribution': typeof ContributionRoute
   '/coop': typeof CoopRoute
-  '/dictionary': typeof DictionaryRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
-  '/mypage': typeof MypageRoute
   '/onboarding': typeof OnboardingRoute
-  '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
   '/tutorial': typeof TutorialRoute
@@ -140,13 +116,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/contribution': typeof ContributionRoute
   '/coop': typeof CoopRoute
-  '/dictionary': typeof DictionaryRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
-  '/mypage': typeof MypageRoute
   '/onboarding': typeof OnboardingRoute
-  '/ranking': typeof RankingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
   '/tutorial': typeof TutorialRoute
@@ -159,13 +132,10 @@ export interface FileRouteTypes {
     | '/'
     | '/contribution'
     | '/coop'
-    | '/dictionary'
     | '/home'
     | '/login'
     | '/multi'
-    | '/mypage'
     | '/onboarding'
-    | '/ranking'
     | '/single'
     | '/timeattack'
     | '/tutorial'
@@ -176,13 +146,10 @@ export interface FileRouteTypes {
     | '/'
     | '/contribution'
     | '/coop'
-    | '/dictionary'
     | '/home'
     | '/login'
     | '/multi'
-    | '/mypage'
     | '/onboarding'
-    | '/ranking'
     | '/single'
     | '/timeattack'
     | '/tutorial'
@@ -193,13 +160,10 @@ export interface FileRouteTypes {
     | '/'
     | '/contribution'
     | '/coop'
-    | '/dictionary'
     | '/home'
     | '/login'
     | '/multi'
-    | '/mypage'
     | '/onboarding'
-    | '/ranking'
     | '/single'
     | '/timeattack'
     | '/tutorial'
@@ -211,13 +175,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ContributionRoute: typeof ContributionRoute
   CoopRoute: typeof CoopRoute
-  DictionaryRoute: typeof DictionaryRoute
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
   MultiRoute: typeof MultiRouteWithChildren
-  MypageRoute: typeof MypageRoute
   OnboardingRoute: typeof OnboardingRoute
-  RankingRoute: typeof RankingRoute
   SingleRoute: typeof SingleRoute
   TimeattackRoute: typeof TimeattackRoute
   TutorialRoute: typeof TutorialRoute
@@ -247,25 +208,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SingleRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/ranking': {
-      id: '/ranking'
-      path: '/ranking'
-      fullPath: '/ranking'
-      preLoaderRoute: typeof RankingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/onboarding': {
       id: '/onboarding'
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mypage': {
-      id: '/mypage'
-      path: '/mypage'
-      fullPath: '/mypage'
-      preLoaderRoute: typeof MypageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/multi': {
@@ -287,13 +234,6 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dictionary': {
-      id: '/dictionary'
-      path: '/dictionary'
-      fullPath: '/dictionary'
-      preLoaderRoute: typeof DictionaryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/coop': {
@@ -348,13 +288,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ContributionRoute: ContributionRoute,
   CoopRoute: CoopRoute,
-  DictionaryRoute: DictionaryRoute,
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
   MultiRoute: MultiRouteWithChildren,
-  MypageRoute: MypageRoute,
   OnboardingRoute: OnboardingRoute,
-  RankingRoute: RankingRoute,
   SingleRoute: SingleRoute,
   TimeattackRoute: TimeattackRoute,
   TutorialRoute: TutorialRoute,

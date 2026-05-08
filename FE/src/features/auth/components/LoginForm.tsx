@@ -20,7 +20,7 @@ export default function LoginForm({ onOpenSignUp, onOpenForgotPassword }: LoginF
       {/* 일반 로그인 폼 */}
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-2">
         {/* 아이디 */}
-        <div>
+        <div className="flex flex-col gap-1">
           <input
             {...register('email')}
             type="email"
@@ -31,7 +31,7 @@ export default function LoginForm({ onOpenSignUp, onOpenForgotPassword }: LoginF
         </div>
 
         {/* 비밀번호 + 전송 버튼 */}
-        <div>
+        <div className="flex flex-col gap-1">
           <div className="relative">
             <input
               {...register('password')}

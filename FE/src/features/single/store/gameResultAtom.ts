@@ -3,7 +3,7 @@ import { atom } from 'jotai';
 import type { Grade } from '@/shared/types/game.types';
 
 export interface GameResult {
-  status: 'SUCCESS' | 'GAMEOVER';
+  status: 'SUCCESS' | 'GAMEOVER' | 'ESCAPE_FAILED' | 'SESSION_EXPIRED';
   score: number;
   grade: Grade;
   playTimeMs: number;

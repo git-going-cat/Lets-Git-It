@@ -1,7 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { useModal } from '@/shared/hooks/useModal';
 
 import { useRanking } from '../hooks/useRanking';
-import { getModeLabel, getPrevWeek } from '../utils/rankingFormat';
+import { getCurrentWeek, getModeLabel, getPrevWeek } from '../utils/rankingFormat';
 
 import RankingList from './RankingList';
 import RankingPodium from './RankingPodium';
@@ -25,29 +28,44 @@ interface RankingModalProps {
  *              selectedWeek=null → 이번 주 API, 값 있음 → 직전 주 history API (2단계).
  */
 export default function RankingModal({ onClose }: RankingModalProps) {
+  useModal({ isOpen: true, onClose });
+
   const [activeMode, setActiveMode] = useState<RankingMode>('single-easy');
   const [selectedWeek, setSelectedWeek] = useState<WeekParam | null>(null);
   const rankingScrollRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
-  const { data, fetchNextPage, hasNextPage, isLoading, isFetchingNextPage } = useRanking(
-    activeMode,
-    selectedWeek
-  );
+  const {
+    data,
+    fetchNextPage,
+    fetchPreviousPage,
+    hasNextPage,
+    hasPreviousPage,
+    isLoading,
+    isFetchingNextPage,
+    isFetchingPreviousPage,
+  } = useRanking(activeMode, selectedWeek);
 
   const isCurrentWeek = selectedWeek === null;
+  const shouldShowPreparingGuide =
+    activeMode === 'single-hard' || !activeMode.startsWith('single-');
 
   // 이번 주 API 응답에서 파생 — history 조회 중에는 null (displayWeek는 selectedWeek 우선)
   const currentWeekInfo = useMemo<WeekParam | null>(() => {
-    if (!isCurrentWeek || !data?.pages[0]) return null;
-    const page = data.pages[0];
-    if ('year' in page && 'month' in page && 'week' in page) {
+    if (shouldShowPreparingGuide || !isCurrentWeek || !data) return null;
+    const page = data.pages.find((rankingPage) => 'year' in rankingPage);
+    if (page && 'year' in page && 'month' in page && 'week' in page) {
       return { year: page.year, month: page.month, week: page.week };
     }
     return null;
-  }, [data, isCurrentWeek]);
+  }, [data, isCurrentWeek, shouldShowPreparingGuide]);
 
-  const initialData = data?.pages[0] && 'top3' in data.pages[0] ? data.pages[0] : null;
-  const displayWeek = selectedWeek ?? currentWeekInfo;
+  const initialData = data?.pages.find((page) => 'top3' in page) ?? null;
+  const cachedSingleWeekInfo = useMemo(() => getCachedSingleWeekInfo(queryClient), [queryClient]);
+  const fallbackCurrentWeek = useMemo(() => getCurrentWeek(), []);
+  const displayWeek =
+    selectedWeek ??
+    (shouldShowPreparingGuide ? (cachedSingleWeekInfo ?? fallbackCurrentWeek) : currentWeekInfo);
   const rankingListKey = `${activeMode}:${selectedWeek?.year ?? 'current'}:${selectedWeek?.month ?? ''}:${
     selectedWeek?.week ?? ''
   }`;
@@ -104,7 +122,7 @@ export default function RankingModal({ onClose }: RankingModalProps) {
             <button
               type="button"
               onClick={handlePrevWeek}
-              disabled={!isCurrentWeek || !currentWeekInfo}
+              disabled={!isCurrentWeek || !currentWeekInfo || shouldShowPreparingGuide}
               className="flex h-7 w-7 items-center justify-center rounded-full text-sm text-gray-600 transition-colors hover:bg-black/10 disabled:opacity-30"
               aria-label="직전 주"
             >
@@ -130,7 +148,11 @@ export default function RankingModal({ onClose }: RankingModalProps) {
           {/* 콘텐츠 카드 */}
           {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
           <div className="mx-4 mb-4 flex flex-1 flex-col overflow-hidden rounded-xl bg-[rgba(255,255,255,0.72)] shadow-lg backdrop-blur-md">
-            {isLoading && !data ? (
+            {shouldShowPreparingGuide ? (
+              <div className="flex flex-1 items-center justify-center text-sm text-gray-500">
+                {getModeLabel(activeMode)} 랭킹은 준비 중입니다.
+              </div>
+            ) : isLoading && !data ? (
               <div className="flex flex-1 items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-500" />
               </div>
@@ -143,11 +165,13 @@ export default function RankingModal({ onClose }: RankingModalProps) {
                     mode={activeMode}
                     data={data}
                     fetchNextPage={fetchNextPage}
+                    fetchPreviousPage={fetchPreviousPage}
                     hasNextPage={hasNextPage}
+                    hasPreviousPage={hasPreviousPage}
                     isFetchingNextPage={isFetchingNextPage}
+                    isFetchingPreviousPage={isFetchingPreviousPage}
                     scrollContainerRef={rankingScrollRef}
                     scrollResetKey={rankingListKey}
-                    selectedWeek={selectedWeek}
                   />
                 </div>
               </div>
@@ -160,5 +184,41 @@ export default function RankingModal({ onClose }: RankingModalProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+function getCachedSingleWeekInfo(queryClient: ReturnType<typeof useQueryClient>) {
+  return (
+    extractWeekInfo(queryClient.getQueryData(['ranking', 'single-easy', 'current', null])) ??
+    extractWeekInfo(queryClient.getQueryData(['ranking', 'single-normal', 'current', null]))
+  );
+}
+
+function extractWeekInfo(data: unknown): WeekParam | null {
+  if (!isPageContainer(data)) return null;
+  const firstPage = data.pages[0];
+
+  if (!isWeekPage(firstPage)) return null;
+  return {
+    year: firstPage.year,
+    month: firstPage.month,
+    week: firstPage.week,
+  };
+}
+
+function isPageContainer(data: unknown): data is { pages: unknown[] } {
+  return typeof data === 'object' && data !== null && 'pages' in data && Array.isArray(data.pages);
+}
+
+function isWeekPage(data: unknown): data is WeekParam {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'year' in data &&
+    'month' in data &&
+    'week' in data &&
+    typeof data.year === 'number' &&
+    typeof data.month === 'number' &&
+    typeof data.week === 'number'
   );
 }

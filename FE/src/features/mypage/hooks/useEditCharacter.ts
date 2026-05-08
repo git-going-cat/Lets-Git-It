@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { useAuthStore } from '@/features/auth/store/authStore';
+
 import { saveCharacterAsset } from '../api/mypageApi';
 import { MYPAGE_QUERY_KEYS } from '../constants/queryKeys';
 
@@ -12,6 +14,7 @@ import type { CharacterAsset, CharacterSelectState } from '../types/mypage.types
 export function useEditCharacter(initialAsset: CharacterAsset, onClose?: () => void) {
   const [selected, setSelected] = useState<CharacterSelectState>(initialAsset);
   const queryClient = useQueryClient();
+  const updateUser = useAuthStore((state) => state.updateUser);
 
   const isDirty = useMemo(
     () =>
@@ -37,7 +40,8 @@ export function useEditCharacter(initialAsset: CharacterAsset, onClose?: () => v
 
   const saveCharacterMutation = useMutation({
     mutationFn: (asset: CharacterAsset) => saveCharacterAsset(asset),
-    onSuccess: () => {
+    onSuccess: (_, asset) => {
+      updateUser(asset);
       queryClient.invalidateQueries({ queryKey: MYPAGE_QUERY_KEYS.myRecord });
     },
   });

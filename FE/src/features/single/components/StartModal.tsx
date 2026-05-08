@@ -4,7 +4,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
 
-import { gameStatusAtom } from '../store/gameStatusAtom';
+import { gameStatusAtom, prePauseStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
 /**
@@ -15,6 +15,7 @@ import { useSingleStore } from '../store/singleStore';
 export default function StartModal() {
   const gameStatus = useAtomValue(gameStatusAtom);
   const setGameStatus = useSetAtom(gameStatusAtom);
+  const prePauseStatus = useAtomValue(prePauseStatusAtom);
   const difficulty = useSingleStore((s) => s.difficulty);
   const isTutorial = useSingleStore((s) => s.isTutorial);
   const tutorialSteps = useSingleStore((s) => s.tutorialSteps);
@@ -23,7 +24,10 @@ export default function StartModal() {
   const [isError, setIsError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  if (gameStatus !== 'idle' || !difficulty) return null;
+  // paused 상태여도 idle에서 넘어온 경우(StartModal 뒤에 PauseModal) 유지
+  const shouldRender =
+    gameStatus === 'idle' || (gameStatus === 'paused' && prePauseStatus === 'idle');
+  if (!shouldRender || !difficulty) return null;
 
   const cloneCommand = tutorialSteps[0]?.commands[0];
 
@@ -42,36 +46,37 @@ export default function StartModal() {
     } else {
       setIsError(true);
       setInputValue('');
-      setTimeout(() => setIsError(false), 800);
     }
   };
 
   return (
     <div className="font-pixel absolute inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div className="nes-container is-dark with-title w-full max-w-lg">
-        <p className="title text-base">{isTutorial ? 'TUTORIAL' : 'MISSION START'}</p>
+      <div className="nes-container is-dark with-title w-full max-w-xl">
+        <p className="title text-xl">{isTutorial ? 'TUTORIAL' : 'MISSION START'}</p>
 
         <div className="flex flex-col gap-5 p-2">
           {isTutorial && tutorialSteps[0] && (
             <>
-              <p className="text-xl font-bold text-yellow-400">{tutorialSteps[0].title}</p>
+              <p className="text-2xl font-bold text-yellow-400">{tutorialSteps[0].title}</p>
               <div className="nes-container is-dark px-4 py-3">
-                <p className="text-xl leading-relaxed text-white">{tutorialSteps[0].description}</p>
+                <p className="text-2xl leading-relaxed text-white">
+                  {tutorialSteps[0].description}
+                </p>
               </div>
-              <p className="text-base text-gray-400">{cloneCommand?.explanation}</p>
+              <p className="text-xl text-gray-400">{cloneCommand?.explanation}</p>
             </>
           )}
 
           {!isTutorial && (
-            <p className="text-xl leading-relaxed text-yellow-400">
+            <p className="text-2xl leading-relaxed text-yellow-400">
               Repository를 클론해서 게임을 시작하세요!
             </p>
           )}
 
           <div>
-            <p className="mb-1 text-base text-gray-400">입력할 명령어:</p>
+            <p className="mb-1 text-xl text-gray-400">입력할 명령어:</p>
             <div className="nes-container is-dark px-4 py-3">
-              <p className="text-xl text-green-400">
+              <p className="text-2xl text-green-400">
                 <span className="text-gray-500">$ </span>
                 {expectedCommand}
               </p>
@@ -83,9 +88,12 @@ export default function StartModal() {
               <input
                 ref={inputRef}
                 type="text"
-                className={`nes-input is-dark w-full text-xl! ${isError ? 'is-error' : ''}`}
+                className={`nes-input is-dark w-full !text-2xl ${isError ? 'is-error' : ''}`}
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  if (isError) setIsError(false);
+                }}
                 onKeyDown={handleKeyDown}
                 onCopy={(e) => e.preventDefault()}
                 onPaste={(e) => e.preventDefault()}
@@ -96,9 +104,10 @@ export default function StartModal() {
                 autoFocus
               />
             </div>
-            {isError && <p className="text-xl text-red-400">올바른 명령어를 입력하세요.</p>}
+            {isError && <p className="text-2xl text-red-400">올바른 명령어를 입력하세요.</p>}
           </div>
         </div>
+        <p className="mt-3 text-center text-base text-gray-500">ESC — 설정</p>
       </div>
     </div>
   );

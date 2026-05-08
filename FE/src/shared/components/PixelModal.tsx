@@ -15,7 +15,7 @@ export default function PixelModal({ isOpen, onClose, title, children }: PixelMo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/80">
+    <div className="fixed inset-0 flex items-center justify-center z-60 bg-black/80">
       <div
         className={`nes-container is-dark is-rounded${title ? 'with-title' : ''} min-w-80 text-base`}
       >

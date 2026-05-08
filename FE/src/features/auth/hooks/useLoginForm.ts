@@ -27,9 +27,9 @@ export function useLoginForm() {
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
 
   const onSubmit = async (values: LoginFormValues) => {
-    setApiError(null);
     try {
       await login(values);
+      setApiError(null); // 로그인 성공시에만 에러 메시지 초기화
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setApiError(axiosErr.response?.data?.message ?? '로그인에 실패했습니다.');

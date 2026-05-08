@@ -29,21 +29,39 @@ export default function ResultModal() {
     isNewRecord,
     isSaving,
     saveError,
+    isRestarting,
     onRestart,
-    onRanking,
     onHome,
   } = useResultModal();
 
   if (!result) return null;
 
   const isSuccess = result.status === 'SUCCESS';
+  const isEscapeFailed = result.status === 'ESCAPE_FAILED';
+  const isSessionExpired = result.status === 'SESSION_EXPIRED';
+
+  const statusLabel = isSuccess
+    ? '✓ SUCCESS'
+    : isEscapeFailed
+      ? '✕ ESCAPE FAILED'
+      : isSessionExpired
+        ? '✕ SESSION EXPIRED'
+        : '✕ GAME OVER';
+  const statusNote = isEscapeFailed
+    ? '츄르가 부족해서 탈출하지 못했습니다.'
+    : isSessionExpired
+      ? '세션 유지 시간이 만료되어 게임이 종료되었습니다.'
+      : null;
 
   return (
     <PixelModal isOpen={isVisible}>
       {/* 성공/실패 배지 */}
-      <span className={`nes-text ${isSuccess ? 'is-success' : 'is-error'} text-xl tracking-widest`}>
-        {isSuccess ? '✓ SUCCESS' : '✕ GAME OVER'}
+      <span
+        className={`nes-text ${isSuccess ? 'is-success' : 'is-error'} text-2xl tracking-widest`}
+      >
+        {statusLabel}
       </span>
+      {statusNote && <p className="m-0 text-base text-red-300">{statusNote}</p>}
 
       {/* 점수 + NEW 뱃지 */}
       <div className="relative flex items-center justify-center mt-2">
@@ -52,7 +70,7 @@ export default function ResultModal() {
             <span>NEW!</span>
           </span>
         )}
-        <span className="nes-text text-4xl tracking-widest text-white">
+        <span className="nes-text text-5xl tracking-widest text-white">
           {String(result.score).padStart(5, '0')}
         </span>
       </div>
@@ -67,20 +85,24 @@ export default function ResultModal() {
           { label: 'DIFFICULTY', value: difficulty ?? '—', valueClassName: 'text-white' },
         ].map(({ label, value, valueClassName }) => (
           <div key={label} className="flex items-center justify-between">
-            <p className="m-0 min-w-60 text-xl text-white">{label}</p>
-            <p className={`m-0 text-right text-xl ${valueClassName}`}>{value}</p>
+            <p className="m-0 min-w-60 text-2xl text-white">{label}</p>
+            <p className={`m-0 text-right text-2xl ${valueClassName}`}>{value}</p>
           </div>
         ))}
       </div>
 
       {/* 점수 저장 상태 */}
-      {isSaving && <p className="text-xs text-gray-400 mt-1">점수 저장 중...</p>}
-      {saveError && <p className="text-xs text-red-400 mt-1">점수 저장에 실패했습니다.</p>}
+      {isSaving && <p className="text-sm text-gray-400 mt-1">점수 저장 중...</p>}
+      {saveError && <p className="text-sm text-red-400 mt-1">점수 저장에 실패했습니다.</p>}
 
       {/* 버튼 */}
       <div className="flex flex-col gap-2 w-full mt-2">
-        <PixelButton label="↺  다시하기" onClick={onRestart} variant="primary" />
-        <PixelButton label="⚑  랭킹 보기" onClick={onRanking} />
+        <PixelButton
+          label="↺  다시하기"
+          onClick={onRestart}
+          variant="primary"
+          disabled={isRestarting}
+        />
         <PixelButton label="⌂  메인으로" onClick={onHome} />
       </div>
     </PixelModal>
