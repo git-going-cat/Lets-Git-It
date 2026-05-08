@@ -65,7 +65,11 @@ export function HomePage() {
       )}
 
       {/* 좌측 마이페이지 바 */}
-      <MyPageModal isOpen={isMyPageOpen} onOpenLogout={() => handleOpenModal('logout')} />
+      <MyPageModal
+        isOpen={isMyPageOpen}
+        onClose={() => setIsMyPageOpen(false)}
+        onOpenLogout={() => handleOpenModal('logout')}
+      />
 
       {/* 하단 작업표시줄 */}
       <div className="absolute bottom-0 left-0 right-0 z-50 flex h-12 items-center bg-white/30 px-4 backdrop-blur-md">

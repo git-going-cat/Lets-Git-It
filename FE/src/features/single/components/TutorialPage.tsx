@@ -113,6 +113,10 @@ export default function TutorialPage() {
     await navigate({ to: '/home', replace: true });
   }, [navigate, replay]);
 
+  const handleTutorialExit = useCallback(() => {
+    void navigate({ to: '/home', replace: true });
+  }, [navigate]);
+
   if (error) {
     return (
       <div className="font-pixel flex h-screen items-center justify-center bg-black text-white">
@@ -142,7 +146,10 @@ export default function TutorialPage() {
   return (
     <Provider>
       <div className="font-pixel">
-        <SingleGameContent onTutorialComplete={handleTutorialComplete} />
+        <SingleGameContent
+          onTutorialComplete={handleTutorialComplete}
+          onTutorialExit={replay ? handleTutorialExit : undefined}
+        />
         <StartModal />
         <PauseModal />
       </div>

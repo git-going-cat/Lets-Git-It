@@ -5,6 +5,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Win11Window } from '@/shared/components/Win11Window';
+import { useModal } from '@/shared/hooks/useModal';
 
 import { useUpdatePassword, useVerifyPassword } from '../hooks/useEditProfile';
 import { changePasswordSchema } from '../schemas/editProfile.schema';
@@ -76,8 +77,6 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
   const verifyMutation = useVerifyPassword();
   const updateMutation = useUpdatePassword();
 
-  if (!isOpen) return null;
-
   const resetForm = () => {
     setStep('verify');
     setCurrentPassword('');
@@ -95,6 +94,10 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
     setIsSuccessNoticeOpen(false);
     onClose();
   };
+
+  useModal({ isOpen, onClose: handleClose });
+
+  if (!isOpen) return null;
 
   const handleSuccessConfirm = () => {
     handleClose();

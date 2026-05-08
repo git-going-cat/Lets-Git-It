@@ -1,8 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface UseModalOptions {
   isOpen: boolean;
   onClose?: () => void;
+}
+
+let nextModalId = 0;
+const modalStack: number[] = [];
+
+function removeModalFromStack(modalId: number) {
+  const index = modalStack.lastIndexOf(modalId);
+  if (index >= 0) {
+    modalStack.splice(index, 1);
+  }
 }
 
 /**
@@ -14,15 +24,39 @@ interface UseModalOptions {
  * 게임 씬 입력 차단은 Phaser에서 처리하므로 이 훅에서는 다루지 않습니다.
  */
 export function useModal({ isOpen, onClose }: UseModalOptions) {
+  const modalIdRef = useRef<number | null>(null);
+  const onCloseRef = useRef(onClose);
+  const canClose = onClose !== undefined;
+
   useEffect(() => {
-    if (!isOpen || !onClose) return;
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen || !canClose) return;
+
+    if (modalIdRef.current === null) {
+      nextModalId += 1;
+      modalIdRef.current = nextModalId;
+    }
+
+    const modalId = modalIdRef.current;
+    if (modalId === null) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      if (modalStack[modalStack.length - 1] !== modalId) return;
+
+      onCloseRef.current?.();
     };
+
+    modalStack.push(modalId);
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+    return () => {
+      removeModalFromStack(modalId);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, canClose]);
 
   useEffect(() => {
     if (!isOpen) return;

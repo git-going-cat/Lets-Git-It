@@ -1,3 +1,4 @@
+import { useModal } from '@/shared/hooks/useModal';
 import { useAudioStore } from '@/shared/store/audioStore';
 
 interface SettingsModalProps {
@@ -5,6 +6,8 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ onClose }: SettingsModalProps) {
+  useModal({ isOpen: true, onClose });
+
   const { bgmEnabled, bgmVolume, setBgmEnabled, setBgmVolume } = useAudioStore();
 
   return (
@@ -44,14 +47,14 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
         <div className="flex flex-col gap-6 p-6">
           <div className="flex flex-col gap-3">
             <h3 className="text-sm font-bold text-gray-800">배경음악</h3>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center text-sm text-gray-700">
               <input
                 type="checkbox"
                 checked={bgmEnabled}
                 onChange={(e) => setBgmEnabled(e.target.checked)}
-                className="rounded border-gray-300 text-[#0078d4] focus:ring-[#0078d4]"
+                className="shrink-0 rounded border-gray-300 text-[#0078d4] focus:ring-[#0078d4]"
               />
-              배경음악 사용
+              <span className="ml-4">배경음악 사용</span>
             </label>
             <div className="flex items-center gap-3">
               <span className="text-xs text-gray-500">볼륨</span>
@@ -71,9 +74,9 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
           {/* 효과음 섹션 — 준비 중 */}
           <div className="flex flex-col gap-3 opacity-40">
             <h3 className="text-sm font-bold text-gray-800">🔊 효과음 (준비 중)</h3>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input type="checkbox" disabled className="rounded border-gray-300" />
-              효과음 사용
+            <label className="flex items-center text-sm text-gray-700">
+              <input type="checkbox" disabled className="shrink-0 rounded border-gray-300" />
+              <span className="ml-4">효과음 사용</span>
             </label>
             <div className="flex items-center gap-3">
               <span className="text-xs text-gray-500">음량</span>

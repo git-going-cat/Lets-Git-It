@@ -61,6 +61,8 @@ export function formatClearTime(ms: number): string {
  */
 export function getGrade(mode: RankingMode, entry: RankingEntry): RankGrade | null {
   if (mode === 'coop') return null;
+  if ('grade' in entry && entry.grade) return entry.grade;
+  if (mode.startsWith('single-')) return null;
 
   let value: number;
   if (mode === 'speed') {
@@ -77,7 +79,8 @@ export function getGrade(mode: RankingMode, entry: RankingEntry): RankGrade | nu
   if (value >= 9000) return 'S';
   if (value >= 7000) return 'A';
   if (value >= 5000) return 'B';
-  return 'C';
+  if (value >= 3000) return 'C';
+  return 'D';
 }
 
 /** 등급별 배경/텍스트 색상 */
@@ -86,6 +89,8 @@ export const GRADE_COLORS: Record<RankGrade, { bg: string; text: string; border:
   A: { bg: '#C8DEFF', text: '#2a4a8a', border: '1px solid rgba(100,140,220,0.25)' },
   B: { bg: '#C0EDD8', text: '#1a6a40', border: '1px solid rgba(50,160,100,0.2)' },
   C: { bg: '#FFD8AA', text: '#7a4010', border: '1px solid rgba(200,120,50,0.2)' },
+  D: { bg: '#E5E7EB', text: '#4B5563', border: '1px solid rgba(107,114,128,0.2)' },
+  F: { bg: '#F3F4F6', text: '#6B7280', border: '1px solid rgba(107,114,128,0.2)' },
 };
 
 export const GRADE_COLOR_CLASSES: Record<RankGrade, string> = {
@@ -93,6 +98,8 @@ export const GRADE_COLOR_CLASSES: Record<RankGrade, string> = {
   A: 'bg-[#C8DEFF] text-[#2a4a8a] border border-[rgba(100,140,220,0.25)]',
   B: 'bg-[#C0EDD8] text-[#1a6a40] border border-[rgba(50,160,100,0.2)]',
   C: 'bg-[#FFD8AA] text-[#7a4010] border border-[rgba(200,120,50,0.2)]',
+  D: 'bg-gray-200 text-gray-600 border border-gray-300',
+  F: 'bg-gray-100 text-gray-500 border border-gray-300',
 };
 
 /** 모드별 컬럼 헤더 라벨 */
@@ -128,6 +135,15 @@ export function getPrevWeek(current: WeekParam): WeekParam {
     return { year: prevYear, month: prevMonth, week: getLastWeekOfMonth(prevYear, prevMonth) };
   }
   return { ...current, week: current.week - 1 };
+}
+
+export function getCurrentWeek(date = new Date()): WeekParam {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const week = Math.ceil((firstDay + date.getDate()) / 7);
+
+  return { year, month, week };
 }
 
 function getLastWeekOfMonth(year: number, month: number): number {

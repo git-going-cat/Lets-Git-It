@@ -22,6 +22,7 @@ export interface SingleRankingEntry {
   rank: number;
   nickname: string;
   score: number;
+  grade?: RankGrade | null;
 }
 
 export interface SpeedRankingEntry {
@@ -53,6 +54,7 @@ export type RankingEntry =
 export interface SingleMyRank {
   rank: number;
   score: number;
+  grade?: RankGrade | null;
 }
 
 export interface SpeedMyRank {
@@ -74,13 +76,15 @@ export type MyRank = SingleMyRank | SpeedMyRank | TimeAttackMyRank | CoopMyRank 
 
 // ── 초기 진입 응답 (top3 + myRank + around) ───────────────
 
-export interface RankingInitialResponse<T extends RankingEntry, M extends MyRank> {
+export interface RankingInitialResponse<T extends RankingEntry, M extends Exclude<MyRank, null>> {
   year: number;
   month: number;
   week: number;
   top3: T[];
-  myRank: M;
+  myRank: M | null;
   around: T[];
+  prevCursor?: number | null;
+  hasPrev?: boolean;
   nextCursor: number | null;
   hasNext: boolean;
 }
@@ -89,14 +93,22 @@ export interface RankingInitialResponse<T extends RankingEntry, M extends MyRank
 
 export interface RankingInfiniteResponse<T extends RankingEntry> {
   rankings: T[];
+  prevCursor?: number | null;
+  hasPrev?: boolean;
   nextCursor: number | null;
   hasNext: boolean;
 }
 
-export type RankingResponse<T extends RankingEntry, M extends MyRank> =
+export type RankingResponse<T extends RankingEntry, M extends Exclude<MyRank, null>> =
   | RankingInitialResponse<T, M>
   | RankingInfiniteResponse<T>;
 
 // ── 등급 뱃지 ─────────────────────────────────────────────
 
-export type RankGrade = 'S' | 'A' | 'B' | 'C';
+export type RankGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
+
+export interface CoopRankingQuery {
+  mapName: string;
+  difficulty: string;
+  mapId?: number;
+}

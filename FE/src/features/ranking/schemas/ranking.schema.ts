@@ -6,6 +6,7 @@ const singleRankingEntrySchema = z.object({
   rank: z.number(),
   nickname: z.string(),
   score: z.number(),
+  grade: z.enum(['S', 'A', 'B', 'C', 'D', 'F']).nullable().optional(),
 });
 
 const speedRankingEntrySchema = z.object({
@@ -40,6 +41,11 @@ const paginationSchema = z.object({
   hasNext: z.boolean(),
 });
 
+const bidirectionalPaginationSchema = paginationSchema.extend({
+  prevCursor: z.number().nullable().optional(),
+  hasPrev: z.boolean().optional(),
+});
+
 // ── 초기 응답 공통 헤더 (주차 정보) ──────────────────────
 
 const weekHeaderSchema = z.object({
@@ -50,33 +56,43 @@ const weekHeaderSchema = z.object({
 
 // ── 초기 응답 스키마 (top3 + myRank + around) ─────────────
 
-export const singleInitialResponseSchema = weekHeaderSchema.merge(paginationSchema).extend({
-  top3: z.array(singleRankingEntrySchema),
-  myRank: z.object({ rank: z.number(), score: z.number() }),
-  around: z.array(singleRankingEntrySchema),
-});
+export const singleInitialResponseSchema = weekHeaderSchema
+  .merge(bidirectionalPaginationSchema)
+  .extend({
+    top3: z.array(singleRankingEntrySchema),
+    myRank: z
+      .object({
+        rank: z.number(),
+        score: z.number(),
+        grade: z.enum(['S', 'A', 'B', 'C', 'D', 'F']).nullable().optional(),
+      })
+      .nullable(),
+    around: z.array(singleRankingEntrySchema),
+  });
 
 export const speedInitialResponseSchema = weekHeaderSchema.merge(paginationSchema).extend({
   top3: z.array(speedRankingEntrySchema),
-  myRank: z.object({ rank: z.number(), contribution: z.number() }),
+  myRank: z.object({ rank: z.number(), contribution: z.number() }).nullable(),
   around: z.array(speedRankingEntrySchema),
 });
 
 export const timeAttackInitialResponseSchema = weekHeaderSchema.merge(paginationSchema).extend({
   top3: z.array(timeAttackRankingEntrySchema),
-  myRank: z.object({ rank: z.number(), totalCount: z.number() }),
+  myRank: z.object({ rank: z.number(), totalCount: z.number() }).nullable(),
   around: z.array(timeAttackRankingEntrySchema),
 });
 
 export const coopInitialResponseSchema = weekHeaderSchema.merge(paginationSchema).extend({
+  mapId: z.number(),
+  mapName: z.string(),
   top3: z.array(coopRankingEntrySchema),
-  myRank: z.object({ rank: z.number(), clearTime: z.number() }),
+  myRank: z.object({ rank: z.number(), clearTime: z.number() }).nullable(),
   around: z.array(coopRankingEntrySchema),
 });
 
 // ── 무한 스크롤 응답 스키마 (rankings) ───────────────────
 
-export const singleInfiniteResponseSchema = paginationSchema.extend({
+export const singleInfiniteResponseSchema = bidirectionalPaginationSchema.extend({
   rankings: z.array(singleRankingEntrySchema),
 });
 
