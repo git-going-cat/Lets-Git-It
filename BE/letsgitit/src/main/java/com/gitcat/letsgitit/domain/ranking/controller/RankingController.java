@@ -33,18 +33,23 @@ public class RankingController implements RankingControllerDocs {
 		@RequestParam
 		Difficulty difficulty,
 		@RequestParam(required = false)
-		Integer cursor,
+		Integer afterRank,
+		@RequestParam(required = false)
+		Integer beforeRank,
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 		UUID memberId = userDetails.getMemberId();
 
-		if (cursor == null) {
+		if (afterRank == null && beforeRank == null) {
 			return ApiResponse.ok("싱글 랭킹 조회 성공",
 				singleRankingService.getSingleRanking(difficulty, size, memberId));
 		}
-
+		if (beforeRank != null) {
+			return ApiResponse.ok("싱글 랭킹 조회 성공",
+				singleRankingService.getSingleRankingScrollBefore(difficulty, beforeRank, size, memberId));
+		}
 		return ApiResponse.ok("싱글 랭킹 조회 성공",
-			singleRankingService.getSingleRankingScroll(difficulty, cursor, size, memberId));
+			singleRankingService.getSingleRankingScrollAfter(difficulty, afterRank, size, memberId));
 	}
 
 	// TODO: 서비스 로직 연동 후 제거
@@ -181,19 +186,27 @@ public class RankingController implements RankingControllerDocs {
 		@RequestParam
 		Integer week,
 		@RequestParam(required = false)
-		Integer cursor,
+		Integer afterRank,
+		@RequestParam(required = false)
+		Integer beforeRank,
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 
 		UUID memberId = userDetails.getMemberId();
 
-		if (cursor == null) {
+		if (afterRank == null && beforeRank == null) {
 			return ApiResponse.ok("싱글 랭킹 조회 성공",
 				singleRankingService.getSingleRankingHistory(difficulty, year, month, week, size, memberId));
 		}
-
+		if (beforeRank != null) {
+			return ApiResponse.ok("싱글 랭킹 조회 성공",
+				singleRankingService.getSingleRankingHistoryScrollBefore(difficulty, year, month, week, beforeRank,
+					size,
+					memberId));
+		}
 		return ApiResponse.ok("싱글 랭킹 조회 성공",
-			singleRankingService.getSingleRankingHistoryScroll(difficulty, year, month, week, cursor, size, memberId));
+			singleRankingService.getSingleRankingHistoryScrollAfter(difficulty, year, month, week, afterRank, size,
+				memberId));
 	}
 
 	// TODO: 서비스 로직 연동 후 제거

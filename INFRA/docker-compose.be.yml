@@ -1,24 +1,32 @@
-services:
+x-spring-common: &spring-common
+  build:
+    context: ../BE/letsgitit
+    dockerfile: ../../INFRA/Dockerfile.be
+  env_file:
+    - ../BE/letsgitit/.env
+  environment:
+    - REDIS_AUTH_HOST=redis-auth
+    - REDIS_GAME_HOST=redis-game
+    - REDIS_RANKING_HOST=redis-ranking
+    - MYSQL_HOST=mysql
+    - TZ=Asia/Seoul
+    - JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Seoul
+  restart: always
+  networks:
+    - letsgit-dev
 
-  spring:
-    build:
-      context: ../BE/letsgitit
-      dockerfile: ../../INFRA/Dockerfile.be
-    container_name: spring
+services:
+  spring-blue:
+    <<: *spring-common
+    container_name: spring-blue
     ports:
       - "8080:8080"
-    env_file:
-      - ../BE/letsgitit/.env
-    environment:
-      - REDIS_AUTH_HOST=redis-auth
-      - REDIS_GAME_HOST=redis-game
-      - REDIS_RANKING_HOST=redis-ranking
-      - MYSQL_HOST=mysql
-      - TZ=Asia/Seoul
-      - JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Seoul
-    restart: always
-    networks:
-      - letsgit-dev
+
+  spring-green:
+    <<: *spring-common
+    container_name: spring-green
+    ports:
+      - "8081:8080"
 
 networks:
   letsgit-dev:
