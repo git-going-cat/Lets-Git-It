@@ -20,6 +20,7 @@ node_modules/
 
 certs/
 INFRA/.env
+INFRA/.env.nginx
 
 # 개발 도구 캐시
 .vite/

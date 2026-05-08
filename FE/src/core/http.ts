@@ -70,7 +70,7 @@ http.interceptors.response.use(
       isRefreshing = true;
       try {
         const { data } = await axios.post<{ data: { accessToken: string } }>(
-          '/api/v1/auth/reissue',
+          `${env.API_BASE_URL}/api/v1/auth/reissue`, // 앞에 개발 주소 추가
           {},
           { baseURL: env.API_BASE_URL, withCredentials: true }
         );

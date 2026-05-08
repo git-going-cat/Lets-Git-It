@@ -38,13 +38,24 @@ ZSet member에 `memberId`만 저장한다. 닉네임은 Redis에 저장하지 �
 
 ### 페이지네이션
 
-cursor 기반 무한 스크롤을 사용한다.
+`afterRank` / `beforeRank` 기반 양방향 무한 스크롤을 사용한다.
 
-- cursor 없음: 초기 응답 (top3 + myRank + around ±2)
-- cursor 있음: cursor 이후 size개 반환
-- cursor는 1-indexed 마지막 확인 순위, Redis ZSet은 0-indexed이므로 `start = cursor`로 변환
+- `afterRank` / `beforeRank` 모두 없음: 초기 응답 (top3 + myRank + around ±2)
+- `afterRank` 있음: afterRank 이후 size개 반환 (아래 방향)
+- `beforeRank` 있음: beforeRank 이전 size개 반환 (위 방향)
 
-`nextCursor`는 마지막 페이지일 때 `null` 반환 (`Integer` 타입).
+**커서 변환 (Redis ZSet 0-indexed 기준)**
+
+| 방향 | 파라미터 | ZSet start | ZSet end |
+|------|---------|-----------|---------|
+| 아래 | `afterRank` (1-based) | `afterRank` | `afterRank + size - 1` |
+| 위 | `beforeRank` (1-based) | `max(0, beforeRank - 2 - size)` | `beforeRank - 2` |
+
+**응답 커서**
+
+- `prevCursor`: 현재 페이지 첫 번째 항목의 1-based 순위. `hasPrev=false`이면 `null`
+- `nextCursor`: 현재 페이지 마지막 항목의 1-based 순위. `hasNext=false`이면 `null`
+- 위 방향 스크롤에서 `hasPrev`는 ZSet `startIdx > 0` 여부로 판단 (size+1 항목 중 첫 항목은 초과 감지용으로 제거)
 
 ---
 
@@ -59,9 +70,9 @@ cursor 기반 무한 스크롤을 사용한다.
 | 범위 조회 | 페이지 오프셋 필요 | ZREVRANGE로 즉시 |
 | 이번 주 한정 | 주간 키로 자동 격리 | 동일 |
 
-### cursor 기반 페이지네이션을 선택한 이유
+### afterRank / beforeRank 기반 양방향 페이지네이션을 선택한 이유
 
-offset 기반은 랭킹 데이터가 실시간으로 바뀔 때 중복/누락이 발생한다. cursor 기반은 마지막으로 확인한 순위 이후부터 조회하므로 이 문제가 없다.
+offset 기반은 랭킹 데이터가 실시간으로 바뀔 때 중복/누락이 발생한다. `afterRank` / `beforeRank` 기반은 마지막으로 확인한 순위를 기준으로 조회하므로 이 문제가 없고, 위·아래 양방향 스크롤이 가능하다.
 
 ### StringRedisTemplate을 선택한 이유
 
@@ -191,11 +202,11 @@ Redis Hash 닉네임 저장 및 조회를 전면 제거하고, 모든 닉네임�
 
 ---
 
-### cursor / size 입력값 검증 누락
+### afterRank / beforeRank / size 입력값 검증 누락
 
 **상황**
 
-코드 리뷰에서 `cursor`와 `size` 파라미터에 범위 검증이 없다는 지적이 있었다. `cursor = -1`, `size = 0` 같은 값이 그대로 Service로 전달되면 Redis 조회 범위가 비정상적으로 계산될 수 있다.
+코드 리뷰에서 `afterRank`, `beforeRank`, `size` 파라미터에 범위 검증이 없다는 지적이 있었다. `afterRank = 0`, `size = 0` 같은 값이 그대로 Service로 전달되면 Redis 조회 범위가 비정상적으로 계산될 수 있다.
 
 **원인**
 
@@ -205,20 +216,30 @@ Redis Hash 닉네임 저장 및 조회를 전면 제거하고, 모든 닉네임�
 
 Controller 레벨에서 Bean Validation으로 처리한다.
 
-- `@Validated`를 Controller 클래스에 선언하면 `@RequestParam`에 붙은 제약 어노테이션이 동작한다.
-- `cursor`: `@Min(0)` — 값이 전달된 경우에만 검증, `null`(초기 요청)은 통과
+- `@Validated`를 Controller 클래스에 선언하면 제약 어노테이션이 동작한다.
+- 파라미터 제약 어노테이션은 구현체(`RankingController`)가 아닌 인터페이스(`RankingControllerDocs`)에만 선언한다. 구현체에서 재정의하면 `ConstraintDeclarationException`이 발생한다(상세 내용은 `IMPLEMENTATION_SINGLE_RANKING_HISTORY.md` Troubleshooting 참고).
+- `afterRank` / `beforeRank`: `@Min(1)` — 값이 전달된 경우에만 검증, `null`(초기 요청)은 통과
 - `size`: `@Min(1) @Max(100)` — `defaultValue = "20"`이 있어 항상 검증 대상
 
 ```java
+// RankingControllerDocs (인터페이스): 파라미터 제약 어노테이션 선언
+ResponseEntity<?> getSingleRanking(
+    Difficulty difficulty,
+    @Min(1) Integer afterRank,
+    @Min(1) Integer beforeRank,
+    @Min(1) @Max(100) Integer size);
+
+// RankingController (구현체): @Validated 선언, 파라미터 제약 없음
 @Validated
 @RestController
-public class RankingController {
+public class RankingController implements RankingControllerDocs {
 
     @GetMapping("/single")
     public ResponseEntity<?> getSingleRanking(
-        @RequestParam String difficulty,
-        @RequestParam(required = false) @Min(0) Integer cursor,
-        @RequestParam(required = false, defaultValue = "20") @Min(1) @Max(100) Integer size) { ... }
+        @RequestParam Difficulty difficulty,
+        @RequestParam(required = false) Integer afterRank,
+        @RequestParam(required = false) Integer beforeRank,
+        @RequestParam(required = false, defaultValue = "20") Integer size) { ... }
 }
 ```
 
@@ -228,8 +249,11 @@ public class RankingController {
 
 ## Test Plan
 
-- Redis에 테스트 데이터를 직접 삽입 후 `GET /api/v1/rankings/single?difficulty=NORMAL` 호출하여 top3 / myRank / around 응답 확인
-- cursor 포함 요청으로 무한 스크롤 동작 확인
+- Redis에 테스트 데이터를 직접 삽입 후 `GET /api/v1/rankings/single?difficulty=NORMAL` 호출하여 top3 / myRank / around / prevCursor / nextCursor 응답 확인
+- `afterRank` 포함 요청으로 아래 방향 무한 스크롤 동작 확인
+- `beforeRank` 포함 요청으로 위 방향 무한 스크롤 동작 확인
+- `hasPrev = false`일 때 `prevCursor: null` 반환 확인
 - `hasNext = false`일 때 `nextCursor: null` 반환 확인
+- `beforeRank=1` 요청 시 빈 응답 반환 확인
 - 존재하지 않는 difficulty 값 입력 시 400 응답 확인
 - 이번 주 기록이 없는 유저의 경우 `myRank: null`, `around: []` 반환 확인

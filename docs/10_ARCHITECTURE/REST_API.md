@@ -590,6 +590,7 @@ GET /api/v1/members/me
 | `authType` | String | `OAUTH` / `LOCAL` |
 | `provider` | String | `GOOGLE` |
 | `email` | String | 이메일 |
+| `onboardingStatus` | String | 첫 로그인 수행 단계 (`NONE` / `NICKNAME_SET_DONE` / `TUTORIAL_DONE`) |
 | `totalPlayTime` | Integer | 총 플레이 시간 (sec) |
 | `characterHair` | String | 캐릭터 머리 에셋 ID |
 | `characterHairColor` | String | 캐릭터 머리색 에셋 ID |
@@ -618,6 +619,7 @@ GET /api/v1/members/me
     "authType": "LOCAL",
     "provider": null,
     "email": "user@example.com",
+    "onboardingStatus": "TUTORIAL_DONE",
     "totalPlayTime": 37200,
     "characterHair": "Hairstyle_01",
     "characterHairColor": "Hairstyle-color_01",
