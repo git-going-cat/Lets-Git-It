@@ -1,6 +1,9 @@
-import { http } from '@/core/http';
+import { isAxiosError } from 'axios';
 
-import { nicknameSchema, tutorialResponseSchema } from '../schemas/onboarding.schema';
+import { http } from '@/core/http';
+import { NICKNAME_DUPLICATE_ERROR_CODE, nicknameSchema } from '@/shared/schemas/nickname.schema';
+
+import { tutorialResponseSchema } from '../schemas/onboarding.schema';
 import { emptyResponseSchema } from '../schemas/response.schema';
 
 import type { CharacterFormValues } from '../types/onboarding.types';
@@ -24,8 +27,10 @@ export const onboardingApi = {
     try {
       await http.get(`/api/v1/members/nickname/check?nickname=${encodeURIComponent(nickname)}`);
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      const errorCode = isAxiosError(error) ? error.response?.data?.code : null;
+      if (errorCode === NICKNAME_DUPLICATE_ERROR_CODE) return false;
+      throw error;
     }
   },
 

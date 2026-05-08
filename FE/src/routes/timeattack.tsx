@@ -1,6 +1,7 @@
-// TODO: import { TimeattackPage } from '@/features/timeattack/components/TimeattackPage'
 import { createFileRoute } from '@tanstack/react-router';
 
+import PreparingPage from '@/shared/components/PreparingPage';
+
 export const Route = createFileRoute('/timeattack')({
-  component: () => <div />,
+  component: () => <PreparingPage title="타임어택 준비 중" />,
 });

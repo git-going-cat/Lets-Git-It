@@ -8,6 +8,7 @@ import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Win11Window } from '@/shared/components/Win11Window';
 import { useModal } from '@/shared/hooks/useModal';
+import { NICKNAME_DUPLICATE_ERROR_CODE, NICKNAME_RULE } from '@/shared/schemas/nickname.schema';
 
 import { ACCOUNT_ACTION_COPY, WITHDRAWAL_DELETED_ITEMS } from '../constants/accountActions';
 import { MYPAGE_QUERY_KEYS } from '../constants/queryKeys';
@@ -83,12 +84,12 @@ export function EditProfileModal({
       },
       onError: (error) => {
         const errorCode = isAxiosError(error) ? error.response?.data?.code : null;
-        if (errorCode === 'NICKNAME_DUPLICATE') {
-          setNicknameError('이미 사용 중인 닉네임입니다.');
+        if (errorCode === NICKNAME_DUPLICATE_ERROR_CODE) {
+          setNicknameError(NICKNAME_RULE.messages.duplicate);
           return;
         }
 
-        setNicknameError('중복 확인에 실패했습니다.');
+        setNicknameError(NICKNAME_RULE.messages.checkFailed);
       },
     });
   };
@@ -103,7 +104,7 @@ export function EditProfileModal({
         setIsNicknameSuccessNoticeOpen(true);
       },
       onError: () => {
-        setNicknameError('닉네임 변경에 실패했습니다.');
+        setNicknameError(NICKNAME_RULE.messages.saveFailed);
       },
     });
   };
@@ -142,7 +143,6 @@ export function EditProfileModal({
 
   return (
     <>
-      {/* w-[540px], grid-cols-[minmax(0,1fr)_auto_auto]: 비밀번호 안내 문구와 닉네임 액션 버튼을 한 줄에 안정적으로 배치하기 위한 고정 폭/컬럼 구성입니다. */}
       <Win11Window title="내 정보 수정" onClose={onClose} className="w-[540px]">
         <div className="flex w-full flex-col gap-6">
           <section className="flex flex-col gap-2">
@@ -151,7 +151,7 @@ export function EditProfileModal({
               <Input
                 value={nickname}
                 onChange={handleNicknameChange}
-                placeholder="2~6자 한글/영문"
+                placeholder={`${NICKNAME_RULE.minLength}~${NICKNAME_RULE.maxLength}자 한글/영문/숫자`}
                 className="flex-1 rounded-lg"
               />
               <Button
@@ -182,7 +182,7 @@ export function EditProfileModal({
             <div className="flex items-center justify-between">
               <span className="mr-2 flex-1 text-xs leading-tight text-gray-600">
                 {authType === 'OAUTH'
-                  ? '소셜 로그인(Google) 사용자는 비밀번호 변경이 불가합니다.'
+                  ? '소셜 로그인(Google) 사용자는 비밀번호 변경이 불가능합니다.'
                   : '주기적인 비밀번호 변경으로 계정을 안전하게 보호하세요.'}
               </span>
               <Button
