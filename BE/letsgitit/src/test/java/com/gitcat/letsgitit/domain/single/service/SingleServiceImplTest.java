@@ -41,6 +41,7 @@ import com.gitcat.letsgitit.domain.single.repository.SingleSessionRedisRepositor
 import com.gitcat.letsgitit.global.enums.Difficulty;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
+import com.gitcat.letsgitit.global.metrics.SingleMetrics;
 
 @ExtendWith(MockitoExtension.class)
 class SingleServiceImplTest {
@@ -48,6 +49,8 @@ class SingleServiceImplTest {
 	@InjectMocks
 	private SingleServiceImpl singleService;
 
+	@Mock
+	private SingleMetrics singleMetrics;
 	@Mock
 	private SingleResultRepository singleResultRepository;
 	@Mock

@@ -33,6 +33,7 @@ import com.gitcat.letsgitit.global.enums.Provider;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
 import com.gitcat.letsgitit.global.jwt.JwtProvider;
+import com.gitcat.letsgitit.global.metrics.AuthMetrics;
 
 import io.jsonwebtoken.ExpiredJwtException;
 
@@ -42,6 +43,8 @@ class AuthServiceImplTest {
 	@InjectMocks
 	private AuthServiceImpl authService;
 
+	@Mock
+	private AuthMetrics authMetrics;
 	@Mock
 	private AuthRedisRepository authRedisRepository;
 	@Mock
