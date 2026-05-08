@@ -59,6 +59,7 @@ public interface MemberControllerDocs {
 			    "authType": "LOCAL",
 			    "provider": null,
 			    "email": "user@example.com",
+			    "onboardingStatus": "TUTORIAL_DONE",
 			    "totalPlayTime": 37200,
 			    "characterHair": "Hairstyle_01",
 			    "characterHairColor": "Hairstyle-color_01",

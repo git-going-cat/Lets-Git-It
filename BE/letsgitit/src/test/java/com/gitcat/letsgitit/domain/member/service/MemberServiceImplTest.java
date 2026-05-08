@@ -126,6 +126,7 @@ class MemberServiceImplTest {
 		// then
 		assertThat(response.nickname()).isEqualTo("dobby");
 		assertThat(response.email()).isEqualTo("user@example.com");
+		assertThat(response.onboardingStatus()).isEqualTo(TUTORIAL_DONE);
 		assertThat(response.records())
 			.extracting(MemberProfileResponse.RecordResponse::mode)
 			.containsExactly("SINGLE_EASY", "SINGLE_NORMAL", "SINGLE_HARD", "CONTRIBUTION_RUN", "TIME_ATTACK", "COOP");
