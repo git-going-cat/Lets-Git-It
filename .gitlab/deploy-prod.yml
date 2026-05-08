@@ -8,6 +8,8 @@ deploy-prod:
   rules:
     - if: $CI_COMMIT_BRANCH == "prod"
   script:
+    - git config --global credential.helper store
+    - cp /home/ubuntu/.git-credentials /root/.git-credentials
     - cd /home/ubuntu/S14P31A304
     - git pull origin prod
     - bash INFRA/deploy.sh
