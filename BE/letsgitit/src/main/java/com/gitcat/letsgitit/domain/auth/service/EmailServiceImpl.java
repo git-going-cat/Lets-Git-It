@@ -40,7 +40,7 @@ public class EmailServiceImpl implements EmailService {
 			mailSender.send(message);
 
 		} catch (MessagingException | MailException e) {
-			log.error("이메일 발송 실패. 수신자: {}", toEmail, e);
+			log.error("이메일 발송 실패", e);
 			throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED);
 		}
 	}

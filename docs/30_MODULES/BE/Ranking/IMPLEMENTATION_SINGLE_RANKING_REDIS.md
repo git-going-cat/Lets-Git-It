@@ -216,21 +216,30 @@ Redis Hash 닉네임 저장 및 조회를 전면 제거하고, 모든 닉네임�
 
 Controller 레벨에서 Bean Validation으로 처리한다.
 
-- `@Validated`를 Controller 클래스에 선언하면 `@RequestParam`에 붙은 제약 어노테이션이 동작한다.
+- `@Validated`를 Controller 클래스에 선언하면 제약 어노테이션이 동작한다.
+- 파라미터 제약 어노테이션은 구현체(`RankingController`)가 아닌 인터페이스(`RankingControllerDocs`)에만 선언한다. 구현체에서 재정의하면 `ConstraintDeclarationException`이 발생한다(상세 내용은 `IMPLEMENTATION_SINGLE_RANKING_HISTORY.md` Troubleshooting 참고).
 - `afterRank` / `beforeRank`: `@Min(1)` — 값이 전달된 경우에만 검증, `null`(초기 요청)은 통과
 - `size`: `@Min(1) @Max(100)` — `defaultValue = "20"`이 있어 항상 검증 대상
 
 ```java
+// RankingControllerDocs (인터페이스): 파라미터 제약 어노테이션 선언
+ResponseEntity<?> getSingleRanking(
+    Difficulty difficulty,
+    @Min(1) Integer afterRank,
+    @Min(1) Integer beforeRank,
+    @Min(1) @Max(100) Integer size);
+
+// RankingController (구현체): @Validated 선언, 파라미터 제약 없음
 @Validated
 @RestController
-public class RankingController {
+public class RankingController implements RankingControllerDocs {
 
     @GetMapping("/single")
     public ResponseEntity<?> getSingleRanking(
         @RequestParam Difficulty difficulty,
-        @RequestParam(required = false) @Min(1) Integer afterRank,
-        @RequestParam(required = false) @Min(1) Integer beforeRank,
-        @RequestParam(required = false, defaultValue = "20") @Min(1) @Max(100) Integer size) { ... }
+        @RequestParam(required = false) Integer afterRank,
+        @RequestParam(required = false) Integer beforeRank,
+        @RequestParam(required = false, defaultValue = "20") Integer size) { ... }
 }
 ```
 

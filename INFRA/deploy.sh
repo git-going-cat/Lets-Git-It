@@ -28,20 +28,31 @@ echo "[배포] 현재: spring-$CURRENT → 전환 대상: spring-$NEXT($NEXT_POR
 # inactive 빌드 및 실행
 docker compose -f "$COMPOSE_FILE" up -d --build "spring-$NEXT"
 
-# 헬스체크 루프 (최대 60초, 5초 간격 x 12)
+# 헬스체크 루프 (최대 100초, 5초 간격 x 20)
 echo "[헬스체크] spring-$NEXT 응답 대기 중..."
-for i in $(seq 1 12); do
-  HEALTH=$(curl -s "http://localhost:$NEXT_PORT/actuator/health" | grep -o '"status":"UP"' | head -1 || true)
-  if [ "$HEALTH" = '"status":"UP"' ]; then
+
+for i in $(seq 1 20); do
+  RESPONSE=$(docker exec gitlab-runner \
+    wget -qO- "http://spring-$NEXT:8080/actuator/health" || true)
+
+  echo "[DEBUG] health response: $RESPONSE"
+
+  if echo "$RESPONSE" | grep -q '"status":"UP"'; then
     echo "[헬스체크] 통과 ($i번째 시도)"
     break
   fi
-  if [ "$i" -eq 12 ]; then
+
+  if [ "$i" -eq 20 ]; then
     echo "[헬스체크] 실패 - 배포 중단 및 롤백"
+
+    echo "[DEBUG] spring-$NEXT logs:"
+    docker logs "spring-$NEXT" || true
+
     docker compose -f "$COMPOSE_FILE" stop "spring-$NEXT" || true
     exit 1
   fi
-  echo "[헬스체크] 대기 중... ($i/12)"
+
+  echo "[헬스체크] 대기 중... ($i/20)"
   sleep 5
 done
 
@@ -63,4 +74,5 @@ echo "[배포] spring-$CURRENT 중단 완료"
 
 # active 색상 저장
 echo "$NEXT" > "$ACTIVE_COLOR_FILE"
+
 echo "[배포] 완료 ✓ spring-$NEXT 서비스 중"
