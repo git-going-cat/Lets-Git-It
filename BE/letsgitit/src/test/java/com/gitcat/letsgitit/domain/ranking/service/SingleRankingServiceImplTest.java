@@ -30,6 +30,7 @@ import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRedisReposito
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRepository;
 import com.gitcat.letsgitit.domain.single.entity.enums.Grade;
 import com.gitcat.letsgitit.global.enums.Difficulty;
+import com.gitcat.letsgitit.global.metrics.RankingMetrics;
 
 @ExtendWith(MockitoExtension.class)
 class SingleRankingServiceImplTest {
@@ -42,6 +43,9 @@ class SingleRankingServiceImplTest {
 
 	@Mock
 	private MemberService memberService;
+
+	@Mock
+	private RankingMetrics rankingMetrics;
 
 	@InjectMocks
 	private SingleRankingServiceImpl singleRankingService;

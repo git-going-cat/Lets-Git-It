@@ -29,9 +29,13 @@ import com.gitcat.letsgitit.domain.single.repository.SingleResultRepository;
 import com.gitcat.letsgitit.domain.single.repository.SingleSessionRedisRepository;
 import com.gitcat.letsgitit.global.enums.Difficulty;
 import com.gitcat.letsgitit.global.exception.BusinessException;
+import com.gitcat.letsgitit.global.metrics.SingleMetrics;
 
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SingleServiceImpl implements SingleService {
@@ -43,19 +47,21 @@ public class SingleServiceImpl implements SingleService {
 	private final SingleRankingService singleRankingService;
 	private final RecordService recordService;
 	private final MemberService memberService;
+	private final SingleMetrics singleMetrics;
 
 	@Override
 	@Transactional
 	public SingleSessionStartResponse startSession(UUID memberId, SingleSessionStartRequest request) {
+		Timer.Sample total = singleMetrics.start();
+		Difficulty difficulty = request.difficulty();
 
 		// 1. sessionId 생성
 		String sessionId = UUID.randomUUID().toString();
-		Difficulty difficulty = request.difficulty();
 
-		// 2. 난이도에 맞는 command set 조회
+		// 2-4. DB: commandSet + items + bestScore
+		Timer.Sample db = singleMetrics.start();
 		SingleCommandSet commandSet = selectCommandSet(difficulty);
 
-		// 3. command Item 조회
 		List<CommandSetDto> commandSetDtos = singleCommandSetRepository
 			.findAllBySingleCommandSetIdOrderBySequenceAsc(commandSet.getId())
 			.stream()
@@ -67,16 +73,20 @@ public class SingleServiceImpl implements SingleService {
 				"Single command set items are missing. commandSetId=" + commandSet.getId());
 		}
 
-		// 4. 최고 점수 조회
 		int bestScore = singleResultRepository
 			.findTopByMemberIdAndDifficultyOrderByScoreDesc(memberId, difficulty)
 			.map(SingleResult::getScore)
 			.orElse(0);
+		singleMetrics.recordStartSessionDb(db, difficulty);
 
 		// 5. Redis 세션 저장
+		Timer.Sample redis = singleMetrics.start();
 		SingleSessionCache sessionCache = SingleSessionCache.of(sessionId, memberId, difficulty);
-
 		singleSessionRedisRepository.save(sessionCache);
+		singleMetrics.recordStartSessionRedis(redis, difficulty);
+
+		singleMetrics.recordStartSession(total, difficulty);
+		log.info("[single][startSession] difficulty={}, sessionId={}", difficulty, sessionId);
 
 		// 6. 응답 변환
 		return SingleSessionStartResponse.of(
@@ -89,86 +99,109 @@ public class SingleServiceImpl implements SingleService {
 	@Override
 	@Transactional
 	public SingleResultResponse saveResult(UUID memberId, String sessionId, SingleResultSaveRequest request) {
-		// 1. 이미 결과 저장된 세션인지 확인
-		if (singleResultRepository.existsBySessionId(sessionId)) {
-			throw new BusinessException(ALREADY_FINISHED);
-		}
-
-		// 2. Redis 세션 조회
-		SingleSessionCache sessionCache = singleSessionRedisRepository.findBySessionId(sessionId)
-			.orElseThrow(() -> new BusinessException(SESSION_NOT_FOUND));
-
-		// 3. 세션 소유자 검증
-		if (!sessionCache.memberId().equals(memberId)) {
-			throw new BusinessException(ACCESS_DENIED);
-		}
-
-		Difficulty difficulty = sessionCache.difficulty();
-
-		// 4. 기존 최고 점수 조회
-		Optional<SingleResult> previousBest = singleResultRepository
-			.findTopByMemberIdAndDifficultyOrderByScoreDesc(memberId, difficulty);
-
-		// 4-1. 금주차 최고 점수 조회
-		Integer currentWeekBest = singleRankingService.getCurrentWeekScore(difficulty, memberId);
-
-		// 5. 결과 저장
-		SingleResult singleResult = SingleResult.of(
-			sessionId,
-			memberId,
-			difficulty,
-			request.status(),
-			request.score(),
-			request.grade(),
-			request.playTime());
+		Timer.Sample total = singleMetrics.start();
+		Difficulty difficulty = null;
+		boolean success = false;
 
 		try {
-			singleResultRepository.save(singleResult);
-		} catch (DataIntegrityViolationException e) {
-			throw new BusinessException(ALREADY_FINISHED);
-		}
-
-		// 6. 누적 시간 계산
-		memberService.addPlayTime(memberId, request.playTime() / 1000);
-
-		// 7. 금주차 최고 기록 갱신
-		boolean isCurrentWeekBest = currentWeekBest == null || request.score() > currentWeekBest;
-		Integer currentRank = null;
-
-		if (isCurrentWeekBest) {
-			currentRank = singleRankingService.updateSingleScore(
-				difficulty,
-				memberId,
-				request.score(),
-				request.grade());
-		}
-
-		// 8. 역대 최고 기록 갱신
-		boolean isNewRecord = previousBest.isEmpty() || request.score() > previousBest.get().getScore();
-
-		if (isNewRecord) {
-			int rank = currentRank != null ? currentRank : singleRankingService.updateSingleScore(
-				difficulty,
-				memberId,
-				request.score(),
-				request.grade());
-
-			recordService.updateSingleBestRecord(
-				memberId,
-				difficulty,
-				request.score(),
-				rank);
-		}
-
-		// 9. 세션 종료 처리 — DB 커밋 확정 후 실행
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override
-			public void afterCommit() {
-				singleSessionRedisRepository.deleteBySessionId(sessionId);
+			// 1. 이미 결과 저장된 세션인지 확인
+			if (singleResultRepository.existsBySessionId(sessionId)) {
+				throw new BusinessException(ALREADY_FINISHED);
 			}
-		});
 
-		return SingleResultResponse.of(isNewRecord);
+			// 2. Redis 세션 조회 (실패해도 latency 기록)
+			Timer.Sample redisLookup = singleMetrics.start();
+			Optional<SingleSessionCache> sessionOpt = singleSessionRedisRepository.findBySessionId(sessionId);
+			singleMetrics.recordSaveResultRedisLookup(redisLookup);
+
+			SingleSessionCache sessionCache = sessionOpt.orElseThrow(() -> new BusinessException(SESSION_NOT_FOUND));
+
+			// 3. 세션 소유자 검증
+			if (!sessionCache.memberId().equals(memberId)) {
+				throw new BusinessException(ACCESS_DENIED);
+			}
+
+			difficulty = sessionCache.difficulty();
+
+			// 4. 기존 최고 점수 조회
+			Optional<SingleResult> previousBest = singleResultRepository
+				.findTopByMemberIdAndDifficultyOrderByScoreDesc(memberId, difficulty);
+
+			// 4-1. 금주차 최고 점수 조회
+			Integer currentWeekBest = singleRankingService.getCurrentWeekScore(difficulty, memberId);
+
+			// 5. 결과 저장
+			Timer.Sample dbSave = singleMetrics.start();
+			SingleResult singleResult = SingleResult.of(
+				sessionId,
+				memberId,
+				difficulty,
+				request.status(),
+				request.score(),
+				request.grade(),
+				request.playTime());
+
+			try {
+				singleResultRepository.save(singleResult);
+			} catch (DataIntegrityViolationException e) {
+				singleMetrics.recordSaveResultDbSave(dbSave);
+				throw new BusinessException(ALREADY_FINISHED);
+			}
+			singleMetrics.recordSaveResultDbSave(dbSave);
+
+			// 6. 누적 시간 계산
+			memberService.addPlayTime(memberId, request.playTime() / 1000);
+
+			// 7-8. 랭킹 업데이트 (주간 + 역대)
+			Timer.Sample rankingUpdate = singleMetrics.start();
+			boolean isCurrentWeekBest = currentWeekBest == null || request.score() > currentWeekBest;
+			Integer currentRank = null;
+
+			if (isCurrentWeekBest) {
+				currentRank = singleRankingService.updateSingleScore(
+					difficulty,
+					memberId,
+					request.score(),
+					request.grade());
+			}
+
+			boolean isNewRecord = previousBest.isEmpty() || request.score() > previousBest.get().getScore();
+
+			if (isNewRecord) {
+				int rank = currentRank != null ? currentRank : singleRankingService.updateSingleScore(
+					difficulty,
+					memberId,
+					request.score(),
+					request.grade());
+
+				recordService.updateSingleBestRecord(
+					memberId,
+					difficulty,
+					request.score(),
+					rank);
+			}
+			singleMetrics.recordSaveResultRankingUpdate(rankingUpdate);
+
+			// 9. 세션 종료 처리 — DB 커밋 확정 후 실행
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					singleSessionRedisRepository.deleteBySessionId(sessionId);
+				}
+			});
+
+			log.info("[single][saveResult] sessionId={}, difficulty={}, score={}, isNewRecord={}",
+				sessionId, difficulty, request.score(), isNewRecord);
+			success = true;
+			return SingleResultResponse.of(isNewRecord);
+
+		} catch (BusinessException e) {
+			singleMetrics.incrementSaveResultError(e.getErrorCode().name());
+			log.warn("[single][saveResult] error. sessionId={}, errorCode={}", sessionId, e.getErrorCode());
+			throw e;
+		} finally {
+			singleMetrics.recordSaveResult(total, difficulty != null ? difficulty.name() : null, success);
+		}
 	}
 
 	private SingleCommandSet selectCommandSet(Difficulty difficulty) {
