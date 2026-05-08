@@ -28,6 +28,19 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('/node_modules/phaser')) return 'phaser';
+            if (id.includes('/node_modules/@sentry') || id.includes('/node_modules/posthog-js'))
+              return 'monitoring';
+            if (id.includes('/node_modules/react') || id.includes('/node_modules/@tanstack'))
+              return 'vendor';
+          },
+        },
+      },
+    },
     test: {
       environment: 'jsdom',
       globals: true,

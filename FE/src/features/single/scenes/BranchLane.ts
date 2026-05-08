@@ -21,8 +21,8 @@ const PIXEL_FONT = "'NeoDunggeunGothicPro', monospace";
 const LANE = {
   LINE_WIDTH: 2,
   LINE_ALPHA: 0.7,
-  LABEL_OFFSET_Y: 16,
-  LABEL_FONT_SIZE: '22px',
+  LABEL_OFFSET_Y: 20,
+  LABEL_FONT_SIZE: '28px',
 } as const;
 
 const NODE = {
@@ -33,13 +33,13 @@ const NODE = {
   BG_COLOR: 0x0d1117,
   // 텍스트는 원 위쪽에 배치 (origin bottom-center)
   TEXT_OFFSET_Y: -28, // 원 중심 기준 위쪽 거리
-  TEXT_GAP: 10, // 원 상단과 텍스트 하단 사이 여백
-  TEXT_FONT_SIZE: '22px',
+  TEXT_GAP: 14, // 원 상단과 텍스트 하단 사이 여백
+  TEXT_FONT_SIZE: '28px',
   TEXT_COLOR: '#e0e0ff',
-  TEXT_MAX_WIDTH: 380,
   TEXT_BG_COLOR: '#000000cc',
-  TEXT_BG_PADDING_X: 10,
-  TEXT_BG_PADDING_Y: 6,
+  TEXT_MAX_WIDTH: 420,
+  TEXT_BG_PADDING_X: 12,
+  TEXT_BG_PADDING_Y: 8,
   START_Y: -10,
   END_OVERSHOOT: 60,
 } as const;
@@ -352,7 +352,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
       .setOrigin(0.5, 1); // bottom-center anchor → 텍스트 하단이 textY에 위치
 
     // 좌우 끝 레인에서 텍스트가 캔버스 밖으로 잘리지 않도록 x 위치를 클램핑
-    const EDGE_PADDING = 4;
+    const EDGE_PADDING = 8;
     const nodeWorldX = this.x + this.laneWidth / 2;
     const canvasWidth = this.scene.scale.width;
     const hw = label.width / 2;
@@ -368,7 +368,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
     if (itemDrop) {
       const icon = this.scene.add
         .text(0, 0, BranchLane.ITEM_ICONS[itemDrop] ?? '★', {
-          fontSize: '13px',
+          fontSize: '15px',
           fontFamily: 'Arial, sans-serif',
           color: '#ffffff',
           fontStyle: 'bold',

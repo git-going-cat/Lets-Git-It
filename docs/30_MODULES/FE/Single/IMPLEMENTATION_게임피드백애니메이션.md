@@ -181,6 +181,32 @@ export const CHERRY_PICK_ANIM_MS = 800;
 
 SingleScene과 CherryPickOverlay 양쪽이 이 상수를 import해 타이밍을 공유한다.
 
+**타이머 관리**: 타이머 ID를 `useEffect` 클로저 변수에 저장하고 cleanup 및 재진입 시 clear한다.  
+초기 구현에서 `handler` 내부의 `return () => { clearTimeout(t1); clearTimeout(t2) }` 는 EventBus 핸들러의 반환값이라 React cleanup으로 실행되지 않아 타이머 누수가 발생했다. 아이템을 연속 사용하면 이전 타이머가 남아 `setPhase`가 예상치 못한 시점에 호출되는 문제가 있었다.
+
+```ts
+useEffect(() => {
+  let t1: ReturnType<typeof setTimeout> | undefined;
+  let t2: ReturnType<typeof setTimeout> | undefined;
+
+  const handler = ({ slot }: { slot: 0 | 1 | 2 }) => {
+    if (slot !== 1) return;
+    clearTimeout(t1);  // 연속 사용 시 이전 타이머 취소
+    clearTimeout(t2);
+    setPhase('stamp');
+    t1 = setTimeout(() => setPhase('fade'), STAMP_MS);
+    t2 = setTimeout(() => setPhase(null), CHERRY_PICK_ANIM_MS);
+  };
+
+  EventBus.on('item:use', handler);
+  return () => {
+    EventBus.off('item:use', handler);
+    clearTimeout(t1);  // unmount 시 잔여 타이머 정리
+    clearTimeout(t2);
+  };
+}, []);
+```
+
 ```css
 @keyframes paw-stamp {
   0%   { transform: scale(4) translateY(-40px); opacity: 0; }
@@ -212,10 +238,77 @@ SingleScene과 CherryPickOverlay 양쪽이 이 상수를 import해 타이밍을 
 
 **Restore `item:use` emit 누락 수정**: 기존 `useSingleGame`의 restore 처리에서 `EventBus.emit('item:use', { slot: 2 })`가 누락되어 RestoreOverlay가 반응하지 않았다. emit을 추가해 수정.
 
+**타이머 관리**: 초기 구현에서 `setTimeout()` 반환값을 변수에 저장하지 않아 clear가 불가능했다. 연속 사용 시 이전 타이머가 남아 `setVisible(false)`가 겹쳐 호출되는 문제가 있었다.
+
+```ts
+useEffect(() => {
+  let t: ReturnType<typeof setTimeout> | undefined;
+
+  const handler = ({ slot }: { slot: 0 | 1 | 2 }) => {
+    if (slot !== 2) return;
+    clearTimeout(t);  // 연속 사용 시 이전 타이머 취소
+    setVisible(true);
+    setAnimKey((k) => k + 1);
+    t = setTimeout(() => setVisible(false), 700);
+  };
+
+  EventBus.on('item:use', handler);
+  return () => {
+    EventBus.off('item:use', handler);
+    clearTimeout(t);  // unmount 시 잔여 타이머 정리
+  };
+}, []);
+```
+
 ### 8. 오버레이 마운트 위치
 
 세 오버레이 모두 `containerRef` div(Phaser 씬 컨테이너) 안에 `absolute inset-0`으로 마운트된다.  
 Phaser의 `tweens.pauseAll()`은 CSS 트랜지션/애니메이션에 영향을 주지 않으므로 stash 중에도 오버레이 애니메이션이 정상 재생된다.
+
+### 9. 현재 캐릭터 조회 공통화 (`shared/hooks/useCurrentCharacterAsset.ts`)
+
+싱글 화면에서 탈출 애니메이션과 플레이어 캐릭터는 모두 현재 로그인한 사용자의 캐릭터 외형 데이터를 필요로 한다.  
+이 데이터는 수정용 `mypage` 로직과 분리된 읽기 전용 조회이므로 `shared` 레이어로 공통화했다.
+
+- `shared/types/user.types.ts`에 `CharacterAsset` 공통 타입을 둔다.
+- `shared/hooks/useCurrentCharacterAsset.ts`에서 `GET /api/v1/members/me`를 조회하고 Zod로 검증한다.
+- `EscapeAnimation.tsx`와 `PlayerCharacter.tsx`는 직접 `http.get`을 호출하지 않고 이 훅만 사용한다.
+- 캐릭터 수정, 닉네임 수정, 탈퇴와 같은 mutation 로직은 그대로 `features/mypage`에 남긴다.
+
+```ts
+// shared/hooks/useCurrentCharacterAsset.ts
+export function useCurrentCharacterAsset() {
+  return useQuery({
+    queryKey: ['member', 'me', 'character'],
+    queryFn: async (): Promise<CharacterAsset> => {
+      const { data } = await http.get('/api/v1/members/me');
+      const parsed = currentCharacterResponseSchema.parse(data);
+      return parsed.data;
+    },
+  });
+}
+```
+
+**EscapeAnimation API 실패 시 ResultModal 블로킹 방지**
+
+`useCurrentCharacterAsset` 쿼리가 실패하면 `asset`이 영구적으로 `undefined`가 된다.  
+`EscapeAnimation`은 `if (!asset) return null`로 빈 렌더를 반환하고, `onComplete`가 절대 호출되지 않아 `GameEndScreen`이 escape phase에 머무른 채 `ResultModal`을 영원히 표시하지 않는 블로킹 상태가 된다.
+
+흐름: `GameEndFlowInner` → `GameEndScreen`(escape phase) → `EscapeAnimation.onComplete` → video phase → `onVideoEnd` → `ResultModal`
+
+`isError` 상태를 추가로 구독하고, API 실패 시 즉시 `onComplete`를 호출해 다음 단계로 넘어가도록 처리한다.
+
+```ts
+// EscapeAnimation.tsx
+const { data: asset, isError } = useCurrentCharacterAsset();
+
+useEffect(() => {
+  if (!isError) return;
+  onComplete?.();
+}, [isError, onComplete]);
+
+if (!asset) return null;
+```
 
 ### 9. EventBus 신규 이벤트
 
@@ -363,8 +456,9 @@ Phaser 씬 컨테이너(`containerRef`)만 흔들면 부모의 `overflow: hidden
 | `src/features/single/components/SingleGameContent.tsx` | screen shake 상태·핸들러, containerRef에 shake 클래스 |
 | `src/features/single/components/HUDItemSlots.tsx` | `item:acquired` 팝 애니메이션 |
 | `src/features/single/components/StashOverlay.tsx` | 신규 생성 |
-| `src/features/single/components/CherryPickOverlay.tsx` | 신규 생성 |
-| `src/features/single/components/RestoreOverlay.tsx` | 신규 생성 |
+| `src/features/single/components/CherryPickOverlay.tsx` | 신규 생성 → 타이머 ID 클로저 관리로 누수 수정 |
+| `src/features/single/components/RestoreOverlay.tsx` | 신규 생성 → 타이머 ID 클로저 관리로 누수 수정 |
+| `src/features/single/components/EscapeAnimation.tsx` | `isError` 구독 추가 → API 실패 시 `onComplete` 즉시 호출 |
 | `src/features/single/constants/itemAnimations.ts` | `CHERRY_PICK_ANIM_MS = 800` 신규 생성 |
 | `src/index.css` | keyframe 5종 추가 (`restore-heal`, `stash-bang`, `paw-stamp`, `paw-fade`, `item-pop`, `screen-shake`) |
 
@@ -380,7 +474,10 @@ Phaser 씬 컨테이너(`containerRef`)만 흔들면 부모의 `overflow: hidden
 - Stash 중 명령어 성공 → 5초 전 stash 즉시 종료, 낙하 재개 확인
 - Stash 중 오타 → stash 유지 확인
 - Alt+2 (cherry-pick): 🐾 발바닥 stamp → fade 재생 확인, 800ms 후 Phaser 자동 완료 확인
+- Alt+2 연속 사용 시 이전 애니메이션이 중단되고 새 애니메이션으로 재시작되는지 확인 (타이머 중첩 없음)
 - Alt+3 (restore): ♥ 힐링 아우라 700ms 재생 확인
+- Alt+3 연속 사용 시 애니메이션 중첩 없이 재시작되는지 확인
+- DevTools Network에서 `GET /api/v1/members/me` 차단 후 SUCCESS/ESCAPE_FAILED 게임 종료 → ResultModal이 정상 표시되는지 확인 (EscapeAnimation isError fallback)
 - 오타 입력 시 Phaser 씬만 흔들림, HUD·입력창 고정 확인, 스크롤 없음 확인
 - Miss 시 Phaser 씬 흔들림 확인
 - 명령어 성공 시 노드 폭발(scale up + fade) + 녹색 링 방사 확인

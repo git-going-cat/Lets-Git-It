@@ -7,6 +7,7 @@ import { gameStatusAtom } from '../store/gameStatusAtom';
 import { itemSlotsAtom } from '../store/itemSlotsAtom';
 
 const ITEM_LABELS: [string, string, string] = ['stash', 'cherry-pick', 'restore'];
+const ITEM_EXPLANATIONS: [string, string, string] = ['일시 멈춤', '명령어 제거', '체력 회복'];
 
 export default function HUDItemSlots() {
   const itemSlots = useAtomValue(itemSlotsAtom);
@@ -42,6 +43,7 @@ export default function HUDItemSlots() {
           >
             <div className="!text-2xl">Alt+{i + 1}</div>
             <div className="!text-2xl">{ITEM_LABELS[i]}</div>
+            <div className="!text-2xl">{ITEM_EXPLANATIONS[i]}</div>
           </button>
         </span>
       ))}

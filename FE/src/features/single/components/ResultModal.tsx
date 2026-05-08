@@ -22,8 +22,17 @@ function formatTime(ms: number): string {
 }
 
 export default function ResultModal() {
-  const { isVisible, result, difficulty, isNewRecord, isSaving, saveError, onRestart, onHome } =
-    useResultModal();
+  const {
+    isVisible,
+    result,
+    difficulty,
+    isNewRecord,
+    isSaving,
+    saveError,
+    isRestarting,
+    onRestart,
+    onHome,
+  } = useResultModal();
 
   if (!result) return null;
 
@@ -88,7 +97,12 @@ export default function ResultModal() {
 
       {/* 버튼 */}
       <div className="flex flex-col gap-2 w-full mt-2">
-        <PixelButton label="↺  다시하기" onClick={onRestart} variant="primary" />
+        <PixelButton
+          label="↺  다시하기"
+          onClick={onRestart}
+          variant="primary"
+          disabled={isRestarting}
+        />
         <PixelButton label="⌂  메인으로" onClick={onHome} />
       </div>
     </PixelModal>

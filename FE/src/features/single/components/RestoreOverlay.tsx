@@ -7,15 +7,20 @@ export default function RestoreOverlay() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+
     const handler = ({ slot }: { slot: 0 | 1 | 2 }) => {
       if (slot !== 2) return;
+      clearTimeout(t);
       setVisible(true);
       setAnimKey((k) => k + 1);
-      setTimeout(() => setVisible(false), 700);
+      t = setTimeout(() => setVisible(false), 700);
     };
+
     EventBus.on('item:use', handler);
     return () => {
       EventBus.off('item:use', handler);
+      clearTimeout(t);
     };
   }, []);
 

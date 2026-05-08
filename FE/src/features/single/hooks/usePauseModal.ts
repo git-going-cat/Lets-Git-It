@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
 
+import { singleApi } from '../api/singleApi';
+import { gameResultAtom } from '../store/gameResultAtom';
 import { gameStatusAtom, prePauseStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
@@ -16,10 +19,13 @@ import { useSingleStore } from '../store/singleStore';
 export function usePauseModal() {
   const gameStatus = useAtomValue(gameStatusAtom);
   const setGameStatus = useSetAtom(gameStatusAtom);
+  const setGameResult = useSetAtom(gameResultAtom);
   const prePauseStatus = useAtomValue(prePauseStatusAtom);
   const navigate = useNavigate();
+  const [isRestarting, setIsRestarting] = useState(false);
 
   const isTutorial = useSingleStore((s) => s.isTutorial);
+  const difficulty = useSingleStore((s) => s.difficulty);
   const isVisible = gameStatus === 'paused' && !isTutorial;
 
   const onResume = () => {
@@ -28,13 +34,24 @@ export function usePauseModal() {
     if (prePauseStatus === 'playing') EventBus.emit('game:resume');
   };
 
-  const onRestart = () => {
-    if (prePauseStatus === 'idle') {
-      setGameStatus('idle');
+  const onRestart = async () => {
+    if (isRestarting) return;
+    if (!difficulty) {
+      navigate({ to: '/home', replace: true });
       return;
     }
-    setGameStatus('playing');
-    EventBus.emit('game:restart');
+
+    setIsRestarting(true);
+    try {
+      const nextSession = await singleApi.startSession(difficulty);
+      setGameResult(null);
+      setGameStatus(prePauseStatus === 'idle' ? 'idle' : 'playing');
+      useSingleStore.getState().setSession(nextSession);
+    } catch {
+      navigate({ to: '/home', replace: true });
+    } finally {
+      setIsRestarting(false);
+    }
   };
 
   const onExit = () => {

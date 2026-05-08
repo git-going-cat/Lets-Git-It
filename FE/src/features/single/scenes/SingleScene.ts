@@ -238,13 +238,19 @@ export class SingleScene extends Phaser.Scene {
         }
       }, 5000);
     } else if (slot === 1) {
-      // cherry-pick: 발바닥 애니메이션 후 자동 완료
+      // cherry-pick: 낙하 정지 후 발바닥 애니메이션, 완료 처리
       if (this.isGameEnded || this.commandIndex >= this.commandSet.length) return;
       if (this.cherryPickTimeoutId !== null) return; // 중복 방지
       const indexAtUse = this.commandIndex;
+      this.tweens.pauseAll();
+      this.time.paused = true;
       this.cherryPickTimeoutId = setTimeout(() => {
         this.cherryPickTimeoutId = null;
         if (!this.isGameEnded) {
+          if (!this.isUserPaused) {
+            this.tweens.resumeAll();
+            this.time.paused = false;
+          }
           EventBus.emit('command:complete', { index: indexAtUse });
         }
       }, CHERRY_PICK_ANIM_MS);

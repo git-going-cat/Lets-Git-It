@@ -1,24 +1,15 @@
 import { useEffect, useState } from 'react';
 
 import { EventBus } from '@/core/bridge/EventBus';
-import { http } from '@/core/http';
 import AnimatedCharacter from '@/shared/components/AnimatedCharacter';
+import { useCurrentCharacterAsset } from '@/shared/hooks/useCurrentCharacterAsset';
 
 import { useSingleStore } from '../store/singleStore';
 
-import type { CharacterAsset } from '@/shared/components/AnimatedCharacter';
-
 export default function PlayerCharacter() {
   const commandSet = useSingleStore((s) => s.commandSet);
-  const [asset, setAsset] = useState<CharacterAsset | null>(null);
+  const { data: asset } = useCurrentCharacterAsset();
   const [activeBranch, setActiveBranch] = useState('main');
-
-  useEffect(() => {
-    http
-      .get<{ data: CharacterAsset }>('/api/v1/members/me')
-      .then(({ data }) => setAsset(data.data))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     const handler = ({ branch }: { branch: string }) => setActiveBranch(branch);

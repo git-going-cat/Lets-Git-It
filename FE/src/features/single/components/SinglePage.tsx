@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Provider, useAtomValue } from 'jotai';
 
+import { useBgm } from '@/shared/hooks/useBgm';
+
 import { singleApi } from '../api/singleApi';
 import { useSinglePageGuards } from '../hooks/useSinglePageGuards';
 import { churuCountAtom } from '../store/churuAtom';
@@ -47,9 +49,11 @@ function GameEndFlow() {
 }
 
 export default function SinglePage() {
+  useBgm();
   useSinglePageGuards();
   const navigate = useNavigate();
   const { difficulty } = useSearch({ from: '/single' });
+  const sessionId = useSingleStore((state) => state.sessionId);
 
   useEffect(() => {
     if (!difficulty) return;
@@ -75,7 +79,7 @@ export default function SinglePage() {
     <Provider>
       <div className="font-pixel">
         <SingleGameContent />
-        <StartModal />
+        <StartModal key={sessionId ?? 'start-modal'} />
         <PauseModal />
         <GameEndFlow />
       </div>

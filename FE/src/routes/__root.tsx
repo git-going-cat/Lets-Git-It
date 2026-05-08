@@ -11,7 +11,6 @@ import { useAuthStore, waitForAuthStoreHydration } from '@/features/auth/store/a
 import { fetchMyAuthUser } from '@/features/mypage/api/mypageApi';
 import { PostHogPageView } from '@/providers/PostHogProvider';
 import { RouteErrorFallback } from '@/shared/components/RouteErrorFallback';
-import { useBgm } from '@/shared/hooks/useBgm';
 
 /** 인증 없이 접근 가능한 경로 */
 const PUBLIC_PATHS = ['/login', '/auth/callback/google'];
@@ -67,7 +66,6 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  useBgm();
   return (
     <>
       <PostHogPageView />
