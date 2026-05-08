@@ -1,9 +1,19 @@
 import { http } from '@/core/http';
+import { useAuthStore } from '@/features/auth/store/authStore';
 
-import { emptyMyPageResponseSchema, myPageResponseSchema } from '../schemas/mypage.schema';
+import {
+  emptyMyPageResponseSchema,
+  myAuthUserResponseSchema,
+  myPageResponseSchema,
+} from '../schemas/mypage.schema';
 
-import type { MyPageRecord, MyPageResponseData } from '../schemas/mypage.schema';
+import type {
+  MyAuthUserResponseData,
+  MyPageRecord,
+  MyPageResponseData,
+} from '../schemas/mypage.schema';
 import type { CharacterAsset, MyRecord } from '../types/mypage.types';
+import type { AuthUser } from '@/features/auth/types/auth.types';
 
 interface WithdrawMemberRequest {
   password?: string;
@@ -16,6 +26,27 @@ export async function fetchMyRecord(): Promise<MyRecord> {
   return toMyRecord(parsed.data);
 }
 
+export async function fetchMyAuthUser(): Promise<AuthUser> {
+  const { data } = await http.get('/api/v1/members/me');
+  const parsed = myAuthUserResponseSchema.parse(data);
+
+  return toAuthUser(parsed.data);
+}
+
+function toAuthUser(data: MyAuthUserResponseData): AuthUser {
+  return {
+    nickname: data.nickname,
+    onboardingStatus:
+      data.onboardingStatus ?? useAuthStore.getState().user?.onboardingStatus ?? 'NONE',
+    characterHair: data.characterHair ?? 'Hairstyle_01',
+    characterHairColor: data.characterHairColor ?? 'Hairstyle-color_01',
+    characterBody: data.characterBody ?? 'Body_01',
+    characterEye: data.characterEye ?? 'Eyes_01',
+    characterOutfit: data.characterOutfit ?? 'Outfit_01',
+    characterOutfitColor: data.characterOutfitColor ?? 'Outfit-color_01',
+  };
+}
+
 function toMyRecord(data: MyPageResponseData): MyRecord {
   const singleEasy = findRecord(data.records, 'SINGLE_EASY');
   const singleNormal = findRecord(data.records, 'SINGLE_NORMAL');
@@ -25,7 +56,7 @@ function toMyRecord(data: MyPageResponseData): MyRecord {
   const coop = findRecord(data.records, 'COOP');
 
   return {
-    nickname: data.nickname,
+    nickname: data.nickname ?? '',
     authType: data.authType,
     totalPlayTime: formatTotalPlayTime(data.totalPlayTime),
     characterHair: data.characterHair,
