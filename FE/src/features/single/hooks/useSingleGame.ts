@@ -166,12 +166,13 @@ export function useSingleGame() {
     };
 
     const finishGame = (status: 'SUCCESS' | 'GAMEOVER' | 'ESCAPE_FAILED' | 'SESSION_EXPIRED') => {
+      if (isFinished) return;
+      isFinished = true;
       const diff = useSingleStore.getState().difficulty;
       if (!diff) return;
       const playTimeMs = stateRef.elapsedMs;
       const missCount = stateRef.livesLost;
       const typoCount = typoRef.current;
-      isFinished = true;
       if (status !== 'SUCCESS') {
         analytics.gameOver(diff, playTimeMs);
         setGameResult({ status, score: 0, grade: 'F', playTimeMs, missCount, typoCount });

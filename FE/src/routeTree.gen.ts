@@ -26,7 +26,7 @@ const TutorialRoute = TutorialRouteImport.update({
   id: '/tutorial',
   path: '/tutorial',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/tutorial.lazy').then((d) => d.Route))
 const TimeattackRoute = TimeattackRouteImport.update({
   id: '/timeattack',
   path: '/timeattack',
@@ -36,7 +36,7 @@ const SingleRoute = SingleRouteImport.update({
   id: '/single',
   path: '/single',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/single.lazy').then((d) => d.Route))
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
@@ -56,7 +56,7 @@ const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/home.lazy').then((d) => d.Route))
 const CoopRoute = CoopRouteImport.update({
   id: '/coop',
   path: '/coop',

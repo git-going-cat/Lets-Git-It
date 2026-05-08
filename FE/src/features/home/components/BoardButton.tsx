@@ -14,15 +14,18 @@ export default function BoardButton() {
       id="btn-board"
       type="button"
       onClick={handleClick}
-      className="transition-transform duration-200 hover:scale-110 active:scale-90"
-      aria-label="게시판 설문조사"
+      className="flex flex-col items-center gap-1 transition-transform duration-150 hover:scale-110 active:scale-95"
+      aria-label="설문조사"
     >
       <img
         src={boardImg}
-        alt="게시판"
-        className="pixel-art h-15 w-15 object-contain drop-shadow-lg"
+        alt="설문조사"
+        className="pixel-art h-28 w-28 object-contain drop-shadow-lg"
         draggable={false}
       />
+      <span className="-mt-2 text-xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+        설문조사
+      </span>
     </button>
   );
 }

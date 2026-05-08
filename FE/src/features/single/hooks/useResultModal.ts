@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
@@ -10,60 +10,65 @@ import { gameResultAtom } from '../store/gameResultAtom';
 import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
-import type { GameResult } from '../store/gameResultAtom';
-import type { PlayLogEntry } from '../types/single.types';
-
-interface SaveResultVariables {
-  currentPlayLog: PlayLogEntry[];
-  currentResult: GameResult;
-  id: string;
-}
-
 export function useResultModal() {
   const gameStatus = useAtomValue(gameStatusAtom);
   const setGameStatus = useSetAtom(gameStatusAtom);
   const result = useAtomValue(gameResultAtom);
   const setResult = useSetAtom(gameResultAtom);
-  const { bestScore, difficulty, sessionId, playLog } = useSingleStore();
+  const { bestScore, difficulty, sessionId } = useSingleStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const savedSessionRef = useRef<string | null>(null);
 
-  const {
-    data: saveData,
-    isError: isSaveError,
-    isPending: isSaving,
-    mutate: saveResult,
-    reset: resetSaveMutation,
-  } = useMutation({
-    mutationFn: ({ currentPlayLog, currentResult, id }: SaveResultVariables) =>
-      singleApi.saveResult(id, {
-        status:
-          currentResult.status === 'ESCAPE_FAILED' || currentResult.status === 'SESSION_EXPIRED'
-            ? 'GAMEOVER'
-            : currentResult.status,
-        score: currentResult.score,
-        playTime: Math.round(currentResult.playTimeMs / 1000),
-        grade: currentResult.grade,
-        playLog: currentPlayLog,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: MYPAGE_QUERY_KEYS.myRecord });
-    },
-    retry: 1,
-  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveData, setSaveData] = useState<{ isNewRecord: boolean } | null>(null);
+  const [saveError, setSaveError] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
 
   useEffect(() => {
     if (!result || !sessionId) return;
     if (result.status === 'SESSION_EXPIRED') return;
-    saveResult({ currentPlayLog: playLog, currentResult: result, id: sessionId });
-  }, [playLog, result, saveResult, sessionId]);
+    if (savedSessionRef.current === sessionId) return;
+    savedSessionRef.current = sessionId;
+
+    setIsSaving(true);
+    setSaveError(false);
+
+    // StrictMode cleanup이 in-flight 요청을 취소하지 않도록 cancelled 플래그를 두지 않는다.
+    // 대신 savedSessionRef로 "현재 추적 중인 세션과 일치하는 응답인지"만 검증한다.
+    // 다시하기 시 savedSessionRef가 null로 리셋되므로 이전 세션 응답은 자동으로 무시된다.
+    const playLog = useSingleStore.getState().playLog;
+    singleApi
+      .saveResult(sessionId, {
+        status: result.status === 'ESCAPE_FAILED' ? 'GAMEOVER' : result.status,
+        score: result.score,
+        playTime: Math.round(result.playTimeMs / 1000),
+        grade: result.grade,
+        playLog,
+      })
+      .then((data) => {
+        if (savedSessionRef.current !== sessionId) return;
+        setSaveData(data);
+        setIsSaving(false);
+        void queryClient.invalidateQueries({ queryKey: MYPAGE_QUERY_KEYS.myRecord });
+      })
+      .catch(() => {
+        if (savedSessionRef.current !== sessionId) return;
+        setSaveError(true);
+        setIsSaving(false);
+      });
+  }, [result, sessionId, queryClient]);
 
   const isVisible = (gameStatus === 'gameover' || gameStatus === 'cleared') && result !== null;
   const isNewRecord = saveData?.isNewRecord ?? (result !== null && result.score > (bestScore ?? 0));
 
   const onRestart = async () => {
-    if (!difficulty) return;
-    resetSaveMutation();
+    if (!difficulty || isRestarting) return;
+    setIsRestarting(true);
+    setSaveData(null);
+    setSaveError(false);
+    setIsSaving(false);
+    savedSessionRef.current = null;
     try {
       const nextSession = await singleApi.startSession(difficulty);
       setGameStatus('playing');
@@ -82,7 +87,8 @@ export function useResultModal() {
     difficulty,
     isNewRecord,
     isSaving,
-    saveError: isSaveError,
+    saveError,
+    isRestarting,
     onRestart,
     onHome,
   };

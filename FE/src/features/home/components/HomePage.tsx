@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import bgImage from '@/assets/bg/screen.png';
 import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
 import MyPageModal from '@/features/mypage/components/MyPageModal';
 import RankingModal from '@/features/ranking/components/RankingModal';
+import { useBgm } from '@/shared/hooks/useBgm';
 
 import BoardButton from './BoardButton';
 import LogoSection from './LogoSection';
@@ -19,8 +20,13 @@ import TutorialNpc from './TutorialNpc';
 import type { HomeModalType } from '../types/home.types';
 
 export function HomePage() {
+  useBgm();
   const [activeModal, setActiveModal] = useState<HomeModalType | null>(null);
   const [isMyPageOpen, setIsMyPageOpen] = useState(false);
+
+  useEffect(() => {
+    void import('@/features/single/components/SinglePage');
+  }, []);
 
   const handleOpenModal = (modal: HomeModalType) => {
     setActiveModal(modal);
@@ -47,7 +53,7 @@ export function HomePage() {
       {/* 내부 컴포넌트들은 각각 absolute 클래스를 가지고 있으므로 그대로 렌더링 */}
       <LogoSection />
 
-      <div className="absolute left-4 top-4 z-20">
+      <div className="absolute left-16 top-34 z-20">
         <BoardButton />
       </div>
 

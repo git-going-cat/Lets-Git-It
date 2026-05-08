@@ -12,19 +12,23 @@ export default function CherryPickOverlay() {
   const [phase, setPhase] = useState<Phase>(null);
 
   useEffect(() => {
+    let t1: ReturnType<typeof setTimeout> | undefined;
+    let t2: ReturnType<typeof setTimeout> | undefined;
+
     const handler = ({ slot }: { slot: 0 | 1 | 2 }) => {
       if (slot !== 1) return;
+      clearTimeout(t1);
+      clearTimeout(t2);
       setPhase('stamp');
-      const t1 = setTimeout(() => setPhase('fade'), STAMP_MS);
-      const t2 = setTimeout(() => setPhase(null), CHERRY_PICK_ANIM_MS);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
+      t1 = setTimeout(() => setPhase('fade'), STAMP_MS);
+      t2 = setTimeout(() => setPhase(null), CHERRY_PICK_ANIM_MS);
     };
+
     EventBus.on('item:use', handler);
     return () => {
       EventBus.off('item:use', handler);
+      clearTimeout(t1);
+      clearTimeout(t2);
     };
   }, []);
 

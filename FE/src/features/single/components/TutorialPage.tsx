@@ -4,6 +4,7 @@ import { Provider } from 'jotai';
 
 import { onboardingApi } from '@/features/auth/api/onboardingApi';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { useBgm } from '@/shared/hooks/useBgm';
 
 import { useSingleStore } from '../store/singleStore';
 
@@ -59,6 +60,7 @@ function extractCommandSet(steps: TutorialStep[]): Command[] {
  * 완료 시 completeTutorial API를 호출하고 /home으로 이동합니다.
  */
 export default function TutorialPage() {
+  useBgm();
   const navigate = useNavigate();
   const { replay } = useSearch({ from: '/tutorial' });
   const [ready, setReady] = useState(false);

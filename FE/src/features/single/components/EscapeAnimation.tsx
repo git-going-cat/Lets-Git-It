@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { http } from '@/core/http';
 import AnimatedCharacter from '@/shared/components/AnimatedCharacter';
+import { useCurrentCharacterAsset } from '@/shared/hooks/useCurrentCharacterAsset';
 
-import type {
-  CharacterAnimation,
-  CharacterAsset,
-  CharacterDirection,
-} from '@/shared/components/AnimatedCharacter';
+import type { CharacterAnimation, CharacterDirection } from '@/shared/components/AnimatedCharacter';
 
 const CLIMB_BASE_MS = 2400;
 const PUSH_CART_MS = 1800;
@@ -27,17 +23,15 @@ export default function EscapeAnimation({
   onComplete,
 }: EscapeAnimationProps) {
   const [phase, setPhase] = useState<Phase>('at-bottom');
-  const [asset, setAsset] = useState<CharacterAsset | null>(null);
+  const { data: asset, isError } = useCurrentCharacterAsset();
 
   const stopTop = mode === 'success' ? 15 : 18 + (1 - churuRatio) * 82;
   const climbDuration = Math.round(((110 - stopTop) / 95) * CLIMB_BASE_MS);
 
   useEffect(() => {
-    http
-      .get<{ data: CharacterAsset }>('/api/v1/members/me')
-      .then(({ data }) => setAsset(data.data))
-      .catch(() => {});
-  }, []);
+    if (!isError) return;
+    onComplete?.();
+  }, [isError, onComplete]);
 
   // double-RAF: browser renders at-bottom first, then starts climb transition
   useEffect(() => {
