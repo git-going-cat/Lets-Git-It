@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-PROJECT_DIR="/home/ubuntu/develop/S14P31A304"
+PROJECT_DIR="/home/ubuntu/S14P31A304"
 INFRA_DIR="$PROJECT_DIR/INFRA"
 NGINX_CONF_DIR="$PROJECT_DIR/nginx/conf"
 ACTIVE_COLOR_FILE="$INFRA_DIR/.active_color"
