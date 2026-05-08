@@ -22,9 +22,10 @@ Enter 키 입력 시점에 정답을 판정한다. 판정은 3단계 우선순�
 
 **② 은닉 SWITCH (NORMAL 한정)**: 입력이 `git switch <branch>` 형식(`-c` 제외)이면 점수 없이 `activeBranchAtom`만 이동.
 
-**③ 오타**: `comboAtom` 즉시 리셋 + `typoCountAtom` 증가. 목숨은 차감하지 않는다 (목숨은 시간 초과 miss에서만 차감).
+**③ 오타**: `comboAtom` 즉시 리셋 + `typoCountAtom` 증가. 목숨은 차감하지 않는다 (목숨은 시간 초과 miss에서만 차감). `command:wrong` 이벤트를 emit해 화면 흔들림을 트리거한다.
 
-`command:miss` / `game:restart` / `game:over` / `game:complete` 이벤트 수신 시 입력창 초기화.
+`command:miss` / `game:restart` / `game:over` / `game:complete` 이벤트 수신 시 입력창 초기화.  
+`command:miss` 수신 시에도 `command:wrong`을 emit한다.
 
 ### 2. EventBus → Jotai 브릿지 — `useSingleGame`
 
@@ -33,7 +34,7 @@ Phaser Scene이 emit하는 이벤트를 구독해 HUD atom을 갱신한다.
 | EventBus 이벤트 | Jotai 변경 |
 |----------------|-----------|
 | `command:miss` | `livesAtom` -1, `comboAtom` 0, `commandIndexAtom` 동기화. lives ≤ 0이면 `game:over` 재발행 |
-| `command:complete` | `commandIndexAtom` +1, `comboAtom` +1, SWITCH 제외 시 `churuCountAtom` +1, 난이도별 확률로 아이템 드롭 |
+| `command:complete` | `commandIndexAtom` +1, `comboAtom` +1, SWITCH 제외 시 `churuCountAtom` +1, `Command.itemDrop` 사전 배정값 확인 후 아이템 드롭 |
 | `timer:tick` | `elapsedTimeAtom` 갱신 |
 | `game:pause` | `gameStatusAtom` → `'paused'` |
 | `game:over` | 점수 계산(GAMEOVER는 0점), `gameResultAtom` 저장(`missCount`·`typoCount` 포함), `gameStatusAtom` → `'gameover'` |

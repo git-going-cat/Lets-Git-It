@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import type { Command } from '../types/single.types';
+import type { Command, ItemType } from '../types/single.types';
 
 const BRANCH_COLORS: Record<string, { line: number; text: string }> = {
   main: { line: 0x3b82f6, text: '#60a5fa' },
@@ -40,7 +40,7 @@ const NODE = {
   TEXT_BG_COLOR: '#000000cc',
   TEXT_BG_PADDING_X: 10,
   TEXT_BG_PADDING_Y: 6,
-  START_Y: -100,
+  START_Y: -10,
   END_OVERSHOOT: 60,
 } as const;
 
@@ -80,7 +80,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
   showCommand(command: Command, fallDuration: number, onTimeout: () => void): void {
     this.clearCommand();
 
-    const node = this.buildNode(command.text);
+    const node = this.buildNode(command.text, command.itemDrop);
     node.setPosition(this.laneWidth / 2, NODE.START_Y);
     this.add(node);
     this.commandNode = node;
@@ -223,6 +223,46 @@ export class BranchLane extends Phaser.GameObjects.Container {
     }
   }
 
+  /** 노드를 터뜨리고 녹색 링을 방사합니다. 명령어 성공 시 호출됩니다. */
+  flashSuccess(): void {
+    if (this.fallTween) {
+      this.fallTween.stop();
+      this.fallTween = null;
+    }
+    if (!this.commandNode) return;
+
+    const node = this.commandNode;
+    const nodeY = node.y;
+    this.commandNode = null;
+
+    // 녹색 링 방사 (노드 위치 기준으로 바깥으로 확장)
+    const ring = this.scene.add.graphics();
+    ring.setPosition(this.laneWidth / 2, nodeY);
+    ring.lineStyle(3, 0x4ade80, 0.9);
+    ring.strokeCircle(0, 0, NODE.RADIUS);
+    this.add(ring);
+    this.scene.tweens.add({
+      targets: ring,
+      scaleX: 2.8,
+      scaleY: 2.8,
+      alpha: 0,
+      duration: 380,
+      ease: 'Power2.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+
+    // 노드 폭발: 약간 확대되며 페이드아웃
+    this.scene.tweens.add({
+      targets: node,
+      scaleX: 1.5,
+      scaleY: 1.5,
+      alpha: 0,
+      duration: 260,
+      ease: 'Power2.easeOut',
+      onComplete: () => node.destroy(),
+    });
+  }
+
   /** 레인 하단에 빨간 플래시 애니메이션을 재생합니다. 명령어 시간 초과(miss) 시 호출됩니다. */
   flashMiss(): void {
     if (this.flashGraphic) {
@@ -265,22 +305,34 @@ export class BranchLane extends Phaser.GameObjects.Container {
     this.add(label);
   }
 
-  private buildNode(text: string): Phaser.GameObjects.Container {
+  private static readonly ITEM_ICONS: Record<string, string> = {
+    stash: '≡',
+    'cherry-pick': '◆',
+    restore: '♥',
+  };
+
+  private buildNode(text: string, itemDrop?: ItemType): Phaser.GameObjects.Container {
     const { line: color } = this.branchColor;
 
     const g = this.scene.add.graphics();
 
-    // 글로우
-    g.fillStyle(color, NODE.GLOW_ALPHA);
-    g.fillCircle(0, 0, NODE.GLOW_RADIUS);
-
-    // 배경
-    g.fillStyle(NODE.BG_COLOR, 1);
-    g.fillCircle(0, 0, NODE.RADIUS);
-
-    // 테두리
-    g.lineStyle(NODE.BORDER_WIDTH, color, 1);
-    g.strokeCircle(0, 0, NODE.RADIUS);
+    if (itemDrop) {
+      // 아이템 노드: 브랜치 색상으로 완전 채움 + 흰 테두리 + 강한 글로우
+      g.fillStyle(color, 0.5);
+      g.fillCircle(0, 0, NODE.GLOW_RADIUS + 4);
+      g.fillStyle(color, 1);
+      g.fillCircle(0, 0, NODE.RADIUS);
+      g.lineStyle(NODE.BORDER_WIDTH, 0xffffff, 0.9);
+      g.strokeCircle(0, 0, NODE.RADIUS);
+    } else {
+      // 일반 노드
+      g.fillStyle(color, NODE.GLOW_ALPHA);
+      g.fillCircle(0, 0, NODE.GLOW_RADIUS);
+      g.fillStyle(NODE.BG_COLOR, 1);
+      g.fillCircle(0, 0, NODE.RADIUS);
+      g.lineStyle(NODE.BORDER_WIDTH, color, 1);
+      g.strokeCircle(0, 0, NODE.RADIUS);
+    }
 
     // 원 위쪽에 명령어 텍스트 배치
     const textY = -(NODE.RADIUS + NODE.TEXT_GAP);
@@ -299,8 +351,32 @@ export class BranchLane extends Phaser.GameObjects.Container {
       })
       .setOrigin(0.5, 1); // bottom-center anchor → 텍스트 하단이 textY에 위치
 
+    // 좌우 끝 레인에서 텍스트가 캔버스 밖으로 잘리지 않도록 x 위치를 클램핑
+    const EDGE_PADDING = 4;
+    const nodeWorldX = this.x + this.laneWidth / 2;
+    const canvasWidth = this.scene.scale.width;
+    const hw = label.width / 2;
+    if (nodeWorldX - hw < EDGE_PADDING) {
+      label.setX(hw - nodeWorldX + EDGE_PADDING);
+    } else if (nodeWorldX + hw > canvasWidth - EDGE_PADDING) {
+      label.setX(canvasWidth - nodeWorldX - hw - EDGE_PADDING);
+    }
+
     const node = this.scene.add.container(0, 0);
     node.add([g, label]);
+
+    if (itemDrop) {
+      const icon = this.scene.add
+        .text(0, 0, BranchLane.ITEM_ICONS[itemDrop] ?? '★', {
+          fontSize: '13px',
+          fontFamily: 'Arial, sans-serif',
+          color: '#ffffff',
+          fontStyle: 'bold',
+        })
+        .setOrigin(0.5, 0.5);
+      node.add(icon);
+    }
+
     return node;
   }
 }

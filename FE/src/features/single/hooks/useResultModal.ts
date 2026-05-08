@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { MYPAGE_QUERY_KEYS } from '@/features/mypage/constants/queryKeys';
 
 import { singleApi } from '../api/singleApi';
@@ -38,9 +37,12 @@ export function useResultModal() {
   } = useMutation({
     mutationFn: ({ currentPlayLog, currentResult, id }: SaveResultVariables) =>
       singleApi.saveResult(id, {
-        status: currentResult.status,
+        status:
+          currentResult.status === 'ESCAPE_FAILED' || currentResult.status === 'SESSION_EXPIRED'
+            ? 'GAMEOVER'
+            : currentResult.status,
         score: currentResult.score,
-        playTime: Math.round(currentResult.playTimeMs),
+        playTime: Math.round(currentResult.playTimeMs / 1000),
         grade: currentResult.grade,
         playLog: currentPlayLog,
       }),
@@ -52,17 +54,24 @@ export function useResultModal() {
 
   useEffect(() => {
     if (!result || !sessionId) return;
+    if (result.status === 'SESSION_EXPIRED') return;
     saveResult({ currentPlayLog: playLog, currentResult: result, id: sessionId });
   }, [playLog, result, saveResult, sessionId]);
 
   const isVisible = (gameStatus === 'gameover' || gameStatus === 'cleared') && result !== null;
   const isNewRecord = saveData?.isNewRecord ?? (result !== null && result.score > (bestScore ?? 0));
 
-  const onRestart = () => {
-    setGameStatus('playing');
-    setResult(null);
+  const onRestart = async () => {
+    if (!difficulty) return;
     resetSaveMutation();
-    EventBus.emit('game:restart');
+    try {
+      const nextSession = await singleApi.startSession(difficulty);
+      setGameStatus('playing');
+      setResult(null);
+      useSingleStore.getState().setSession(nextSession);
+    } catch {
+      navigate({ to: '/home', replace: true });
+    }
   };
 
   const onRanking = () => navigate({ to: '/ranking' });

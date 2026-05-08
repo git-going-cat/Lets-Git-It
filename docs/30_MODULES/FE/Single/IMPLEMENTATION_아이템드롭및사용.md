@@ -24,25 +24,30 @@ export const ITEM_SLOT_MAP = ['stash', 'cherry-pick', 'restore'] as const;
 | 1 | Alt+2 | cherry-pick | 현재 낙하 명령어 자동 완료 |
 | 2 | Alt+3 | restore | 목숨 +1 (MAX_LIVES 초과 불가) |
 
-### 2. 아이템 드롭 (command:complete 시)
+### 2. 아이템 드롭 — 사전 배정 방식
 
-난이도별 드롭 확률로 `Math.random()`을 굴리고, 통과하면 비어 있는 슬롯 중 하나를 랜덤 선택해 채운다.  
-슬롯이 모두 차 있으면 드롭 없이 소멸한다.
+세션 시작 시(`singleStore.setSession`) `assignItemDrops()`가 모든 명령어에 드롭 여부와 종류를 미리 결정한다.  
+`Command.itemDrop?: ItemType` 필드에 저장되고, 노드가 낙하하기 전부터 아이템 노드로 시각 구분이 가능하다.
+
+> **사전 배정 상세 구현**: `IMPLEMENTATION_게임피드백애니메이션.md` — "1. 사전 드롭 배정" 참고
+
+`useSingleGame.handleComplete`에서 `completedCmd.itemDrop`을 확인해 획득 처리한다.
 
 ```ts
-const DROP_RATE = { EASY: 0.4, NORMAL: 0.3, HARD: 0.2 } as const;
-
-// useSingleGame.handleComplete
-// itemSlotsRef는 useRef가 아닌 useEffect 클로저 내 plain 배열 ([boolean, boolean, boolean])
-const emptyIndices = itemSlotsRef
-  .map((filled, i) => (!filled ? i : -1))
-  .filter((i) => i !== -1);
-if (emptyIndices.length > 0) {
-  const slotToFill = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
-  itemSlotsRef[slotToFill] = true;
-  setItemSlots([itemSlotsRef[0], itemSlotsRef[1], itemSlotsRef[2]]);
+const completedCmd = useSingleStore.getState().commandSet[index];
+if (completedCmd?.itemDrop) {
+  const slotIndex = ITEM_SLOT_MAP.indexOf(completedCmd.itemDrop) as 0 | 1 | 2;
+  if (slotIndex !== -1 && !itemSlotsRef[slotIndex]) {
+    itemSlotsRef[slotIndex] = true;
+    setItemSlots([itemSlotsRef[0], itemSlotsRef[1], itemSlotsRef[2]]);
+    EventBus.emit('item:acquired', { slot: slotIndex });
+  }
 }
 ```
+
+- 슬롯이 이미 채워져 있으면 `item:acquired`를 emit하지 않는다 (노드는 아이템 노드로 보이지만 획득 없음).
+- Miss 경로는 `handleComplete`를 거치지 않으므로 자동으로 드롭 없음.
+- `item:acquired` 이벤트는 `HUDItemSlots`가 구독해 해당 슬롯에 팝 애니메이션을 재생한다.
 
 ### 3. 아이템 사용 (Alt+1/2/3 키보드 / HUD 버튼 클릭)
 
@@ -62,7 +67,7 @@ Alt+3 또는 HUD 버튼 클릭 (slot 2, restore)     → useSingleGame에서 직
 
 아이템 슬롯은 사용 즉시 소비(`false`)된다.
 
-### 4. stash 구현 (SingleScene)
+### 4. stash 구현 (SingleScene + StashOverlay)
 
 `setTimeout`(wall-clock 기준)으로 5초 후 자동 재개한다.  
 Phaser `time.paused = true`로 정지하면 `time.delayedCall`도 멈추므로 반드시 `window.setTimeout`을 사용한다.
@@ -86,14 +91,30 @@ this.stashTimeoutId = setTimeout(() => {
 
 `isUserPaused`는 `handleGamePause`에서 `true`, `handleGameResume`에서 `false`로 관리한다.
 
-### 5. cherry-pick 구현 (SingleScene + useSingleGame)
+**Stash 조기 종료**: `command:complete` 수신 시(명령어 성공) stash가 조기 종료된다.
+- `SingleScene.handleCommandComplete`: `stashTimeoutId`를 클리어하고 `tweens.resumeAll()`로 Phaser 낙하 재개.
+- `StashOverlay`: `command:complete` 이벤트를 구독해 오버레이를 즉시 숨김.
+- 오타(`command:wrong`)에는 반응하지 않는다 — 성공 시에만 종료.
 
-**SingleScene**: 현재 `commandIndex`로 `command:complete`를 emit한다. `handleCommandComplete`가 동기적으로 호출되어 레인 클리어·MERGE 처리·다음 명령어 진행이 이루어진다.
+**StashOverlay**: `item:use { slot: 0 }` 수신 시 반투명 파란 오버레이 + "STASH!" 쾅 애니메이션을 표시한다. Phaser `tweens.pauseAll()` 영향을 받지 않도록 React/CSS로 구현한다.  
+→ 상세: `IMPLEMENTATION_게임피드백애니메이션.md` — "5. StashOverlay" 참고
+
+### 5. cherry-pick 구현 (SingleScene + useSingleGame + CherryPickOverlay)
+
+**SingleScene**: `CHERRY_PICK_ANIM_MS(800ms)` 후 현재 `commandIndex`로 `command:complete`를 emit한다.  
+즉시 emit 대신 딜레이를 두는 이유는 React `CherryPickOverlay` 애니메이션(800ms)과 Phaser 완료 처리를 동기화하기 위함이다.
 
 ```ts
 // slot === 1
 if (this.isGameEnded || this.commandIndex >= this.commandSet.length) return;
-EventBus.emit('command:complete', { index: this.commandIndex });
+if (this.cherryPickTimeoutId !== null) return; // 중복 방지
+const indexAtUse = this.commandIndex;
+this.cherryPickTimeoutId = setTimeout(() => {
+  this.cherryPickTimeoutId = null;
+  if (!this.isGameEnded) {
+    EventBus.emit('command:complete', { index: indexAtUse });
+  }
+}, CHERRY_PICK_ANIM_MS);
 ```
 
 **useSingleGame**: cherry-pick 사용 직전, CREATE/SWITCH 타입 명령어면 `activeBranchAtom`을 업데이트한다.  
@@ -107,12 +128,24 @@ if (cmd && (cmd.type === 'CREATE' || cmd.type === 'SWITCH')) {
 }
 ```
 
-### 6. commandIndexRef
+**CherryPickOverlay**: `item:use { slot: 1 }` 수신 시 🐾 발바닥 stamp(550ms) → fade(250ms) 애니메이션을 재생한다.  
+`CHERRY_PICK_ANIM_MS` 상수를 SingleScene과 공유해 타이밍 불일치를 방지한다.  
+→ 상세: `IMPLEMENTATION_게임피드백애니메이션.md` — "6. CherryPickOverlay" 참고
+
+### 6. restore 구현 (useSingleGame + RestoreOverlay)
+
+`useSingleGame`이 `livesAtom +1`을 직접 처리한다. Phaser와 무관한 React 상태 변경이므로 EventBus를 거치지 않는다.  
+단, `RestoreOverlay` 애니메이션을 트리거하기 위해 `EventBus.emit('item:use', { slot: 2 })`도 함께 emit한다.
+
+**RestoreOverlay**: `item:use { slot: 2 }` 수신 시 ♥가 확대되며 페이드아웃하는 힐링 아우라를 700ms 재생한다.  
+→ 상세: `IMPLEMENTATION_게임피드백애니메이션.md` — "7. RestoreOverlay" 참고
+
+### 7. commandIndexRef
 
 `useSingleGame` 내 EventBus 핸들러(`handleComplete`, `handleMiss`)에서 `commandIndexRef.current`를 수동으로 업데이트한다.  
 React 상태 업데이트는 비동기 배치이므로 atom 구독 ref만으로는 Alt 핸들러 실행 시 stale할 수 있다.
 
-### 7. 리셋
+### 8. 리셋
 
 `resetGame()`에서 `setItemSlots([false, false, false])` 호출.  
 `stashTimeoutId`는 `shutdown()`과 `handleGameEnd()`에서 `clearTimeout` 후 `null`로 초기화.
@@ -121,10 +154,11 @@ React 상태 업데이트는 비동기 배치이므로 atom 구독 ref만으로�
 
 ## Why
 
-### restore를 React에서 처리하고 Phaser에 emit하지 않는 이유
+### restore를 React에서 처리하는 이유
 
 restore는 `livesAtom`만 변경하면 되고 Phaser Scene의 시각 상태와 무관하다.  
-EventBus를 거치면 불필요한 왕복이 생기므로 `useSingleGame`이 직접 처리한다.
+EventBus를 거치면 불필요한 왕복이 생기므로 `useSingleGame`이 직접 처리한다.  
+단, `RestoreOverlay` 애니메이션 트리거를 위해 `item:use { slot: 2 }`는 emit한다.
 
 ### stash에 `window.setTimeout`을 쓰는 이유
 
@@ -150,7 +184,7 @@ cherry-pick의 activeBranch 사이드이펙트는 `useSingleGame`의 Alt 핸들�
 - cherry-pick 사용 시 `command:complete`가 emit되어 `useSingleGame.handleComplete`도 호출된다 → `comboAtom +1`, 아이템 드롭 판정도 진행된다. 즉, cherry-pick 사용 후 또 다른 아이템을 받을 수 있다.
 - cherry-pick으로 MERGE 명령어를 완료하면 `handleCommandComplete`가 MERGE 처리(레인 hide)를 수행하지만, `useCommandInput`의 MERGE 관련 로직은 실행되지 않는다. 현재 MERGE는 Phaser 측에서만 처리하므로 문제없다.
 - `itemSlotsAtom`은 `[boolean, boolean, boolean]` 타입이다. 슬롯 인덱스와 아이템 종류의 매핑은 `ITEM_SLOT_MAP` 상수로만 관리한다. HUD 컴포넌트는 `ITEM_SLOT_MAP[i]`로 아이콘을 결정해야 한다.
-- 드롭은 `command:complete` 시에만 발생한다. 시간 초과 miss나 cherry-pick 사용으로 완료된 명령어에서는 드롭이 없다 (cherry-pick 완료는 `command:complete`를 emit하므로 드롭 판정 대상임 — 위 Caution 참고).
+- 드롭은 `handleComplete`를 거치는 경로에서만 발생한다. 시간 초과 miss는 `handleComplete`를 거치지 않으므로 아이템 노드여도 드롭되지 않는다. cherry-pick 완료는 `command:complete`를 emit하므로 `handleComplete`를 거쳐 드롭 판정 대상이 된다.
 
 ---
 

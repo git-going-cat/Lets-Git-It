@@ -4,7 +4,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
 
-import { gameStatusAtom } from '../store/gameStatusAtom';
+import { gameStatusAtom, prePauseStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
 /**
@@ -16,17 +16,23 @@ import { useSingleStore } from '../store/singleStore';
 export function usePauseModal() {
   const gameStatus = useAtomValue(gameStatusAtom);
   const setGameStatus = useSetAtom(gameStatusAtom);
+  const prePauseStatus = useAtomValue(prePauseStatusAtom);
   const navigate = useNavigate();
 
   const isTutorial = useSingleStore((s) => s.isTutorial);
   const isVisible = gameStatus === 'paused' && !isTutorial;
 
   const onResume = () => {
-    setGameStatus('playing');
-    EventBus.emit('game:resume');
+    setGameStatus(prePauseStatus);
+    // idle에서 pause된 경우 Phaser는 아직 미시작 상태이므로 resume 이벤트 불필요
+    if (prePauseStatus === 'playing') EventBus.emit('game:resume');
   };
 
   const onRestart = () => {
+    if (prePauseStatus === 'idle') {
+      setGameStatus('idle');
+      return;
+    }
     setGameStatus('playing');
     EventBus.emit('game:restart');
   };

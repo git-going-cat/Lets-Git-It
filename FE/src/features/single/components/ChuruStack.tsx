@@ -4,6 +4,7 @@ import { useAtomValue } from 'jotai';
 import churuImg from '@/assets/game/churu.png';
 
 import { churuCountAtom } from '../store/churuAtom';
+import { CHURU_THRESHOLD } from '../utils/scoreCalculator';
 
 interface ChuruItemProps {
   finalBottom: number;
@@ -59,7 +60,10 @@ export default function ChuruStack({ totalCommands }: ChuruStackProps) {
     return () => ro.disconnect();
   }, []);
 
-  const step = containerH / Math.max(totalCommands, 1);
+  // 75% 달성 시 컨테이너 최상단까지 채워지도록 threshold를 기준으로 step 계산
+  // 초과분은 overflow-hidden으로 클리핑됨
+  const threshold = Math.ceil(totalCommands * CHURU_THRESHOLD);
+  const step = containerH / Math.max(threshold, 1);
 
   return (
     <div ref={containerRef} className="relative flex-1 overflow-hidden">
