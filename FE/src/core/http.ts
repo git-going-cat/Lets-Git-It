@@ -35,7 +35,11 @@ http.interceptors.response.use(
     };
     const original = axiosError.config;
 
-    if (axiosError.response?.status === 401 && original && !original._retry) {
+    // 로그인·토큰 교환 요청은 리이슈 로직 제외 — 401이 "인증 실패"를 의미하므로 그대로 throw
+    const AUTH_ENDPOINTS = ['/api/v1/auth/login', '/api/v1/auth/token'];
+    const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) => original?.url?.includes(ep));
+
+    if (axiosError.response?.status === 401 && original && !original._retry && !isAuthEndpoint) {
       original._retry = true;
 
       if (isRefreshing) {
