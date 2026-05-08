@@ -19,11 +19,11 @@ export default function CommandInput() {
         className={`nes-container is-dark box-border w-full px-2.5 py-1.5 ${isError ? 'is-error' : ''}`}
       >
         {historyText ? (
-          <p className={`m-0 !text-xl ${isError ? 'text-red-400' : 'text-green-400'}`}>
+          <p className={`m-0 !text-2xl ${isError ? 'text-red-400' : 'text-green-400'}`}>
             {historyText}
           </p>
         ) : (
-          <p className="m-0 !text-xl text-gray-500">Waiting for input...</p>
+          <p className="m-0 !text-2xl text-gray-500">Waiting for input...</p>
         )}
       </div>
 
@@ -32,7 +32,7 @@ export default function CommandInput() {
           ref={inputRef}
           type="text"
           id="command_input"
-          className="nes-input is-dark box-border w-full !text-xl"
+          className="nes-input is-dark box-border w-full !text-2xl"
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}

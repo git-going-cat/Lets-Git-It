@@ -92,7 +92,7 @@ export default function TutorialOverlay({ state, onNext, onExit }: TutorialOverl
           }`}
         >
           <div className="nes-container is-dark with-title px-3 py-2">
-            <p className="title text-xs">
+            <p className="title text-sm">
               STEP {stepNumber} / {totalSteps}
             </p>
 
@@ -112,11 +112,11 @@ export default function TutorialOverlay({ state, onNext, onExit }: TutorialOverl
               ))}
             </div>
 
-            <p className="text-lg font-bold text-yellow-400 mb-1">{meta.title}</p>
-            <p className="text-lg text-white leading-relaxed">{meta.description}</p>
+            <p className="text-xl font-bold text-yellow-400 mb-1">{meta.title}</p>
+            <p className="text-xl text-white leading-relaxed">{meta.description}</p>
 
             <p
-              className={`text-xs text-center mt-2 animate-pulse ${
+              className={`text-sm text-center mt-2 animate-pulse ${
                 blurActive ? 'text-gray-400' : 'text-green-400'
               }`}
             >
@@ -143,7 +143,7 @@ export default function TutorialOverlay({ state, onNext, onExit }: TutorialOverl
   return (
     <div className="font-pixel absolute inset-0 z-50 flex items-center justify-center bg-black/65 pointer-events-auto tutorial-bubble-wrap">
       <div className="nes-container is-dark with-title w-full max-w-lg px-4 py-3">
-        <p className="title text-xs">
+        <p className="title text-sm">
           STEP {stepNumber} / {totalSteps} — 해설
         </p>
 
@@ -159,15 +159,15 @@ export default function TutorialOverlay({ state, onNext, onExit }: TutorialOverl
           ))}
         </div>
 
-        <p className="text-sm font-bold text-yellow-400 mb-2">{meta.title}</p>
+        <p className="text-xl font-bold text-yellow-400 mb-2">{meta.title}</p>
         <div className="nes-container is-dark px-3 py-2 mb-3">
-          <p className="text-sm text-cyan-300 leading-relaxed">{meta.explanation}</p>
+          <p className="text-xl text-cyan-300 leading-relaxed">{meta.explanation}</p>
         </div>
 
         <button
           ref={nextBtnRef}
           type="button"
-          className="nes-btn is-success w-full text-base"
+          className="nes-btn is-success w-full text-xl"
           onClick={() => onNext(state.metaIndex)}
         >
           {isLast ? '튜토리얼 완료! 🎉' : '다음  [Enter ↵]'}

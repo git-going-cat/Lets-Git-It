@@ -33,6 +33,8 @@ export interface Command {
   text: string;
   branchName: string;
   type: CommandType;
+  /** 세션 시작 시 사전 배정된 아이템 드롭. undefined면 일반 노드. */
+  itemDrop?: ItemType;
 }
 
 export interface SingleSceneData {

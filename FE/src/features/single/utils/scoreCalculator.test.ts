@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { calcGrade, calcScore, SCORE_CONFIG } from './scoreCalculator';
 
+// 보너스 없는 테스트에 사용할 기본 보너스 파라미터
+const NO_BONUS = { churuCount: 0, totalCommands: 0, maxCombo: 0 };
+
 // ─── calcScore ────────────────────────────────────────────────────────────────
 
 describe('calcScore', () => {
@@ -12,6 +15,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 0,
         difficulty: 'EASY',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000);
     });
@@ -22,6 +26,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 0,
         difficulty: 'NORMAL',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000);
     });
@@ -32,6 +37,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 0,
         difficulty: 'HARD',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000);
     });
@@ -45,6 +51,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 0,
         difficulty: 'EASY',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - excessSec * SCORE_CONFIG.EASY.timeRate);
     });
@@ -56,6 +63,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 0,
         difficulty: 'NORMAL',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - excessSec * SCORE_CONFIG.NORMAL.timeRate);
     });
@@ -67,6 +75,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 0,
         difficulty: 'HARD',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - excessSec * SCORE_CONFIG.HARD.timeRate);
     });
@@ -77,6 +86,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 0,
         difficulty: 'EASY',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000);
     });
@@ -89,6 +99,7 @@ describe('calcScore', () => {
         typoCount: 1,
         livesLost: 0,
         difficulty: 'EASY',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - SCORE_CONFIG.EASY.typoPenalty * 1);
     });
@@ -99,6 +110,7 @@ describe('calcScore', () => {
         typoCount: 5,
         livesLost: 0,
         difficulty: 'EASY',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - SCORE_CONFIG.EASY.typoPenalty * 5);
     });
@@ -109,6 +121,7 @@ describe('calcScore', () => {
         typoCount: 1,
         livesLost: 0,
         difficulty: 'NORMAL',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - SCORE_CONFIG.NORMAL.typoPenalty * 1);
     });
@@ -119,6 +132,7 @@ describe('calcScore', () => {
         typoCount: 1,
         livesLost: 0,
         difficulty: 'HARD',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - SCORE_CONFIG.HARD.typoPenalty * 1);
     });
@@ -131,6 +145,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 1,
         difficulty: 'EASY',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - SCORE_CONFIG.EASY.livesPenalty * 1);
     });
@@ -141,6 +156,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 2,
         difficulty: 'EASY',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - SCORE_CONFIG.EASY.livesPenalty * 2);
     });
@@ -151,6 +167,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 1,
         difficulty: 'NORMAL',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - SCORE_CONFIG.NORMAL.livesPenalty * 1);
     });
@@ -161,6 +178,7 @@ describe('calcScore', () => {
         typoCount: 0,
         livesLost: 1,
         difficulty: 'HARD',
+        ...NO_BONUS,
       });
       expect(score).toBe(10000 - SCORE_CONFIG.HARD.livesPenalty * 1);
     });
@@ -177,6 +195,7 @@ describe('calcScore', () => {
         typoCount: 3,
         livesLost: 1,
         difficulty: 'EASY',
+        ...NO_BONUS,
       });
       expect(score).toBe(9020);
     });
@@ -191,6 +210,7 @@ describe('calcScore', () => {
         typoCount: 10,
         livesLost: 2,
         difficulty: 'NORMAL',
+        ...NO_BONUS,
       });
       expect(score).toBe(3000);
     });
@@ -198,12 +218,13 @@ describe('calcScore', () => {
 
   describe('점수 하한 보장 (0 미만 → 0)', () => {
     it('감점 합산이 10000 초과 시 score는 0이다', () => {
-      // HARD: 목숨 100개 손실 → 28000점 감점 → score = 0
+      // HARD: 목숨 100개 손실 → 100000점 감점 → score = 0
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 0,
         livesLost: 100,
         difficulty: 'HARD',
+        ...NO_BONUS,
       });
       expect(score).toBe(0);
     });
@@ -214,8 +235,52 @@ describe('calcScore', () => {
         typoCount: 10000,
         livesLost: 0,
         difficulty: 'EASY',
+        ...NO_BONUS,
       });
       expect(score).toBe(0);
+    });
+  });
+
+  describe('보너스 점수', () => {
+    it('초과 churu 1개당 200점 보너스가 붙는다', () => {
+      // totalCommands=4 → threshold=ceil(3)=3, churuCount=5 → 초과 2개 → +400
+      const { score } = calcScore({
+        playTimeMs: 0,
+        typoCount: 0,
+        livesLost: 0,
+        difficulty: 'EASY',
+        churuCount: 5,
+        totalCommands: 4,
+        maxCombo: 0,
+      });
+      expect(score).toBe(10000 + 2 * 200);
+    });
+
+    it('maxCombo 1당 50점 보너스가 붙는다', () => {
+      const { score } = calcScore({
+        playTimeMs: 0,
+        typoCount: 0,
+        livesLost: 0,
+        difficulty: 'EASY',
+        churuCount: 0,
+        totalCommands: 0,
+        maxCombo: 10,
+      });
+      expect(score).toBe(10000 + 10 * 50);
+    });
+
+    it('churu 미달성 시 churu 보너스는 0이다', () => {
+      // totalCommands=4 → threshold=3, churuCount=2 → 미달 → 보너스 없음
+      const { score } = calcScore({
+        playTimeMs: 0,
+        typoCount: 0,
+        livesLost: 0,
+        difficulty: 'EASY',
+        churuCount: 2,
+        totalCommands: 4,
+        maxCombo: 0,
+      });
+      expect(score).toBe(10000);
     });
   });
 });
@@ -223,15 +288,15 @@ describe('calcScore', () => {
 // ─── calcGrade ────────────────────────────────────────────────────────────────
 
 describe('calcGrade', () => {
-  it('9000 이상이면 S등급이다', () => {
-    expect(calcGrade(9000)).toBe('S');
+  it('10000 이상이면 S등급이다', () => {
     expect(calcGrade(10000)).toBe('S');
-    expect(calcGrade(9999)).toBe('S');
+    expect(calcGrade(10001)).toBe('S');
+    expect(calcGrade(12000)).toBe('S');
   });
 
-  it('8000 이상 9000 미만이면 A등급이다', () => {
+  it('8000 이상 10000 미만이면 A등급이다', () => {
     expect(calcGrade(8000)).toBe('A');
-    expect(calcGrade(8999)).toBe('A');
+    expect(calcGrade(9999)).toBe('A');
   });
 
   it('7000 이상 8000 미만이면 B등급이다', () => {
@@ -255,9 +320,9 @@ describe('calcGrade', () => {
     expect(calcGrade(2999)).toBe('F');
   });
 
-  it('등급 경계값: 정확히 9000이면 S이고, 8999이면 A이다', () => {
-    expect(calcGrade(9000)).toBe('S');
-    expect(calcGrade(8999)).toBe('A');
+  it('등급 경계값: 정확히 10000이면 S이고, 9999이면 A이다', () => {
+    expect(calcGrade(10000)).toBe('S');
+    expect(calcGrade(9999)).toBe('A');
   });
 
   it('calcScore 반환값의 grade와 calcGrade(score) 결과가 일치한다', () => {
@@ -266,6 +331,7 @@ describe('calcGrade', () => {
       typoCount: 0,
       livesLost: 0,
       difficulty: 'EASY',
+      ...NO_BONUS,
     });
     expect(grade).toBe(calcGrade(score));
   });

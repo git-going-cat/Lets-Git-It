@@ -9,7 +9,7 @@ function SettingsSection() {
 
   return (
     <div className="nes-container is-dark w-full p-4">
-      <p className="title text-base">SETTINGS</p>
+      <p className="title text-xl">SETTINGS</p>
 
       <div className="flex flex-col gap-4">
         {/* BGM */}
@@ -21,7 +21,7 @@ function SettingsSection() {
               checked={bgmEnabled}
               onChange={(e) => setBgmEnabled(e.target.checked)}
             />
-            <span className="text-base">♪ BGM</span>
+            <span className="text-xl">♪ BGM</span>
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -33,7 +33,7 @@ function SettingsSection() {
               onChange={(e) => setBgmVolume(Number(e.target.value))}
               className="w-full"
             />
-            <span className="w-12 text-right text-xl">{bgmVolume}%</span>
+            <span className="w-12 text-right text-2xl">{bgmVolume}%</span>
           </div>
         </div>
 
@@ -41,11 +41,11 @@ function SettingsSection() {
         <div className="flex flex-col gap-2 opacity-40">
           <label className="flex items-center gap-2">
             <input type="checkbox" className="nes-checkbox is-dark" disabled />
-            <span className="text-base">🔊 SFX (준비 중)</span>
+            <span className="text-xl">🔊 SFX (준비 중)</span>
           </label>
           <div className="flex items-center gap-2">
             <input type="range" min={0} max={100} defaultValue={60} disabled className="w-full" />
-            <span className="w-12 text-right text-xl">60%</span>
+            <span className="w-12 text-right text-2xl">60%</span>
           </div>
         </div>
       </div>

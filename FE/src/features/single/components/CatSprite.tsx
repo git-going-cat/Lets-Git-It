@@ -5,7 +5,7 @@ import catSheet from '@/assets/game/cat.png';
 const FRAME_COUNT = 4;
 const FRAME_W = 128;
 const FRAME_H = 80;
-const DISPLAY_W = 160;
+const DISPLAY_W = 200;
 const IDLE_TIMEOUT_MS = 200;
 
 const TYPING_KEYS = new Set(['Enter', 'Backspace', 'Space']);
@@ -59,13 +59,14 @@ export default function CatSprite() {
   }, []);
 
   const scale = DISPLAY_W / FRAME_W;
+  const displayH = Math.round(FRAME_H * scale);
 
   return (
     <div
-      // h-[100px]: 원본 128x80 스프라이트 비율을 1.25배로 맞춘 표시 높이입니다.
-      className="pixel-art h-[100px] w-40 bg-no-repeat"
-      // 스프라이트 시트 프레임 전환은 현재 frame 값으로 backgroundPosition을 런타임 계산해야 해서 Tailwind 정적 클래스로 표현할 수 없습니다.
+      className="pixel-art bg-no-repeat"
       style={{
+        width: `${DISPLAY_W}px`,
+        height: `${displayH}px`,
         backgroundImage: `url(${catSheet})`,
         backgroundSize: `${FRAME_COUNT * FRAME_W * scale}px ${FRAME_H * scale}px`,
         backgroundPosition: `-${frame * DISPLAY_W}px 0`,

@@ -25,11 +25,11 @@ export default function TutorialCompleteModal({ isSkipped, onHome }: TutorialCom
     // z-[80]: StartModal(z-50)이 남아 있는 튜토리얼 스킵 흐름에서도 완료 안내를 최상단에 표시합니다.
     <div className="font-pixel fixed inset-0 z-[80] flex items-center justify-center bg-black/80">
       <div className="nes-container is-dark with-title w-full max-w-sm">
-        <p className="title text-sm">{isSkipped ? 'TUTORIAL SKIPPED' : 'TUTORIAL COMPLETE'}</p>
+        <p className="title text-base">{isSkipped ? 'TUTORIAL SKIPPED' : 'TUTORIAL COMPLETE'}</p>
 
         <div className="flex flex-col items-center gap-6 p-2">
           {isSkipped ? (
-            <p className="text-xl text-gray-300 text-center leading-relaxed">
+            <p className="text-2xl text-gray-300 text-center leading-relaxed">
               튜토리얼을 건너뛰었습니다.
               <br />
               나중에 홈에서 다시 확인할 수 있어요!
@@ -37,10 +37,10 @@ export default function TutorialCompleteModal({ isSkipped, onHome }: TutorialCom
           ) : (
             <>
               <p className="text-4xl">🎉</p>
-              <p className="text-xl text-yellow-400 text-center font-bold leading-relaxed">
+              <p className="text-2xl text-yellow-400 text-center font-bold leading-relaxed">
                 튜토리얼 완료!
               </p>
-              <p className="text-base text-gray-300 text-center leading-relaxed">
+              <p className="text-xl text-gray-300 text-center leading-relaxed">
                 Git 기본 흐름을 모두 익혔습니다.
                 <br />
                 이제 진짜 게임을 시작해봐요!

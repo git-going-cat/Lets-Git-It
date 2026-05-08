@@ -83,12 +83,17 @@ SingleHUD        ← 조립만
 - 액션: `setSession` (게임 시작 시 API 응답 저장), `clearSession` (게임 종료 시 초기화)
 - `create<T>((set) => ...)` 단일 호출 형태 사용 — 타입 파라미터를 명시적으로 전달하므로 v5에서도 추론이 정확하게 동작한다
 
+`setSession`은 API 응답의 `commandSet`을 `assignItemDrops(difficulty)`로 가공해 저장한다. 이로써 낙하 전부터 아이템 노드가 시각적으로 구분된다. 튜토리얼 모드이거나 difficulty가 null이면 `assignItemDrops`를 건너뛴다.
+
+> **사전 드롭 배정 상세**: `IMPLEMENTATION_게임피드백애니메이션.md` — "1. 사전 드롭 배정" 참고
+
 ### 6. 타입 분리
 
 `GameStatus`, `Difficulty`, `CommandType`, `Command`, `ItemType`, `ITEM_SLOT_MAP` 타입을 `features/single/types/single.types.ts`에 집중했다.
 
 - `ItemType = 'restore' | 'stash' | 'cherry-pick'`
 - `ITEM_SLOT_MAP = ['stash', 'cherry-pick', 'restore']` — 슬롯 인덱스(0·1·2)와 아이템 종류의 고정 매핑
+- `Command.itemDrop?: ItemType` — 세션 시작 시 사전 배정된 드롭 종류. 없으면 일반 노드
 - `DIFFICULTIES = ['EASY', 'NORMAL', 'HARD'] as const` + `Difficulty = (typeof DIFFICULTIES)[number]` — enum 대신 `as const` 배열을 사용한다. JavaScript에서 enum을 피하고 `z.enum(DIFFICULTIES)`처럼 Zod와 직접 조합할 수 있어 스키마와 타입이 단일 소스에서 파생된다.
 
 > **아이템 상세**: `IMPLEMENTATION_아이템드롭및사용.md` 참고  
@@ -156,7 +161,7 @@ score = max(0, 10000 - 시간감점 - 오타감점 - 목숨감점)
 | NORMAL | 240         | 30             | 200               | 700                |
 | HARD   | 180         | 50             | 350               | 1000               |
 
-S등급(9000점) 기준 EASY: 오타 9개 이하, 목숨 손실 1개 이하(2개면 경계), 기준시간 67초 이내 초과까지 허용.
+S등급(10000점) 기준 EASY: 오타 9개 이하, 목숨 손실 1개 이하(2개면 경계), 기준시간 67초 이내 초과까지 허용.
 
 ### 11. singleApi + Zod 스키마 구현
 
