@@ -1,9 +1,11 @@
 ﻿import { ChevronRight } from 'lucide-react';
 
+import { env } from '@/config/env'; // 환경변수 추가
+
 import googleIconSvg from '../assets/Web (mobile + desktop)/svg/neutral/web_neutral_rd_na.svg';
 import { useLoginForm } from '../hooks/useLoginForm';
 
-const GOOGLE_AUTH_URL = '/api/v1/oauth2/authorization/google';
+const GOOGLE_AUTH_URL = `${env.API_BASE_URL}/api/v1/oauth2/authorization/google`; // 개발 주소 추가
 
 interface LoginFormProps {
   onOpenSignUp: () => void;
