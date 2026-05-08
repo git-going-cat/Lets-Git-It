@@ -29,6 +29,7 @@ function resolveInitialStep(status: OnboardingStatus): OnboardingStep {
  */
 export function useOnboarding() {
   const user = useAuthStore((s) => s.user);
+  const updateUser = useAuthStore((s) => s.updateUser);
   const navigate = useNavigate();
 
   const [step, setStep] = useState<OnboardingStep>(() =>
@@ -57,11 +58,15 @@ export function useOnboarding() {
    */
   const finishOnboarding = useCallback(async () => {
     setStep('completing');
-    await completeTutorial().catch(() => {
-      // 이미 TUTORIAL_DONE인 경우 예외 발생 → 무시하고 홈으로 이동
-    });
+    await completeTutorial()
+      .then(() => {
+        updateUser({ onboardingStatus: 'TUTORIAL_DONE' });
+      })
+      .catch(() => {
+        // 이미 TUTORIAL_DONE인 경우 예외 발생 → 무시하고 홈으로 이동
+      });
     await navigate({ to: '/home' });
-  }, [completeTutorial, navigate]);
+  }, [completeTutorial, navigate, updateUser]);
 
   return { step, goToStep, finishOnboarding, user };
 }

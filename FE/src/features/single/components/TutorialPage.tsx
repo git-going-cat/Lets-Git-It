@@ -105,7 +105,7 @@ export default function TutorialPage() {
     try {
       await onboardingApi.completeTutorial();
       if (user) {
-        useAuthStore.setState({ user: { ...user, onboardingStatus: 'TUTORIAL_DONE' } });
+        useAuthStore.getState().updateUser({ onboardingStatus: 'TUTORIAL_DONE' });
       }
     } catch {
       // 이미 TUTORIAL_DONE인 경우 무시

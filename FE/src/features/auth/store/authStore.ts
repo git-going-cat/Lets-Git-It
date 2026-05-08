@@ -52,3 +52,14 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+export function waitForAuthStoreHydration() {
+  if (useAuthStore.persist.hasHydrated()) return Promise.resolve();
+
+  return new Promise<void>((resolve) => {
+    const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
+      unsubscribe();
+      resolve();
+    });
+  });
+}

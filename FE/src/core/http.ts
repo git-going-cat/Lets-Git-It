@@ -26,7 +26,20 @@ http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 // ── 응답 인터셉터: 401 → reissue → 재시도 ────────────────────────────
 let isRefreshing = false;
-let pendingQueue: Array<(token: string) => void> = [];
+let pendingQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+}> = [];
+
+const resolvePendingQueue = (token: string) => {
+  pendingQueue.forEach(({ resolve }) => resolve(token));
+  pendingQueue = [];
+};
+
+const rejectPendingQueue = (error: unknown) => {
+  pendingQueue.forEach(({ reject }) => reject(error));
+  pendingQueue = [];
+};
 
 http.interceptors.response.use(
   (res) => res,
@@ -46,8 +59,8 @@ http.interceptors.response.use(
 
       if (isRefreshing) {
         // 재발급 중이면 대기 큐에 추가
-        return new Promise<string>((resolve) => {
-          pendingQueue.push(resolve);
+        return new Promise<string>((resolve, reject) => {
+          pendingQueue.push({ resolve, reject });
         }).then((token) => {
           original.headers.Authorization = `Bearer ${token}`;
           return http(original);
@@ -57,22 +70,22 @@ http.interceptors.response.use(
       isRefreshing = true;
       try {
         const { data } = await axios.post<{ data: { accessToken: string } }>(
-          `${env.API_BASE_URL}/api/v1/auth/reissue`, // 앞에 개발 주소 추가
+          '/api/v1/auth/reissue',
           {},
-          { withCredentials: true }
+          { baseURL: env.API_BASE_URL, withCredentials: true }
         );
 
         const newToken = data.data.accessToken;
         useAuthStore.getState().setAccessToken(newToken);
-        pendingQueue.forEach((cb) => cb(newToken));
-        pendingQueue = [];
+        resolvePendingQueue(newToken);
 
         original.headers.Authorization = `Bearer ${newToken}`;
         return http(original);
-      } catch {
+      } catch (refreshError) {
+        rejectPendingQueue(refreshError);
         useAuthStore.getState().clearAuth();
         window.location.href = '/login';
-        return Promise.reject(error);
+        return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
