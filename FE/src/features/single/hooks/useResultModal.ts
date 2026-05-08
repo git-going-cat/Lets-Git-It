@@ -74,7 +74,6 @@ export function useResultModal() {
     }
   };
 
-  const onRanking = () => navigate({ to: '/ranking' });
   const onHome = () => navigate({ to: '/home' });
 
   return {
@@ -85,7 +84,6 @@ export function useResultModal() {
     isSaving,
     saveError: isSaveError,
     onRestart,
-    onRanking,
     onHome,
   };
 }
