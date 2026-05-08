@@ -11,7 +11,7 @@ export default function SettingsButton({ onClick }: SettingsButtonProps) {
       id="btn-settings"
       type="button"
       onClick={onClick}
-      className="absolute right-4 top-4 transition-transform duration-200 hover:rotate-45 hover:scale-110 active:scale-90"
+      className="transition-transform duration-200 hover:rotate-45 hover:scale-110 active:scale-90"
       aria-label="설정"
     >
       <img

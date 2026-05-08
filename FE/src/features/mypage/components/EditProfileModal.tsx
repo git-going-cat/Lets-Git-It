@@ -146,7 +146,7 @@ export function EditProfileModal({
       <Win11Window title="내 정보 수정" onClose={onClose} className="w-[540px]">
         <div className="flex w-full flex-col gap-6">
           <section className="flex flex-col gap-2">
-            <h3 className="text-sm font-bold text-gray-800">닉네임 변경</h3>
+            <h3 className="text-base font-bold text-gray-800">닉네임 변경</h3>
             <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
               <Input
                 value={nickname}
@@ -171,16 +171,16 @@ export function EditProfileModal({
                 저장
               </Button>
             </div>
-            {nicknameError && <span className="text-xs text-red-500">{nicknameError}</span>}
-            {nicknameSuccess && <span className="text-xs text-green-600">{nicknameSuccess}</span>}
+            {nicknameError && <span className="text-sm text-red-500">{nicknameError}</span>}
+            {nicknameSuccess && <span className="text-sm text-green-600">{nicknameSuccess}</span>}
           </section>
 
           <hr className="border-gray-200" />
 
           <section className="flex flex-col gap-2">
-            <h3 className="text-sm font-bold text-gray-800">비밀번호 재설정</h3>
+            <h3 className="text-base font-bold text-gray-800">비밀번호 재설정</h3>
             <div className="flex items-center justify-between">
-              <span className="mr-2 flex-1 text-xs leading-tight text-gray-600">
+              <span className="mr-2 flex-1 text-sm leading-relaxed text-gray-600">
                 {authType === 'OAUTH'
                   ? '소셜 로그인(Google) 사용자는 비밀번호 변경이 불가능합니다.'
                   : '주기적인 비밀번호 변경으로 계정을 안전하게 보호하세요.'}
@@ -199,7 +199,7 @@ export function EditProfileModal({
             <button
               type="button"
               onClick={() => setIsWithdrawModalOpen(true)}
-              className="nes-rounded-button bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-600 active:bg-red-700"
+              className="nes-rounded-button bg-red-500 px-4 py-2 text-base font-semibold text-white shadow-sm transition-colors hover:bg-red-600 active:bg-red-700"
             >
               회원탈퇴
             </button>
