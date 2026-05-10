@@ -2,6 +2,7 @@ package com.gitcat.letsgitit.domain.single.service;
 
 import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -83,6 +84,7 @@ public class SingleServiceImpl implements SingleService {
 		Timer.Sample redis = singleMetrics.start();
 		SingleSessionCache sessionCache = SingleSessionCache.of(sessionId, memberId, difficulty);
 		singleSessionRedisRepository.save(sessionCache);
+		OffsetDateTime expiresAt = OffsetDateTime.now().plus(singleSessionRedisRepository.getSessionTtl());
 		singleMetrics.recordStartSessionRedis(redis, difficulty);
 
 		singleMetrics.recordStartSession(total, difficulty);
@@ -93,7 +95,8 @@ public class SingleServiceImpl implements SingleService {
 			sessionId,
 			difficulty,
 			bestScore,
-			commandSetDtos);
+			commandSetDtos,
+			expiresAt);
 	}
 
 	@Override
@@ -119,6 +122,10 @@ public class SingleServiceImpl implements SingleService {
 			// 3. 세션 소유자 검증
 			if (!sessionCache.memberId().equals(memberId)) {
 				throw new BusinessException(ACCESS_DENIED);
+			}
+
+			if (sessionCache.terminated()) {
+				log.info("[single][saveResult] recovered terminated session. sessionId={}", sessionId);
 			}
 
 			difficulty = sessionCache.difficulty();
@@ -202,6 +209,19 @@ public class SingleServiceImpl implements SingleService {
 		} finally {
 			singleMetrics.recordSaveResult(total, difficulty != null ? difficulty.name() : null, success);
 		}
+	}
+
+	@Override
+	public void terminateSession(UUID memberId, String sessionId) {
+		SingleSessionCache sessionCache = singleSessionRedisRepository.findBySessionId(sessionId)
+			.orElseThrow(() -> new BusinessException(SESSION_NOT_FOUND));
+
+		if (!sessionCache.memberId().equals(memberId)) {
+			throw new BusinessException(ACCESS_DENIED);
+		}
+
+		singleSessionRedisRepository.save(sessionCache.terminate());
+		log.info("[single][terminateSession] sessionId={}, terminated=true", sessionId);
 	}
 
 	private SingleCommandSet selectCommandSet(Difficulty difficulty) {

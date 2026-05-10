@@ -55,7 +55,8 @@ public interface SingleControllerDocs {
 		        "branchName": "main",
 		        "type": "MERGE"
 		      }
-		    ]
+		    ],
+		    "expiresAt": "2026-04-28T09:42:34.123+09:00"
 		  }
 		}
 		""")))
@@ -64,16 +65,37 @@ public interface SingleControllerDocs {
 		CustomUserDetails userDetails,
 		SingleSessionStartRequest request);
 
+	@Operation(summary = "싱글 게임 세션 종료", description = "진행 중인 싱글 게임 세션을 종료합니다. 세션은 Redis에 terminated=true 상태로 1분간 짧게 보관되며, 동일 sessionId로 결과 저장 성공 시 Redis 키가 삭제됩니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "싱글 게임 세션 종료 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+			{
+			  "status": 200,
+			  "message": "싱글 게임 세션 종료 성공",
+			  "data": {}
+			}
+			"""))),
+		@ApiResponse(responseCode = "404", description = "세션 없음", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "SESSION_NOT_FOUND", value = """
+			{"status": 404, "code": "SESSION_NOT_FOUND", "message": "세션을 찾을 수 없습니다.", "errors": []}
+			"""))),
+		@ApiResponse(responseCode = "403", description = "본인 세션이 아닌 경우", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "ACCESS_DENIED", value = """
+			{"status": 403, "code": "ACCESS_DENIED", "message": "접근 권한이 없습니다.", "errors": []}
+			"""))),
+	})
+	ResponseEntity<?> terminateSession(
+		@Parameter(hidden = true)
+		CustomUserDetails userDetails,
+		@Parameter(name = "sessionId", description = "종료할 세션 ID", required = true)
+		String sessionId);
+
 	@Operation(summary = "싱글 게임 결과 저장", description = """
 		점수 및 등급 계산은 프론트에서 처리 후 전송. 서버는 저장 및 랭킹 업데이트만 수행.
 		최고 점수 갱신 시 isNewRecord=true 반환.
 
-		**Mock 에러 트리거 (테스트용)**
-		| sessionId 값 | 발생 에러 |
+		**에러 분기**
+		| 조건 | 발생 에러 |
 		|---|---|
-		| "NOTFOUND" | 404 SESSION_NOT_FOUND |
-		| "EXPIRED" | 410 SESSION_EXPIRED |
-		| "FINISHED" | 409 ALREADY_FINISHED |
+		| Redis에 세션이 없거나 이미 만료된 sessionId | 404 SESSION_NOT_FOUND |
+		| 이미 결과가 저장된 sessionId | 409 ALREADY_FINISHED |
 		""")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{
@@ -93,9 +115,6 @@ public interface SingleControllerDocs {
 			"""))),
 		@ApiResponse(responseCode = "404", description = "세션 없음", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "SESSION_NOT_FOUND", value = """
 			{"status": 404, "code": "SESSION_NOT_FOUND", "message": "세션을 찾을 수 없습니다.", "errors": []}
-			"""))),
-		@ApiResponse(responseCode = "410", description = "세션 만료", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "SESSION_EXPIRED", value = """
-			{"status": 410, "code": "SESSION_EXPIRED", "message": "세션이 만료되었습니다.", "errors": []}
 			"""))),
 		@ApiResponse(responseCode = "409", description = "이미 종료된 세션", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "ALREADY_FINISHED", value = """
 			{"status": 409, "code": "ALREADY_FINISHED", "message": "이미 종료된 세션입니다.", "errors": []}

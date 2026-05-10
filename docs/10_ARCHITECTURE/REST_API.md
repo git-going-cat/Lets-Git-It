@@ -1629,6 +1629,7 @@ POST /api/v1/single/sessions
 | `commandSet[].text` | String | 명령어 전체 텍스트 |
 | `commandSet[].branchName` | String | 브랜치 이름 |
 | `commandSet[].type` | String | 명령어 타입 (`CREATE` / `MERGE` / `SWITCH` / `COMMON`) |
+| `expiresAt` | DateTime | 세션 만료 시각 (생성 시점 기준 30분 후) |
 
 **type 분류 기준**
 - `CREATE` : `git switch -c` 브랜치 생성 명령어
@@ -1669,14 +1670,52 @@ POST /api/v1/single/sessions
         "branchName": "main",
         "type": "MERGE"
       }
-    ]
+    ],
+    "expiresAt": "2026-04-28T09:42:34.123+09:00"
   }
 }
 ```
 
 ---
 
-### 5-2. 싱글 게임 결과 저장
+### 5-2. 싱글 게임 세션 종료
+
+```
+DELETE /api/v1/single/sessions/{sessionId}
+```
+
+> 진행 중인 싱글 게임 세션을 종료합니다.
+>
+> 세션 종료 시 Redis 세션은 `terminated=true` 상태로 마킹되어 1분간 짧게 유지됩니다.
+>
+> 이 상태의 세션은 동일 `sessionId`로 결과 저장 API를 다시 호출할 수 있으며, 결과 저장 성공 시 Redis 키가 삭제됩니다.
+
+#### Path Variable
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `sessionId` | String | Y | 종료할 세션 ID |
+
+#### Response
+
+```json
+{
+  "status": 200,
+  "message": "싱글 게임 세션 종료 성공",
+  "data": {}
+}
+```
+
+#### 에러 코드
+
+| 코드 | 설명 |
+| --- | --- |
+| `SESSION_NOT_FOUND` | 세션이 존재하지 않는 경우 |
+| `ACCESS_DENIED` | 본인 세션이 아닌 경우 |
+
+---
+
+### 5-3. 싱글 게임 결과 저장
 
 ```
 POST /api/v1/single/sessions/{sessionId}/result
@@ -1684,6 +1723,7 @@ POST /api/v1/single/sessions/{sessionId}/result
 
 > 점수 및 등급 계산은 프론트에서 처리 후 전송. 서버는 저장 및 랭킹 업데이트만 처리.
 > 서버는 받은 점수가 해당 유저의 최고 점수보다 높으면 `isNewRecord: true`를 반환합니다.
+> Redis 세션이 만료되어 조회되지 않는 경우도 현재 구현상 `SESSION_NOT_FOUND`로 처리합니다.
 
 #### Request Body
 
@@ -1693,15 +1733,13 @@ POST /api/v1/single/sessions/{sessionId}/result
 | `score` | Integer | Y | 최종 점수 (프론트 계산값)                     |
 | `playTime` | Integer | Y | 플레이 시간 (ms)                         |
 | `grade` | String | Y | 등급 `S` / `A` / `B` / `C` / `D` / `F` |
-| `sessionId` | UUID | Y | 세션 ID                               |
 
 ```json
 {
   "status": "SUCCESS",
   "score": 8500,
   "playTime": 143000,
-  "grade": "A",
-  "sessionId": "session-uuid-abc123"
+  "grade": "A"
 }
 ```
 
@@ -1725,8 +1763,7 @@ POST /api/v1/single/sessions/{sessionId}/result
 
 | 코드 | 설명 |
 | --- | --- |
-| `SESSION_NOT_FOUND` | 세션 없음 |
-| `SESSION_EXPIRED` | 세션 만료 |
+| `SESSION_NOT_FOUND` | 세션이 없거나 Redis에서 이미 만료되어 조회되지 않는 경우 |
 | `ALREADY_FINISHED` | 이미 종료된 세션 |
 
 ---
