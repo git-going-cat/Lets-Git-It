@@ -4,7 +4,14 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { PostHogProvider } from './providers/PostHogProvider';
 import { routeTree } from './routeTree.gen';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      throwOnError: false,
+    },
+  },
+});
 
 const router = createRouter({ routeTree });
 
