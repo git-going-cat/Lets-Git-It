@@ -66,15 +66,43 @@ export function Win11Window({
               aria-label={isMaximized ? '이전 크기로 복원' : '최대화'}
               title={isMaximized ? '이전 크기로 복원' : '최대화'}
             >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <rect x="2.5" y="2.5" width="7" height="7" stroke="currentColor" strokeWidth="1" />
-              </svg>
+              {isMaximized ? (
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M4.5 4.5V2.5H9.5V7.5H7.5" stroke="currentColor" strokeWidth="1" />
+                  <rect
+                    x="2.5"
+                    y="4.5"
+                    width="5"
+                    height="5"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    fill="transparent"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="2.5"
+                    y="2.5"
+                    width="7"
+                    height="7"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  />
+                </svg>
+              )}
             </button>
             <button
               type="button"

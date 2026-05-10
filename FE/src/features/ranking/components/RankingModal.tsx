@@ -4,7 +4,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useModal } from '@/shared/hooks/useModal';
 
 import { useRanking } from '../hooks/useRanking';
-import { getCurrentWeek, getModeLabel, getPrevWeek } from '../utils/rankingFormat';
+import {
+  getCurrentWeek,
+  getModeLabel,
+  getPrevWeek,
+  normalizeWeekParam,
+} from '../utils/rankingFormat';
 
 import RankingList from './RankingList';
 import RankingPodium from './RankingPodium';
@@ -42,6 +47,7 @@ export default function RankingModal({ onClose }: RankingModalProps) {
     hasNextPage,
     hasPreviousPage,
     isLoading,
+    isFetching,
     isFetchingNextPage,
     isFetchingPreviousPage,
   } = useRanking(activeMode, selectedWeek);
@@ -55,7 +61,7 @@ export default function RankingModal({ onClose }: RankingModalProps) {
     if (shouldShowPreparingGuide || !isCurrentWeek || !data) return null;
     const page = data.pages.find((rankingPage) => 'year' in rankingPage);
     if (page && 'year' in page && 'month' in page && 'week' in page) {
-      return { year: page.year, month: page.month, week: page.week };
+      return normalizeWeekParam({ year: page.year, month: page.month, week: page.week });
     }
     return null;
   }, [data, isCurrentWeek, shouldShowPreparingGuide]);
@@ -168,6 +174,7 @@ export default function RankingModal({ onClose }: RankingModalProps) {
                     fetchPreviousPage={fetchPreviousPage}
                     hasNextPage={hasNextPage}
                     hasPreviousPage={hasPreviousPage}
+                    isFetching={isFetching}
                     isFetchingNextPage={isFetchingNextPage}
                     isFetchingPreviousPage={isFetchingPreviousPage}
                     scrollContainerRef={rankingScrollRef}
@@ -199,11 +206,11 @@ function extractWeekInfo(data: unknown): WeekParam | null {
   const firstPage = data.pages[0];
 
   if (!isWeekPage(firstPage)) return null;
-  return {
+  return normalizeWeekParam({
     year: firstPage.year,
     month: firstPage.month,
     week: firstPage.week,
-  };
+  });
 }
 
 function isPageContainer(data: unknown): data is { pages: unknown[] } {

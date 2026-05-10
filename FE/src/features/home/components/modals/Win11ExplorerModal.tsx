@@ -184,38 +184,93 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
           </div>
           {/* 창 컨트롤 버튼 */}
           <div className="flex gap-1">
-            {['─', '□', '✕'].map((icon, i) => (
-              <button
-                key={icon}
-                type="button"
-                onClick={
-                  i === 0 ? onClose : i === 1 ? () => setIsMaximized((prev) => !prev) : onClose
-                }
-                className={`flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors ${
-                  i === 2 ? 'hover:bg-red-500 hover:text-white' : 'hover:bg-gray-200'
-                }`}
-                aria-label={
-                  i === 0
-                    ? '최소화'
-                    : i === 1
-                      ? isMaximized
-                        ? '이전 크기로 복원'
-                        : '최대화'
-                      : '닫기'
-                }
-                title={
-                  i === 0
-                    ? '최소화'
-                    : i === 1
-                      ? isMaximized
-                        ? '이전 크기로 복원'
-                        : '최대화'
-                      : '닫기'
-                }
+            {/* 최소화 버튼 */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors hover:bg-gray-200"
+              aria-label="최소화"
+              title="최소화"
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 12 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
               >
-                {icon}
-              </button>
-            ))}
+                <rect x="2" y="5.5" width="8" height="1" fill="currentColor" />
+              </svg>
+            </button>
+            {/* 최대화/복원 버튼 */}
+            <button
+              type="button"
+              onClick={() => setIsMaximized((prev) => !prev)}
+              className="flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors hover:bg-gray-200"
+              aria-label={isMaximized ? '이전 크기로 복원' : '최대화'}
+              title={isMaximized ? '이전 크기로 복원' : '최대화'}
+            >
+              {isMaximized ? (
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M4.5 4.5V2.5H9.5V7.5H7.5" stroke="currentColor" strokeWidth="1" />
+                  <rect
+                    x="2.5"
+                    y="4.5"
+                    width="5"
+                    height="5"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    fill="transparent"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="2.5"
+                    y="2.5"
+                    width="7"
+                    height="7"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  />
+                </svg>
+              )}
+            </button>
+            {/* 닫기 버튼 */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors hover:bg-red-500 hover:text-white"
+              aria-label="닫기"
+              title="닫기"
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 12 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
           </div>
         </div>
 

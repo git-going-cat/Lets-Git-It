@@ -42,7 +42,7 @@ export function useResultModal() {
       .saveResult(sessionId, {
         status: result.status === 'ESCAPE_FAILED' ? 'GAMEOVER' : result.status,
         score: result.score,
-        playTime: Math.round(result.playTimeMs / 1000),
+        playTime: result.playTimeMs,
         grade: result.grade,
         playLog,
       })
