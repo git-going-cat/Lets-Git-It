@@ -11,6 +11,7 @@ deploy-dev-be:
         - BE/**/*
   script:
     - cd /home/ubuntu/develop/S14P31A304
+    - git config pull.rebase false
     - git pull origin develop
     - bash INFRA/deploy-be.sh
 
@@ -29,5 +30,6 @@ deploy-dev-fe:
         - INFRA/Dockerfile.fe
   script:
     - cd /home/ubuntu/develop/S14P31A304
+    - git config pull.rebase false
     - git pull origin develop
     - bash INFRA/deploy-fe.sh
