@@ -48,7 +48,7 @@ services:
       - ./monitoring/grafana-agent/agent-config.alloy:/etc/alloy/config.alloy
     command: run /etc/alloy/config.alloy
     ports:
-      - "12347:12347"
+      - "10.0.0.1:12347:12347"
     restart: always
     networks:
       - letsgit-dev

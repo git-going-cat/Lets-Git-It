@@ -19,14 +19,14 @@ services:
   spring-blue:
     <<: *spring-common
     container_name: spring-blue
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
 
   spring-green:
     <<: *spring-common
     container_name: spring-green
-    ports:
-      - "8081:8080"
+    expose:
+      - "8080"
 
 networks:
   letsgit-dev:
