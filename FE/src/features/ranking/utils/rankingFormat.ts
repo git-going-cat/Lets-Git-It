@@ -201,13 +201,9 @@ function getMinWeekOfMonth(year: number, month: number): number {
   return daysInFirstWeek >= 4 ? 1 : 0;
 }
 
-/**
- * ISO-8601 기준 특정 날짜의 월간 주차(Week of Month) 계산
- *
- * @description 월요일 시작, 첫 주에 최소 4일이 포함되어야 1주차로 산정
- * @param date 계산할 날짜 객체
- * @returns {number} 0~5 주차 값 반환 (0은 이전 달 마지막 주차로 취급됨)
- */
+// FIXME(이유정): getIsoWeekOfMonth/getMinWeekOfMonth 중복 선언 (원본은 위 165-202)으로
+// 빌드 실패 → 안수연 PR1(FE-219) 머지를 위한 임시 주석 처리. 이유정 PR에서 정식 정리 예정.
+/*
 function getIsoWeekOfMonth(date: Date): number {
   const dayOfMonth = date.getDate();
   const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -228,17 +224,13 @@ function getIsoWeekOfMonth(date: Date): number {
   return week;
 }
 
-/**
- * 특정 연/월의 최소 주차 번호 반환
- *
- * @description ISO-8601 기준 1일이 속한 주가 4일 미만이면 0주차, 4일 이상이면 1주차 반환
- */
 function getMinWeekOfMonth(year: number, month: number): number {
   const firstDay = new Date(year, month - 1, 1);
   const firstDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay();
   const daysInFirstWeek = 8 - firstDayOfWeek;
   return daysInFirstWeek >= 4 ? 1 : 0;
 }
+*/
 
 function getLastWeekOfMonth(year: number, month: number): number {
   const daysInMonth = new Date(year, month, 0).getDate();
