@@ -3,18 +3,19 @@ import { createRoot } from 'react-dom/client';
 import * as Sentry from '@sentry/react';
 
 import App from './App.tsx';
+import { env } from './config/env';
 
 import './index.css';
 
 import './lib/faro'; // Faro 조기 초기화 — 이후 모든 에러·로그에 컨텍스트 부착
 
 Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
+  dsn: env.SENTRY_DSN,
   integrations: [Sentry.browserTracingIntegration()],
   // Web Vitals(LCP·INP·CLS)는 browserTracingIntegration이 자동 수집
   tracesSampleRate: 1.0,
-  environment: import.meta.env.MODE,
-  enabled: !!import.meta.env.VITE_SENTRY_DSN,
+  environment: env.MODE,
+  enabled: !!env.SENTRY_DSN,
 });
 
 createRoot(document.getElementById('root')!).render(
