@@ -48,7 +48,7 @@ services:
       - ./monitoring/grafana-agent/agent-config.alloy:/etc/alloy/config.alloy
     command: run /etc/alloy/config.alloy
     ports:
-      - "12347:12347"
+      - "10.0.0.1:12347:12347"
     restart: always
     networks:
       - letsgit-dev
@@ -61,14 +61,16 @@ services:
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
       - grafana-data:/var/lib/grafana
+    ports:
+      - "10.0.0.1:3000:3000"
+    env_file:
+      - .env
     restart: always
     networks:
       - letsgit-dev
     environment:
       - TZ=Asia/Seoul
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_SERVER_ROOT_URL=https://grafana-dev.lets-git-it.kr
+      - GF_SERVER_ROOT_URL=http://10.0.0.1:3000
 
 volumes:
   prometheus-data:
