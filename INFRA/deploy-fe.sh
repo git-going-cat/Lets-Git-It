@@ -8,9 +8,11 @@ echo "[FE 배포] 빌드 시작"
 
 # FE 빌드 (임시 컨테이너)
 docker build -f "$PROJECT_DIR/INFRA/Dockerfile.fe" -t fe-builder "$PROJECT_DIR"
+docker rm fe-temp 2>/dev/null || true
 docker create --name fe-temp fe-builder
 mkdir -p "$DIST_DIR"
 docker cp fe-temp:/app/dist/. "$DIST_DIR"
+sudo chown -R ubuntu:ubuntu "$DIST_DIR"
 docker rm fe-temp
 docker rmi fe-builder
 
