@@ -11,6 +11,7 @@ deploy-prod-be:
         - BE/**/*
   script:
     - cd /home/ubuntu/S14P31A304
+    - git config pull.rebase false
     - git pull origin prod
     - PROJECT_DIR=/home/ubuntu/S14P31A304 bash INFRA/deploy-be.sh
 
@@ -29,5 +30,6 @@ deploy-prod-fe:
         - INFRA/Dockerfile.fe
   script:
     - cd /home/ubuntu/S14P31A304
+    - git config pull.rebase false
     - git pull origin prod
     - PROJECT_DIR=/home/ubuntu/S14P31A304 bash INFRA/deploy-fe.sh
