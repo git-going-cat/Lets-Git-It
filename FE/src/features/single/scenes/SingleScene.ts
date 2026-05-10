@@ -9,6 +9,7 @@ import { parseSwitchTarget } from '../utils/branchParser';
 import { BranchLane } from './BranchLane';
 
 import type { Command, Difficulty, SingleSceneData } from '../types/single.types';
+import type { GameRestartPayload } from '@/core/bridge/EventBus';
 
 /**
  * 난이도별 명령어 낙하 시간 (ms).
@@ -36,12 +37,13 @@ export class SingleScene extends Phaser.Scene {
   private lanes = new Map<string, BranchLane>();
   private timerEvent: Phaser.Time.TimerEvent | null = null;
   private elapsedMs = 0;
-  private sceneData: SingleSceneData | null = null;
   private isGameEnded = false;
   private isUserPaused = false;
   private stashTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private cherryPickTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private isTutorialMode = false;
+  // scene.restart() 시 인스턴스가 보존되므로, DESTROY 핸들러를 1회만 등록하기 위한 가드.
+  private destroyHandlerRegistered = false;
 
   constructor() {
     super({ key: 'SingleScene' });
@@ -50,7 +52,6 @@ export class SingleScene extends Phaser.Scene {
   create(data?: object): void {
     const raw = data as SingleSceneData & { autoStart?: boolean };
     const { difficulty, commandSet, autoStart } = raw;
-    this.sceneData = raw;
 
     this.commandSet = commandSet;
     this.commandIndex = 0;
@@ -70,8 +71,12 @@ export class SingleScene extends Phaser.Scene {
     }
 
     // game.destroy() 시 Phaser가 shutdown()을 보장하지 않는 버전이 있으므로
-    // game destroy 이벤트에서도 EventBus 핸들러를 정리한다
-    this.game.events.once(Phaser.Core.Events.DESTROY, this.shutdown, this);
+    // game destroy 이벤트에서도 EventBus 핸들러를 정리한다.
+    // scene.restart()는 인스턴스를 보존하므로 once 리스너가 누적되지 않도록 가드.
+    if (!this.destroyHandlerRegistered) {
+      this.game.events.once(Phaser.Core.Events.DESTROY, this.shutdown, this);
+      this.destroyHandlerRegistered = true;
+    }
   }
 
   shutdown(): void {
@@ -153,6 +158,9 @@ export class SingleScene extends Phaser.Scene {
   // miss → React lives 감소 → game:over 여부 확정 → 이상 없으면 다음 커맨드 진행.
   private onCommandTimeout(): void {
     if (this.isGameEnded) return;
+    // 튜토리얼은 freezeWithBlink로 tween을 멈춰 timeout 자체가 안 일어나야 정상이지만,
+    // 안전망으로 timeout 진입 시 commandIndex 진행을 차단해 useTutorialMode 상태 머신을 보호한다.
+    if (this.isTutorialMode) return;
     const missedIndex = this.commandIndex;
     const cmd = this.commandSet[this.commandIndex];
     const lane = this.lanes.get(cmd.branchName);
@@ -279,11 +287,16 @@ export class SingleScene extends Phaser.Scene {
     this.lanes.get(cmd.branchName)?.freezeWithBlink();
   };
 
-  private readonly handleGameRestart = (): void => {
-    if (this.sceneData) {
-      // autoStart: true를 넘겨 create()에서 StartModal 없이 바로 시작하도록 함
-      this.scene.restart({ ...this.sceneData, autoStart: true });
-    }
+  private readonly handleGameRestart = (data: GameRestartPayload): void => {
+    // payload로 받은 새 세션 데이터를 그대로 scene.restart에 넘겨 create()에서 새 commandSet/sessionId로 초기화.
+    // autoStart: true → create()에서 StartModal 없이 바로 게임 시작.
+    this.scene.restart({
+      sessionId: data.sessionId,
+      difficulty: data.difficulty,
+      commandSet: data.commandSet as Command[],
+      isTutorial: data.isTutorial,
+      autoStart: true,
+    });
   };
 
   private readonly handleGameEnd = (): void => {

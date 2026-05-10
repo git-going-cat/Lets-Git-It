@@ -1,12 +1,32 @@
 ﻿import Phaser from 'phaser';
 
+/**
+ * 'game:restart' 이벤트 payload.
+ *
+ * 다시하기 시 Scene이 새 세션 데이터로 scene.restart()를 수행해야 하므로
+ * sessionData 전체를 전달합니다. 도메인 타입(Difficulty/Command 등)을 직접 import하면
+ * core ← features 역방향 의존이 생기므로, 여기선 구조적 형태만 선언합니다(브릿지 계약).
+ */
+export interface GameRestartPayload {
+  sessionId: string;
+  difficulty: 'EASY' | 'NORMAL' | 'HARD';
+  commandSet: ReadonlyArray<{
+    commandSequence: number;
+    text: string;
+    branchName: string;
+    type: 'CREATE' | 'MERGE' | 'COMMON' | 'SWITCH';
+    itemDrop?: 'restore' | 'stash' | 'cherry-pick';
+  }>;
+  isTutorial: boolean;
+}
+
 export interface EventMap {
   'game:start': void;
   'game:pause': void;
   'game:resume': void;
   'game:over': void;
   'game:session-expired': void;
-  'game:restart': void;
+  'game:restart': GameRestartPayload;
   'game:complete': void;
   'score:update': number;
   'combo:update': number;
