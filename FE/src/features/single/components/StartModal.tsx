@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
@@ -31,6 +31,14 @@ export default function StartModal() {
   const isOpen = shouldRender && !!difficulty;
   const { containerRef } = useModal({ isOpen });
   const titleId = useId();
+
+  // useModal이 컨테이너로 포커스를 옮기지만, StartModal은 명령어 입력이 본 목적이라
+  // input으로 즉시 포커스가 가야 한다. effect 선언 순서상 useModal 이후에 실행되므로
+  // 컨테이너 포커스를 input으로 다시 옮긴다.
+  useEffect(() => {
+    if (!isOpen) return;
+    inputRef.current?.focus();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -115,7 +123,6 @@ export default function StartModal() {
                 placeholder="명령어를 입력하세요..."
                 autoComplete="off"
                 spellCheck={false}
-                autoFocus
               />
             </div>
             {isError && <p className="text-2xl text-red-400">올바른 명령어를 입력하세요.</p>}
