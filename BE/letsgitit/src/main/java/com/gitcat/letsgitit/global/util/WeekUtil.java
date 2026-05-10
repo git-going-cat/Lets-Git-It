@@ -2,12 +2,11 @@ package com.gitcat.letsgitit.global.util;
 
 import java.time.LocalDate;
 import java.time.temporal.WeekFields;
-import java.util.Locale;
 
 public class WeekUtil {
 	private WeekUtil() {}
 
-	private static final WeekFields WEEK_FIELDS = WeekFields.of(Locale.KOREA);
+	private static final WeekFields WEEK_FIELDS = WeekFields.ISO;
 
 	public static String getCurrentWeek() {
 		return getWeek(LocalDate.now());
