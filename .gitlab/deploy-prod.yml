@@ -10,8 +10,6 @@ deploy-prod-be:
       changes:
         - BE/**/*
   script:
-    - git config --global credential.helper store
-    - cp /home/ubuntu/.git-credentials /root/.git-credentials
     - cd /home/ubuntu/S14P31A304
     - git config pull.rebase false
     - git pull origin prod
