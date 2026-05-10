@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
+import { useModal } from '@/shared/hooks/useModal';
 
 import { gameStatusAtom, prePauseStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
@@ -27,7 +28,11 @@ export default function StartModal() {
   // paused 상태여도 idle에서 넘어온 경우(StartModal 뒤에 PauseModal) 유지
   const shouldRender =
     gameStatus === 'idle' || (gameStatus === 'paused' && prePauseStatus === 'idle');
-  if (!shouldRender || !difficulty) return null;
+  const isOpen = shouldRender && !!difficulty;
+  const { containerRef } = useModal({ isOpen });
+  const titleId = useId();
+
+  if (!isOpen) return null;
 
   const cloneCommand = tutorialSteps[0]?.commands[0];
 
@@ -51,8 +56,17 @@ export default function StartModal() {
 
   return (
     <div className="font-pixel absolute inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div className="nes-container is-dark with-title w-full max-w-xl">
-        <p className="title text-xl">{isTutorial ? 'TUTORIAL' : 'MISSION START'}</p>
+      <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="nes-container is-dark with-title w-full max-w-xl"
+      >
+        <p id={titleId} className="title text-xl">
+          {isTutorial ? 'TUTORIAL' : 'MISSION START'}
+        </p>
 
         <div className="flex flex-col gap-5 p-2">
           {isTutorial && tutorialSteps[0] && (
