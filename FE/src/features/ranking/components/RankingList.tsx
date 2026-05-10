@@ -16,6 +16,7 @@ interface RankingListProps {
   fetchPreviousPage: RankingQueryResult['fetchPreviousPage'];
   hasNextPage: RankingQueryResult['hasNextPage'];
   hasPreviousPage: RankingQueryResult['hasPreviousPage'];
+  isFetching: boolean;
   isFetchingNextPage: RankingQueryResult['isFetchingNextPage'];
   isFetchingPreviousPage: RankingQueryResult['isFetchingPreviousPage'];
   scrollContainerRef: RefObject<HTMLDivElement | null>;
@@ -35,6 +36,7 @@ export default function RankingList({
   fetchPreviousPage,
   hasNextPage,
   hasPreviousPage,
+  isFetching,
   isFetchingNextPage,
   isFetchingPreviousPage,
   scrollContainerRef,
@@ -86,18 +88,22 @@ export default function RankingList({
   const hasUpper = Boolean(hasPreviousPage);
   const hasLower = Boolean(hasNextPage);
   const shouldPreloadLowerRankings =
-    myRank === null && baseRankings.length > 0 && nextPageEntries.length === 0 && hasNextPage;
+    !isFetching &&
+    myRank === null &&
+    baseRankings.length > 0 &&
+    nextPageEntries.length === 0 &&
+    hasNextPage;
 
   const loadUpperRankings = useCallback(() => {
-    if (isFetchingPreviousPage) return;
+    if (isFetching || isFetchingPreviousPage) return;
     previousScrollHeightRef.current = scrollContainerRef.current?.scrollHeight ?? null;
     void fetchPreviousPage();
-  }, [fetchPreviousPage, isFetchingPreviousPage, scrollContainerRef]);
+  }, [fetchPreviousPage, isFetching, isFetchingPreviousPage, scrollContainerRef]);
 
   const loadLowerRankings = useCallback(() => {
-    if (isFetchingNextPage) return;
+    if (isFetching || isFetchingNextPage) return;
     void fetchNextPage();
-  }, [fetchNextPage, isFetchingNextPage]);
+  }, [fetchNextPage, isFetching, isFetchingNextPage]);
 
   const focusTargetCallback = useCallback(
     (node: HTMLDivElement | null) => {
