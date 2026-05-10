@@ -71,7 +71,11 @@ export default function SinglePage() {
 
     return () => {
       cancelled = true;
-      useSingleStore.getState().clearSession();
+      // clearSession()을 호출하지 않는 이유:
+      //   결과 저장이 in-flight인 상태에서 cleanup이 발화하면 sessionId/difficulty가 null로 비워져
+      //   useResultModal의 응답 처리 또는 mypage invalidate가 잘못된 상태로 진행될 위험.
+      //   useSingleStore는 single 도메인 외부에서 읽지 않으므로 다음 /single 진입 시
+      //   setSession()이 덮어쓰면 충분하고, /home 등 다른 페이지에 데이터 누수가 없음.
     };
   }, [difficulty, navigate]);
 
