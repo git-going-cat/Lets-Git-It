@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-PROJECT_DIR="/home/ubuntu/develop/S14P31A304"
+PROJECT_DIR="${PROJECT_DIR:-/home/ubuntu/develop/S14P31A304}"
 INFRA_DIR="$PROJECT_DIR/INFRA"
 NGINX_CONF_DIR="$PROJECT_DIR/nginx/conf"
 ACTIVE_COLOR_FILE="$INFRA_DIR/.active_color"
@@ -17,13 +17,11 @@ fi
 # inactive 결정
 if [ "$CURRENT" = "blue" ]; then
   NEXT="green"
-  NEXT_PORT=8081
 else
   NEXT="blue"
-  NEXT_PORT=8080
 fi
 
-echo "[배포] 현재: spring-$CURRENT → 전환 대상: spring-$NEXT($NEXT_PORT)"
+echo "[배포] 현재: spring-$CURRENT → 전환 대상: spring-$NEXT"
 
 # inactive 빌드 및 실행
 docker compose -f "$COMPOSE_FILE" up -d --build "spring-$NEXT"
