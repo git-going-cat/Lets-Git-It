@@ -10,6 +10,8 @@ deploy-dev-be:
       changes:
         - BE/**/*
   script:
+    - git config --global credential.helper store
+    - cp /home/ubuntu/.git-credentials /root/.git-credentials
     - cd /home/ubuntu/develop/S14P31A304
     - git config pull.rebase false
     - git pull origin develop
@@ -29,6 +31,8 @@ deploy-dev-fe:
         - nginx/**/*
         - INFRA/Dockerfile.fe
   script:
+    - git config --global credential.helper store
+    - cp /home/ubuntu/.git-credentials /root/.git-credentials
     - cd /home/ubuntu/develop/S14P31A304
     - git config pull.rebase false
     - git pull origin develop
