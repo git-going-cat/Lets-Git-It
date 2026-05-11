@@ -41,12 +41,14 @@ public class SingleRankingScheduler {
 		// LocalDate.now(KST)로 명시해 JVM 기본 TZ가 UTC여도 날짜가 어긋나지 않도록 보장
 		String week = WeekUtil.getWeek(LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(1));
 		List<String> keysToDelete = new ArrayList<>();
+		log.info("[ranking][settle] started. week={}", week);
 
 		for (Difficulty diff : Difficulty.values()) {
 			String key = RankingKeyUtil.singleKey(diff.name(), week);
 			String gradeKey = RankingKeyUtil.singleGradeKey(diff.name(), week);
 			String playTimeKey = RankingKeyUtil.singlePlayTimeKey(diff.name(), week);
 			long total = singleRankingRedisRepository.getTotalCount(key);
+			log.info("[ranking][settle] difficulty={}, week={}, total={}", diff, week, total);
 
 			if (total == 0) {
 				continue;
@@ -54,6 +56,7 @@ public class SingleRankingScheduler {
 
 			if (singleRankingRepository.countByDifficultyAndWeek(diff, week) > 0) {
 				// DB에 이미 정산됐지만 Redis 키가 남아 있는 경우 — afterCommit()에서 정리
+				log.warn("[ranking][settle] already settled. difficulty={}, week={}, redisTotal={}", diff, week, total);
 				keysToDelete.add(key);
 				keysToDelete.add(gradeKey);
 				keysToDelete.add(playTimeKey);
@@ -67,6 +70,8 @@ public class SingleRankingScheduler {
 					offset, end);
 
 				if (chunk.isEmpty()) {
+					log.warn("[ranking][settle] empty chunk. difficulty={}, week={}, offset={}, end={}, total={}",
+						diff, week, offset, end, total);
 					break;
 				}
 
@@ -91,6 +96,8 @@ public class SingleRankingScheduler {
 				}
 
 				singleRankingRepository.saveAll(rankings);
+				log.info("[ranking][settle] chunk saved. difficulty={}, week={}, offset={}, end={}, savedCount={}",
+					diff, week, offset, end, rankings.size());
 				offset += chunk.size();
 			}
 
@@ -102,6 +109,8 @@ public class SingleRankingScheduler {
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {
+				log.info("[ranking][settle] committed. deleting Redis keys. week={}, keyCount={}", week,
+					keysToDelete.size());
 				keysToDelete.forEach(key -> {
 					try {
 						singleRankingRedisRepository.deleteKey(key);
@@ -111,6 +120,7 @@ public class SingleRankingScheduler {
 				});
 			}
 		});
+		log.info("[ranking][settle] finished. week={}, deleteKeyCount={}", week, keysToDelete.size());
 	}
 
 }

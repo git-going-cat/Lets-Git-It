@@ -11,6 +11,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Repository;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Repository
 public class SingleRankingRedisRepositoryImpl implements SingleRankingRedisRepository {
 
@@ -57,7 +60,17 @@ public class SingleRankingRedisRepositoryImpl implements SingleRankingRedisRepos
 					bytes(grade),
 					bytes(playTimeValue)));
 
-		return updated != null && updated == 1L;
+		boolean updatedScore = updated != null && updated == 1L;
+		if (updatedScore) {
+			log.info(
+				"[ranking][redis][save] updated=true, scoreKey={}, memberId={}, compositeScore={}, grade={}, playTimeMs={}",
+				scoreKey, memberId, compositeScore, grade, playTimeMs);
+		} else {
+			log.info(
+				"[ranking][redis][save] updated=false, scoreKey={}, memberId={}, compositeScore={}, grade={}, playTimeMs={}",
+				scoreKey, memberId, compositeScore, grade, playTimeMs);
+		}
+		return updatedScore;
 	}
 
 	@Override
@@ -144,7 +157,8 @@ public class SingleRankingRedisRepositoryImpl implements SingleRankingRedisRepos
 
 	@Override
 	public void deleteKey(String key) {
-		rankingStringRedisTemplate.delete(key);
+		Boolean deleted = rankingStringRedisTemplate.delete(key);
+		log.info("[ranking][redis][delete] key={}, deleted={}", key, deleted);
 	}
 
 	private static byte[] bytes(String value) {
