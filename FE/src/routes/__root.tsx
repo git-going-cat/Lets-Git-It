@@ -1,12 +1,7 @@
 // TODO: 공통 Provider 추가
 import { createRootRoute, Outlet, redirect } from '@tanstack/react-router';
-import axios from 'axios';
 
-import { env } from '@/config/env';
-import {
-  apiResponseSchema,
-  reissueResponseDataSchema,
-} from '@/features/auth/schemas/response.schema';
+import { reissueToken } from '@/core/http';
 import { useAuthStore, waitForAuthStoreHydration } from '@/features/auth/store/authStore';
 import { fetchMyAuthUser } from '@/features/mypage/api/mypageApi';
 import { PostHogPageView } from '@/providers/PostHogProvider';
@@ -22,31 +17,20 @@ export const Route = createRootRoute({
 
     await waitForAuthStoreHydration();
 
-    const { isAuthenticated, accessToken, clearAuth, setAccessToken, setAuth } =
-      useAuthStore.getState();
+    const { isAuthenticated, accessToken, clearAuth, setAuth } = useAuthStore.getState();
 
     // 비인증 → 로그인 페이지로
     if (!isAuthenticated) {
       throw redirect({ to: '/login' });
     }
 
-    // 새로고침으로 accessToken이 사라진 경우 → reissue로 복구
-    // http 인터셉터를 우회해 raw axios를 쓰는 이유: 인터셉터가 또 reissue를 시도하는 중복 방지
+    // 새로고침으로 accessToken이 사라진 경우 → reissueToken()으로 복구
+    // core/http.ts의 단일 reissue 경로를 사용해 인터셉터와의 race 방지
     if (!accessToken) {
       let newAccessToken: string;
 
       try {
-        const res = await axios.post(
-          '/api/v1/auth/reissue',
-          {},
-          {
-            baseURL: env.API_BASE_URL,
-            withCredentials: true,
-          }
-        );
-        const parsed = apiResponseSchema(reissueResponseDataSchema).parse(res.data);
-        newAccessToken = parsed.data.accessToken;
-        setAccessToken(newAccessToken);
+        newAccessToken = await reissueToken();
       } catch {
         clearAuth();
         throw redirect({ to: '/login' });
