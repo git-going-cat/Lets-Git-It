@@ -13,7 +13,7 @@ public record SingleResultSaveRequest(
 	@NotNull(message = "상태를 입력해주세요.")
 	SingleResultStatus status,
 
-	@NotNull(message = "점수를 입력해주세요.") @PositiveOrZero(message = "점수는 0 이상이어야 합니다.") @Max(value = RankingKeyUtil.MAX_SINGLE_SCORE, message = "점수는 10000점 이하여야 합니다.")
+	@NotNull(message = "점수를 입력해주세요.") @PositiveOrZero(message = "점수는 0 이상이어야 합니다.") @Max(value = RankingKeyUtil.MAX_SINGLE_SCORE, message = "점수는 20000점 이하여야 합니다.")
 	Integer score,
 
 	@NotNull(message = "플레이 시간은 필수입니다.") @Positive(message = "플레이 시간은 0보다 커야 합니다.") @Max(value = RankingKeyUtil.MAX_PLAY_TIME_MS, message = "플레이 시간은 3600000ms 이하여야 합니다.")
