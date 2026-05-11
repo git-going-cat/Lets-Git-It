@@ -15,9 +15,9 @@ interface AudioState {
 export const useAudioStore = create<AudioState>()(
   persist(
     (set) => ({
-      bgmEnabled: true,
+      bgmEnabled: true, // BGM 기본 활성 — 게임 분위기 즉시 제공
       bgmVolume: 10,
-      sfxEnabled: false,
+      sfxEnabled: false, // SFX 기본 비활성 — Phaser SFX 미구현 상태에서 의도치 않은 재생 방지
       sfxVolume: 60,
       setBgmEnabled: (bgmEnabled) => set({ bgmEnabled }),
       setBgmVolume: (bgmVolume) => set({ bgmVolume }),

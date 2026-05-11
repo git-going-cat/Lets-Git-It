@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
+import { EventBus } from '@/core/bridge/EventBus';
 import { MYPAGE_QUERY_KEYS } from '@/features/mypage/constants/queryKeys';
 
 import { singleApi } from '../api/singleApi';
@@ -10,6 +11,12 @@ import { gameResultAtom } from '../store/gameResultAtom';
 import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
+/**
+ * 게임 종료 후 결과 저장 및 결과 모달 상태를 관리합니다.
+ *
+ * gameStatus가 'gameover'/'cleared'로 전환되면 서버에 결과를 POST하고
+ * 저장 완료 여부·신기록 여부를 반환합니다. 다시하기 시 새 세션을 시작합니다.
+ */
 export function useResultModal() {
   const gameStatus = useAtomValue(gameStatusAtom);
   const setGameStatus = useSetAtom(gameStatusAtom);
@@ -71,11 +78,21 @@ export function useResultModal() {
     savedSessionRef.current = null;
     try {
       const nextSession = await singleApi.startSession(difficulty);
-      setGameStatus('playing');
-      setResult(null);
+      // setSession을 먼저 호출해 store에 새 세션을 반영한 뒤 status 전환.
+      // 'game:restart' 이벤트는 SingleScene.scene.restart + useSingleGame atom 리셋을 트리거한다.
       useSingleStore.getState().setSession(nextSession);
+      setResult(null);
+      setGameStatus('playing');
+      EventBus.emit('game:restart', {
+        sessionId: nextSession.sessionId,
+        difficulty: nextSession.difficulty,
+        commandSet: useSingleStore.getState().commandSet,
+        isTutorial: useSingleStore.getState().isTutorial,
+      });
     } catch {
       navigate({ to: '/home', replace: true });
+    } finally {
+      setIsRestarting(false);
     }
   };
 

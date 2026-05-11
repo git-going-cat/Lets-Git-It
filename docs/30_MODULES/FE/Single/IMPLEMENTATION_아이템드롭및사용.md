@@ -69,52 +69,58 @@ Alt+3 또는 HUD 버튼 클릭 (slot 2, restore)     → useSingleGame에서 직
 
 ### 4. stash 구현 (SingleScene + StashOverlay)
 
-`setTimeout`(wall-clock 기준)으로 5초 후 자동 재개한다.  
-Phaser `time.paused = true`로 정지하면 `time.delayedCall`도 멈추므로 반드시 `window.setTimeout`을 사용한다.
+Phaser `time.delayedCall`로 5초 후 자동 재개한다. 글로벌 `this.time.paused`는 건드리지 않고 점수 계산에 사용되는 `timerEvent.paused`만 개별 제어한다.
 
 ```ts
 // 중복 발동 방지
 if (this.stashTimeoutId !== null) return;
 this.tweens.pauseAll();
-this.time.paused = true;
-this.stashTimeoutId = setTimeout(() => {
+if (this.timerEvent) this.timerEvent.paused = true;
+this.stashTimeoutId = this.time.delayedCall(5000, () => {
   this.stashTimeoutId = null;
   if (!this.isGameEnded && !this.isUserPaused) {
     this.tweens.resumeAll();
-    this.time.paused = false;
+    if (this.timerEvent) this.timerEvent.paused = false;
   }
-}, 5000);
+  EventBus.emit('stash:end');
+});
 ```
 
-유저가 stash 도중 ESC로 일시정지하면 `isUserPaused = true`가 되어 5초 후에도 자동 재개하지 않는다.  
-유저가 이어하기를 누르면 `handleGameResume`이 `tweens.resumeAll()`을 호출해 정상 재개된다.
+유저가 stash 도중 ESC로 일시정지하면 `handleGamePause`가 `this.time.paused = true`를 설정해 `time.delayedCall`(stash 타이머)도 함께 멈춘다. 유저가 이어하기를 누르면 `handleGameResume`이 잔여 시간만큼 stash 타이머를 자동으로 재개한다.
 
-`isUserPaused`는 `handleGamePause`에서 `true`, `handleGameResume`에서 `false`로 관리한다.
+`handleGameResume`은 stash/cherry-pick 활성 중에는 `tweens.resumeAll()`을 호출하지 않는다. stash의 `time.delayedCall` 콜백이 완료 시 알아서 tween/timerEvent를 재개하므로 ESC 해제 시점에 노드가 떨어지지 않는다.
 
-**Stash 조기 종료**: `command:complete` 수신 시(명령어 성공) stash가 조기 종료된다.
-- `SingleScene.handleCommandComplete`: `stashTimeoutId`를 클리어하고 `tweens.resumeAll()`로 Phaser 낙하 재개.
-- `StashOverlay`: `command:complete` 이벤트를 구독해 오버레이를 즉시 숨김.
+**Stash 조기 종료**: 명령어 성공 시 stash가 조기 종료된다.
+- `SingleScene.handleCommandComplete`: `stashTimeoutId.remove()` + `tweens.resumeAll()` + `timerEvent.paused = false` + `EventBus.emit('stash:end')`.
+- `StashOverlay`: `stash:end` 이벤트를 구독해 오버레이를 즉시 숨김.
 - 오타(`command:wrong`)에는 반응하지 않는다 — 성공 시에만 종료.
 
-**StashOverlay**: `item:use { slot: 0 }` 수신 시 반투명 파란 오버레이 + "STASH!" 쾅 애니메이션을 표시한다. Phaser `tweens.pauseAll()` 영향을 받지 않도록 React/CSS로 구현한다.  
+**StashOverlay**: `item:use { slot: 0 }` 수신 시 반투명 파란 오버레이 + "STASH!" 쾅 애니메이션을 표시하고, `stash:end` 수신 시 숨긴다. SingleScene이 source of truth이며 자체 setTimeout을 사용하지 않는다 — ESC 일시정지 중에도 SingleScene 타이머와 동기화돼 STASH! 텍스트가 유지된다.  
 → 상세: `IMPLEMENTATION_게임피드백애니메이션.md` — "5. StashOverlay" 참고
 
 ### 5. cherry-pick 구현 (SingleScene + useSingleGame + CherryPickOverlay)
 
 **SingleScene**: `CHERRY_PICK_ANIM_MS(800ms)` 후 현재 `commandIndex`로 `command:complete`를 emit한다.  
-즉시 emit 대신 딜레이를 두는 이유는 React `CherryPickOverlay` 애니메이션(800ms)과 Phaser 완료 처리를 동기화하기 위함이다.
+stash와 마찬가지로 `time.delayedCall` + `timerEvent.paused` 개별 제어를 사용하므로 ESC 일시정지 중 cherry-pick 타이머도 함께 멈춘다. 완료 시 `cherry-pick:end`도 emit해 오버레이와 동기화한다.
 
 ```ts
 // slot === 1
 if (this.isGameEnded || this.commandIndex >= this.commandSet.length) return;
 if (this.cherryPickTimeoutId !== null) return; // 중복 방지
 const indexAtUse = this.commandIndex;
-this.cherryPickTimeoutId = setTimeout(() => {
+this.tweens.pauseAll();
+if (this.timerEvent) this.timerEvent.paused = true;
+this.cherryPickTimeoutId = this.time.delayedCall(CHERRY_PICK_ANIM_MS, () => {
   this.cherryPickTimeoutId = null;
   if (!this.isGameEnded) {
+    if (!this.isUserPaused) {
+      this.tweens.resumeAll();
+      if (this.timerEvent) this.timerEvent.paused = false;
+    }
     EventBus.emit('command:complete', { index: indexAtUse });
   }
-}, CHERRY_PICK_ANIM_MS);
+  EventBus.emit('cherry-pick:end');
+});
 ```
 
 **useSingleGame**: cherry-pick 사용 직전, CREATE/SWITCH 타입 명령어면 `activeBranchAtom`을 업데이트한다.  
@@ -160,10 +166,19 @@ restore는 `livesAtom`만 변경하면 되고 Phaser Scene의 시각 상태와 �
 EventBus를 거치면 불필요한 왕복이 생기므로 `useSingleGame`이 직접 처리한다.  
 단, `RestoreOverlay` 애니메이션 트리거를 위해 `item:use { slot: 2 }`는 emit한다.
 
-### stash에 `window.setTimeout`을 쓰는 이유
+### stash에 `time.delayedCall` + `timerEvent.paused` 개별 제어를 쓰는 이유
 
-`this.time.delayedCall`은 `this.time.paused = true`이면 함께 멈춘다.  
-stash 자체가 시간을 멈추는 효과이므로, 재개 트리거는 반드시 Phaser 타임라인 밖인 `setTimeout`을 사용해야 한다.
+이전 구현은 `setTimeout` + `this.time.paused = true`를 함께 사용했다. `this.time.paused = true`로 점수 계산에 쓰이는 `elapsedMs` 누적을 멈추고, `setTimeout`(브라우저 실시간)으로 5초를 측정하는 방식이었다.
+
+이 조합은 두 가지 문제가 있었다:
+1. **ESC 일시정지 시 stash 타이머가 계속 흐름**: `setTimeout`이 브라우저 실시간 기반이라 게임이 멈춰도 stash 5초가 째깍거리며 진행됨
+2. **`StashOverlay`(자체 setTimeout)와의 동기화 불일치**: 두 setTimeout이 독립적이라 어느 한쪽이 ESC 중에도 종료되는 등 시각·로직 불일치 발생
+
+수정안:
+- 글로벌 `this.time.paused`는 ESC(`handleGamePause/Resume`)만 제어
+- stash/cherry-pick은 `timerEvent.paused`만 개별 제어 → 점수 누적 정지 유지
+- 5초 카운트는 `time.delayedCall` → 글로벌 `time.paused`에 묶여 ESC 시 함께 멈춤
+- `stash:end` 이벤트로 SingleScene을 source of truth로 두어 StashOverlay와 동기화
 
 ### cherry-pick에서 activeBranch를 useSingleGame이 처리하는 이유
 
@@ -179,7 +194,7 @@ cherry-pick의 activeBranch 사이드이펙트는 `useSingleGame`의 Alt 핸들�
 
 ## Caution
 
-- `stash` 중 유저가 ESC 일시정지 → 5초 후 stashTimeoutId 만료 → 자동 재개 안 됨 → 유저가 이어하기를 눌러야 재개된다. 이는 의도된 동작이다.
+- `stash` 중 유저가 ESC 일시정지 → stash 타이머도 함께 멈춤 (`time.delayedCall`이 글로벌 `time.paused`에 묶여 있음) → 이어하기 시 stash 잔여 시간만큼 진행 후 자동 재개. ESC 해제 시 `handleGameResume`은 stash 활성 중이면 tween을 resume하지 않으므로 노드 낙하 재개 시점이 stash 완료 시점과 일치한다.
 - `stash`는 중복 발동 불가다 (`stashTimeoutId !== null`이면 무시). 5초가 남아 있는 상태에서 다시 Alt+1을 눌러도 시간이 초기화되지 않는다.
 - cherry-pick 사용 시 `command:complete`가 emit되어 `useSingleGame.handleComplete`도 호출된다 → `comboAtom +1`, 아이템 드롭 판정도 진행된다. 즉, cherry-pick 사용 후 또 다른 아이템을 받을 수 있다.
 - cherry-pick으로 MERGE 명령어를 완료하면 `handleCommandComplete`가 MERGE 처리(레인 hide)를 수행하지만, `useCommandInput`의 MERGE 관련 로직은 실행되지 않는다. 현재 MERGE는 Phaser 측에서만 처리하므로 문제없다.
@@ -193,7 +208,8 @@ cherry-pick의 activeBranch 사이드이펙트는 `useSingleGame`의 Alt 핸들�
 - 명령어 정답 입력 반복 → 확률적으로 슬롯이 채워지는지 확인
 - 슬롯 3개 모두 찬 상태에서 정답 → 슬롯 변화 없음 확인
 - Alt+1 (stash): 노드 낙하 정지 5초 후 자동 재개 확인
-- Alt+1 stash 중 ESC → stash 타이머 만료 후 재개 없음 → 이어하기로 재개 확인
+- Alt+1 stash 중 ESC → STASH! 텍스트 유지 + 노드 정지 유지 → 이어하기 시 stash 잔여 시간만큼 정지 후 자동 재개 확인
+- Alt+1 stash 중 ESC 해제 시 노드가 즉시 재낙하하지 않는지 확인 (stash 잔여 시간 대기)
 - Alt+1 stash 중 Alt+1 재입력 → 무시(시간 초기화 없음) 확인
 - Alt+2 (cherry-pick): 현재 낙하 명령어 즉시 완료, 다음 명령어 진행 확인
 - Alt+2로 CREATE 명령어 완료 → activeBranch 변경 + 레인 fade-in 확인

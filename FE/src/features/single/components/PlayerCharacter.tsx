@@ -29,6 +29,7 @@ export default function PlayerCharacter() {
   const leftPercent = ((laneIndex + 0.5) / totalLanes) * 100;
 
   return (
+    // left는 브랜치 수·레인 인덱스로 런타임에 계산되는 동적 위치라 인라인 style 사용
     <div className="absolute bottom-2 z-10 -translate-x-1/2" style={{ left: `${leftPercent}%` }}>
       <AnimatedCharacter asset={asset} animation="idle" className="h-24 w-12" />
     </div>

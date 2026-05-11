@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 
 import { EventBus } from '@/core/bridge/EventBus';
 
-import { CHERRY_PICK_ANIM_MS } from '../constants/itemAnimations';
-
 const STAMP_MS = 550;
 
 type Phase = 'stamp' | 'fade' | null;
@@ -12,23 +10,26 @@ export default function CherryPickOverlay() {
   const [phase, setPhase] = useState<Phase>(null);
 
   useEffect(() => {
-    let t1: ReturnType<typeof setTimeout> | undefined;
-    let t2: ReturnType<typeof setTimeout> | undefined;
+    let stampTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const handler = ({ slot }: { slot: 0 | 1 | 2 }) => {
+    const handleItemUse = ({ slot }: { slot: 0 | 1 | 2 }) => {
       if (slot !== 1) return;
-      clearTimeout(t1);
-      clearTimeout(t2);
+      clearTimeout(stampTimer);
       setPhase('stamp');
-      t1 = setTimeout(() => setPhase('fade'), STAMP_MS);
-      t2 = setTimeout(() => setPhase(null), CHERRY_PICK_ANIM_MS);
+      stampTimer = setTimeout(() => setPhase('fade'), STAMP_MS);
     };
 
-    EventBus.on('item:use', handler);
+    const handleEnd = () => {
+      clearTimeout(stampTimer);
+      setPhase(null);
+    };
+
+    EventBus.on('item:use', handleItemUse);
+    EventBus.on('cherry-pick:end', handleEnd);
     return () => {
-      EventBus.off('item:use', handler);
-      clearTimeout(t1);
-      clearTimeout(t2);
+      EventBus.off('item:use', handleItemUse);
+      EventBus.off('cherry-pick:end', handleEnd);
+      clearTimeout(stampTimer);
     };
   }, []);
 

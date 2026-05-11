@@ -12,9 +12,9 @@ const capture = (event: string, props?: Record<string, unknown>) => {
 };
 
 export const analytics = {
-  identifyUser: (nickname: string) => {
-    if (!isEnabled) return;
-    posthog.identify(nickname, { nickname });
+  identifyUser: (memberId: string) => {
+    if (!isEnabled || !memberId) return;
+    posthog.identify(memberId);
   },
   resetUser: () => {
     if (!isEnabled) return;

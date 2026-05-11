@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
+
+import { useModal } from '@/shared/hooks/useModal';
 
 interface TutorialCompleteModalProps {
   isSkipped: boolean;
@@ -7,25 +9,38 @@ interface TutorialCompleteModalProps {
 
 /**
  * 튜토리얼 완료(정상 종료 또는 스킵) 시 표시되는 모달.
- * Enter 키 또는 버튼 클릭으로 홈으로 이동합니다.
+ * Enter / ESC 키 또는 버튼 클릭으로 홈으로 이동합니다.
  */
 export default function TutorialCompleteModal({ isSkipped, onHome }: TutorialCompleteModalProps) {
+  const { containerRef } = useModal({ isOpen: true, onClose: onHome });
+  const titleId = useId();
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        onHome();
-      }
+      if (e.key !== 'Enter') return;
+      if (e.repeat) return;
+      if (e.target instanceof HTMLButtonElement) return;
+      e.preventDefault();
+      onHome();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onHome]);
 
   return (
-    // z-[80]: StartModal(z-50)이 남아 있는 튜토리얼 스킵 흐름에서도 완료 안내를 최상단에 표시합니다.
-    <div className="font-pixel fixed inset-0 z-[80] flex items-center justify-center bg-black/80">
-      <div className="nes-container is-dark with-title w-full max-w-sm">
-        <p className="title text-base">{isSkipped ? 'TUTORIAL SKIPPED' : 'TUTORIAL COMPLETE'}</p>
+    // z-80: StartModal(z-50)이 남아 있는 튜토리얼 스킵 흐름에서도 완료 안내를 최상단에 표시합니다.
+    <div className="font-pixel fixed inset-0 z-80 flex items-center justify-center bg-black/80">
+      <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="nes-container is-dark with-title w-full max-w-sm"
+      >
+        <p id={titleId} className="title text-base">
+          {isSkipped ? 'TUTORIAL SKIPPED' : 'TUTORIAL COMPLETE'}
+        </p>
 
         <div className="flex flex-col items-center gap-6 p-2">
           {isSkipped ? (
@@ -48,13 +63,12 @@ export default function TutorialCompleteModal({ isSkipped, onHome }: TutorialCom
             </>
           )}
 
-          {/* bg-[#...]: NES 버튼 success 팔레트와 맞춘 튜토리얼 완료 모달 전용 버튼 색상입니다. */}
           <button
             type="button"
-            className="nes-rounded-button w-full overflow-hidden bg-[#92cc41] px-4 py-3 text-xl font-bold text-white shadow-sm transition-colors hover:bg-[#7fb832] active:bg-[#6fa326]"
+            className="nes-rounded-button w-full overflow-hidden bg-nes-success px-4 py-3 text-xl font-bold text-white shadow-sm transition-colors hover:bg-nes-success-hover active:bg-nes-success-active"
             onClick={onHome}
           >
-            ⌂ 홈으로 가기 [Enter ↵]
+            ⌂ 홈으로 가기
           </button>
         </div>
       </div>

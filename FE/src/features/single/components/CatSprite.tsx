@@ -61,6 +61,7 @@ export default function CatSprite() {
   const scale = DISPLAY_W / FRAME_W;
   const displayH = Math.round(FRAME_H * scale);
 
+  // backgroundPosition이 frame 상태, backgroundSize가 런타임 scale로 동적 결정되는 스프라이트 시트 애니메이션이라 인라인 style 사용
   return (
     <div
       className="pixel-art bg-no-repeat"
