@@ -1,15 +1,18 @@
 services:
   nginx:
-    build:
-      context: ..
-      dockerfile: INFRA/Dockerfile.fe
+    image: nginx:alpine
     container_name: nginx
     ports:
       - "80:80"
       - "443:443"
+    env_file:
+      - .env.nginx
     volumes:
-      - ../nginx/conf:/etc/nginx/conf.d
+      - ../nginx/templates:/etc/nginx/templates
+      - ../nginx/conf/00-rate-limit.conf:/etc/nginx/conf.d/00-rate-limit.conf
+      - ../nginx/conf/00-upstream.conf:/etc/nginx/conf.d/00-upstream.conf
       - /etc/letsencrypt:/etc/letsencrypt
+      - ../fe-dist:/usr/share/nginx/html
     restart: always
     networks:
       - letsgit-dev

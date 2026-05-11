@@ -1,9 +1,9 @@
 server {
     listen 443 ssl;
-    server_name api-dev.lets-git-it.kr;
+    server_name ${DOMAIN_API};
 
-    ssl_certificate /etc/letsencrypt/live/dev.lets-git-it.kr/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/dev.lets-git-it.kr/privkey.pem;
+    ssl_certificate ${SSL_CERT};
+    ssl_certificate_key ${SSL_KEY};
 
     location / {
         limit_req zone=api_limit burst=50 nodelay;

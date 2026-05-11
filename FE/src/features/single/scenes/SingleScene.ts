@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { EventBus } from '@/core/bridge/EventBus';
 
+import { CHERRY_PICK_ANIM_MS } from '../constants/itemAnimations';
 import { TUTORIAL_FALL_DURATION_MS } from '../constants/tutorialData';
 import { parseSwitchTarget } from '../utils/branchParser';
 
@@ -39,6 +40,7 @@ export class SingleScene extends Phaser.Scene {
   private isGameEnded = false;
   private isUserPaused = false;
   private stashTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private cherryPickTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private isTutorialMode = false;
 
   constructor() {
@@ -79,6 +81,10 @@ export class SingleScene extends Phaser.Scene {
       clearTimeout(this.stashTimeoutId);
       this.stashTimeoutId = null;
     }
+    if (this.cherryPickTimeoutId !== null) {
+      clearTimeout(this.cherryPickTimeoutId);
+      this.cherryPickTimeoutId = null;
+    }
 
     EventBus.off('game:start', this.handleGameStart);
     EventBus.off('command:complete', this.handleCommandComplete);
@@ -88,6 +94,7 @@ export class SingleScene extends Phaser.Scene {
     EventBus.off('game:resume', this.handleGameResume);
     EventBus.off('game:restart', this.handleGameRestart);
     EventBus.off('game:over', this.handleGameEnd);
+    EventBus.off('game:session-expired', this.handleGameEnd);
     EventBus.off('game:complete', this.handleGameEnd);
     EventBus.off('item:use', this.handleItemUse);
     EventBus.off('tutorial:show_command', this.handleTutorialShowCommand);
@@ -113,6 +120,7 @@ export class SingleScene extends Phaser.Scene {
     EventBus.on('game:resume', this.handleGameResume);
     EventBus.on('game:restart', this.handleGameRestart);
     EventBus.on('game:over', this.handleGameEnd);
+    EventBus.on('game:session-expired', this.handleGameEnd);
     EventBus.on('game:complete', this.handleGameEnd);
     EventBus.on('item:use', this.handleItemUse);
     EventBus.on('tutorial:show_command', this.handleTutorialShowCommand);
@@ -184,9 +192,20 @@ export class SingleScene extends Phaser.Scene {
   private readonly handleCommandComplete = ({ index }: { index: number }): void => {
     if (index !== this.commandIndex) return;
     const cmd = this.commandSet[this.commandIndex];
-    this.lanes.get(cmd.branchName)?.clearCommand();
+    this.lanes.get(cmd.branchName)?.flashSuccess();
     this.applyBranchEffect(cmd);
     this.commandIndex++;
+
+    // 커맨드 성공 시 stash 조기 종료
+    if (this.stashTimeoutId !== null) {
+      clearTimeout(this.stashTimeoutId);
+      this.stashTimeoutId = null;
+      if (!this.isUserPaused) {
+        this.tweens.resumeAll();
+        this.time.paused = false;
+      }
+    }
+
     // 튜토리얼 모드: useTutorialMode가 tutorial:show_command를 emit할 때까지 대기
     if (!this.isTutorialMode) {
       this.showCurrentCommand();
@@ -219,9 +238,22 @@ export class SingleScene extends Phaser.Scene {
         }
       }, 5000);
     } else if (slot === 1) {
-      // cherry-pick: 현재 낙하 중인 명령어 자동 완료
+      // cherry-pick: 낙하 정지 후 발바닥 애니메이션, 완료 처리
       if (this.isGameEnded || this.commandIndex >= this.commandSet.length) return;
-      EventBus.emit('command:complete', { index: this.commandIndex });
+      if (this.cherryPickTimeoutId !== null) return; // 중복 방지
+      const indexAtUse = this.commandIndex;
+      this.tweens.pauseAll();
+      this.time.paused = true;
+      this.cherryPickTimeoutId = setTimeout(() => {
+        this.cherryPickTimeoutId = null;
+        if (!this.isGameEnded) {
+          if (!this.isUserPaused) {
+            this.tweens.resumeAll();
+            this.time.paused = false;
+          }
+          EventBus.emit('command:complete', { index: indexAtUse });
+        }
+      }, CHERRY_PICK_ANIM_MS);
     }
   };
 
@@ -261,6 +293,10 @@ export class SingleScene extends Phaser.Scene {
     if (this.stashTimeoutId !== null) {
       clearTimeout(this.stashTimeoutId);
       this.stashTimeoutId = null;
+    }
+    if (this.cherryPickTimeoutId !== null) {
+      clearTimeout(this.cherryPickTimeoutId);
+      this.cherryPickTimeoutId = null;
     }
     this.lanes.forEach((lane) => lane.clearCommand());
   };

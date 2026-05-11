@@ -1,5 +1,5 @@
 ﻿import { useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Shuffle } from 'lucide-react';
 
 import { CHARACTER_OPTIONS, useCharacterSetup } from '../hooks/useCharacterSetup';
 import { getHairColorOptions, getOutfitColorOptions } from '../utils/characterAssets';
@@ -11,7 +11,7 @@ interface CharacterSetupProps {
 }
 
 export default function CharacterSetup({ onComplete }: CharacterSetupProps) {
-  const { form, isSaving, apiError, onSubmit } = useCharacterSetup(onComplete);
+  const { form, isSaving, apiError, onSubmit, randomize } = useCharacterSetup(onComplete);
   const { watch, setValue, handleSubmit } = form;
 
   const values = watch();
@@ -54,16 +54,24 @@ export default function CharacterSetup({ onComplete }: CharacterSetupProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <p className="text-white/50 text-xs text-center">원하는 캐릭터를 꾸며보세요!</p>
 
-      <div className="flex gap-4 items-center">
+      <div className="flex items-start gap-4">
         {/* 캐릭터 미리보기 */}
         <div className="flex flex-col items-center gap-2 shrink-0">
           <div className="rounded-lg border border-white/10 flex items-center justify-center bg-white/5 p-3">
             <CharacterPreview values={values} />
           </div>
+          <button
+            type="button"
+            onClick={randomize}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/15 transition-colors border-none!"
+          >
+            <Shuffle size={12} />
+            랜덤
+          </button>
         </div>
 
         {/* 파츠 선택 영역: < 현재값 > 화살표 네비게이션 */}
-        <div className="flex flex-col gap-2 flex-1 justify-center">
+        <div className="flex flex-1 flex-col gap-2">
           {rows.map(({ key, label, options }) => {
             const idx = options.findIndex((o) => o.id === values[key]);
             const safeIdx = idx === -1 ? 0 : idx;

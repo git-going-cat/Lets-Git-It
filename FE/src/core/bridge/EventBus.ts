@@ -5,6 +5,7 @@ export interface EventMap {
   'game:pause': void;
   'game:resume': void;
   'game:over': void;
+  'game:session-expired': void;
   'game:restart': void;
   'game:complete': void;
   'score:update': number;
@@ -13,8 +14,10 @@ export interface EventMap {
   'timer:tick': number;
   'command:complete': { index: number };
   'command:miss': { index: number };
+  'command:wrong': void;
   'item:click': { slot: 0 | 1 | 2 };
   'item:use': { slot: 0 | 1 | 2 };
+  'item:acquired': { slot: 0 | 1 | 2 };
   'branch:switch': { branch: string };
   'lane:create': { branch: string };
   'tutorial:pause': void;

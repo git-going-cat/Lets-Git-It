@@ -82,9 +82,9 @@ else { /* 오타 */ }
 /^git\s+switch\s+(?!-)\S+$/
 ```
 
-### 6. `flashMiss` (`BranchLane`)
+### 6. `flashMiss` / `flashSuccess` (`BranchLane`)
 
-시간 초과 miss 시 해당 레인 하단에 빨간 직사각형을 400ms 동안 표시한다.
+**`flashMiss`**: 시간 초과 miss 시 해당 레인 하단에 빨간 직사각형을 400ms 동안 표시한다.
 
 ```ts
 flashMiss(): void {
@@ -95,6 +95,18 @@ flashMiss(): void {
 
 **버그픽스**: 같은 브랜치에 연속 명령어가 있을 때 `flashMiss()` 직후 `showCurrentCommand()` → `showCommand()` → `clearCommand()` 호출로 방금 생성한 flash가 즉시 제거되던 문제를 수정했다.  
 `clearCommand()`에서 `flashGraphic` 정리를 제거하고, flash 소멸은 자체 fade-out tween의 `onComplete`에서만 처리한다.
+
+**`flashSuccess`**: 명령어 성공 시 호출된다. `clearCommand()` 대신 `SingleScene.handleCommandComplete`에서 호출한다.  
+낙하 tween을 멈추고 두 가지 애니메이션을 동시 재생한다.
+
+- **노드 폭발**: 노드를 1.5배로 확대하며 260ms 페이드아웃 후 destroy.
+- **녹색 링**: 노드 위치(`setPosition`)에 Graphics를 생성하고 `scaleX/Y 2.8배` 확장 + 380ms 페이드아웃.
+
+`commandNode = null`로 먼저 참조를 해제해 폭발 트윈 진행 중 외부에서 `clearCommand()`가 호출돼도 중복 destroy가 발생하지 않는다.
+
+> **buildNode 변경**: `buildNode(text, itemDrop?)` 시그니처로 `itemDrop` 파라미터가 추가됐다.  
+> 아이템 노드는 브랜치 색상 완전 채움 + 흰 테두리 + 강한 글로우 + 원 중심 아이콘(≡/◆/♥)으로 시각 구분된다.  
+> → 상세: `IMPLEMENTATION_게임피드백애니메이션.md` — "3. 아이템 노드 시각 구분" 참고
 
 ### 7. 난이도별 낙하 속도
 
@@ -151,6 +163,8 @@ Phaser `GameObject.setActive(value: boolean): this`가 이미 존재해 오버�
 - MERGE 정답 입력 → 병합 브랜치 레인 fade-out 확인
 - 활성 브랜치 레인에 글로우 표시, 비활성 레인에 글로우 사라짐 확인
 - 시간 초과 → 해당 레인 하단 빨간 flash 확인
+- 명령어 성공 → 노드 폭발(scale up + fade) + 녹색 링 방사 확인
+- 아이템 노드 성공 → 동일한 flashSuccess 재생 확인
 - NORMAL 모드에서 `main` 명령어를 `feat/editor` 상태에서 입력 → 오타 처리 확인
 - NORMAL 모드에서 `git switch main` 입력 → 오답 처리 없이 activeBranch 변경 확인
 - NORMAL 모드에서 `git switch -c feat/new` 입력 → 은닉 SWITCH로 처리되지 않고 오타 처리 확인

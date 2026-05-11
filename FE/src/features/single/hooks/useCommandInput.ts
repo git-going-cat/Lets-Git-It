@@ -84,6 +84,7 @@ export function useCommandInput() {
         setCombo(0);
         setTypoCount((prev) => prev + 1);
         useSingleStore.getState().appendLog({ seq: commandIndex, event: 'typo' });
+        EventBus.emit('command:wrong');
       }
 
       setInputValue('');
@@ -107,6 +108,7 @@ export function useCommandInput() {
       setInputValue('');
       setHistoryText('MISS!');
       setIsError(true);
+      EventBus.emit('command:wrong');
     };
 
     EventBus.on('command:miss', handleMiss);

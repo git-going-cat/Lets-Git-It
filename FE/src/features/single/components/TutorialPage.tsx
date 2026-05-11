@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Provider } from 'jotai';
 
 import { onboardingApi } from '@/features/auth/api/onboardingApi';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { useBgm } from '@/shared/hooks/useBgm';
 
 import { useSingleStore } from '../store/singleStore';
 
@@ -59,7 +60,9 @@ function extractCommandSet(steps: TutorialStep[]): Command[] {
  * 완료 시 completeTutorial API를 호출하고 /home으로 이동합니다.
  */
 export default function TutorialPage() {
+  useBgm();
   const navigate = useNavigate();
+  const { replay } = useSearch({ from: '/tutorial' });
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,16 +97,26 @@ export default function TutorialPage() {
   }, []);
 
   const handleTutorialComplete = useCallback(async () => {
+    const user = useAuthStore.getState().user;
+
+    if (replay || user?.onboardingStatus === 'TUTORIAL_DONE') {
+      await navigate({ to: '/home', replace: true });
+      return;
+    }
+
     try {
       await onboardingApi.completeTutorial();
-      const user = useAuthStore.getState().user;
       if (user) {
-        useAuthStore.setState({ user: { ...user, onboardingStatus: 'TUTORIAL_DONE' } });
+        useAuthStore.getState().updateUser({ onboardingStatus: 'TUTORIAL_DONE' });
       }
     } catch {
       // 이미 TUTORIAL_DONE인 경우 무시
     }
     await navigate({ to: '/home', replace: true });
+  }, [navigate, replay]);
+
+  const handleTutorialExit = useCallback(() => {
+    void navigate({ to: '/home', replace: true });
   }, [navigate]);
 
   if (error) {
@@ -135,7 +148,10 @@ export default function TutorialPage() {
   return (
     <Provider>
       <div className="font-pixel">
-        <SingleGameContent onTutorialComplete={handleTutorialComplete} />
+        <SingleGameContent
+          onTutorialComplete={handleTutorialComplete}
+          onTutorialExit={replay ? handleTutorialExit : undefined}
+        />
         <StartModal />
         <PauseModal />
       </div>

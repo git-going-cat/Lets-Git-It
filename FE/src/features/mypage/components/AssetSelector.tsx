@@ -56,7 +56,7 @@ export default function AssetSelector({
             type="button"
             onClick={handlePrev}
             disabled={!hasAssets}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+            className="nes-rounded-button flex h-9 w-9 shrink-0 items-center justify-center border border-gray-200 bg-white text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`${label} 이전`}
           >
             <ChevronLeft size={20} />
@@ -68,7 +68,7 @@ export default function AssetSelector({
             type="button"
             onClick={handleNext}
             disabled={!hasAssets}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+            className="nes-rounded-button flex h-9 w-9 shrink-0 items-center justify-center border border-gray-200 bg-white text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`${label} 다음`}
           >
             <ChevronRight size={20} />

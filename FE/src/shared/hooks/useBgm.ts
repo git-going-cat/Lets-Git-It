@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import bgmSrc from '@/assets/sounds/Glitcher - Dyalla.mp3';
+import bgmSrc from '@/assets/sounds/bg_music.mp3';
 import { useAudioStore } from '@/shared/store/audioStore';
 
 /**

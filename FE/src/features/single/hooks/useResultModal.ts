@@ -1,60 +1,84 @@
-import { useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
+import { MYPAGE_QUERY_KEYS } from '@/features/mypage/constants/queryKeys';
 
 import { singleApi } from '../api/singleApi';
 import { gameResultAtom } from '../store/gameResultAtom';
 import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
-/**
- * ResultModal의 표시 여부, 결과 데이터, 버튼 핸들러를 제공합니다.
- *
- * gameResultAtom에 결과가 저장되는 시점에 점수 저장 API를 자동 호출합니다.
- * isNewRecord: API 응답 기준. 응답 전까지는 로컬 bestScore와 비교한 낙관적 값을 사용합니다.
- * saveError: API 저장 실패 여부. 실패해도 모달 동작은 유지됩니다.
- */
 export function useResultModal() {
   const gameStatus = useAtomValue(gameStatusAtom);
   const setGameStatus = useSetAtom(gameStatusAtom);
   const result = useAtomValue(gameResultAtom);
   const setResult = useSetAtom(gameResultAtom);
-  const { bestScore, difficulty, sessionId, playLog } = useSingleStore();
+  const { bestScore, difficulty, sessionId } = useSingleStore();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const savedSessionRef = useRef<string | null>(null);
 
-  const saveMutation = useMutation({
-    mutationFn: (id: string) =>
-      singleApi.saveResult(id, {
-        status: result!.status,
-        score: result!.score,
-        playTime: Math.round(result!.playTimeMs / 1000),
-        grade: result!.grade,
-        playLog,
-      }),
-    retry: 1,
-  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveData, setSaveData] = useState<{ isNewRecord: boolean } | null>(null);
+  const [saveError, setSaveError] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
 
   useEffect(() => {
     if (!result || !sessionId) return;
-    saveMutation.mutate(sessionId);
-  }, [result, sessionId]); // saveMutation.mutate는 안정적인 참조라 의존성에서 생략
+    if (result.status === 'SESSION_EXPIRED') return;
+    if (savedSessionRef.current === sessionId) return;
+    savedSessionRef.current = sessionId;
+
+    setIsSaving(true);
+    setSaveError(false);
+
+    // StrictMode cleanup이 in-flight 요청을 취소하지 않도록 cancelled 플래그를 두지 않는다.
+    // 대신 savedSessionRef로 "현재 추적 중인 세션과 일치하는 응답인지"만 검증한다.
+    // 다시하기 시 savedSessionRef가 null로 리셋되므로 이전 세션 응답은 자동으로 무시된다.
+    const playLog = useSingleStore.getState().playLog;
+    singleApi
+      .saveResult(sessionId, {
+        status: result.status === 'ESCAPE_FAILED' ? 'GAMEOVER' : result.status,
+        score: result.score,
+        playTime: Math.round(result.playTimeMs / 1000),
+        grade: result.grade,
+        playLog,
+      })
+      .then((data) => {
+        if (savedSessionRef.current !== sessionId) return;
+        setSaveData(data);
+        setIsSaving(false);
+        void queryClient.invalidateQueries({ queryKey: MYPAGE_QUERY_KEYS.myRecord });
+      })
+      .catch(() => {
+        if (savedSessionRef.current !== sessionId) return;
+        setSaveError(true);
+        setIsSaving(false);
+      });
+  }, [result, sessionId, queryClient]);
 
   const isVisible = (gameStatus === 'gameover' || gameStatus === 'cleared') && result !== null;
-  // API 응답이 오기 전까지는 로컬 bestScore 기준으로 낙관적 표시
-  const isNewRecord =
-    saveMutation.data?.isNewRecord ?? (result !== null && result.score > (bestScore ?? 0));
+  const isNewRecord = saveData?.isNewRecord ?? (result !== null && result.score > (bestScore ?? 0));
 
-  const onRestart = () => {
-    setGameStatus('playing');
-    setResult(null);
-    saveMutation.reset();
-    EventBus.emit('game:restart');
+  const onRestart = async () => {
+    if (!difficulty || isRestarting) return;
+    setIsRestarting(true);
+    setSaveData(null);
+    setSaveError(false);
+    setIsSaving(false);
+    savedSessionRef.current = null;
+    try {
+      const nextSession = await singleApi.startSession(difficulty);
+      setGameStatus('playing');
+      setResult(null);
+      useSingleStore.getState().setSession(nextSession);
+    } catch {
+      navigate({ to: '/home', replace: true });
+    }
   };
 
-  const onRanking = () => navigate({ to: '/ranking' });
   const onHome = () => navigate({ to: '/home' });
 
   return {
@@ -62,10 +86,10 @@ export function useResultModal() {
     result,
     difficulty,
     isNewRecord,
-    isSaving: saveMutation.isPending,
-    saveError: saveMutation.isError,
+    isSaving,
+    saveError,
+    isRestarting,
     onRestart,
-    onRanking,
     onHome,
   };
 }

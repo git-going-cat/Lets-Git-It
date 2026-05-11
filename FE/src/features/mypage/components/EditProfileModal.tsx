@@ -7,6 +7,8 @@ import { useAuthStore } from '@/features/auth/store/authStore';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Win11Window } from '@/shared/components/Win11Window';
+import { useModal } from '@/shared/hooks/useModal';
+import { NICKNAME_DUPLICATE_ERROR_CODE, NICKNAME_RULE } from '@/shared/schemas/nickname.schema';
 
 import { ACCOUNT_ACTION_COPY, WITHDRAWAL_DELETED_ITEMS } from '../constants/accountActions';
 import { MYPAGE_QUERY_KEYS } from '../constants/queryKeys';
@@ -32,6 +34,8 @@ export function EditProfileModal({
   authType,
   currentNickname = '',
 }: EditProfileModalProps) {
+  useModal({ isOpen, onClose });
+
   const [nickname, setNickname] = useState(currentNickname);
   const [isNicknameChecked, setIsNicknameChecked] = useState(false);
   const [nicknameError, setNicknameError] = useState('');
@@ -80,12 +84,12 @@ export function EditProfileModal({
       },
       onError: (error) => {
         const errorCode = isAxiosError(error) ? error.response?.data?.code : null;
-        if (errorCode === 'NICKNAME_DUPLICATE') {
-          setNicknameError('이미 사용 중인 닉네임입니다.');
+        if (errorCode === NICKNAME_DUPLICATE_ERROR_CODE) {
+          setNicknameError(NICKNAME_RULE.messages.duplicate);
           return;
         }
 
-        setNicknameError('중복 확인에 실패했습니다.');
+        setNicknameError(NICKNAME_RULE.messages.checkFailed);
       },
     });
   };
@@ -100,7 +104,7 @@ export function EditProfileModal({
         setIsNicknameSuccessNoticeOpen(true);
       },
       onError: () => {
-        setNicknameError('닉네임 변경에 실패했습니다.');
+        setNicknameError(NICKNAME_RULE.messages.saveFailed);
       },
     });
   };
@@ -114,7 +118,6 @@ export function EditProfileModal({
 
   const handleNicknameSuccessConfirm = () => {
     setIsNicknameSuccessNoticeOpen(false);
-    onClose();
   };
 
   const handleWithdraw = (password?: string) => {
@@ -140,16 +143,15 @@ export function EditProfileModal({
 
   return (
     <>
-      <Win11Window title="내 정보 수정" onClose={onClose}>
-        {/* w-[360px]: 계정 수정 모달의 입력 폼 폭을 고정해 버튼/인풋 배치를 안정화합니다. */}
-        <div className="flex w-[360px] flex-col gap-6">
+      <Win11Window title="내 정보 수정" onClose={onClose} className="w-[540px]">
+        <div className="flex w-full flex-col gap-6">
           <section className="flex flex-col gap-2">
-            <h3 className="text-sm font-bold text-gray-800">닉네임 변경</h3>
-            <div className="flex gap-2">
+            <h3 className="text-base font-bold text-gray-800">닉네임 변경</h3>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
               <Input
                 value={nickname}
                 onChange={handleNicknameChange}
-                placeholder="2~6자 한글/영문"
+                placeholder={`${NICKNAME_RULE.minLength}~${NICKNAME_RULE.maxLength}자 한글/영문/숫자`}
                 className="flex-1 rounded-lg"
               />
               <Button
@@ -161,27 +163,26 @@ export function EditProfileModal({
               >
                 중복확인
               </Button>
-            </div>
-            {nicknameError && <span className="text-xs text-red-500">{nicknameError}</span>}
-            {nicknameSuccess && <span className="text-xs text-green-600">{nicknameSuccess}</span>}
-            <div className="mt-1 flex justify-end">
               <Button
                 onClick={handleSaveNickname}
                 disabled={!isNicknameChecked || updateNicknameMutation.isPending}
+                className="whitespace-nowrap"
               >
                 저장
               </Button>
             </div>
+            {nicknameError && <span className="text-sm text-red-500">{nicknameError}</span>}
+            {nicknameSuccess && <span className="text-sm text-green-600">{nicknameSuccess}</span>}
           </section>
 
           <hr className="border-gray-200" />
 
           <section className="flex flex-col gap-2">
-            <h3 className="text-sm font-bold text-gray-800">비밀번호 재설정</h3>
+            <h3 className="text-base font-bold text-gray-800">비밀번호 재설정</h3>
             <div className="flex items-center justify-between">
-              <span className="mr-2 flex-1 text-xs leading-tight text-gray-600">
+              <span className="mr-2 flex-1 text-sm leading-relaxed text-gray-600">
                 {authType === 'OAUTH'
-                  ? '소셜 로그인(Google) 사용자는 비밀번호 변경이 불가합니다.'
+                  ? '소셜 로그인(Google) 사용자는 비밀번호 변경이 불가능합니다.'
                   : '주기적인 비밀번호 변경으로 계정을 안전하게 보호하세요.'}
               </span>
               <Button
@@ -198,7 +199,7 @@ export function EditProfileModal({
             <button
               type="button"
               onClick={() => setIsWithdrawModalOpen(true)}
-              className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-600 active:bg-red-700"
+              className="nes-rounded-button bg-red-500 px-4 py-2 text-base font-semibold text-white shadow-sm transition-colors hover:bg-red-600 active:bg-red-700"
             >
               회원탈퇴
             </button>

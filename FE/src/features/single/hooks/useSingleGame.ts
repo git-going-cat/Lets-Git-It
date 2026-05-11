@@ -16,11 +16,11 @@ import { useSingleStore } from '../store/singleStore';
 import { elapsedTimeAtom } from '../store/timerAtom';
 import { totalAttemptsAtom, typoCountAtom } from '../store/typoAtom';
 import { parseSwitchTarget } from '../utils/branchParser';
-import { calcScore } from '../utils/scoreCalculator';
+import { calcScore, CHURU_THRESHOLD } from '../utils/scoreCalculator';
 
 import { useEscHandler } from './useEscHandler';
 
-const DROP_RATE = { EASY: 0.4, NORMAL: 0.3, HARD: 0.2 } as const;
+import { ITEM_SLOT_MAP } from '../types/single.types';
 
 /**
  * EventBus → Jotai 원자 브릿지.
@@ -51,8 +51,15 @@ export function useSingleGame() {
   }, [typoCount]);
 
   useEffect(() => {
-    // lives·elapsedMs·livesLost는 EventBus 핸들러 클로저에서 직접 변경되므로 ref로 관리
-    const stateRef = { lives: MAX_LIVES, elapsedMs: 0, livesLost: 0 };
+    // lives·elapsedMs·livesLost·churu·combo는 EventBus 핸들러 클로저에서 직접 변경되므로 ref로 관리
+    const stateRef = {
+      lives: MAX_LIVES,
+      elapsedMs: 0,
+      livesLost: 0,
+      churu: 0,
+      combo: 0,
+      maxCombo: 0,
+    };
     // itemSlots·commandIndex는 핸들러 내에서 setXxx 호출 직후 ref도 함께 갱신해 stale closure를 방지
     const itemSlotsRef: [boolean, boolean, boolean] = [false, false, false];
     const commandIndexRef = { current: 0 };
@@ -61,6 +68,9 @@ export function useSingleGame() {
       stateRef.lives = MAX_LIVES;
       stateRef.elapsedMs = 0;
       stateRef.livesLost = 0;
+      stateRef.churu = 0;
+      stateRef.combo = 0;
+      stateRef.maxCombo = 0;
       itemSlotsRef[0] = false;
       itemSlotsRef[1] = false;
       itemSlotsRef[2] = false;
@@ -81,13 +91,7 @@ export function useSingleGame() {
 
     // Alt 핸들러에서 게임 상태를 확인하기 위한 로컬 플래그
     let isPlaying = false;
-
-    const addChuruForCommand = (index: number) => {
-      const cmd = useSingleStore.getState().commandSet[index];
-      if (cmd && cmd.type !== 'SWITCH') {
-        setChuru((prev) => prev + 1);
-      }
-    };
+    let isFinished = false;
 
     const handleMiss = ({ index }: { index: number }) => {
       // 튜토리얼 모드: 낙하 시간이 매우 길어 miss가 사실상 발생하지 않으나,
@@ -97,11 +101,11 @@ export function useSingleGame() {
       const newLives = stateRef.lives - 1;
       stateRef.lives = newLives;
       stateRef.livesLost += 1;
+      stateRef.combo = 0;
       commandIndexRef.current = index + 1;
       setLives(newLives);
       setCombo(0);
       setCommandIndex(index + 1); // Phaser가 확정한 index 기준으로 동기화
-      addChuruForCommand(index);
       useSingleStore.getState().appendLog({ seq: index, event: 'miss' });
       // miss여도 CREATE·SWITCH 커맨드의 activeBranch를 갱신해야 NORMAL 브랜치 판정이 정확함
       const cmd = useSingleStore.getState().commandSet[index];
@@ -117,22 +121,27 @@ export function useSingleGame() {
     const handleComplete = ({ index }: { index: number }) => {
       commandIndexRef.current = index + 1;
       setCommandIndex(index + 1);
+      stateRef.combo += 1;
+      if (stateRef.combo > stateRef.maxCombo) stateRef.maxCombo = stateRef.combo;
       setCombo((prev) => prev + 1);
       useSingleStore.getState().appendLog({ seq: index, event: 'complete' });
 
-      addChuruForCommand(index);
+      // 성공한 명령어만 churu 지급 (SWITCH 제외), 아이템 드롭도 동일 참조 사용
+      const completedCmd = useSingleStore.getState().commandSet[index];
+      if (completedCmd && completedCmd.type !== 'SWITCH') {
+        stateRef.churu += 1;
+        setChuru((prev) => prev + 1);
+      }
 
-      // 아이템 드롭: 난이도별 확률로 빈 슬롯 중 하나에 랜덤 배정
-      const diff = useSingleStore.getState().difficulty;
-      if (diff && Math.random() < DROP_RATE[diff]) {
-        const emptyIndices = itemSlotsRef
-          .map((filled, i) => (!filled ? i : -1))
-          .filter((i) => i !== -1);
-        if (emptyIndices.length > 0) {
-          const slotToFill = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
-          itemSlotsRef[slotToFill] = true;
+      // 아이템 드롭: 세션 시작 시 사전 배정된 itemDrop 확인 (miss 시엔 호출 안 됨)
+      if (completedCmd?.itemDrop) {
+        const slotIndex = ITEM_SLOT_MAP.indexOf(completedCmd.itemDrop);
+        if (slotIndex !== -1 && !itemSlotsRef[slotIndex]) {
+          itemSlotsRef[slotIndex] = true;
           setItemSlots([itemSlotsRef[0], itemSlotsRef[1], itemSlotsRef[2]]);
+          EventBus.emit('item:acquired', { slot: slotIndex as 0 | 1 | 2 });
         }
+        // 슬롯이 이미 찼으면 아이템 소멸 (획득 불가)
       }
     };
 
@@ -142,7 +151,9 @@ export function useSingleGame() {
     };
 
     const handleGameStart = () => {
+      resetGame();
       isPlaying = true;
+      isFinished = false;
     };
 
     const handleGamePause = () => {
@@ -154,21 +165,29 @@ export function useSingleGame() {
       isPlaying = true;
     };
 
-    const finishGame = (status: 'SUCCESS' | 'GAMEOVER') => {
+    const finishGame = (status: 'SUCCESS' | 'GAMEOVER' | 'ESCAPE_FAILED' | 'SESSION_EXPIRED') => {
+      if (isFinished) return;
+      isFinished = true;
       const diff = useSingleStore.getState().difficulty;
       if (!diff) return;
       const playTimeMs = stateRef.elapsedMs;
       const missCount = stateRef.livesLost;
       const typoCount = typoRef.current;
-      if (status === 'GAMEOVER') {
+      if (status !== 'SUCCESS') {
         analytics.gameOver(diff, playTimeMs);
         setGameResult({ status, score: 0, grade: 'F', playTimeMs, missCount, typoCount });
       } else {
+        const totalCommands = useSingleStore
+          .getState()
+          .commandSet.filter((c) => c.type !== 'SWITCH').length;
         const { score, grade } = calcScore({
           playTimeMs,
           typoCount,
           livesLost: missCount,
           difficulty: diff,
+          churuCount: stateRef.churu,
+          totalCommands,
+          maxCombo: stateRef.maxCombo,
         });
         analytics.gameCompleted(diff, score, playTimeMs);
         setGameResult({ status, score, grade, playTimeMs, missCount, typoCount });
@@ -186,10 +205,20 @@ export function useSingleGame() {
       isPlaying = false;
       // 튜토리얼 모드에서는 결과 모달 표시 없이 useTutorialMode가 완료 처리
       if (useSingleStore.getState().isTutorial) return;
-      finishGame('SUCCESS');
+      const totalCommands = useSingleStore
+        .getState()
+        .commandSet.filter((c) => c.type !== 'SWITCH').length;
+      const threshold = Math.ceil(totalCommands * CHURU_THRESHOLD);
+      finishGame(stateRef.churu >= threshold ? 'SUCCESS' : 'ESCAPE_FAILED');
+    };
+    const handleSessionExpired = () => {
+      if (isFinished) return;
+      isPlaying = false;
+      finishGame('SESSION_EXPIRED');
     };
     const handleGameRestart = () => {
       isPlaying = true;
+      isFinished = false;
       resetGame();
     };
 
@@ -205,6 +234,7 @@ export function useSingleGame() {
         const newLives = Math.min(stateRef.lives + 1, MAX_LIVES);
         stateRef.lives = newLives;
         setLives(newLives);
+        EventBus.emit('item:use', { slot: 2 });
       } else if (slotIndex === 1) {
         // cherry-pick: CREATE·SWITCH면 activeBranch 먼저 이동 후 Phaser에 위임
         const cmd = useSingleStore.getState().commandSet[commandIndexRef.current];
@@ -239,6 +269,7 @@ export function useSingleGame() {
     EventBus.on('game:resume', handleGameResume);
     EventBus.on('game:over', handleGameOver);
     EventBus.on('game:complete', handleGameComplete);
+    EventBus.on('game:session-expired', handleSessionExpired);
     EventBus.on('game:restart', handleGameRestart);
     EventBus.on('item:click', handleItemClick);
     window.addEventListener('keydown', handleAltKey);
@@ -252,6 +283,7 @@ export function useSingleGame() {
       EventBus.off('game:resume', handleGameResume);
       EventBus.off('game:over', handleGameOver);
       EventBus.off('game:complete', handleGameComplete);
+      EventBus.off('game:session-expired', handleSessionExpired);
       EventBus.off('game:restart', handleGameRestart);
       EventBus.off('item:click', handleItemClick);
       window.removeEventListener('keydown', handleAltKey);

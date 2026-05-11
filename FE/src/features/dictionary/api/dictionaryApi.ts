@@ -11,7 +11,6 @@ export const fetchDictionary = async (): Promise<DictionaryResponse> => {
 
   const parsed = dictionaryResponseSchema.safeParse(data.data);
   if (!parsed.success) {
-    console.error('도감 데이터 Zod 파싱 에러:', parsed.error);
     throw new Error('올바르지 않은 도감 데이터 형식입니다.');
   }
 

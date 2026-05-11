@@ -7,6 +7,7 @@ import multiTimeattackImg from '@/assets/home/multi-timeattack.png';
 import singleEasyImg from '@/assets/home/single-easy.png';
 import singleHardImg from '@/assets/home/single-hard.png';
 import singleNormalImg from '@/assets/home/single-normal.png';
+import { useModal } from '@/shared/hooks/useModal';
 
 // ── 타입 ──────────────────────────────────────────────────
 
@@ -96,12 +97,17 @@ const SIDEBAR_TREE = [
  * @description 싱글/멀티 탭 전환 + 세부 모드 선택 + 게임 시작 라우팅
  */
 export default function Win11ExplorerModal({ initialTab, onClose }: Win11ExplorerModalProps) {
+  useModal({ isOpen: true, onClose });
+
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ExplorerTab>(initialTab);
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   const items = activeTab === 'single' ? SINGLE_ITEMS : MULTI_ITEMS;
   const selectedData = items.find((item) => item.id === selectedItem) ?? null;
+  const isPreparingModeSelected =
+    selectedItem !== null && (activeTab === 'multi' || selectedItem === 'HARD');
 
   const handleTabChange = (tab: ExplorerTab) => {
     setActiveTab(tab);
@@ -109,7 +115,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
   };
 
   const handleGameStart = () => {
-    if (!selectedItem) return;
+    if (!selectedItem || isPreparingModeSelected) return;
     if (activeTab === 'single') {
       void navigate({ to: '/single', search: { difficulty: selectedItem as SingleDifficulty } });
     } else {
@@ -128,7 +134,14 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* 모달 본체 — Win11 탐색기 스타일 */}
-      <div className="relative z-10 flex w-modal-lg h-modal-lg flex-col overflow-hidden rounded-lg bg-[#f3f3f3] shadow-2xl ring-1 ring-black/10">
+      {/* w-[1040px], h/w-[calc(...)]: 상세 설명 가독성과 최대화 상태를 위한 탐색기 모달 크기입니다. */}
+      <div
+        className={`relative z-10 flex flex-col overflow-hidden rounded-lg bg-[#f3f3f3] shadow-2xl ring-1 ring-black/10 ${
+          isMaximized
+            ? 'h-[calc(100vh-2rem)] w-[calc(100vw-2rem)]'
+            : 'h-modal-lg w-[1040px] max-w-[calc(100vw-3rem)]'
+        }`}
+      >
         {/* ── 탭 바 ── */}
         <div className="flex items-center bg-[#f9f9f9] pl-2 pr-3 pt-1 select-none">
           {/* 탭 목록 */}
@@ -145,7 +158,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 <button
                   type="button"
                   onClick={() => handleTabChange(tab)}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 rounded-sm outline-none! focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40"
                 >
                   <span className="text-base">📁</span>
                   {tab === 'single' ? '싱글모드' : '멀티모드'}
@@ -154,7 +167,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                   <button
                     type="button"
                     onClick={onClose}
-                    className="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-gray-400 hover:bg-gray-200"
+                    className="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-gray-400 outline-none! hover:bg-gray-200 focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40"
                     aria-label="닫기"
                   >
                     ✕
@@ -162,7 +175,10 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 )}
               </div>
             ))}
-            <button type="button" className="px-3 py-2 text-gray-400 hover:text-gray-600 text-sm">
+            <button
+              type="button"
+              className="rounded-sm px-3 py-2 text-sm text-gray-400 outline-none! hover:text-gray-600 focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40"
+            >
               +
             </button>
           </div>
@@ -172,10 +188,30 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
               <button
                 key={icon}
                 type="button"
-                onClick={i === 2 ? onClose : undefined}
+                onClick={
+                  i === 0 ? onClose : i === 1 ? () => setIsMaximized((prev) => !prev) : onClose
+                }
                 className={`flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors ${
                   i === 2 ? 'hover:bg-red-500 hover:text-white' : 'hover:bg-gray-200'
                 }`}
+                aria-label={
+                  i === 0
+                    ? '최소화'
+                    : i === 1
+                      ? isMaximized
+                        ? '이전 크기로 복원'
+                        : '최대화'
+                      : '닫기'
+                }
+                title={
+                  i === 0
+                    ? '최소화'
+                    : i === 1
+                      ? isMaximized
+                        ? '이전 크기로 복원'
+                        : '최대화'
+                      : '닫기'
+                }
               >
                 {icon}
               </button>
@@ -189,7 +225,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
             <button
               key={icon}
               type="button"
-              className="flex h-6 w-6 items-center justify-center rounded text-xs text-gray-500 hover:bg-gray-200"
+              className="flex h-6 w-6 items-center justify-center rounded text-xs text-gray-500 outline-none! hover:bg-gray-200 focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40"
             >
               {icon}
             </button>
@@ -203,7 +239,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
           </div>
           <button
             type="button"
-            className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-200"
+            className="rounded px-2 py-1 text-xs text-gray-500 outline-none! hover:bg-gray-200 focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40"
           >
             세부 정보
           </button>
@@ -218,7 +254,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 key={idx}
                 type="button"
                 onClick={() => item.tab && handleTabChange(item.tab)}
-                className={`flex w-full items-center gap-1.5 px-3 py-1 text-left text-xs transition-colors ${
+                className={`flex w-full items-center gap-1.5 px-3 py-1 text-left text-xs outline-none! transition-colors focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
                   item.tab === activeTab
                     ? 'bg-[#cce4f7] text-gray-900 font-medium'
                     : 'text-gray-700 hover:bg-gray-200/70'
@@ -239,8 +275,10 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 key={item.id}
                 type="button"
                 onClick={() => setSelectedItem(item.id)}
-                onDoubleClick={handleGameStart}
-                className={`flex flex-col items-center gap-2 rounded-lg p-3 transition-colors ${
+                onDoubleClick={
+                  activeTab === 'single' && item.id !== 'HARD' ? handleGameStart : undefined
+                }
+                className={`flex flex-col items-center gap-2 rounded-lg p-3 outline-none! transition-colors focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
                   selectedItem === item.id
                     ? 'bg-[#cce4f7] ring-2 ring-[#0078d4]/40'
                     : 'hover:bg-gray-100'
@@ -276,21 +314,22 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
           </div>
 
           {/* 세부 정보 패널 */}
-          <div className="flex w-52 flex-col border-l border-gray-200 bg-[#f9f9f9]">
+          <div className="flex w-72 shrink-0 flex-col border-l border-gray-200 bg-[#f9f9f9]">
             {selectedData ? (
-              <div className="flex flex-col gap-3 p-4">
+              <div className="flex h-full flex-col gap-2 p-4">
                 <img
                   src={selectedData.img}
                   alt={selectedData.label}
-                  className="pixel-art mx-auto h-20 w-20 object-contain"
+                  className="pixel-art mx-auto h-32 w-32 object-contain"
                   draggable={false}
                 />
-                <p className="text-sm font-bold text-gray-800">{selectedData.label}</p>
+                <p className="text-base font-bold text-gray-800">{selectedData.label}</p>
+                <div className="w-full border-t border-gray-300" />
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  <p className="mb-1 text-sm font-semibold uppercase tracking-wider text-gray-400">
                     세부 정보
                   </p>
-                  <p className="text-xs leading-relaxed whitespace-pre-line text-gray-600">
+                  <p className="whitespace-pre-line break-words text-sm leading-snug text-gray-600">
                     {selectedData.description}
                     {'\n\n'}
                     {selectedData.detail}
@@ -299,13 +338,14 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                 <button
                   type="button"
                   onClick={handleGameStart}
-                  className="mt-auto w-full rounded bg-[#0078d4] py-2 text-sm font-semibold text-white transition-colors hover:bg-[#106ebe] active:bg-[#005a9e]"
+                  disabled={isPreparingModeSelected}
+                  className="mt-auto w-full rounded bg-[#0078d4] py-2 text-sm font-semibold text-white outline-none! transition-colors hover:bg-[#106ebe] focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40 active:bg-[#005a9e] disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400 disabled:active:bg-gray-400"
                 >
-                  게임 시작
+                  {isPreparingModeSelected ? '게임 준비중' : '게임 시작'}
                 </button>
               </div>
             ) : (
-              <p className="mt-10 px-4 text-center text-xs text-gray-400">항목을 선택하세요</p>
+              <p className="mt-10 px-4 text-center text-sm text-gray-400">항목을 선택하세요</p>
             )}
           </div>
         </div>

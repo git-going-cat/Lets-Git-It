@@ -24,12 +24,12 @@ export default function GameProgress() {
 
   return (
     <div className="font-pixel flex w-full items-center gap-4 px-4 py-2">
-      <span className="shrink-0 text-xl text-gray-800">
+      <span className="shrink-0 text-2xl text-gray-800">
         {value}/{total}
       </span>
       <progress className="nes-progress is-primary w-full" value={value} max={total} />
-      <span className="shrink-0 text-xl text-gray-800">{pct}%</span>
-      <span className="shrink-0 text-xl text-gray-800">⏱ {formatTime(elapsedMs)}</span>
+      <span className="shrink-0 text-2xl text-gray-800">{pct}%</span>
+      <span className="shrink-0 text-2xl text-gray-800">⏱ {formatTime(elapsedMs)}</span>
     </div>
   );
 }

@@ -7,7 +7,12 @@ import { isAxiosError } from 'axios';
 import { onboardingApi } from '../api/onboardingApi';
 import { characterFormSchema, type CharacterFormValues } from '../schemas/onboarding.schema';
 import { useAuthStore } from '../store/authStore';
-import { CHARACTER_ASSET_OPTIONS, DEFAULT_CHARACTER_VALUES } from '../utils/characterAssets';
+import {
+  CHARACTER_ASSET_OPTIONS,
+  DEFAULT_CHARACTER_VALUES,
+  getHairColorOptions,
+  getOutfitColorOptions,
+} from '../utils/characterAssets';
 
 export const DEFAULT_CHARACTER: CharacterFormValues = DEFAULT_CHARACTER_VALUES;
 
@@ -47,5 +52,20 @@ export function useCharacterSetup(onComplete: () => void) {
     saveCharacter(values);
   };
 
-  return { form, isSaving, apiError, onSubmit };
+  const randomize = () => {
+    const pick = <T extends { id: string }>(arr: readonly T[]) =>
+      arr[Math.floor(Math.random() * arr.length)].id;
+
+    const hair = pick(CHARACTER_ASSET_OPTIONS.hair);
+    const outfit = pick(CHARACTER_ASSET_OPTIONS.outfit);
+
+    form.setValue('characterHair', hair);
+    form.setValue('characterHairColor', pick(getHairColorOptions(hair)));
+    form.setValue('characterBody', pick(CHARACTER_ASSET_OPTIONS.body));
+    form.setValue('characterEye', pick(CHARACTER_ASSET_OPTIONS.eye));
+    form.setValue('characterOutfit', outfit);
+    form.setValue('characterOutfitColor', pick(getOutfitColorOptions(outfit)));
+  };
+
+  return { form, isSaving, apiError, onSubmit, randomize };
 }

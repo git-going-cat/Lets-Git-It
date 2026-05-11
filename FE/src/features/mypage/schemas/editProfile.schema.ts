@@ -1,12 +1,8 @@
 import { z } from 'zod';
 
-export const editNicknameSchema = z.object({
-  nickname: z
-    .string()
-    .min(2, '닉네임은 2자 이상이어야 합니다.')
-    .max(6, '닉네임은 6자 이하여야 합니다.')
-    .regex(/^[가-힣a-zA-Z]+$/, '닉네임은 한글과 영어만 사용할 수 있습니다.'),
-});
+import { nicknameFormSchema } from '@/shared/schemas/nickname.schema';
+
+export const editNicknameSchema = nicknameFormSchema;
 
 export const verifyPasswordSchema = z.object({
   password: z.string().min(1, '비밀번호를 입력해주세요.'),
