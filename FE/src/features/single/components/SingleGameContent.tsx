@@ -27,13 +27,9 @@ import TutorialPauseModal from './TutorialPauseModal';
 
 interface SingleGameContentProps {
   onTutorialComplete?: () => void;
-  onTutorialExit?: () => void;
 }
 
-export default function SingleGameContent({
-  onTutorialComplete,
-  onTutorialExit,
-}: SingleGameContentProps) {
+export default function SingleGameContent({ onTutorialComplete }: SingleGameContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const [shaking, setShaking] = useState(false);
@@ -150,9 +146,7 @@ export default function SingleGameContent({
       {/* 튜토리얼 전용 오버레이 및 모달 */}
       {isTutorial && (
         <>
-          {overlayState && (
-            <TutorialOverlay state={overlayState} onNext={handleNext} onExit={onTutorialExit} />
-          )}
+          {overlayState && <TutorialOverlay state={overlayState} onNext={handleNext} />}
           {modalPhase === 'paused' && (
             <TutorialPauseModal onResume={handleResume} onSkip={handleSkip} />
           )}
