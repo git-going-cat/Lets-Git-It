@@ -27,8 +27,8 @@ export default function TutorialCompleteModal({ isSkipped, onHome }: TutorialCom
   }, [onHome]);
 
   return (
-    // z-[80]: StartModal(z-50)이 남아 있는 튜토리얼 스킵 흐름에서도 완료 안내를 최상단에 표시합니다.
-    <div className="font-pixel fixed inset-0 z-[80] flex items-center justify-center bg-black/80">
+    // z-80: StartModal(z-50)이 남아 있는 튜토리얼 스킵 흐름에서도 완료 안내를 최상단에 표시합니다.
+    <div className="font-pixel fixed inset-0 z-80 flex items-center justify-center bg-black/80">
       <div
         ref={containerRef}
         role="dialog"

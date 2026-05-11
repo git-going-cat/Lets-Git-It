@@ -27,8 +27,8 @@ export default function TutorialPauseModal({ onResume, onSkip }: TutorialPauseMo
   }, [onResume]);
 
   return (
-    // z-[80]: StartModal(z-50)이 열린 튜토리얼 첫 화면에서도 스킵 확인 모달을 최상단에 표시합니다.
-    <div className="font-pixel fixed inset-0 z-[80] flex items-center justify-center bg-black/80">
+    // z-80: StartModal(z-50)이 열린 튜토리얼 첫 화면에서도 스킵 확인 모달을 최상단에 표시합니다.
+    <div className="font-pixel fixed inset-0 z-80 flex items-center justify-center bg-black/80">
       <div
         ref={containerRef}
         role="dialog"
