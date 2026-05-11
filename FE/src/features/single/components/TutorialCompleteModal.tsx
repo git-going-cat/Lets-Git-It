@@ -19,6 +19,7 @@ export default function TutorialCompleteModal({ isSkipped, onHome }: TutorialCom
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Enter') return;
       if (e.repeat) return;
+      if (e.target instanceof HTMLButtonElement) return;
       e.preventDefault();
       onHome();
     };
@@ -68,7 +69,7 @@ export default function TutorialCompleteModal({ isSkipped, onHome }: TutorialCom
             className="nes-rounded-button w-full overflow-hidden bg-[#92cc41] px-4 py-3 text-xl font-bold text-white shadow-sm transition-colors hover:bg-[#7fb832] active:bg-[#6fa326]"
             onClick={onHome}
           >
-            ⌂ 홈으로 가기 [Enter ↵]
+            ⌂ 홈으로 가기
           </button>
         </div>
       </div>

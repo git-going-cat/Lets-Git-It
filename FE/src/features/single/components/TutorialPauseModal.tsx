@@ -19,6 +19,7 @@ export default function TutorialPauseModal({ onResume, onSkip }: TutorialPauseMo
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Enter') return;
       if (e.repeat) return;
+      if (e.target instanceof HTMLButtonElement) return;
       e.preventDefault();
       onResume();
     };
@@ -53,7 +54,7 @@ export default function TutorialPauseModal({ onResume, onSkip }: TutorialPauseMo
               className="nes-rounded-button w-full overflow-hidden bg-[#209cee] px-4 py-3 text-xl font-bold text-white shadow-sm transition-colors hover:bg-[#108de0] active:bg-[#0b78c2]"
               onClick={onResume}
             >
-              계속하기 [Enter ↵]
+              계속하기
             </button>
             <button
               type="button"
