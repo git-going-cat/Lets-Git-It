@@ -22,7 +22,9 @@ import com.gitcat.letsgitit.global.enums.Difficulty;
 import com.gitcat.letsgitit.global.util.WeekUtil;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class SingleRankingScheduler {
@@ -43,6 +45,7 @@ public class SingleRankingScheduler {
 		for (Difficulty diff : Difficulty.values()) {
 			String key = RankingKeyUtil.singleKey(diff.name(), week);
 			String gradeKey = RankingKeyUtil.singleGradeKey(diff.name(), week);
+			String playTimeKey = RankingKeyUtil.singlePlayTimeKey(diff.name(), week);
 			long total = singleRankingRedisRepository.getTotalCount(key);
 
 			if (total == 0) {
@@ -53,6 +56,7 @@ public class SingleRankingScheduler {
 				// DB에 이미 정산됐지만 Redis 키가 남아 있는 경우 — afterCommit()에서 정리
 				keysToDelete.add(key);
 				keysToDelete.add(gradeKey);
+				keysToDelete.add(playTimeKey);
 				continue;
 			}
 
@@ -71,17 +75,19 @@ public class SingleRankingScheduler {
 					memberIds.add(UUID.fromString(entry.memberId()));
 				}
 				Map<UUID, String> gradeMap = singleRankingRedisRepository.getGrades(gradeKey, memberIds);
+				Map<UUID, Integer> playTimeMap = singleRankingRedisRepository.getPlayTimes(playTimeKey, memberIds);
 
 				List<SingleRanking> rankings = new ArrayList<>(chunk.size());
 				for (int i = 0; i < chunk.size(); i++) {
 					SingleRankingRedisRepository.RankEntry entry = chunk.get(i);
 					UUID memberId = memberIds.get(i);
 					int rank = (int)offset + i + 1;
-					int score = (int)Math.round(entry.score());
+					int score = RankingKeyUtil.toPlainSingleScore(entry.score());
+					Integer playTime = playTimeMap.get(memberId);
 					String gradeStr = gradeMap.get(memberId);
 					Grade grade = gradeStr != null ? Grade.valueOf(gradeStr) : null;
 
-					rankings.add(SingleRanking.of(memberId, diff, score, rank, grade, week));
+					rankings.add(SingleRanking.of(memberId, diff, score, rank, grade, playTime, week));
 				}
 
 				singleRankingRepository.saveAll(rankings);
@@ -90,12 +96,19 @@ public class SingleRankingScheduler {
 
 			keysToDelete.add(key);
 			keysToDelete.add(gradeKey);
+			keysToDelete.add(playTimeKey);
 		}
 
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {
-				keysToDelete.forEach(singleRankingRedisRepository::deleteKey);
+				keysToDelete.forEach(key -> {
+					try {
+						singleRankingRedisRepository.deleteKey(key);
+					} catch (Exception e) {
+						log.error("[ranking][settle] Redis key delete failed. key={}", key, e);
+					}
+				});
 			}
 		});
 	}

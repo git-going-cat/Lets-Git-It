@@ -161,7 +161,8 @@ public class SingleServiceImpl implements SingleService {
 
 			// 7-8. 랭킹 업데이트 (주간 + 역대)
 			Timer.Sample rankingUpdate = singleMetrics.start();
-			boolean isCurrentWeekBest = currentWeekBest == null || request.score() > currentWeekBest;
+			// 동점은 playTime 개선 가능성이 있으므로 Redis 갱신을 시도하고, 최종 반영 여부는 Lua composite 비교가 결정한다.
+			boolean isCurrentWeekBest = currentWeekBest == null || request.score() >= currentWeekBest;
 			Integer currentRank = null;
 
 			if (isCurrentWeekBest) {
@@ -169,7 +170,8 @@ public class SingleServiceImpl implements SingleService {
 					difficulty,
 					memberId,
 					request.score(),
-					request.grade());
+					request.grade(),
+					request.playTime());
 			}
 
 			boolean isNewRecord = previousBest.isEmpty() || request.score() > previousBest.get().getScore();
@@ -179,7 +181,8 @@ public class SingleServiceImpl implements SingleService {
 					difficulty,
 					memberId,
 					request.score(),
-					request.grade());
+					request.grade(),
+					request.playTime());
 
 				recordService.updateSingleBestRecord(
 					memberId,

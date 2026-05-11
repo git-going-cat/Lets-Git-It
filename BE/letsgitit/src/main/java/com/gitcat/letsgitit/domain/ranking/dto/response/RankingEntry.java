@@ -6,5 +6,6 @@ public record RankingEntry(
 	int rank,
 	String nickname,
 	int score,
-	Grade grade) {
+	Grade grade,
+	Integer playTime) {
 }

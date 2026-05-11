@@ -156,27 +156,41 @@ return new SingleRankingInitialResponse(
 | 방법 | 설명 | 채택 여부 |
 |------|------|-----------|
 | `ZADD GT` 옵션 | Redis 6.2 이상에서 기존 점수보다 클 때만 갱신 | 미채택 |
-| 애플리케이션 비교 후 갱신 | `ZSCORE`로 현재 점수 조회 후 비교 | 채택 |
+| 애플리케이션 비교 후 갱신 | `ZSCORE`로 현재 점수 조회 후 비교 후 `ZADD`/`HSET` 수행 | 미채택 |
+| Lua 원자 갱신 | `ZSCORE` 비교, `ZADD`, `grade`/`playTime` `HSET`을 Redis 서버에서 하나의 스크립트로 처리 | 채택 |
 
-`ZADD GT`는 Redis 7(현재 사용 버전)에서 지원하지만, `StringRedisTemplate.opsForZSet().add()`가 해당 옵션을 직접 지원하지 않아 `execute`로 raw 커맨드를 작성해야 한다. 코드 가독성과 유지보수를 고려해 애플리케이션 레벨 비교 방식을 선택했다.
+`ZADD GT`는 Redis 7(현재 사용 버전)에서 지원하지만, 싱글 랭킹은 ZSet score뿐 아니라 `grade`, `playTime` Hash도 같은 조건으로 함께 갱신해야 한다. `ZADD GT` 단독으로는 Hash 갱신을 동일한 조건에 묶을 수 없고, 애플리케이션에서 `ZSCORE` 조회 후 비교하는 방식은 동일 memberId에 대한 중복 요청/재시도/동시 저장 상황에서 낮은 기록이 늦게 도착해 좋은 기록을 덮는 race condition이 발생할 수 있다.
+
+따라서 Redis Lua script로 현재 composite score 비교, ZSet 갱신, `grade` Hash 갱신, `playTime` Hash 갱신을 하나의 원자 작업으로 묶었다.
 
 **해결**
 
 ```java
 @Override
-public void saveScore(String key, UUID memberId, double score) {
-    Double currentScore = rankingStringRedisTemplate.opsForZSet()
-        .score(key, memberId.toString());
+public boolean saveScoreGradeAndPlayTime(String scoreKey, String gradeKey, String playTimeKey,
+    UUID memberId, double compositeScore, String grade, int playTimeMs) {
+    Long updated = rankingStringRedisTemplate
+        .execute((RedisCallback<Long>)connection -> connection.scriptingCommands()
+            .eval(
+                bytes(SAVE_SCORE_GRADE_PLAY_TIME_SCRIPT),
+                ReturnType.INTEGER,
+                3,
+                bytes(scoreKey),
+                bytes(gradeKey),
+                bytes(playTimeKey),
+                bytes(memberId.toString()),
+                bytes(Double.toString(compositeScore)),
+                bytes(grade),
+                bytes(String.valueOf(playTimeMs))));
 
-    if (currentScore == null || score > currentScore) {
-        rankingStringRedisTemplate.opsForZSet().add(key, memberId.toString(), score);
-    }
+    return updated != null && updated == 1L;
 }
 ```
 
-- `currentScore == null`: 이번 주 첫 기록이면 무조건 저장
-- `score > currentScore`: 새 점수가 기존 최고 점수보다 높을 때만 갱신
-- Redis 요청이 최대 2번(`ZSCORE` + `ZADD`)으로 증가하지만, 최고 점수 정합성 보장이 우선
+- 기존 score가 없으면 이번 주 첫 기록으로 ZSet, grade Hash, playTime Hash를 함께 저장한다.
+- 새 composite score가 기존 score보다 클 때만 세 값을 함께 갱신한다.
+- 새 composite score가 기존 score 이하이면 어떤 값도 덮어쓰지 않는다.
+- Redis Cluster 모드에서 Lua script가 여러 key를 사용할 경우 같은 hash slot 제약이 있다. 현재 키 구조는 standalone Redis 전제를 둔다.
 
 ---
 

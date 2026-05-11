@@ -62,6 +62,7 @@ difficulty        VARCHAR(20) NOT NULL COMMENT 'EASY / NORMAL / HARD',
 score             INT         NOT NULL DEFAULT 0,
 grade             VARCHAR(1)  NULL     COMMENT 'S / A / B / C / D — 정산 시 미결정, 향후 업데이트',
 rank              INT         NOT NULL,
+play_time         INT         NULL     COMMENT '플레이 시간 (ms), playTime 도입 전 데이터는 NULL',
 week              VARCHAR(10) NOT NULL COMMENT '예: 2025-04-3 (year-month-weekOfMonth)',
 recorded_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 PRIMARY KEY (single_ranking_id),
@@ -70,6 +71,9 @@ INDEX idx_single_ranking_difficulty_week_rank (difficulty, week, rank),
 CONSTRAINT fk_single_ranking_member FOREIGN KEY (member_id) REFERENCES member (member_id),
 CONSTRAINT chk_single_ranking_grade CHECK (grade IN ('S', 'A', 'B', 'C', 'D'))
 );
+
+-- [마이그레이션] 기존 테이블에 컬럼 추가 시 실행
+-- ALTER TABLE single_ranking ADD COLUMN play_time INT NULL COMMENT '플레이 시간 (ms), playTime 도입 전 데이터는 NULL' AFTER `rank`;
 
 -- =============================================
 -- CONTRIBUTION_RESULT (기여도 뺏기 게임 결과)
