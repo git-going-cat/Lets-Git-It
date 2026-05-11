@@ -201,37 +201,6 @@ function getMinWeekOfMonth(year: number, month: number): number {
   return daysInFirstWeek >= 4 ? 1 : 0;
 }
 
-// FIXME(이유정): getIsoWeekOfMonth/getMinWeekOfMonth 중복 선언 (원본은 위 165-202)으로
-// 빌드 실패 → 안수연 PR1(FE-219) 머지를 위한 임시 주석 처리. 이유정 PR에서 정식 정리 예정.
-/*
-function getIsoWeekOfMonth(date: Date): number {
-  const dayOfMonth = date.getDate();
-  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-  const firstDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay(); // 1=Mon, ..., 7=Sun
-  const daysInFirstWeek = 8 - firstDayOfWeek; // 1일부터 첫 일요일까지의 일수
-
-  let week = 0;
-  if (daysInFirstWeek >= 4) {
-    week = 1;
-  }
-
-  if (dayOfMonth <= daysInFirstWeek) {
-    return week;
-  }
-
-  const remainingDays = dayOfMonth - daysInFirstWeek;
-  week += Math.ceil(remainingDays / 7);
-  return week;
-}
-
-function getMinWeekOfMonth(year: number, month: number): number {
-  const firstDay = new Date(year, month - 1, 1);
-  const firstDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay();
-  const daysInFirstWeek = 8 - firstDayOfWeek;
-  return daysInFirstWeek >= 4 ? 1 : 0;
-}
-*/
-
 function getLastWeekOfMonth(year: number, month: number): number {
   const daysInMonth = new Date(year, month, 0).getDate();
   return getIsoWeekOfMonth(new Date(year, month - 1, daysInMonth));

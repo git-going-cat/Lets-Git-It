@@ -44,12 +44,13 @@ function GameEndFlowInner({ result }: { result: GameResult }) {
 
 function GameEndFlow() {
   const result = useAtomValue(gameResultAtom);
+  const sessionId = useSingleStore((state) => state.sessionId);
   if (!result) return null;
-  return <GameEndFlowInner key={result.status + result.score} result={result} />;
+  return <GameEndFlowInner key={`${sessionId}-${result.status}-${result.score}`} result={result} />;
 }
 
 export default function SinglePage() {
-  useBgm();
+  useBgm({ resetOnMount: true });
   useSinglePageGuards();
   const navigate = useNavigate();
   const { difficulty } = useSearch({ from: '/single' });

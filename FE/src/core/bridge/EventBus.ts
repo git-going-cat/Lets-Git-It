@@ -38,11 +38,13 @@ export interface EventMap {
   'item:click': { slot: 0 | 1 | 2 };
   'item:use': { slot: 0 | 1 | 2 };
   'item:acquired': { slot: 0 | 1 | 2 };
+  'stash:end': void;
+  'cherry-pick:end': void;
   'branch:switch': { branch: string };
   'lane:create': { branch: string };
   'tutorial:pause': void;
-  'tutorial:show_command': void;
-  'tutorial:freeze_command': void;
+  'tutorial:show-command': void;
+  'tutorial:freeze-command': void;
 }
 
 type EventKey = keyof EventMap;

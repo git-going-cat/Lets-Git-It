@@ -39,8 +39,8 @@ export class SingleScene extends Phaser.Scene {
   private elapsedMs = 0;
   private isGameEnded = false;
   private isUserPaused = false;
-  private stashTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private cherryPickTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private stashTimeoutId: Phaser.Time.TimerEvent | null = null;
+  private cherryPickTimeoutId: Phaser.Time.TimerEvent | null = null;
   private isTutorialMode = false;
   // scene.restart() 시 인스턴스가 보존되므로, DESTROY 핸들러를 1회만 등록하기 위한 가드.
   private destroyHandlerRegistered = false;
@@ -83,12 +83,14 @@ export class SingleScene extends Phaser.Scene {
     this.timerEvent?.remove();
     this.lanes.clear();
     if (this.stashTimeoutId !== null) {
-      clearTimeout(this.stashTimeoutId);
+      this.stashTimeoutId.remove();
       this.stashTimeoutId = null;
+      EventBus.emit('stash:end');
     }
     if (this.cherryPickTimeoutId !== null) {
-      clearTimeout(this.cherryPickTimeoutId);
+      this.cherryPickTimeoutId.remove();
       this.cherryPickTimeoutId = null;
+      EventBus.emit('cherry-pick:end');
     }
 
     EventBus.off('game:start', this.handleGameStart);
@@ -102,8 +104,8 @@ export class SingleScene extends Phaser.Scene {
     EventBus.off('game:session-expired', this.handleGameEnd);
     EventBus.off('game:complete', this.handleGameEnd);
     EventBus.off('item:use', this.handleItemUse);
-    EventBus.off('tutorial:show_command', this.handleTutorialShowCommand);
-    EventBus.off('tutorial:freeze_command', this.handleTutorialFreezeCommand);
+    EventBus.off('tutorial:show-command', this.handleTutorialShowCommand);
+    EventBus.off('tutorial:freeze-command', this.handleTutorialFreezeCommand);
   }
 
   private initLanes(commandSet: Command[]): void {
@@ -128,8 +130,8 @@ export class SingleScene extends Phaser.Scene {
     EventBus.on('game:session-expired', this.handleGameEnd);
     EventBus.on('game:complete', this.handleGameEnd);
     EventBus.on('item:use', this.handleItemUse);
-    EventBus.on('tutorial:show_command', this.handleTutorialShowCommand);
-    EventBus.on('tutorial:freeze_command', this.handleTutorialFreezeCommand);
+    EventBus.on('tutorial:show-command', this.handleTutorialShowCommand);
+    EventBus.on('tutorial:freeze-command', this.handleTutorialFreezeCommand);
   }
 
   private startTimer(): void {
@@ -206,15 +208,16 @@ export class SingleScene extends Phaser.Scene {
 
     // 커맨드 성공 시 stash 조기 종료
     if (this.stashTimeoutId !== null) {
-      clearTimeout(this.stashTimeoutId);
+      this.stashTimeoutId.remove();
       this.stashTimeoutId = null;
       if (!this.isUserPaused) {
         this.tweens.resumeAll();
-        this.time.paused = false;
+        if (this.timerEvent) this.timerEvent.paused = false;
       }
+      EventBus.emit('stash:end');
     }
 
-    // 튜토리얼 모드: useTutorialMode가 tutorial:show_command를 emit할 때까지 대기
+    // 튜토리얼 모드: useTutorialMode가 tutorial:show-command를 emit할 때까지 대기
     if (!this.isTutorialMode) {
       this.showCurrentCommand();
     }
@@ -228,45 +231,52 @@ export class SingleScene extends Phaser.Scene {
 
   private readonly handleGameResume = (): void => {
     this.isUserPaused = false;
-    this.tweens.resumeAll();
     this.time.paused = false;
+    // stash/cherry-pick 활성 중이면 tween/timerEvent는 그대로 둠 (해당 time.delayedCall이 완료 시 재개)
+    if (this.stashTimeoutId === null && this.cherryPickTimeoutId === null) {
+      this.tweens.resumeAll();
+    }
   };
 
   private readonly handleItemUse = ({ slot }: { slot: 0 | 1 | 2 }): void => {
     if (slot === 0) {
       // stash: 5초간 낙하 정지. 이미 활성화 중이면 무시
+      // time.delayedCall 사용으로 ESC 일시정지 시 타이머도 함께 멈춤.
+      // timerEvent만 개별 paused 처리 — 점수에 반영되는 playTime은 정지, time.delayedCall은 글로벌 클럭으로 계속 작동
       if (this.stashTimeoutId !== null) return;
       this.tweens.pauseAll();
-      this.time.paused = true;
-      this.stashTimeoutId = setTimeout(() => {
+      if (this.timerEvent) this.timerEvent.paused = true;
+      this.stashTimeoutId = this.time.delayedCall(5000, () => {
         this.stashTimeoutId = null;
         if (!this.isGameEnded && !this.isUserPaused) {
           this.tweens.resumeAll();
-          this.time.paused = false;
+          if (this.timerEvent) this.timerEvent.paused = false;
         }
-      }, 5000);
+        EventBus.emit('stash:end');
+      });
     } else if (slot === 1) {
       // cherry-pick: 낙하 정지 후 발바닥 애니메이션, 완료 처리
       if (this.isGameEnded || this.commandIndex >= this.commandSet.length) return;
       if (this.cherryPickTimeoutId !== null) return; // 중복 방지
       const indexAtUse = this.commandIndex;
       this.tweens.pauseAll();
-      this.time.paused = true;
-      this.cherryPickTimeoutId = setTimeout(() => {
+      if (this.timerEvent) this.timerEvent.paused = true;
+      this.cherryPickTimeoutId = this.time.delayedCall(CHERRY_PICK_ANIM_MS, () => {
         this.cherryPickTimeoutId = null;
         if (!this.isGameEnded) {
           if (!this.isUserPaused) {
             this.tweens.resumeAll();
-            this.time.paused = false;
+            if (this.timerEvent) this.timerEvent.paused = false;
           }
           EventBus.emit('command:complete', { index: indexAtUse });
         }
-      }, CHERRY_PICK_ANIM_MS);
+        EventBus.emit('cherry-pick:end');
+      });
     }
   };
 
   private readonly handleGameStart = (): void => {
-    // 튜토리얼 모드: 타이머 없이 useTutorialMode의 tutorial:show_command를 기다림
+    // 튜토리얼 모드: 타이머 없이 useTutorialMode의 tutorial:show-command를 기다림
     if (this.isTutorialMode) return;
     this.startTimer();
     this.showCurrentCommand();
@@ -304,12 +314,14 @@ export class SingleScene extends Phaser.Scene {
     this.timerEvent?.remove();
     this.timerEvent = null;
     if (this.stashTimeoutId !== null) {
-      clearTimeout(this.stashTimeoutId);
+      this.stashTimeoutId.remove();
       this.stashTimeoutId = null;
+      EventBus.emit('stash:end');
     }
     if (this.cherryPickTimeoutId !== null) {
-      clearTimeout(this.cherryPickTimeoutId);
+      this.cherryPickTimeoutId.remove();
       this.cherryPickTimeoutId = null;
+      EventBus.emit('cherry-pick:end');
     }
     this.lanes.forEach((lane) => lane.clearCommand());
   };

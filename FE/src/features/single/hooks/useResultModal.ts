@@ -11,6 +11,12 @@ import { gameResultAtom } from '../store/gameResultAtom';
 import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
+/**
+ * 게임 종료 후 결과 저장 및 결과 모달 상태를 관리합니다.
+ *
+ * gameStatus가 'gameover'/'cleared'로 전환되면 서버에 결과를 POST하고
+ * 저장 완료 여부·신기록 여부를 반환합니다. 다시하기 시 새 세션을 시작합니다.
+ */
 export function useResultModal() {
   const gameStatus = useAtomValue(gameStatusAtom);
   const setGameStatus = useSetAtom(gameStatusAtom);

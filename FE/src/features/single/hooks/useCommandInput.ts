@@ -49,6 +49,7 @@ export function useCommandInput() {
       if (!currentCommand) return;
 
       const trimmed = inputValue.trim();
+      if (!trimmed) return;
       const isNormal = difficulty === 'NORMAL';
       const textMatches = trimmed === currentCommand.text;
       const branchMatches = !isNormal || activeBranch === currentCommand.branchName;
