@@ -164,6 +164,10 @@ public class SingleServiceImpl implements SingleService {
 			// 동점은 playTime 개선 가능성이 있으므로 Redis 갱신을 시도하고, 최종 반영 여부는 Lua composite 비교가 결정한다.
 			boolean isCurrentWeekBest = currentWeekBest == null || request.score() >= currentWeekBest;
 			Integer currentRank = null;
+			log.info(
+				"[single][saveResult][ranking] sessionId={}, difficulty={}, score={}, grade={}, playTime={}, currentWeekBest={}, isCurrentWeekBest={}",
+				sessionId, difficulty, request.score(), request.grade(), request.playTime(), currentWeekBest,
+				isCurrentWeekBest);
 
 			if (isCurrentWeekBest) {
 				currentRank = singleRankingService.updateSingleScore(
