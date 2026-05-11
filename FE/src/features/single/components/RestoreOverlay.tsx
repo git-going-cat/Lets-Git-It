@@ -28,6 +28,7 @@ export default function RestoreOverlay() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+      {/* text-[120px]: animate-restore-heal scale(0.6→3.5) 기준 크기, 최대 ~420px로 확대되어 플레이 영역에 가득 표시 */}
       <span
         key={animKey}
         className="animate-restore-heal select-none text-[120px] leading-none text-pink-300"

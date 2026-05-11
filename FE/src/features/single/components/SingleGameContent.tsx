@@ -107,10 +107,10 @@ export default function SingleGameContent({
         aria-hidden="true"
         draggable={false}
       />
-      <div className="relative flex w-[15%] flex-col">
+      <div className="relative flex w-game-sidebar flex-col">
         <SingleHUD />
       </div>
-      <div className="relative grid h-full w-[70%] grid-rows-single-game">
+      <div className="relative grid h-full w-game-center grid-rows-single-game">
         <GameProgress />
         <div
           ref={containerRef}
@@ -124,7 +124,7 @@ export default function SingleGameContent({
         </div>
         <CommandInput />
       </div>
-      <div className="relative flex w-[15%] flex-col">
+      <div className="relative flex w-game-sidebar flex-col">
         <div className="flex h-48 flex-col">
           <div className="flex justify-end p-2">
             {gameStatus !== 'idle' && (

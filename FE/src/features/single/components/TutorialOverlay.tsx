@@ -87,7 +87,7 @@ export default function TutorialOverlay({ state, onNext, onExit }: TutorialOverl
 
         {/* 상단 고정 설명 카드 — 항상 표시, pointer-events-none으로 입력 방해 안 함 */}
         <div
-          className={`font-pixel absolute top-3 left-[15%] w-[70%] z-40 tutorial-bubble-wrap ${
+          className={`font-pixel absolute top-3 left-game-sidebar w-game-center z-40 tutorial-bubble-wrap ${
             onExit ? 'pointer-events-auto' : 'pointer-events-none'
           }`}
         >
