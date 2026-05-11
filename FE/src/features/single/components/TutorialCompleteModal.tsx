@@ -63,10 +63,9 @@ export default function TutorialCompleteModal({ isSkipped, onHome }: TutorialCom
             </>
           )}
 
-          {/* bg-[#...]: NES 버튼 success 팔레트와 맞춘 튜토리얼 완료 모달 전용 버튼 색상입니다. */}
           <button
             type="button"
-            className="nes-rounded-button w-full overflow-hidden bg-[#92cc41] px-4 py-3 text-xl font-bold text-white shadow-sm transition-colors hover:bg-[#7fb832] active:bg-[#6fa326]"
+            className="nes-rounded-button w-full overflow-hidden bg-nes-success px-4 py-3 text-xl font-bold text-white shadow-sm transition-colors hover:bg-nes-success-hover active:bg-nes-success-active"
             onClick={onHome}
           >
             ⌂ 홈으로 가기

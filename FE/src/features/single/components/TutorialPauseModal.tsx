@@ -47,18 +47,17 @@ export default function TutorialPauseModal({ onResume, onSkip }: TutorialPauseMo
             튜토리얼을 스킵하시겠습니까?
           </p>
 
-          {/* bg-[#...]: NES 버튼 primary/error 팔레트와 맞춘 튜토리얼 모달 전용 버튼 색상입니다. */}
           <div className="flex flex-col gap-3 w-full">
             <button
               type="button"
-              className="nes-rounded-button w-full overflow-hidden bg-[#209cee] px-4 py-3 text-xl font-bold text-white shadow-sm transition-colors hover:bg-[#108de0] active:bg-[#0b78c2]"
+              className="nes-rounded-button w-full overflow-hidden bg-nes-primary px-4 py-3 text-xl font-bold text-white shadow-sm transition-colors hover:bg-nes-primary-hover active:bg-nes-primary-active"
               onClick={onResume}
             >
               계속하기
             </button>
             <button
               type="button"
-              className="nes-rounded-button w-full overflow-hidden bg-[#e76e55] px-4 py-3 text-xl font-bold text-white shadow-sm transition-colors hover:bg-[#d85f46] active:bg-[#c84f36]"
+              className="nes-rounded-button w-full overflow-hidden bg-nes-error px-4 py-3 text-xl font-bold text-white shadow-sm transition-colors hover:bg-nes-error-hover active:bg-nes-error-active"
               onClick={onSkip}
             >
               튜토리얼 스킵

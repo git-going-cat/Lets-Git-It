@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 
-import { analytics } from '@/lib/analytics';
 import {
   NICKNAME_RULE,
   nicknameFormSchema,
@@ -43,7 +42,7 @@ export function useNicknameSetup(onComplete: () => void) {
   const { mutate: saveNickname, isPending: isSaving } = useMutation({
     mutationFn: (values: NicknameFormValues) => onboardingApi.saveNickname(values.nickname),
     onSuccess: (_, values) => {
-      analytics.identifyUser(values.nickname);
+      // analytics identify는 로그인 시 memberId로 이미 호출됨 — 닉네임은 PII이므로 distinct_id 사용 금지
       updateUser({ nickname: values.nickname, onboardingStatus: 'NICKNAME_SET_DONE' });
       onComplete();
     },

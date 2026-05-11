@@ -42,8 +42,8 @@ export class SingleScene extends Phaser.Scene {
   private stashTimeoutId: Phaser.Time.TimerEvent | null = null;
   private cherryPickTimeoutId: Phaser.Time.TimerEvent | null = null;
   private isTutorialMode = false;
-  // scene.restart() 시 인스턴스가 보존되므로, DESTROY 핸들러를 1회만 등록하기 위한 가드.
-  private destroyHandlerRegistered = false;
+  // scene.restart() 시 인스턴스가 보존되므로, 라이프사이클 핸들러를 1회만 등록하기 위한 가드.
+  private lifecycleHandlersRegistered = false;
 
   constructor() {
     super({ key: 'SingleScene' });
@@ -70,12 +70,14 @@ export class SingleScene extends Phaser.Scene {
       this.showCurrentCommand();
     }
 
-    // game.destroy() 시 Phaser가 shutdown()을 보장하지 않는 버전이 있으므로
-    // game destroy 이벤트에서도 EventBus 핸들러를 정리한다.
-    // scene.restart()는 인스턴스를 보존하므로 once 리스너가 누적되지 않도록 가드.
-    if (!this.destroyHandlerRegistered) {
+    // scene.restart()는 SHUTDOWN을 emit하지만 인스턴스/이벤터를 보존하므로
+    // SHUTDOWN 핸들러는 한 번만 등록한다. EventBus 리스너는 shutdown()에서 off되고
+    // 다음 create()의 registerEvents()로 다시 붙는다.
+    // game.destroy() 시 Phaser가 shutdown()을 보장하지 않는 버전이 있어 DESTROY도 함께 연결.
+    if (!this.lifecycleHandlersRegistered) {
+      this.events.on(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
       this.game.events.once(Phaser.Core.Events.DESTROY, this.shutdown, this);
-      this.destroyHandlerRegistered = true;
+      this.lifecycleHandlersRegistered = true;
     }
   }
 

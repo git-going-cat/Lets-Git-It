@@ -16,6 +16,16 @@
   --width-modal-md: 600px;
   --height-modal-lg: 560px;
   --height-modal-md: 480px;
+  /* NES 팔레트 — nes.css is-primary/is-error/is-success 버튼 기본/hover/active 색상 */
+  --color-nes-primary: #209cee;
+  --color-nes-primary-hover: #108de0;
+  --color-nes-primary-active: #0b78c2;
+  --color-nes-error: #e76e55;
+  --color-nes-error-hover: #d85f46;
+  --color-nes-error-active: #c84f36;
+  --color-nes-success: #92cc41;
+  --color-nes-success-hover: #7fb832;
+  --color-nes-success-active: #6fa326;
   --animate-restore-heal: restore-heal 700ms ease-out forwards;
   --animate-stash-bang: stash-bang 400ms ease-out forwards;
   --animate-paw-stamp: paw-stamp 550ms ease-out forwards;

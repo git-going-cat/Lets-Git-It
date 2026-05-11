@@ -110,6 +110,7 @@ export default function StartModal() {
               <input
                 ref={inputRef}
                 type="text"
+                aria-label="실행할 명령어 입력"
                 className={`nes-input is-dark w-full !text-2xl ${isError ? 'is-error' : ''}`}
                 value={inputValue}
                 onChange={(e) => {
