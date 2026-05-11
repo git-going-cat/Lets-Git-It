@@ -486,7 +486,7 @@ class SingleServiceImplTest {
 			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
 				.willReturn(Optional.empty());
 			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(null);
-			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S)).willReturn(1);
+			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S, 120_000)).willReturn(1);
 
 			// when
 			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
