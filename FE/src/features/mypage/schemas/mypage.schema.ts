@@ -42,6 +42,7 @@ export const myPageResponseSchema = z.object({
 });
 
 export const myAuthUserResponseDataSchema = z.object({
+  memberId: z.string().optional(),
   nickname: z.string().nullable(),
   onboardingStatus: onboardingStatusSchema.optional(),
   characterHair: z.string().optional(),

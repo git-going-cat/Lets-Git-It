@@ -24,7 +24,11 @@ export function PostHogPageView() {
     // capture 호출 시 콘솔 경고가 발생하므로 호출 자체를 가드.
     if (!env.POSTHOG_KEY) return;
     if (posthogClient) {
-      posthogClient.capture('$pageview', { $current_url: window.location.href });
+      // OAuth callback의 code/state querystring을 strip해 PII 누출 방지
+      const url = new URL(window.location.href);
+      url.searchParams.delete('code');
+      url.searchParams.delete('state');
+      posthogClient.capture('$pageview', { $current_url: url.toString() });
     }
   }, [location.pathname, location.search, posthogClient]);
 

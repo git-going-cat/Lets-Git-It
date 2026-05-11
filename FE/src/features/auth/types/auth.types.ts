@@ -18,6 +18,7 @@ export interface OAuthTokenRequest {
 }
 
 export interface AuthUser extends CharacterInfo {
+  memberId: string | null;
   nickname: string | null;
   onboardingStatus: OnboardingStatus;
 }
