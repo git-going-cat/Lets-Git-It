@@ -3,12 +3,12 @@ package com.gitcat.letsgitit.domain.ranking.constants;
 public class RankingKeyUtil {
 	private RankingKeyUtil() {}
 
-	public static final int MAX_SINGLE_SCORE = 10_000;
+	public static final int MAX_SINGLE_SCORE = 20_000;
 	public static final long SCORE_UNIT = 30_000_000_000_000L;
 	public static final long PLAY_TIME_UNIT = 7_000_000L;
 	public static final long MAX_PLAY_TIME_MS = 3_600_000L;
 	public static final long DECISECONDS_IN_WEEK = 6_048_000L;
-	// MAX_SINGLE_SCORE 기준 최대 composite는 약 3.000552e17로 Long.MAX_VALUE보다 작다.
+	// MAX_SINGLE_SCORE 기준 최대 composite는 약 6.000552e17로 Long.MAX_VALUE보다 작다.
 
 	private static final String SINGLE = "ranking:SINGLE:%s:%s";
 	private static final String SINGLE_GRADE = "ranking:SINGLE:%s:%s:grade";

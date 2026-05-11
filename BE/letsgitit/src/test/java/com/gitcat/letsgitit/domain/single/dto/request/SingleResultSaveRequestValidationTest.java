@@ -43,6 +43,22 @@ class SingleResultSaveRequestValidationTest {
 	}
 
 	@Test
+	void 보너스_점수로_10000점을_초과해도_최대_점수_이하면_검증을_통과한다() {
+		// given
+		SingleResultSaveRequest request = new SingleResultSaveRequest(
+			SingleResultStatus.SUCCESS,
+			11_740,
+			90_000,
+			Grade.S);
+
+		// when
+		Set<ConstraintViolation<SingleResultSaveRequest>> violations = validator.validate(request);
+
+		// then
+		assertThat(violations).isEmpty();
+	}
+
+	@Test
 	void 최대_점수를_초과하면_검증에_실패한다() {
 		// given
 		SingleResultSaveRequest request = new SingleResultSaveRequest(
@@ -56,7 +72,7 @@ class SingleResultSaveRequestValidationTest {
 
 		// then
 		assertThat(violations).isNotEmpty()
-			.anyMatch(v -> v.getMessage().equals("점수는 10000점 이하여야 합니다."));
+			.anyMatch(v -> v.getMessage().equals("점수는 20000점 이하여야 합니다."));
 	}
 
 	@Test

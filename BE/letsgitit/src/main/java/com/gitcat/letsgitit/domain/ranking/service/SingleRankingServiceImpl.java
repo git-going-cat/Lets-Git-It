@@ -58,6 +58,8 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), week);
 			String playTimeKey = RankingKeyUtil.singlePlayTimeKey(difficulty.name(), week);
 			long total = singleRankingRedisRepository.getTotalCount(key);
+			log.debug("[ranking][realtime][initial] difficulty={}, week={}, memberId={}, total={}, size={}",
+				difficulty, week, memberId, total, size);
 
 			Timer.Sample top3Sample = rankingMetrics.start();
 			List<RankEntry> top3Raw = singleRankingRedisRepository.getTopEntries(key, 3);
@@ -75,6 +77,9 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 
 			if (myRankZeroBased == null || myScore == null) {
 				boolean hasNext = total > 3;
+				log.debug(
+					"[ranking][realtime][initial] member rank missing. difficulty={}, week={}, memberId={}, top3Count={}, hasNext={}",
+					difficulty, week, memberId, top3.size(), hasNext);
 				return new SingleRankingInitialResponse(
 					difficulty.name(),
 					WeekUtil.getYear(now),
@@ -117,6 +122,10 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			Integer prevCursor = hasPrev ? (int)aroundStart + 1 : null;
 			long nextCursorLong = aroundEnd + 1;
 			boolean hasNext = nextCursorLong < total;
+			log.debug(
+				"[ranking][realtime][initial] difficulty={}, week={}, memberId={}, myRank={}, myScore={}, myPlayTime={}, aroundStart={}, aroundEnd={}, hasPrev={}, hasNext={}",
+				difficulty, week, memberId, myRank.rank(), myRank.score(), myPlayTime, aroundStart, aroundEnd, hasPrev,
+				hasNext);
 
 			return new SingleRankingInitialResponse(
 				difficulty.name(),
@@ -151,6 +160,9 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 
 			long start = afterRank;
 			long end = afterRank + (long)size - 1;
+			log.debug(
+				"[ranking][realtime][scrollAfter] difficulty={}, week={}, memberId={}, afterRank={}, size={}, start={}, end={}, total={}",
+				difficulty, week, memberId, afterRank, size, start, end, total);
 
 			Timer.Sample aroundSample = rankingMetrics.start();
 			List<RankEntry> raw = singleRankingRedisRepository.getRangeByRank(key, start, end);
@@ -192,6 +204,9 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			long total = singleRankingRedisRepository.getTotalCount(key);
 
 			long endIdx = Math.min(total - 1, (long)beforeRank - 2);
+			log.debug(
+				"[ranking][realtime][scrollBefore] difficulty={}, week={}, memberId={}, beforeRank={}, size={}, endIdx={}, total={}",
+				difficulty, week, memberId, beforeRank, size, endIdx, total);
 			if (endIdx < 0) {
 				return new SingleRankingScrollResponse(List.of(), null, false, null, false);
 			}
@@ -244,6 +259,9 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			Timer.Sample countSample = rankingMetrics.start();
 			long total = singleRankingRepository.countByDifficultyAndWeek(difficulty, weekKey);
 			rankingMetrics.recordDb(countSample, difficulty, "count");
+			log.debug(
+				"[ranking][history][initial] difficulty={}, week={}, memberId={}, year={}, month={}, weekOfMonth={}, total={}, size={}",
+				difficulty, weekKey, memberId, year, month, week, total, size);
 
 			SingleRanking myRankEntity = singleRankingRepository
 				.findByMemberIdAndDifficultyAndWeek(memberId, difficulty, weekKey)
@@ -255,6 +273,9 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 				List<RankingEntry> top3 = toHistoryEntries(top3Raw, top3NicknameMap);
 
 				boolean hasNext = total > 3;
+				log.debug(
+					"[ranking][history][initial] member rank missing. difficulty={}, week={}, memberId={}, top3Count={}, hasNext={}",
+					difficulty, weekKey, memberId, top3.size(), hasNext);
 				return new SingleRankingInitialResponse(
 					difficulty.name(),
 					year,
@@ -333,6 +354,9 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 				afterRank,
 				size + 1);
 			rankingMetrics.recordDb(aroundSample, difficulty, "around");
+			log.debug(
+				"[ranking][history][scrollAfter] difficulty={}, week={}, memberId={}, afterRank={}, size={}, fetched={}",
+				difficulty, weekKey, memberId, afterRank, size, raw.size());
 
 			if (raw.isEmpty()) {
 				return new SingleRankingScrollResponse(List.of(), null, false, null, false);
@@ -375,6 +399,9 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 				beforeRank,
 				size);
 			rankingMetrics.recordDb(aroundSample, difficulty, "around");
+			log.debug(
+				"[ranking][history][scrollBefore] difficulty={}, week={}, memberId={}, beforeRank={}, size={}, total={}, fetched={}",
+				difficulty, weekKey, memberId, beforeRank, size, total, raw.size());
 
 			if (raw.isEmpty()) {
 				return new SingleRankingScrollResponse(List.of(), null, false, null, false);
@@ -408,12 +435,14 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		String playTimeKey = RankingKeyUtil.singlePlayTimeKey(difficulty.name(), week);
 
 		double composite = buildComposite(score, playTimeMs);
-		singleRankingRedisRepository.saveScoreGradeAndPlayTime(scoreKey, gradeKey, playTimeKey, memberId, composite,
-			grade.name(), playTimeMs);
+		boolean updated = singleRankingRedisRepository.saveScoreGradeAndPlayTime(scoreKey, gradeKey, playTimeKey,
+			memberId, composite, grade.name(), playTimeMs);
 
 		Long rankZeroBased = singleRankingRedisRepository.getRankZeroBased(scoreKey, memberId);
 		int rank = rankZeroBased == null ? 0 : rankZeroBased.intValue() + 1;
-		log.info("[ranking][updateScore] difficulty={}, score={}, rank={}", difficulty, score, rank);
+		log.info(
+			"[ranking][updateScore] difficulty={}, week={}, memberId={}, score={}, grade={}, playTimeMs={}, composite={}, updated={}, rank={}",
+			difficulty, week, memberId, score, grade, playTimeMs, composite, updated, rank);
 		return rank;
 	}
 
