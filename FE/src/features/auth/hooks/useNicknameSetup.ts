@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -37,6 +37,16 @@ export function useNicknameSetup(onComplete: () => void) {
   });
 
   const nickname = useWatch({ control, name: 'nickname' }) ?? '';
+
+  // 항상 최신 nickname을 비동기 컨텍스트에서 참조하기 위한 ref.
+  // 렌더 중 ref.current 직접 할당은 ESLint(react-hooks/refs) 위반이므로 useEffect로 동기화.
+  const nicknameRef = useRef(nickname);
+  useEffect(() => {
+    nicknameRef.current = nickname;
+  });
+
+  // checkedNickname이 현재 입력과 다르면 null 반환 → stale 결과 자동 무효화.
+  // nickname 변경 시 별도 setState 초기화 effect 불필요 (react-hooks/set-state-in-effect 방지).
   const isAvailable = checkedNickname === nickname ? rawIsAvailable : null;
   const apiError = checkedNickname === nickname ? rawApiError : null;
 
@@ -57,18 +67,23 @@ export function useNicknameSetup(onComplete: () => void) {
   });
 
   const checkAvailability = async () => {
+    // 확인 시작 시점의 nickname을 캡처 — 비동기 완료 후 입력이 바뀌었으면 결과를 버림
+    const targetNickname = nicknameRef.current;
     setRawIsAvailable(null);
     setRawApiError(null);
     setCheckedNickname(null);
     setIsChecking(true);
 
     try {
-      const available = await onboardingApi.checkNickname(nickname);
-      setCheckedNickname(nickname);
+      const available = await onboardingApi.checkNickname(targetNickname);
+      // 비동기 완료 후 입력이 변경되었으면 stale 결과 저장 방지
+      if (nicknameRef.current !== targetNickname) return;
+      setCheckedNickname(targetNickname);
       setRawIsAvailable(available);
       if (!available) setRawApiError(NICKNAME_RULE.messages.duplicate);
     } catch {
-      setCheckedNickname(nickname);
+      if (nicknameRef.current !== targetNickname) return;
+      setCheckedNickname(targetNickname);
       setRawApiError(NICKNAME_RULE.messages.checkFailed);
     } finally {
       setIsChecking(false);
