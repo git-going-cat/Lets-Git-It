@@ -987,15 +987,18 @@ GET /api/v1/rankings/single?difficulty={difficulty}&afterRank={afterRank}&before
 | `top3[].nickname` | String | 닉네임 |
 | `top3[].score` | Integer | 점수 |
 | `top3[].grade` | String | 등급 (`S`/`A`/`B`/`C`/`D`), null 가능 |
+| `top3[].playTime` | Integer | 플레이 시간(ms), playTime 도입 전 데이터는 null 가능 |
 | `myRank` | Object | 내 랭킹 정보 |
 | `myRank.rank` | Integer | 내 순위 |
 | `myRank.score` | Integer | 내 점수 |
 | `myRank.grade` | String | 내 등급, null 가능 |
+| `myRank.playTime` | Integer | 플레이 시간(ms), playTime 도입 전 데이터는 null 가능 |
 | `around` | Array | 내 랭킹 근처 유저 |
 | `around[].rank` | Integer | 순위 |
 | `around[].nickname` | String | 닉네임 |
 | `around[].score` | Integer | 점수 |
 | `around[].grade` | String | 등급, null 가능 |
+| `around[].playTime` | Integer | 플레이 시간(ms), playTime 도입 전 데이터는 null 가능 |
 | `prevCursor` | Integer | 위 방향 스크롤 커서 (around 첫 순위), null이면 위쪽 끝 |
 | `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
 | `nextCursor` | Integer | 아래 방향 스크롤 커서 (around 마지막 순위), null이면 아래쪽 끝 |
@@ -1011,17 +1014,17 @@ GET /api/v1/rankings/single?difficulty={difficulty}&afterRank={afterRank}&before
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "gitmas", "score": 9800, "grade": "S" },
-      { "rank": 2, "nickname": "branch", "score": 9200, "grade": "A" },
-      { "rank": 3, "nickname": "mergel", "score": 8700, "grade": "A" }
+      { "rank": 1, "nickname": "gitmas", "score": 9800, "grade": "S", "playTime": 95432 },
+      { "rank": 2, "nickname": "branch", "score": 9200, "grade": "A", "playTime": 103210 },
+      { "rank": 3, "nickname": "mergel", "score": 8700, "grade": "A", "playTime": null }
     ],
-    "myRank": { "rank": 42, "score": 7200, "grade": "B" },
+    "myRank": { "rank": 42, "score": 7200, "grade": "B", "playTime": 143000 },
     "around": [
-      { "rank": 40, "nickname": "user1", "score": 7400, "grade": "B" },
-      { "rank": 41, "nickname": "user2", "score": 7300, "grade": "B" },
-      { "rank": 42, "nickname": "dobby", "score": 7200, "grade": "B" },
-      { "rank": 43, "nickname": "user3", "score": 7100, "grade": "C" },
-      { "rank": 44, "nickname": "user4", "score": 7000, "grade": "C" }
+      { "rank": 40, "nickname": "user1", "score": 7400, "grade": "B", "playTime": 138000 },
+      { "rank": 41, "nickname": "user2", "score": 7300, "grade": "B", "playTime": 140000 },
+      { "rank": 42, "nickname": "dobby", "score": 7200, "grade": "B", "playTime": 143000 },
+      { "rank": 43, "nickname": "user3", "score": 7100, "grade": "C", "playTime": null },
+      { "rank": 44, "nickname": "user4", "score": 7000, "grade": "C", "playTime": null }
     ],
     "prevCursor": 40,
     "hasPrev": true,
@@ -1052,6 +1055,7 @@ GET /api/v1/rankings/single?difficulty=NORMAL&beforeRank=40&size=20
 | `rankings[].nickname` | String | 닉네임 |
 | `rankings[].score` | Integer | 점수 |
 | `rankings[].grade` | String | 등급, null 가능 |
+| `rankings[].playTime` | Integer | 플레이 시간(ms), playTime 도입 전 데이터는 null 가능 |
 | `prevCursor` | Integer | 위 방향 스크롤 커서 (현재 페이지 첫 순위), null이면 위쪽 끝 |
 | `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
 | `nextCursor` | Integer | 아래 방향 스크롤 커서 (현재 페이지 마지막 순위), null이면 아래쪽 끝 |
@@ -1063,7 +1067,7 @@ GET /api/v1/rankings/single?difficulty=NORMAL&beforeRank=40&size=20
   "message": "싱글 랭킹 조회 성공",
   "data": {
     "rankings": [
-      { "rank": 45, "nickname": "user5", "score": 6900, "grade": "C" }
+      { "rank": 45, "nickname": "user5", "score": 6900, "grade": "C", "playTime": 155000 }
     ],
     "prevCursor": 45,
     "hasPrev": true,
@@ -1274,15 +1278,18 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
 | `top3[].nickname` | String | 닉네임 |
 | `top3[].score` | Integer | 점수 |
 | `top3[].grade` | String | 등급 (`S`/`A`/`B`/`C`/`D`), null 가능 |
+| `top3[].playTime` | Integer | 플레이 시간(ms), playTime 도입 전 데이터는 null 가능 |
 | `myRank` | Object | 내 랭킹 정보 |
 | `myRank.rank` | Integer | 내 순위 |
 | `myRank.score` | Integer | 내 점수 |
 | `myRank.grade` | String | 내 등급, null 가능 |
+| `myRank.playTime` | Integer | 플레이 시간(ms), playTime 도입 전 데이터는 null 가능 |
 | `around` | Array | 내 랭킹 근처 유저 |
 | `around[].rank` | Integer | 순위 |
 | `around[].nickname` | String | 닉네임 |
 | `around[].score` | Integer | 점수 |
 | `around[].grade` | String | 등급, null 가능 |
+| `around[].playTime` | Integer | 플레이 시간(ms), playTime 도입 전 데이터는 null 가능 |
 | `prevCursor` | Integer | 위 방향 스크롤 커서 (around 첫 순위), null이면 위쪽 끝 |
 | `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
 | `nextCursor` | Integer | 아래 방향 스크롤 커서 (around 마지막 순위), null이면 아래쪽 끝 |
@@ -1300,17 +1307,17 @@ GET /api/v1/rankings/single/history?difficulty={difficulty}&year={year}&month={m
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "gitmas", "score": 9800, "grade": "S" },
-      { "rank": 2, "nickname": "branc",  "score": 9200, "grade": "A" },
-      { "rank": 3, "nickname": "merge",  "score": 8700, "grade": "A" }
+      { "rank": 1, "nickname": "gitmas", "score": 9800, "grade": "S", "playTime": 95432 },
+      { "rank": 2, "nickname": "branc",  "score": 9200, "grade": "A", "playTime": 103210 },
+      { "rank": 3, "nickname": "merge",  "score": 8700, "grade": "A", "playTime": null }
     ],
-    "myRank": { "rank": 42, "score": 7200, "grade": "B" },
+    "myRank": { "rank": 42, "score": 7200, "grade": "B", "playTime": 143000 },
     "around": [
-      { "rank": 40, "nickname": "user1", "score": 7400, "grade": "B" },
-      { "rank": 41, "nickname": "user2", "score": 7300, "grade": "B" },
-      { "rank": 42, "nickname": "dobby", "score": 7200, "grade": "B" },
-      { "rank": 43, "nickname": "user3", "score": 7100, "grade": "C" },
-      { "rank": 44, "nickname": "user4", "score": 7000, "grade": "C" }
+      { "rank": 40, "nickname": "user1", "score": 7400, "grade": "B", "playTime": 138000 },
+      { "rank": 41, "nickname": "user2", "score": 7300, "grade": "B", "playTime": 140000 },
+      { "rank": 42, "nickname": "dobby", "score": 7200, "grade": "B", "playTime": 143000 },
+      { "rank": 43, "nickname": "user3", "score": 7100, "grade": "C", "playTime": null },
+      { "rank": 44, "nickname": "user4", "score": 7000, "grade": "C", "playTime": null }
     ],
     "prevCursor": 40,
     "hasPrev": true,
@@ -1341,6 +1348,7 @@ GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=3&b
 | `rankings[].nickname` | String | 닉네임 |
 | `rankings[].score` | Integer | 점수 |
 | `rankings[].grade` | String | 등급, null 가능 |
+| `rankings[].playTime` | Integer | 플레이 시간(ms), playTime 도입 전 데이터는 null 가능 |
 | `prevCursor` | Integer | 위 방향 스크롤 커서 (현재 페이지 첫 순위), null이면 위쪽 끝 |
 | `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
 | `nextCursor` | Integer | 아래 방향 스크롤 커서 (현재 페이지 마지막 순위), null이면 아래쪽 끝 |
@@ -1354,7 +1362,7 @@ GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=3&b
   "message": "싱글 랭킹 조회 성공",
   "data": {
     "rankings": [
-      { "rank": 45, "nickname": "user5", "score": 6900, "grade": "C" }
+      { "rank": 45, "nickname": "user5", "score": 6900, "grade": "C", "playTime": 155000 }
     ],
     "prevCursor": 45,
     "hasPrev": true,
