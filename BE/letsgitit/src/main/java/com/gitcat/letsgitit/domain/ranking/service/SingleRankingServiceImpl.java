@@ -1,7 +1,11 @@
 package com.gitcat.letsgitit.domain.ranking.service;
 
+import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -48,18 +52,21 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		rankingMetrics.incrementRankingViewed(difficulty, "realtime");
 		try {
 			LocalDate now = LocalDate.now(KOREA_ZONE_ID);
+			String week = WeekUtil.getWeek(now);
 
-			String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
-			String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
+			String key = RankingKeyUtil.singleKey(difficulty.name(), week);
+			String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), week);
+			String playTimeKey = RankingKeyUtil.singlePlayTimeKey(difficulty.name(), week);
 			long total = singleRankingRedisRepository.getTotalCount(key);
 
 			Timer.Sample top3Sample = rankingMetrics.start();
 			List<RankEntry> top3Raw = singleRankingRedisRepository.getTopEntries(key, 3);
 			List<UUID> top3Ids = top3Raw.stream().map(r -> UUID.fromString(r.memberId())).toList();
 			Map<UUID, String> top3GradeMap = singleRankingRedisRepository.getGrades(gradeKey, top3Ids);
+			Map<UUID, Integer> top3PlayTimeMap = singleRankingRedisRepository.getPlayTimes(playTimeKey, top3Ids);
 			rankingMetrics.recordRedis(top3Sample, difficulty, "top3");
 			Map<UUID, String> top3NicknameMap = memberService.getNicknamesByIds(top3Ids);
-			List<RankingEntry> top3 = toEntries(top3Raw, 1, top3NicknameMap, top3GradeMap);
+			List<RankingEntry> top3 = toEntries(top3Raw, 1, top3NicknameMap, top3GradeMap, top3PlayTimeMap);
 
 			Timer.Sample myRankSample = rankingMetrics.start();
 			Long myRankZeroBased = singleRankingRedisRepository.getRankZeroBased(key, memberId);
@@ -84,12 +91,14 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			String nickname = memberService.getNicknameById(memberId);
 			String myGradeStr = singleRankingRedisRepository.getGrade(gradeKey, memberId);
 			Grade myGrade = myGradeStr != null ? Grade.valueOf(myGradeStr) : null;
+			Integer myPlayTime = singleRankingRedisRepository.getPlayTime(playTimeKey, memberId);
 
 			RankingEntry myRank = new RankingEntry(
 				(int)(myRankZeroBased + 1),
 				nickname,
-				(int)Math.round(myScore),
-				myGrade);
+				toPlainScore(myScore),
+				myGrade,
+				myPlayTime);
 
 			long aroundStart = Math.max(0, myRankZeroBased - 2);
 			long aroundEnd = Math.min(total - 1, myRankZeroBased + 2);
@@ -98,9 +107,11 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			List<RankEntry> aroundRaw = singleRankingRedisRepository.getRangeByRank(key, aroundStart, aroundEnd);
 			List<UUID> aroundIds = aroundRaw.stream().map(r -> UUID.fromString(r.memberId())).toList();
 			Map<UUID, String> aroundGradeMap = singleRankingRedisRepository.getGrades(gradeKey, aroundIds);
+			Map<UUID, Integer> aroundPlayTimeMap = singleRankingRedisRepository.getPlayTimes(playTimeKey, aroundIds);
 			rankingMetrics.recordRedis(aroundSample, difficulty, "around");
 			Map<UUID, String> aroundNicknameMap = memberService.getNicknamesByIds(aroundIds);
-			List<RankingEntry> around = toEntries(aroundRaw, (int)aroundStart + 1, aroundNicknameMap, aroundGradeMap);
+			List<RankingEntry> around = toEntries(aroundRaw, (int)aroundStart + 1, aroundNicknameMap, aroundGradeMap,
+				aroundPlayTimeMap);
 
 			boolean hasPrev = aroundStart > 0;
 			Integer prevCursor = hasPrev ? (int)aroundStart + 1 : null;
@@ -131,9 +142,11 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		rankingMetrics.incrementRankingScrolled(difficulty, "realtime");
 		try {
 			LocalDate now = LocalDate.now(KOREA_ZONE_ID);
+			String week = WeekUtil.getWeek(now);
 
-			String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
-			String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
+			String key = RankingKeyUtil.singleKey(difficulty.name(), week);
+			String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), week);
+			String playTimeKey = RankingKeyUtil.singlePlayTimeKey(difficulty.name(), week);
 			long total = singleRankingRedisRepository.getTotalCount(key);
 
 			long start = afterRank;
@@ -143,9 +156,10 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			List<RankEntry> raw = singleRankingRedisRepository.getRangeByRank(key, start, end);
 			List<UUID> memberUuids = raw.stream().map(r -> UUID.fromString(r.memberId())).toList();
 			Map<UUID, String> gradeMap = singleRankingRedisRepository.getGrades(gradeKey, memberUuids);
+			Map<UUID, Integer> playTimeMap = singleRankingRedisRepository.getPlayTimes(playTimeKey, memberUuids);
 			rankingMetrics.recordRedis(aroundSample, difficulty, "around");
 			Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberUuids);
-			List<RankingEntry> rankings = toEntries(raw, (int)start + 1, nicknameMap, gradeMap);
+			List<RankingEntry> rankings = toEntries(raw, (int)start + 1, nicknameMap, gradeMap, playTimeMap);
 
 			Integer prevCursor = raw.isEmpty() ? null : (int)start + 1;
 			boolean hasPrev = !raw.isEmpty() && afterRank > 0;
@@ -170,9 +184,11 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 		rankingMetrics.incrementRankingScrolled(difficulty, "realtime");
 		try {
 			LocalDate now = LocalDate.now(KOREA_ZONE_ID);
+			String week = WeekUtil.getWeek(now);
 
-			String key = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
-			String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
+			String key = RankingKeyUtil.singleKey(difficulty.name(), week);
+			String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), week);
+			String playTimeKey = RankingKeyUtil.singlePlayTimeKey(difficulty.name(), week);
 			long total = singleRankingRedisRepository.getTotalCount(key);
 
 			long endIdx = Math.min(total - 1, (long)beforeRank - 2);
@@ -193,9 +209,10 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 
 			List<UUID> memberUuids = page.stream().map(r -> UUID.fromString(r.memberId())).toList();
 			Map<UUID, String> gradeMap = singleRankingRedisRepository.getGrades(gradeKey, memberUuids);
+			Map<UUID, Integer> playTimeMap = singleRankingRedisRepository.getPlayTimes(playTimeKey, memberUuids);
 			Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberUuids);
 			int pageStartRank = hasPrev ? (int)startIdx + 2 : (int)startIdx + 1;
-			List<RankingEntry> rankings = toEntries(page, pageStartRank, nicknameMap, gradeMap);
+			List<RankingEntry> rankings = toEntries(page, pageStartRank, nicknameMap, gradeMap, playTimeMap);
 
 			Integer prevCursor = hasPrev ? pageStartRank : null;
 			long nextCursorLong = endIdx + 1;
@@ -275,7 +292,8 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 				myRankEntity.getRank(),
 				myNickname,
 				myRankEntity.getScore(),
-				myRankEntity.getGrade());
+				myRankEntity.getGrade(),
+				myRankEntity.getPlayTime());
 			List<RankingEntry> around = toHistoryEntries(aroundRaw, nicknameMap);
 
 			boolean hasPrev = aroundMinRank > 1;
@@ -382,17 +400,39 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 
 	@Override
 	@Transactional
-	public int updateSingleScore(Difficulty difficulty, UUID memberId, int score, Grade grade) {
-		LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
-		String scoreKey = RankingKeyUtil.singleKey(difficulty.name(), WeekUtil.getWeek(now));
-		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), WeekUtil.getWeek(now));
+	public int updateSingleScore(Difficulty difficulty, UUID memberId, int score, Grade grade, int playTimeMs) {
+		LocalDate now = LocalDate.now(KOREA_ZONE_ID);
+		String week = WeekUtil.getWeek(now);
+		String scoreKey = RankingKeyUtil.singleKey(difficulty.name(), week);
+		String gradeKey = RankingKeyUtil.singleGradeKey(difficulty.name(), week);
+		String playTimeKey = RankingKeyUtil.singlePlayTimeKey(difficulty.name(), week);
 
-		singleRankingRedisRepository.saveScoreAndGrade(scoreKey, gradeKey, memberId, score, grade.name());
+		double composite = buildComposite(score, playTimeMs);
+		singleRankingRedisRepository.saveScoreGradeAndPlayTime(scoreKey, gradeKey, playTimeKey, memberId, composite,
+			grade.name(), playTimeMs);
 
 		Long rankZeroBased = singleRankingRedisRepository.getRankZeroBased(scoreKey, memberId);
 		int rank = rankZeroBased == null ? 0 : rankZeroBased.intValue() + 1;
 		log.info("[ranking][updateScore] difficulty={}, score={}, rank={}", difficulty, score, rank);
 		return rank;
+	}
+
+	private double buildComposite(int score, int playTimeMs) {
+		long clampedPlayTimeMs = Math.min(playTimeMs, RankingKeyUtil.MAX_PLAY_TIME_MS);
+		long playTimeComponent = (RankingKeyUtil.MAX_PLAY_TIME_MS - clampedPlayTimeMs)
+			* RankingKeyUtil.PLAY_TIME_UNIT;
+
+		ZonedDateTime weekStart = ZonedDateTime.now(KOREA_ZONE_ID)
+			.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+			.toLocalDate()
+			.atStartOfDay(KOREA_ZONE_ID);
+		// Registration time is a best-effort tie-breaker at 100ms precision.
+		long decisecondsSinceWeekStart = Math.min(
+			(Instant.now().toEpochMilli() - weekStart.toInstant().toEpochMilli()) / 100,
+			RankingKeyUtil.DECISECONDS_IN_WEEK - 1);
+		long timeComponent = RankingKeyUtil.DECISECONDS_IN_WEEK - decisecondsSinceWeekStart;
+
+		return (double)((score + 1L) * RankingKeyUtil.SCORE_UNIT + playTimeComponent + timeComponent);
 	}
 
 	@Override
@@ -403,7 +443,7 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			WeekUtil.getWeek(LocalDate.now(KOREA_ZONE_ID)));
 
 		Double score = singleRankingRedisRepository.getScore(key, memberId);
-		return score == null ? null : (int)Math.round(score);
+		return score == null ? null : toPlainScore(score);
 	}
 
 	private List<RankingEntry> toHistoryEntries(List<SingleRanking> raw, Map<UUID, String> nicknameMap) {
@@ -412,12 +452,13 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 				sr.getRank(),
 				nicknameMap.getOrDefault(sr.getMemberId(), "[Unknown]"),
 				sr.getScore(),
-				sr.getGrade()))
+				sr.getGrade(),
+				sr.getPlayTime()))
 			.toList();
 	}
 
 	private List<RankingEntry> toEntries(List<RankEntry> raw, int startRank,
-		Map<UUID, String> nicknameMap, Map<UUID, String> gradeMap) {
+		Map<UUID, String> nicknameMap, Map<UUID, String> gradeMap, Map<UUID, Integer> playTimeMap) {
 		List<RankingEntry> result = new ArrayList<>(raw.size());
 
 		for (int i = 0; i < raw.size(); i++) {
@@ -427,10 +468,15 @@ public class SingleRankingServiceImpl implements SingleRankingService {
 			result.add(new RankingEntry(
 				startRank + i,
 				nicknameMap.getOrDefault(id, "[Unknown]"),
-				(int)Math.round(r.score()),
-				gradeStr != null ? Grade.valueOf(gradeStr) : null));
+				toPlainScore(r.score()),
+				gradeStr != null ? Grade.valueOf(gradeStr) : null,
+				playTimeMap.get(id)));
 		}
 
 		return result;
+	}
+
+	private static int toPlainScore(double compositeScore) {
+		return RankingKeyUtil.toPlainSingleScore(compositeScore);
 	}
 }

@@ -9,8 +9,9 @@ public interface SingleRankingRedisRepository {
 	record RankEntry(String memberId, double score) {
 	}
 
-	// ZSet에 점수 저장 + Hash에 grade 저장 (기존 점수보다 높은 경우에만 갱신). 갱신 여부 반환
-	boolean saveScoreAndGrade(String scoreKey, String gradeKey, UUID memberId, double score, String grade);
+	// ZSet에 composite score 저장 + Hash에 grade/playTime 저장 (기존 composite보다 높은 경우에만 갱신)
+	boolean saveScoreGradeAndPlayTime(String scoreKey, String gradeKey, String playTimeKey,
+		UUID memberId, double compositeScore, String grade, int playTimeMs);
 
 	// 상위 count명 내림차순 조회
 	List<RankEntry> getTopEntries(String key, int count);
@@ -26,6 +27,12 @@ public interface SingleRankingRedisRepository {
 
 	// 여러 멤버의 grade 일괄 조회
 	Map<UUID, String> getGrades(String gradeKey, List<UUID> memberIds);
+
+	// 특정 멤버의 playTime(ms). 없으면 null
+	Integer getPlayTime(String playTimeKey, UUID memberId);
+
+	// 여러 멤버의 playTime(ms) 일괄 조회
+	Map<UUID, Integer> getPlayTimes(String playTimeKey, List<UUID> memberIds);
 
 	// 0-based [start, end] 범위 내림차순 조회
 	List<RankEntry> getRangeByRank(String key, long start, long end);
