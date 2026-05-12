@@ -46,6 +46,9 @@ public class SingleRanking {
 	@Column(name = "`rank`", nullable = false)
 	private int rank;
 
+	@Column(name = "play_time")
+	private Integer playTime;
+
 	@Column(name = "week", nullable = false, length = 10)
 	private String week;
 
@@ -54,13 +57,14 @@ public class SingleRanking {
 	private LocalDateTime recordedAt;
 
 	public static SingleRanking of(UUID memberId, Difficulty difficulty,
-		int score, int rank, Grade grade, String week) {
+		int score, int rank, Grade grade, Integer playTime, String week) {
 		SingleRanking ranking = new SingleRanking();
 		ranking.memberId = memberId;
 		ranking.difficulty = difficulty;
 		ranking.score = score;
 		ranking.grade = grade;
 		ranking.rank = rank;
+		ranking.playTime = playTime;
 		ranking.week = week;
 		return ranking;
 	}

@@ -14,6 +14,7 @@ import com.gitcat.letsgitit.domain.single.dto.SingleSessionCache;
 public class SingleSessionRedisRepositoryImpl implements SingleSessionRedisRepository {
 
 	private static final Duration SESSION_TTL = Duration.ofMinutes(30);
+	private static final Duration TERMINATED_SESSION_TTL = Duration.ofMinutes(1);
 
 	private final RedisTemplate<String, SingleSessionCache> singleSessionRedisTemplate;
 
@@ -25,10 +26,15 @@ public class SingleSessionRedisRepositoryImpl implements SingleSessionRedisRepos
 
 	@Override
 	public void save(SingleSessionCache sessionCache) {
+		save(sessionCache, sessionCache.terminated() ? TERMINATED_SESSION_TTL : SESSION_TTL);
+	}
+
+	@Override
+	public void save(SingleSessionCache sessionCache, Duration ttl) {
 		singleSessionRedisTemplate.opsForValue().set(
 			SingleSessionKeyUtil.singleSessionKey(sessionCache.sessionId()),
 			sessionCache,
-			SESSION_TTL);
+			ttl);
 	}
 
 	@Override
@@ -43,5 +49,10 @@ public class SingleSessionRedisRepositoryImpl implements SingleSessionRedisRepos
 	public void deleteBySessionId(String sessionId) {
 		singleSessionRedisTemplate.delete(
 			SingleSessionKeyUtil.singleSessionKey(sessionId));
+	}
+
+	@Override
+	public Duration getSessionTtl() {
+		return SESSION_TTL;
 	}
 }
