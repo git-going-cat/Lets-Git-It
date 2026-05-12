@@ -12,4 +12,6 @@ public interface SingleService {
 	SingleSessionStartResponse startSession(UUID memberId, SingleSessionStartRequest request);
 
 	SingleResultResponse saveResult(UUID memberId, String sessionId, SingleResultSaveRequest request);
+
+	void terminateSession(UUID memberId, String sessionId);
 }

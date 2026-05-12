@@ -35,6 +35,7 @@ export async function fetchMyAuthUser(): Promise<AuthUser> {
 
 function toAuthUser(data: MyAuthUserResponseData): AuthUser {
   return {
+    memberId: data.memberId ?? useAuthStore.getState().user?.memberId ?? null,
     nickname: data.nickname,
     onboardingStatus:
       data.onboardingStatus ?? useAuthStore.getState().user?.onboardingStatus ?? 'NONE',

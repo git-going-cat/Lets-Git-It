@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -42,6 +42,7 @@ export default function AccountConfirmModal({
 }: AccountConfirmModalProps) {
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const titleId = useId();
   const VisibilityIcon = isPasswordVisible ? EyeOff : Eye;
   const isConfirmDisabled = isPending || (requiresPassword && password.trim().length === 0);
   const confirmButtonClassName =
@@ -54,7 +55,7 @@ export default function AccountConfirmModal({
     onClose();
   };
 
-  useModal({ isOpen: true, onClose: handleClose });
+  const { containerRef } = useModal({ isOpen: true, onClose: handleClose });
 
   const handleConfirm = () => {
     if (isConfirmDisabled) return;
@@ -63,17 +64,23 @@ export default function AccountConfirmModal({
 
   return createPortal(
     <div
-      // z-[120]: Win11Window보다 위에 확인 모달을 띄우기 위한 전역 모달 레이어입니다.
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-confirm-modal flex items-center justify-center bg-black/40 backdrop-blur-sm"
       onClick={handleClose}
     >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         // w/max-w 임의값: 확인 모달 폭을 고정하면서 작은 화면에서는 32px 여백을 보장합니다.
         className="flex w-[360px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-200 bg-[#f3f3f3] px-4 py-2">
-          <span className="text-sm font-semibold text-gray-700">{title}</span>
+          <span id={titleId} className="text-sm font-semibold text-gray-700">
+            {title}
+          </span>
           <button
             type="button"
             onClick={handleClose}

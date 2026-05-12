@@ -19,6 +19,9 @@ import TutorialNpc from './TutorialNpc';
 
 import type { HomeModalType } from '../types/home.types';
 
+/**
+ * 홈 화면의 배경, 모드 진입, 랭킹/도감/마이페이지 모달 상태를 관리합니다.
+ */
 export function HomePage() {
   useBgm();
   const [activeModal, setActiveModal] = useState<HomeModalType | null>(null);

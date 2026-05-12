@@ -6,6 +6,8 @@ import { useCountdown } from '../hooks/useCountdown';
 import { useSignUpModal } from '../hooks/useSignUpModal';
 import { useVerificationCodeInput } from '../hooks/useVerificationCodeInput';
 
+import type React from 'react';
+
 const GOOGLE_AUTH_URL = `${env.API_BASE_URL}/api/v1/oauth2/authorization/google`; // 개발 주소 추가
 
 const inlineBtn = (active: boolean) =>
@@ -76,6 +78,19 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
   const isRegisterReady =
     codeVerified && isPasswordFormatValid && passwordValue === passwordConfirmValue;
 
+  // 컨벤션 11장: <form onSubmit> — Enter 키 제출 보장
+  // 현재 단계에 따라 primary action을 분기 처리
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!codeSent) {
+      void emailForm.handleSubmit(handleSendCode)();
+    } else if (!codeVerified) {
+      void verifyForm.handleSubmit(handleVerifyCode)();
+    } else if (isRegisterReady && !isRegistering) {
+      void passwordForm.handleSubmit(handleRegister)();
+    }
+  };
+
   if (step === 'done') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -128,7 +143,7 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
           </p>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-3">
           {/* 이메일 행 */}
           <div className="flex flex-col gap-2">
             {codeVerified ? (
@@ -267,9 +282,8 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
           {apiError && <p className="text-center text-xs text-red-400">{apiError}</p>}
 
           <button
-            type="button"
+            type="submit"
             disabled={!isRegisterReady || isRegistering}
-            onClick={passwordForm.handleSubmit(handleRegister)}
             className={bigBtn(isRegisterReady && !isRegistering)}
           >
             {isRegistering ? '가입 중...' : '가입 완료'}
@@ -285,7 +299,7 @@ export default function SignUpModal({ onClose }: SignUpModalProps) {
               로그인하기
             </button>
           </p>
-        </div>
+        </form>
         <div className="mt-3 flex items-center gap-3">
           <hr className="flex-1 border-white/20" />
           <span className="text-xs text-white/40">또는</span>

@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -93,9 +95,14 @@ class SingleServiceImplTest {
 				.willReturn(items);
 			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
 				.willReturn(Optional.of(bestResult));
+			given(singleSessionRedisRepository.getSessionTtl()).willReturn(Duration.ofMinutes(30));
+
+			OffsetDateTime before = OffsetDateTime.now().plusMinutes(30);
 
 			// when
 			SingleSessionStartResponse response = singleService.startSession(MEMBER_ID, request);
+
+			OffsetDateTime after = OffsetDateTime.now().plusMinutes(30);
 
 			// then
 			assertThat(response.sessionId()).isNotNull();
@@ -104,6 +111,8 @@ class SingleServiceImplTest {
 			assertThat(response.commandSet()).hasSize(2);
 			assertThat(response.commandSet().get(0).text()).isEqualTo("git init");
 			assertThat(response.commandSet().get(1).text()).isEqualTo("git add .");
+			assertThat(response.expiresAt()).isNotNull();
+			assertThat(response.expiresAt()).isBetween(before, after);
 		}
 
 		@Test
@@ -124,6 +133,7 @@ class SingleServiceImplTest {
 				.willReturn(items);
 			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
 				.willReturn(Optional.empty());
+			given(singleSessionRedisRepository.getSessionTtl()).willReturn(Duration.ofMinutes(30));
 
 			// when
 			SingleSessionStartResponse response = singleService.startSession(MEMBER_ID, request);
@@ -184,6 +194,7 @@ class SingleServiceImplTest {
 				.willReturn(items);
 			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
 				.willReturn(Optional.empty());
+			given(singleSessionRedisRepository.getSessionTtl()).willReturn(Duration.ofMinutes(30));
 
 			// when
 			singleService.startSession(MEMBER_ID, request);
@@ -224,7 +235,7 @@ class SingleServiceImplTest {
 					"prev-session", MEMBER_ID, DIFFICULTY,
 					SingleResultStatus.SUCCESS, 1500, Grade.A, 60)));
 			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(1500);
-			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S)).willReturn(3);
+			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S, 120_000)).willReturn(3);
 
 			// when
 			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
@@ -235,7 +246,7 @@ class SingleServiceImplTest {
 			assertThat(response.isNewRecord()).isTrue();
 			then(singleResultRepository).should().save(any(SingleResult.class));
 			then(memberService).should().addPlayTime(MEMBER_ID, 120);
-			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S);
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S, 120_000);
 			then(recordService).should().updateSingleBestRecord(MEMBER_ID, DIFFICULTY, 2000, 3);
 			then(singleSessionRedisRepository).should().deleteBySessionId(sessionId);
 		}
@@ -294,7 +305,7 @@ class SingleServiceImplTest {
 			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
 				.willReturn(Optional.empty());
 			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(null);
-			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 0, Grade.S)).willReturn(1);
+			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 0, Grade.S, 60_000)).willReturn(1);
 
 			// when
 			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
@@ -303,7 +314,7 @@ class SingleServiceImplTest {
 
 			// then
 			assertThat(response.isNewRecord()).isTrue();
-			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 0, Grade.S);
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 0, Grade.S, 60_000);
 			then(recordService).should().updateSingleBestRecord(MEMBER_ID, DIFFICULTY, 0, 1);
 		}
 
@@ -334,9 +345,39 @@ class SingleServiceImplTest {
 			// then
 			assertThat(response.isNewRecord()).isFalse();
 			then(singleRankingService).should().getCurrentWeekScore(DIFFICULTY, MEMBER_ID);
-			then(singleRankingService).should(never()).updateSingleScore(any(), any(), anyInt(), any());
+			then(singleRankingService).should(never()).updateSingleScore(any(), any(), anyInt(), any(), anyInt());
 			then(recordService).shouldHaveNoInteractions();
 			then(singleSessionRedisRepository).should().deleteBySessionId(sessionId);
+		}
+
+		@Test
+		void 동점_점수면_playTime_개선_가능성이_있어_금주차_랭킹을_갱신한다() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			SingleResultSaveRequest request = new SingleResultSaveRequest(
+				SingleResultStatus.SUCCESS,
+				2000,
+				90_000,
+				Grade.S);
+
+			given(singleResultRepository.existsBySessionId(sessionId)).willReturn(false);
+			given(singleSessionRedisRepository.findBySessionId(sessionId))
+				.willReturn(Optional.of(SingleSessionCache.of(sessionId, MEMBER_ID, DIFFICULTY)));
+			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
+				.willReturn(Optional.of(SingleResult.of(
+					"prev-session", MEMBER_ID, DIFFICULTY,
+					SingleResultStatus.SUCCESS, 2000, Grade.S, 120_000)));
+			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(2000);
+
+			// when
+			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(TransactionSynchronization::afterCommit);
+
+			// then
+			assertThat(response.isNewRecord()).isFalse();
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S, 90_000);
+			then(recordService).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -365,8 +406,97 @@ class SingleServiceImplTest {
 
 			// then
 			assertThat(response.isNewRecord()).isFalse();
-			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 1200, Grade.A);
+			then(singleRankingService).should().updateSingleScore(DIFFICULTY, MEMBER_ID, 1200, Grade.A, 90_000);
 			then(recordService).shouldHaveNoInteractions();
+		}
+	}
+
+	@Nested
+	class TerminateSession {
+
+		@Test
+		void 정상_종료_시_세션을_종료_상태로_짧게_보존한다() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			given(singleSessionRedisRepository.findBySessionId(sessionId))
+				.willReturn(Optional.of(SingleSessionCache.of(sessionId, MEMBER_ID, DIFFICULTY)));
+
+			// when
+			singleService.terminateSession(MEMBER_ID, sessionId);
+
+			// then
+			then(singleSessionRedisRepository).should()
+				.save(argThat(SingleSessionCache::terminated));
+		}
+
+		@Test
+		void Redis_세션이_없으면_세션_없음_예외() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			given(singleSessionRedisRepository.findBySessionId(sessionId)).willReturn(Optional.empty());
+
+			// when & then
+			assertThatThrownBy(() -> singleService.terminateSession(MEMBER_ID, sessionId))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SESSION_NOT_FOUND);
+		}
+
+		@Test
+		void 다른_사용자의_세션이면_접근_금지_예외() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			UUID otherMemberId = UUID.randomUUID();
+			given(singleSessionRedisRepository.findBySessionId(sessionId))
+				.willReturn(Optional.of(SingleSessionCache.of(sessionId, otherMemberId, DIFFICULTY)));
+
+			// when & then
+			assertThatThrownBy(() -> singleService.terminateSession(MEMBER_ID, sessionId))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ACCESS_DENIED);
+			then(singleSessionRedisRepository).should(never()).save(any(SingleSessionCache.class));
+		}
+	}
+
+	@Nested
+	class TerminatedSessionSaveResult {
+
+		@BeforeEach
+		void setUpTransactionSync() {
+			TransactionSynchronizationManager.initSynchronization();
+		}
+
+		@AfterEach
+		void clearTransactionSync() {
+			TransactionSynchronizationManager.clearSynchronization();
+		}
+
+		@Test
+		void 종료_표시된_세션도_결과_저장을_허용한다() {
+			// given
+			String sessionId = UUID.randomUUID().toString();
+			SingleResultSaveRequest request = new SingleResultSaveRequest(
+				SingleResultStatus.SUCCESS,
+				2000,
+				120_000,
+				Grade.S);
+
+			given(singleResultRepository.existsBySessionId(sessionId)).willReturn(false);
+			given(singleSessionRedisRepository.findBySessionId(sessionId))
+				.willReturn(Optional.of(SingleSessionCache.of(sessionId, MEMBER_ID, DIFFICULTY).terminate()));
+			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
+				.willReturn(Optional.empty());
+			given(singleRankingService.getCurrentWeekScore(DIFFICULTY, MEMBER_ID)).willReturn(null);
+			given(singleRankingService.updateSingleScore(DIFFICULTY, MEMBER_ID, 2000, Grade.S, 120_000)).willReturn(1);
+
+			// when
+			SingleResultResponse response = singleService.saveResult(MEMBER_ID, sessionId, request);
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(TransactionSynchronization::afterCommit);
+
+			// then
+			assertThat(response.isNewRecord()).isTrue();
+			then(singleResultRepository).should().save(any(SingleResult.class));
+			then(singleSessionRedisRepository).should().deleteBySessionId(sessionId);
 		}
 	}
 

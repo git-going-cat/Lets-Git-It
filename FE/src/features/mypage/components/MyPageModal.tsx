@@ -20,7 +20,7 @@ interface MyPageModalProps {
 }
 
 export default function MyPageModal({ isOpen, onClose, onOpenLogout }: MyPageModalProps) {
-  useModal({ isOpen, onClose });
+  const { containerRef } = useModal({ isOpen, onClose });
 
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isEditCharacterOpen, setIsEditCharacterOpen] = useState(false);
@@ -51,6 +51,12 @@ export default function MyPageModal({ isOpen, onClose, onOpenLogout }: MyPageMod
 
   return (
     <div
+      ref={containerRef}
+      role={isOpen ? 'dialog' : undefined}
+      aria-modal={isOpen ? 'true' : undefined}
+      aria-label={isOpen ? '마이페이지' : undefined}
+      aria-hidden={!isOpen}
+      tabIndex={-1}
       // translate-y-[120%]: 닫힘 상태에서 패널을 아래쪽으로 완전히 숨깁니다.
       className={`absolute bottom-12 left-0 z-40 flex h-auto w-modal-md flex-col rounded-t-xl rounded-br-xl bg-[#f3f3f3]/95 p-6 shadow-2xl backdrop-blur transition-all duration-300 ease-in-out ${
         isOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-[120%] opacity-0'

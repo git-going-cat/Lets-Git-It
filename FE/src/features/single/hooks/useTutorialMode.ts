@@ -34,7 +34,7 @@ export type TutorialModalPhase = 'game' | 'paused' | 'completed' | 'skipped';
  * isTutorial=false이면 이벤트 등록을 건너뛰고 noop 반환합니다.
  *
  * 흐름:
- *   game:start → description(1) → [확인] → tutorial:show_command 전송 + 입력 해제
+ *   game:start → description(1) → [확인] → tutorial:show-command 전송 + 입력 해제
  *   command:complete(N) → explanation(N+1) → [다음] → description(N+2) → ...
  *   last [다음] → 'completed' 모달
  *   ESC/⏸ → 'paused' 모달 → [스킵] → 'skipped' 모달 / [계속] → game 복귀
@@ -60,7 +60,7 @@ export function useTutorialMode(isTutorial: boolean) {
     const handleGameStart = () => {
       setInputBlocked(false);
       setOverlayState({ phase: 'description', metaIndex: 1 });
-      EventBus.emit('tutorial:show_command');
+      EventBus.emit('tutorial:show-command');
     };
 
     const handleCommandComplete = ({ index }: { index: number }) => {
@@ -92,7 +92,7 @@ export function useTutorialMode(isTutorial: boolean) {
   useEffect(() => {
     if (!overlayState || overlayState.phase !== 'description') return;
     const timer = setTimeout(() => {
-      EventBus.emit('tutorial:freeze_command');
+      EventBus.emit('tutorial:freeze-command');
     }, TUTORIAL_FALL_DURATION_MS);
     return () => clearTimeout(timer);
   }, [overlayState?.phase, overlayState?.metaIndex]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -107,7 +107,7 @@ export function useTutorialMode(isTutorial: boolean) {
       } else {
         setInputBlocked(false);
         setOverlayState({ phase: 'description', metaIndex: nextMeta });
-        EventBus.emit('tutorial:show_command');
+        EventBus.emit('tutorial:show-command');
       }
     },
     [setInputBlocked, totalCommands]

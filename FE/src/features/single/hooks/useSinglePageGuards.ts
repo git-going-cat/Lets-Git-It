@@ -12,10 +12,13 @@ import { useSingleStore } from '../store/singleStore';
  */
 export function useSinglePageGuards() {
   const navigate = useNavigate();
+  const sessionId = useSingleStore((state) => state.sessionId);
   const sessionExpiresAt = useSingleStore((state) => state.sessionExpiresAt);
 
   useEffect(() => {
-    if (!sessionExpiresAt) return;
+    // sessionId 없이 sessionExpiresAt만 남은 경우는 이전 진입의 stale 값.
+    // setSession이 새 세션을 set하면 두 값이 함께 갱신되어 effect가 재발화한다.
+    if (!sessionId || !sessionExpiresAt) return;
 
     const expireSession = () => EventBus.emit('game:session-expired');
     const remainingMs = sessionExpiresAt - Date.now();
@@ -43,7 +46,7 @@ export function useSinglePageGuards() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [sessionExpiresAt]);
+  }, [sessionId, sessionExpiresAt]);
 
   useEffect(() => {
     const GUARD_KEY = 'single:historyGuard';

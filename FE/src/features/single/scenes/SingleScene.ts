@@ -1,14 +1,16 @@
 import Phaser from 'phaser';
 
 import { EventBus } from '@/core/bridge/EventBus';
+import { parseSwitchTarget } from '@/shared/game/branchParser';
 
 import { CHERRY_PICK_ANIM_MS } from '../constants/itemAnimations';
 import { TUTORIAL_FALL_DURATION_MS } from '../constants/tutorialData';
-import { parseSwitchTarget } from '../utils/branchParser';
 
 import { BranchLane } from './BranchLane';
 
-import type { Command, Difficulty, SingleSceneData } from '../types/single.types';
+import type { SingleCommand, SingleSceneData } from '../types/single.types';
+import type { GameRestartPayload } from '@/core/bridge/EventBus';
+import type { Difficulty } from '@/shared/types/game.types';
 
 /**
  * 난이도별 명령어 낙하 시간 (ms).
@@ -30,18 +32,19 @@ const TIMER_INTERVAL_MS = 100;
  * 게임 종료 시 모든 Phaser 타이머·트윈을 정리합니다.
  */
 export class SingleScene extends Phaser.Scene {
-  private commandSet: Command[] = [];
+  private commandSet: SingleCommand[] = [];
   private commandIndex = 0;
   private fallDuration = FALL_DURATION_MS.NORMAL;
   private lanes = new Map<string, BranchLane>();
   private timerEvent: Phaser.Time.TimerEvent | null = null;
   private elapsedMs = 0;
-  private sceneData: SingleSceneData | null = null;
   private isGameEnded = false;
   private isUserPaused = false;
-  private stashTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private cherryPickTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private stashTimeoutId: Phaser.Time.TimerEvent | null = null;
+  private cherryPickTimeoutId: Phaser.Time.TimerEvent | null = null;
   private isTutorialMode = false;
+  // scene.restart() 시 인스턴스가 보존되므로, 라이프사이클 핸들러를 1회만 등록하기 위한 가드.
+  private lifecycleHandlersRegistered = false;
 
   constructor() {
     super({ key: 'SingleScene' });
@@ -50,7 +53,6 @@ export class SingleScene extends Phaser.Scene {
   create(data?: object): void {
     const raw = data as SingleSceneData & { autoStart?: boolean };
     const { difficulty, commandSet, autoStart } = raw;
-    this.sceneData = raw;
 
     this.commandSet = commandSet;
     this.commandIndex = 0;
@@ -69,21 +71,29 @@ export class SingleScene extends Phaser.Scene {
       this.showCurrentCommand();
     }
 
-    // game.destroy() 시 Phaser가 shutdown()을 보장하지 않는 버전이 있으므로
-    // game destroy 이벤트에서도 EventBus 핸들러를 정리한다
-    this.game.events.once(Phaser.Core.Events.DESTROY, this.shutdown, this);
+    // scene.restart()는 SHUTDOWN을 emit하지만 인스턴스/이벤터를 보존하므로
+    // SHUTDOWN 핸들러는 한 번만 등록한다. EventBus 리스너는 shutdown()에서 off되고
+    // 다음 create()의 registerEvents()로 다시 붙는다.
+    // game.destroy() 시 Phaser가 shutdown()을 보장하지 않는 버전이 있어 DESTROY도 함께 연결.
+    if (!this.lifecycleHandlersRegistered) {
+      this.events.on(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
+      this.game.events.once(Phaser.Core.Events.DESTROY, this.shutdown, this);
+      this.lifecycleHandlersRegistered = true;
+    }
   }
 
   shutdown(): void {
     this.timerEvent?.remove();
     this.lanes.clear();
     if (this.stashTimeoutId !== null) {
-      clearTimeout(this.stashTimeoutId);
+      this.stashTimeoutId.remove();
       this.stashTimeoutId = null;
+      EventBus.emit('stash:end');
     }
     if (this.cherryPickTimeoutId !== null) {
-      clearTimeout(this.cherryPickTimeoutId);
+      this.cherryPickTimeoutId.remove();
       this.cherryPickTimeoutId = null;
+      EventBus.emit('cherry-pick:end');
     }
 
     EventBus.off('game:start', this.handleGameStart);
@@ -97,11 +107,11 @@ export class SingleScene extends Phaser.Scene {
     EventBus.off('game:session-expired', this.handleGameEnd);
     EventBus.off('game:complete', this.handleGameEnd);
     EventBus.off('item:use', this.handleItemUse);
-    EventBus.off('tutorial:show_command', this.handleTutorialShowCommand);
-    EventBus.off('tutorial:freeze_command', this.handleTutorialFreezeCommand);
+    EventBus.off('tutorial:show-command', this.handleTutorialShowCommand);
+    EventBus.off('tutorial:freeze-command', this.handleTutorialFreezeCommand);
   }
 
-  private initLanes(commandSet: Command[]): void {
+  private initLanes(commandSet: SingleCommand[]): void {
     const branches = Array.from(new Set(commandSet.map((c) => c.branchName)));
     this.lanes.clear();
     branches.forEach((branch, i) => {
@@ -123,8 +133,8 @@ export class SingleScene extends Phaser.Scene {
     EventBus.on('game:session-expired', this.handleGameEnd);
     EventBus.on('game:complete', this.handleGameEnd);
     EventBus.on('item:use', this.handleItemUse);
-    EventBus.on('tutorial:show_command', this.handleTutorialShowCommand);
-    EventBus.on('tutorial:freeze_command', this.handleTutorialFreezeCommand);
+    EventBus.on('tutorial:show-command', this.handleTutorialShowCommand);
+    EventBus.on('tutorial:freeze-command', this.handleTutorialFreezeCommand);
   }
 
   private startTimer(): void {
@@ -139,6 +149,7 @@ export class SingleScene extends Phaser.Scene {
   }
 
   private showCurrentCommand(): void {
+    if (this.isGameEnded) return;
     if (this.commandIndex >= this.commandSet.length) {
       EventBus.emit('game:complete');
       return;
@@ -153,6 +164,9 @@ export class SingleScene extends Phaser.Scene {
   // miss → React lives 감소 → game:over 여부 확정 → 이상 없으면 다음 커맨드 진행.
   private onCommandTimeout(): void {
     if (this.isGameEnded) return;
+    // 튜토리얼은 freezeWithBlink로 tween을 멈춰 timeout 자체가 안 일어나야 정상이지만,
+    // 안전망으로 timeout 진입 시 commandIndex 진행을 차단해 useTutorialMode 상태 머신을 보호한다.
+    if (this.isTutorialMode) return;
     const missedIndex = this.commandIndex;
     const cmd = this.commandSet[this.commandIndex];
     const lane = this.lanes.get(cmd.branchName);
@@ -168,7 +182,7 @@ export class SingleScene extends Phaser.Scene {
   }
 
   // CREATE·SWITCH: 레인 공개 및 브랜치 전환 / MERGE: 병합된 레인 숨김
-  private applyBranchEffect(cmd: Command): void {
+  private applyBranchEffect(cmd: SingleCommand): void {
     if (cmd.type === 'CREATE' || cmd.type === 'SWITCH') {
       const target = parseSwitchTarget(cmd.text);
       if (target) {
@@ -198,15 +212,16 @@ export class SingleScene extends Phaser.Scene {
 
     // 커맨드 성공 시 stash 조기 종료
     if (this.stashTimeoutId !== null) {
-      clearTimeout(this.stashTimeoutId);
+      this.stashTimeoutId.remove();
       this.stashTimeoutId = null;
       if (!this.isUserPaused) {
         this.tweens.resumeAll();
-        this.time.paused = false;
+        if (this.timerEvent) this.timerEvent.paused = false;
       }
+      EventBus.emit('stash:end');
     }
 
-    // 튜토리얼 모드: useTutorialMode가 tutorial:show_command를 emit할 때까지 대기
+    // 튜토리얼 모드: useTutorialMode가 tutorial:show-command를 emit할 때까지 대기
     if (!this.isTutorialMode) {
       this.showCurrentCommand();
     }
@@ -215,50 +230,67 @@ export class SingleScene extends Phaser.Scene {
   private readonly handleGamePause = (): void => {
     this.isUserPaused = true;
     this.tweens.pauseAll();
-    this.time.paused = true;
+    if (this.timerEvent) this.timerEvent.paused = true;
+    // ESC pause 중에 stash/cherry-pick delayedCall이 발화하면 command:complete가 emit되어
+    // commandIndex가 진행되고 노드가 한 칸 점프하는 현상이 생긴다. delayedCall도 명시적으로 정지.
+    if (this.stashTimeoutId) this.stashTimeoutId.paused = true;
+    if (this.cherryPickTimeoutId) this.cherryPickTimeoutId.paused = true;
   };
 
   private readonly handleGameResume = (): void => {
     this.isUserPaused = false;
+    // stash/cherry-pick 활성 중이면 해당 delayedCall만 재개하고 tween/timerEvent는 그대로.
+    // 콜백 완료 시점에 tween·timerEvent도 정상 재개된다.
+    if (this.stashTimeoutId !== null) {
+      this.stashTimeoutId.paused = false;
+      return;
+    }
+    if (this.cherryPickTimeoutId !== null) {
+      this.cherryPickTimeoutId.paused = false;
+      return;
+    }
     this.tweens.resumeAll();
-    this.time.paused = false;
+    if (this.timerEvent) this.timerEvent.paused = false;
   };
 
   private readonly handleItemUse = ({ slot }: { slot: 0 | 1 | 2 }): void => {
     if (slot === 0) {
-      // stash: 5초간 낙하 정지. 이미 활성화 중이면 무시
+      // stash: 5초간 낙하 정지. 이미 활성화 중이면 무시.
+      // ESC pause 시 stashTimeoutId.paused를 handleGamePause에서 명시적으로 토글한다.
       if (this.stashTimeoutId !== null) return;
       this.tweens.pauseAll();
-      this.time.paused = true;
-      this.stashTimeoutId = setTimeout(() => {
+      if (this.timerEvent) this.timerEvent.paused = true;
+      this.stashTimeoutId = this.time.delayedCall(5000, () => {
         this.stashTimeoutId = null;
         if (!this.isGameEnded && !this.isUserPaused) {
           this.tweens.resumeAll();
-          this.time.paused = false;
+          if (this.timerEvent) this.timerEvent.paused = false;
         }
-      }, 5000);
+        EventBus.emit('stash:end');
+      });
     } else if (slot === 1) {
       // cherry-pick: 낙하 정지 후 발바닥 애니메이션, 완료 처리
       if (this.isGameEnded || this.commandIndex >= this.commandSet.length) return;
       if (this.cherryPickTimeoutId !== null) return; // 중복 방지
       const indexAtUse = this.commandIndex;
       this.tweens.pauseAll();
-      this.time.paused = true;
-      this.cherryPickTimeoutId = setTimeout(() => {
+      if (this.timerEvent) this.timerEvent.paused = true;
+      this.cherryPickTimeoutId = this.time.delayedCall(CHERRY_PICK_ANIM_MS, () => {
         this.cherryPickTimeoutId = null;
         if (!this.isGameEnded) {
           if (!this.isUserPaused) {
             this.tweens.resumeAll();
-            this.time.paused = false;
+            if (this.timerEvent) this.timerEvent.paused = false;
           }
           EventBus.emit('command:complete', { index: indexAtUse });
         }
-      }, CHERRY_PICK_ANIM_MS);
+        EventBus.emit('cherry-pick:end');
+      });
     }
   };
 
   private readonly handleGameStart = (): void => {
-    // 튜토리얼 모드: 타이머 없이 useTutorialMode의 tutorial:show_command를 기다림
+    // 튜토리얼 모드: 타이머 없이 useTutorialMode의 tutorial:show-command를 기다림
     if (this.isTutorialMode) return;
     this.startTimer();
     this.showCurrentCommand();
@@ -279,11 +311,16 @@ export class SingleScene extends Phaser.Scene {
     this.lanes.get(cmd.branchName)?.freezeWithBlink();
   };
 
-  private readonly handleGameRestart = (): void => {
-    if (this.sceneData) {
-      // autoStart: true를 넘겨 create()에서 StartModal 없이 바로 시작하도록 함
-      this.scene.restart({ ...this.sceneData, autoStart: true });
-    }
+  private readonly handleGameRestart = (data: GameRestartPayload): void => {
+    // payload로 받은 새 세션 데이터를 그대로 scene.restart에 넘겨 create()에서 새 commandSet/sessionId로 초기화.
+    // autoStart: true → create()에서 StartModal 없이 바로 게임 시작.
+    this.scene.restart({
+      sessionId: data.sessionId,
+      difficulty: data.difficulty,
+      commandSet: data.commandSet as SingleCommand[],
+      isTutorial: data.isTutorial,
+      autoStart: true,
+    });
   };
 
   private readonly handleGameEnd = (): void => {
@@ -291,12 +328,14 @@ export class SingleScene extends Phaser.Scene {
     this.timerEvent?.remove();
     this.timerEvent = null;
     if (this.stashTimeoutId !== null) {
-      clearTimeout(this.stashTimeoutId);
+      this.stashTimeoutId.remove();
       this.stashTimeoutId = null;
+      EventBus.emit('stash:end');
     }
     if (this.cherryPickTimeoutId !== null) {
-      clearTimeout(this.cherryPickTimeoutId);
+      this.cherryPickTimeoutId.remove();
       this.cherryPickTimeoutId = null;
+      EventBus.emit('cherry-pick:end');
     }
     this.lanes.forEach((lane) => lane.clearCommand());
   };

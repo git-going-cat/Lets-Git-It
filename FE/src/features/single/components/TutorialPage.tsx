@@ -12,8 +12,9 @@ import PauseModal from './PauseModal';
 import SingleGameContent from './SingleGameContent';
 import StartModal from './StartModal';
 
-import type { Command, CommandType } from '../types/single.types';
+import type { SingleCommand } from '../types/single.types';
 import type { TutorialStep } from '@/features/auth/schemas/onboarding.schema';
+import type { CommandType } from '@/shared/types/game.types';
 
 // ── API 응답 → 게임 커맨드셋 추출 ─────────────────────────────────────────────
 
@@ -24,8 +25,8 @@ function deriveCommandType(cmd: string): CommandType {
   return 'COMMON';
 }
 
-function extractCommandSet(steps: TutorialStep[]): Command[] {
-  const commandSet: Command[] = [];
+function extractCommandSet(steps: TutorialStep[]): SingleCommand[] {
+  const commandSet: SingleCommand[] = [];
   let currentBranch = 'main';
   let cmdSeq = 0;
 
@@ -115,10 +116,6 @@ export default function TutorialPage() {
     await navigate({ to: '/home', replace: true });
   }, [navigate, replay]);
 
-  const handleTutorialExit = useCallback(() => {
-    void navigate({ to: '/home', replace: true });
-  }, [navigate]);
-
   if (error) {
     return (
       <div className="font-pixel flex h-screen items-center justify-center bg-black text-white">
@@ -148,10 +145,7 @@ export default function TutorialPage() {
   return (
     <Provider>
       <div className="font-pixel">
-        <SingleGameContent
-          onTutorialComplete={handleTutorialComplete}
-          onTutorialExit={replay ? handleTutorialExit : undefined}
-        />
+        <SingleGameContent onTutorialComplete={handleTutorialComplete} />
         <StartModal />
         <PauseModal />
       </div>

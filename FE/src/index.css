@@ -12,16 +12,38 @@
 @theme {
   --font-pixel: 'NeoDunggeunGothicPro', monospace;
   --grid-template-rows-single-game: auto minmax(0, 1fr) 160px;
+  --width-explorer: 1040px;
+  --width-window-min: 300px;
+  --width-profile-modal: 540px;
+  --width-character-editor: 860px;
   --width-modal-lg: 900px;
   --width-modal-md: 600px;
+  --height-ranking-modal: 600px;
   --height-modal-lg: 560px;
   --height-modal-md: 480px;
+  /* NES 팔레트 — nes.css is-primary/is-error/is-success 버튼 기본/hover/active 색상 */
+  --color-nes-primary: #209cee;
+  --color-nes-primary-hover: #108de0;
+  --color-nes-primary-active: #0b78c2;
+  --color-nes-error: #e76e55;
+  --color-nes-error-hover: #d85f46;
+  --color-nes-error-active: #c84f36;
+  --color-nes-success: #92cc41;
+  --color-nes-success-hover: #7fb832;
+  --color-nes-success-active: #6fa326;
+  --radius-ranking-modal: 16px;
+  --z-index-window: 100;
+  --z-index-confirm-modal: 120;
   --animate-restore-heal: restore-heal 700ms ease-out forwards;
   --animate-stash-bang: stash-bang 400ms ease-out forwards;
   --animate-paw-stamp: paw-stamp 550ms ease-out forwards;
   --animate-paw-fade: paw-fade 250ms ease-out forwards;
   --animate-item-pop: item-pop 0.55s ease-out;
   --animate-screen-shake: screen-shake 350ms ease-out;
+  --z-index-80: 80;
+  --z-index-100: 100;
+  --spacing-game-sidebar: 15%;
+  --width-game-center: 70%;
 }
 
 @keyframes restore-heal {

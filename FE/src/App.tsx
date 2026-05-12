@@ -1,18 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createRouter, RouterProvider } from '@tanstack/react-router';
+import { RouterProvider } from '@tanstack/react-router';
 
 import { PostHogProvider } from './providers/PostHogProvider';
-import { routeTree } from './routeTree.gen';
+import { router } from './router';
 
-const queryClient = new QueryClient();
-
-const router = createRouter({ routeTree });
-
-declare module '@tanstack/react-router' {
-  interface Register {
-    router: typeof router;
-  }
-}
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      throwOnError: false,
+    },
+  },
+});
 
 function App() {
   return (
