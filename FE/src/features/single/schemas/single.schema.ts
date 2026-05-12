@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { DIFFICULTIES } from '../types/single.types';
+import { DIFFICULTIES } from '@/shared/types/game.types';
 
 export const commandItemSchema = z.object({
   commandSequence: z.number(),

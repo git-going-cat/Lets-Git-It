@@ -1,5 +1,4 @@
-import type { Difficulty } from '../types/single.types';
-import type { Grade } from '@/shared/types/game.types';
+import type { Difficulty, Grade } from '@/shared/types/game.types';
 
 /** 난이도별 감점 파라미터 */
 interface ScoreConfig {

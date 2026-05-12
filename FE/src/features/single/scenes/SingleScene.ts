@@ -1,15 +1,16 @@
 import Phaser from 'phaser';
 
 import { EventBus } from '@/core/bridge/EventBus';
+import { parseSwitchTarget } from '@/shared/game/branchParser';
 
 import { CHERRY_PICK_ANIM_MS } from '../constants/itemAnimations';
 import { TUTORIAL_FALL_DURATION_MS } from '../constants/tutorialData';
-import { parseSwitchTarget } from '../utils/branchParser';
 
 import { BranchLane } from './BranchLane';
 
-import type { Command, Difficulty, SingleSceneData } from '../types/single.types';
+import type { SingleCommand, SingleSceneData } from '../types/single.types';
 import type { GameRestartPayload } from '@/core/bridge/EventBus';
+import type { Difficulty } from '@/shared/types/game.types';
 
 /**
  * 난이도별 명령어 낙하 시간 (ms).
@@ -31,7 +32,7 @@ const TIMER_INTERVAL_MS = 100;
  * 게임 종료 시 모든 Phaser 타이머·트윈을 정리합니다.
  */
 export class SingleScene extends Phaser.Scene {
-  private commandSet: Command[] = [];
+  private commandSet: SingleCommand[] = [];
   private commandIndex = 0;
   private fallDuration = FALL_DURATION_MS.NORMAL;
   private lanes = new Map<string, BranchLane>();
@@ -110,7 +111,7 @@ export class SingleScene extends Phaser.Scene {
     EventBus.off('tutorial:freeze-command', this.handleTutorialFreezeCommand);
   }
 
-  private initLanes(commandSet: Command[]): void {
+  private initLanes(commandSet: SingleCommand[]): void {
     const branches = Array.from(new Set(commandSet.map((c) => c.branchName)));
     this.lanes.clear();
     branches.forEach((branch, i) => {
@@ -148,6 +149,7 @@ export class SingleScene extends Phaser.Scene {
   }
 
   private showCurrentCommand(): void {
+    if (this.isGameEnded) return;
     if (this.commandIndex >= this.commandSet.length) {
       EventBus.emit('game:complete');
       return;
@@ -180,7 +182,7 @@ export class SingleScene extends Phaser.Scene {
   }
 
   // CREATE·SWITCH: 레인 공개 및 브랜치 전환 / MERGE: 병합된 레인 숨김
-  private applyBranchEffect(cmd: Command): void {
+  private applyBranchEffect(cmd: SingleCommand): void {
     if (cmd.type === 'CREATE' || cmd.type === 'SWITCH') {
       const target = parseSwitchTarget(cmd.text);
       if (target) {
@@ -228,23 +230,33 @@ export class SingleScene extends Phaser.Scene {
   private readonly handleGamePause = (): void => {
     this.isUserPaused = true;
     this.tweens.pauseAll();
-    this.time.paused = true;
+    if (this.timerEvent) this.timerEvent.paused = true;
+    // ESC pause 중에 stash/cherry-pick delayedCall이 발화하면 command:complete가 emit되어
+    // commandIndex가 진행되고 노드가 한 칸 점프하는 현상이 생긴다. delayedCall도 명시적으로 정지.
+    if (this.stashTimeoutId) this.stashTimeoutId.paused = true;
+    if (this.cherryPickTimeoutId) this.cherryPickTimeoutId.paused = true;
   };
 
   private readonly handleGameResume = (): void => {
     this.isUserPaused = false;
-    this.time.paused = false;
-    // stash/cherry-pick 활성 중이면 tween/timerEvent는 그대로 둠 (해당 time.delayedCall이 완료 시 재개)
-    if (this.stashTimeoutId === null && this.cherryPickTimeoutId === null) {
-      this.tweens.resumeAll();
+    // stash/cherry-pick 활성 중이면 해당 delayedCall만 재개하고 tween/timerEvent는 그대로.
+    // 콜백 완료 시점에 tween·timerEvent도 정상 재개된다.
+    if (this.stashTimeoutId !== null) {
+      this.stashTimeoutId.paused = false;
+      return;
     }
+    if (this.cherryPickTimeoutId !== null) {
+      this.cherryPickTimeoutId.paused = false;
+      return;
+    }
+    this.tweens.resumeAll();
+    if (this.timerEvent) this.timerEvent.paused = false;
   };
 
   private readonly handleItemUse = ({ slot }: { slot: 0 | 1 | 2 }): void => {
     if (slot === 0) {
-      // stash: 5초간 낙하 정지. 이미 활성화 중이면 무시
-      // time.delayedCall 사용으로 ESC 일시정지 시 타이머도 함께 멈춤.
-      // timerEvent만 개별 paused 처리 — 점수에 반영되는 playTime은 정지, time.delayedCall은 글로벌 클럭으로 계속 작동
+      // stash: 5초간 낙하 정지. 이미 활성화 중이면 무시.
+      // ESC pause 시 stashTimeoutId.paused를 handleGamePause에서 명시적으로 토글한다.
       if (this.stashTimeoutId !== null) return;
       this.tweens.pauseAll();
       if (this.timerEvent) this.timerEvent.paused = true;
@@ -305,7 +317,7 @@ export class SingleScene extends Phaser.Scene {
     this.scene.restart({
       sessionId: data.sessionId,
       difficulty: data.difficulty,
-      commandSet: data.commandSet as Command[],
+      commandSet: data.commandSet as SingleCommand[],
       isTutorial: data.isTutorial,
       autoStart: true,
     });

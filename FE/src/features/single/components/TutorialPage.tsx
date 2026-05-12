@@ -12,8 +12,9 @@ import PauseModal from './PauseModal';
 import SingleGameContent from './SingleGameContent';
 import StartModal from './StartModal';
 
-import type { Command, CommandType } from '../types/single.types';
+import type { SingleCommand } from '../types/single.types';
 import type { TutorialStep } from '@/features/auth/schemas/onboarding.schema';
+import type { CommandType } from '@/shared/types/game.types';
 
 // ── API 응답 → 게임 커맨드셋 추출 ─────────────────────────────────────────────
 
@@ -24,8 +25,8 @@ function deriveCommandType(cmd: string): CommandType {
   return 'COMMON';
 }
 
-function extractCommandSet(steps: TutorialStep[]): Command[] {
-  const commandSet: Command[] = [];
+function extractCommandSet(steps: TutorialStep[]): SingleCommand[] {
+  const commandSet: SingleCommand[] = [];
   let currentBranch = 'main';
   let cmdSeq = 0;
 

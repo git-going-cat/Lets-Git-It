@@ -1,6 +1,6 @@
 import { useAtomValue } from 'jotai';
 
-import { comboAtom } from '../store/comboAtom';
+import { comboAtom } from '@/shared/store/comboAtom';
 
 export default function HUDCombo() {
   const combo = useAtomValue(comboAtom);
