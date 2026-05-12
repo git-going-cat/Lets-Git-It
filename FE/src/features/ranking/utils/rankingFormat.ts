@@ -28,6 +28,18 @@ export function formatScore(mode: RankingMode, entry: RankingEntry): string {
   return 'score' in entry ? `${entry.score.toLocaleString()} pt` : '-';
 }
 
+/** 싱글 랭킹 동점자 구분용 플레이 시간을 포맷팅합니다. */
+export function formatPlayTime(playTime?: number | null): string {
+  if (playTime == null) return '-';
+  return formatClearTime(playTime);
+}
+
+/** 랭킹 항목에서 싱글 플레이 시간 값을 안전하게 추출합니다. */
+export function getPlayTime(entry: RankingEntry): number | null {
+  if (!('playTime' in entry)) return null;
+  return entry.playTime ?? null;
+}
+
 /** 내 순위(MyRank)의 점수 값을 포맷팅된 문자열로 변환 */
 export function formatMyRankScore(mode: RankingMode, myRank: Exclude<MyRank, null>): string {
   if (mode === 'coop') return formatClearTime((myRank as CoopMyRank).clearTime);

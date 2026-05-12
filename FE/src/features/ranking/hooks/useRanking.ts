@@ -10,6 +10,7 @@ import {
   fetchTimeAttackRanking,
   fetchTimeAttackRankingHistory,
 } from '../api/rankingApi';
+import { rankingQueryKey } from '../utils/rankingQueryKey';
 
 import type {
   CoopRankingQuery,
@@ -64,10 +65,10 @@ export function useRanking(
     RankingResponse<RankingEntry, Exclude<MyRank, null>>,
     Error,
     InfiniteData<RankingResponse<RankingEntry, Exclude<MyRank, null>>>,
-    (string | WeekParam | CoopRankingQuery | null | undefined)[],
+    ReturnType<typeof rankingQueryKey>,
     RankingPageParam | undefined
   >({
-    queryKey: ['ranking', mode, selectedWeek ?? 'current', mode === 'coop' ? coopQuery : null],
+    queryKey: rankingQueryKey(mode, selectedWeek, coopQuery),
     queryFn: ({ pageParam }): Promise<RankingResponse<RankingEntry, Exclude<MyRank, null>>> => {
       const cursor = pageParam?.cursor;
 

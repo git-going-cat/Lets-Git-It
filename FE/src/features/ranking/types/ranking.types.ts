@@ -23,6 +23,7 @@ export interface SingleRankingEntry {
   nickname: string;
   score: number;
   grade?: RankGrade | null;
+  playTime?: number | null;
 }
 
 export interface SpeedRankingEntry {
@@ -55,6 +56,7 @@ export interface SingleMyRank {
   rank: number;
   score: number;
   grade?: RankGrade | null;
+  playTime?: number | null;
 }
 
 export interface SpeedMyRank {
