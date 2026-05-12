@@ -27,6 +27,8 @@ interface ExplorerItem {
 interface Win11ExplorerModalProps {
   initialTab: ExplorerTab;
   onClose: () => void;
+  /** 로비 입장 버튼 클릭 시 호출 — 모달을 닫고 해당 모드 로비를 열어야 한다 */
+  onLobbyOpen?: (mode: 'CONTRIBUTION_RUN' | 'TIME_ATTACK' | 'COOP') => void;
 }
 
 // ── 데이터 ────────────────────────────────────────────────
@@ -74,7 +76,7 @@ const MULTI_ITEMS: ExplorerItem[] = [
   },
   {
     id: 'coop',
-    label: '협동',
+    label: '협력',
     img: multiCoopImg,
     description: '팀원과 협력하여 미션 클리어',
     detail: '팀원과 함께 주어진 Git 미션 수행\n최단 시간 클리어가 목표',
@@ -96,7 +98,11 @@ const SIDEBAR_TREE = [
  *
  * @description 싱글/멀티 탭 전환 + 세부 모드 선택 + 게임 시작 라우팅
  */
-export default function Win11ExplorerModal({ initialTab, onClose }: Win11ExplorerModalProps) {
+export default function Win11ExplorerModal({
+  initialTab,
+  onClose,
+  onLobbyOpen,
+}: Win11ExplorerModalProps) {
   useModal({ isOpen: true, onClose });
 
   const navigate = useNavigate();
@@ -104,10 +110,21 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
   const [isMaximized, setIsMaximized] = useState(false);
 
+  const MULTI_MODE_MAP: Record<string, string> = {
+    contribution: 'CONTRIBUTION_RUN',
+    timeattack: 'TIME_ATTACK',
+    coop: 'COOP',
+  };
+
   const items = activeTab === 'single' ? SINGLE_ITEMS : MULTI_ITEMS;
   const selectedData = items.find((item) => item.id === selectedItem) ?? null;
+
+  // 기여도 뺏기·협력은 로비 입장, 타임어택은 준비 중
+  const isLobbyMode =
+    activeTab === 'multi' && (selectedItem === 'contribution' || selectedItem === 'coop');
   const isPreparingModeSelected =
-    selectedItem !== null && (activeTab === 'multi' || selectedItem === 'HARD');
+    selectedItem !== null &&
+    (selectedItem === 'HARD' || (activeTab === 'multi' && selectedItem === 'timeattack'));
 
   const handleTabChange = (tab: ExplorerTab) => {
     setActiveTab(tab);
@@ -115,11 +132,23 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
   };
 
   const handleGameStart = () => {
-    if (!selectedItem || isPreparingModeSelected) return;
+    if (!selectedItem) return;
+    if (isLobbyMode) {
+      const apiMode = (MULTI_MODE_MAP[selectedItem as MultiMode] ?? 'CONTRIBUTION_RUN') as
+        | 'CONTRIBUTION_RUN'
+        | 'TIME_ATTACK'
+        | 'COOP';
+      onClose();
+      if (onLobbyOpen) {
+        onLobbyOpen(apiMode);
+      } else {
+        void navigate({ to: '/multi', search: { mode: apiMode } });
+      }
+      return;
+    }
+    if (isPreparingModeSelected) return;
     if (activeTab === 'single') {
       void navigate({ to: '/single', search: { difficulty: selectedItem as SingleDifficulty } });
-    } else {
-      void navigate({ to: '/multi', search: { mode: selectedItem as MultiMode } });
     }
   };
 
@@ -139,7 +168,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
         className={`relative z-10 flex flex-col overflow-hidden rounded-lg bg-[#f3f3f3] shadow-2xl ring-1 ring-black/10 ${
           isMaximized
             ? 'h-[calc(100vh-2rem)] w-[calc(100vw-2rem)]'
-            : 'h-modal-lg w-[1040px] max-w-[calc(100vw-3rem)]'
+            : 'h-modal-lg w-260 max-w-[calc(100vw-3rem)]'
         }`}
       >
         {/* ── 탭 바 ── */}
@@ -384,7 +413,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                   <p className="mb-1 text-sm font-semibold uppercase tracking-wider text-gray-400">
                     세부 정보
                   </p>
-                  <p className="whitespace-pre-line break-words text-sm leading-snug text-gray-600">
+                  <p className="whitespace-pre-line wrap-break-word text-sm leading-snug text-gray-600">
                     {selectedData.description}
                     {'\n\n'}
                     {selectedData.detail}
@@ -396,7 +425,11 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                   disabled={isPreparingModeSelected}
                   className="mt-auto w-full rounded bg-[#0078d4] py-2 text-sm font-semibold text-white outline-none! transition-colors hover:bg-[#106ebe] focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40 active:bg-[#005a9e] disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400 disabled:active:bg-gray-400"
                 >
-                  {isPreparingModeSelected ? '게임 준비중' : '게임 시작'}
+                  {isLobbyMode
+                    ? '로비 입장'
+                    : isPreparingModeSelected
+                      ? '게임 준비중'
+                      : '게임 시작'}
                 </button>
               </div>
             ) : (

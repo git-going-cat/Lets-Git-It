@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import bgImage from '@/assets/bg/screen.png';
 import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
+import LobbyPage from '@/features/multi/components/LobbyPage';
 import MyPageModal from '@/features/mypage/components/MyPageModal';
 import RankingModal from '@/features/ranking/components/RankingModal';
 import { useBgm } from '@/shared/hooks/useBgm';
@@ -18,11 +19,13 @@ import SideMenuButtons from './SideMenuButtons';
 import TutorialNpc from './TutorialNpc';
 
 import type { HomeModalType } from '../types/home.types';
+import type { GameMode } from '@/features/multi/types/room.types';
 
 export function HomePage() {
   useBgm();
   const [activeModal, setActiveModal] = useState<HomeModalType | null>(null);
   const [isMyPageOpen, setIsMyPageOpen] = useState(false);
+  const [lobbyMode, setLobbyMode] = useState<GameMode | null>(null);
 
   useEffect(() => {
     void import('@/features/single/components/SinglePage');
@@ -96,8 +99,14 @@ export function HomePage() {
         <Win11ExplorerModal initialTab="single" onClose={handleCloseModal} />
       )}
       {activeModal === 'explorer-multi' && (
-        <Win11ExplorerModal initialTab="multi" onClose={handleCloseModal} />
+        <Win11ExplorerModal
+          initialTab="multi"
+          onClose={handleCloseModal}
+          onLobbyOpen={(m) => setLobbyMode(m)}
+        />
       )}
+
+      {lobbyMode !== null && <LobbyPage mode={lobbyMode} onClose={() => setLobbyMode(null)} />}
 
       {activeModal === 'ranking' && <RankingModal onClose={handleCloseModal} />}
       {activeModal === 'dictionary' && <DictionaryModal onClose={handleCloseModal} />}
