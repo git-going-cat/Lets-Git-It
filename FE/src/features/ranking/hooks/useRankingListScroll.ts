@@ -12,14 +12,18 @@ interface UseRankingListScrollParams {
   suppressScrollRef: RefObject<boolean>;
   hasUpper: boolean;
   hasLower: boolean;
-  hasUserScrolled: boolean;
   visibleUpperListLength: number;
   shouldPreloadLowerRankings: boolean;
-  setHasUserScrolled: (value: boolean) => void;
   loadUpperRankings: () => void;
   loadLowerRankings: () => void;
 }
 
+/**
+ * 랭킹 목록의 위/아래 양방향 무한 스크롤을 제어합니다.
+ *
+ * @description IntersectionObserver와 scroll fallback을 함께 사용해 sentinel이 이미 보이는
+ * 상태에서도 이전/다음 랭킹 페이지를 가져오고, 위쪽 페이지가 추가될 때 현재 시야 위치를 유지합니다.
+ */
 export function useRankingListScroll({
   scrollContainerRef,
   upperObserverTarget,
@@ -30,10 +34,8 @@ export function useRankingListScroll({
   suppressScrollRef,
   hasUpper,
   hasLower,
-  hasUserScrolled,
   visibleUpperListLength,
   shouldPreloadLowerRankings,
-  setHasUserScrolled,
   loadUpperRankings,
   loadLowerRankings,
 }: UseRankingListScrollParams) {
@@ -56,9 +58,6 @@ export function useRankingListScroll({
       lastScrollTopRef.current = nextScrollTop;
 
       if (suppressScrollRef.current) return;
-      if (!hasUserScrolled) {
-        setHasUserScrolled(true);
-      }
 
       if (
         direction === 'down' &&
@@ -78,12 +77,6 @@ export function useRankingListScroll({
     };
 
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-
-    if (!hasUserScrolled) {
-      return () => {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-      };
-    }
 
     const upperObserver =
       upperObserverTarget.current && hasUpper
@@ -125,13 +118,11 @@ export function useRankingListScroll({
   }, [
     hasLower,
     hasUpper,
-    hasUserScrolled,
     loadLowerRankings,
     loadUpperRankings,
     lowerObserverTarget,
     scrollContainerRef,
     scrollDirectionRef,
-    setHasUserScrolled,
     suppressScrollRef,
     upperObserverTarget,
     lastScrollTopRef,

@@ -1,7 +1,4 @@
-export type GameStatus = 'idle' | 'playing' | 'paused' | 'gameover' | 'cleared';
-
-export const DIFFICULTIES = ['EASY', 'NORMAL', 'HARD'] as const;
-export type Difficulty = (typeof DIFFICULTIES)[number];
+import type { Command, Difficulty } from '@/shared/types/game.types';
 
 export type { StartSessionData } from '../schemas/single.schema';
 
@@ -13,6 +10,10 @@ export interface PlayLogEntry {
 export interface SaveResultRequest {
   status: 'SUCCESS' | 'GAMEOVER';
   score: number;
+  /**
+   * 플레이 시간(ms).
+   * BE는 이 값을 초 단위로 변환해 누적 플레이 시간에 반영한다.
+   */
   playTime: number;
   grade: string;
   playLog: PlayLogEntry[];
@@ -26,20 +27,15 @@ export const ITEM_SLOT_MAP = ['stash', 'cherry-pick', 'restore'] as const satisf
   ItemType,
 ];
 
-export type CommandType = 'CREATE' | 'MERGE' | 'COMMON' | 'SWITCH';
-
-export interface Command {
-  commandSequence: number;
-  text: string;
-  branchName: string;
-  type: CommandType;
-  /** 세션 시작 시 사전 배정된 아이템 드롭. undefined면 일반 노드. */
+/** 싱글 전용 명령어. 세션 시작 시 사전 배정된 아이템 드롭 정보를 포함한다. */
+export interface SingleCommand extends Command {
+  /** undefined면 일반 노드. */
   itemDrop?: ItemType;
 }
 
 export interface SingleSceneData {
   sessionId: string;
   difficulty: Difficulty;
-  commandSet: Command[];
+  commandSet: SingleCommand[];
   isTutorial?: boolean;
 }

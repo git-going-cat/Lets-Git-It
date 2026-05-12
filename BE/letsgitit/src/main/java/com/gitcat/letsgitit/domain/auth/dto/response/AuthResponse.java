@@ -16,6 +16,7 @@ public class AuthResponse {
 	// ===================== 로그인 응답 =====================
 	// refreshToken은 HttpOnly Cookie로만 내려가므로 body에 포함하지 않음
 	public record LoginResponse(
+		String memberId,
 		String accessToken,
 		boolean isFirstLogin, // nickname이 null이면 최초 로그인으로 판단
 		boolean isReactivated,
@@ -31,6 +32,7 @@ public class AuthResponse {
 		// Controller에서 LoginResponse.from(member, accessToken) 한 줄로 처리 가능
 		public static LoginResponse from(Member member, String accessToken, boolean isReactivated) {
 			return new LoginResponse(
+				member.getId().toString(),
 				accessToken,
 				member.getNickname() == null,
 				isReactivated,

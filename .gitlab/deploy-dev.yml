@@ -9,6 +9,9 @@ deploy-dev-be:
     - if: $CI_COMMIT_BRANCH == "develop"
       changes:
         - BE/**/*
+        - INFRA/Dockerfile.be
+        - INFRA/deploy-be.sh
+        - INFRA/docker-compose.be.yml
   script:
     - git config --global credential.helper store
     - cp /home/ubuntu/.git-credentials /root/.git-credentials
@@ -30,6 +33,8 @@ deploy-dev-fe:
         - FE/**/*
         - nginx/**/*
         - INFRA/Dockerfile.fe
+        - INFRA/deploy-fe.sh
+        - INFRA/docker-compose.fe.yml
   script:
     - git config --global credential.helper store
     - cp /home/ubuntu/.git-credentials /root/.git-credentials

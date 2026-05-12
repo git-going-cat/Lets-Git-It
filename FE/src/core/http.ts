@@ -1,8 +1,13 @@
 import axios from 'axios';
 
 import { env } from '@/config/env'; // 환경변수 추가
+import {
+  apiResponseSchema,
+  reissueResponseDataSchema,
+} from '@/features/auth/schemas/response.schema';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { faro } from '@/lib/faro';
+import { getRouter } from '@/routerRegistry';
 
 import type { InternalAxiosRequestConfig } from 'axios';
 
@@ -19,12 +24,16 @@ http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   // BE MDC 로그와 연결하기 위한 요청 추적 ID — BE 팀과 헤더명 'X-Request-Id' 합의 필요
-
-  config.headers['X-Request-Id'] = crypto.randomUUID();
+  // crypto.randomUUID()는 secure context(HTTPS) 필수 → dev HTTP 환경을 위한 fallback 포함
+  const requestId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+  config.headers['X-Request-Id'] = requestId;
   return config;
 });
 
-// ── 응답 인터셉터: 401 → reissue → 재시도 ────────────────────────────
+// ── reissue 뮤텍스 ────────────────────────────────────────────────────
 let isRefreshing = false;
 let pendingQueue: Array<{
   resolve: (token: string) => void;
@@ -41,6 +50,42 @@ const rejectPendingQueue = (error: unknown) => {
   pendingQueue = [];
 };
 
+/**
+ * 토큰 재발급 함수 — core/http.ts의 단일 reissue 경로.
+ *
+ * - isRefreshing 뮤텍스로 동시 호출 직렬화
+ * - Zod로 응답 스키마 검증 → 스키마 불일치 시 즉시 throw (undefined 토큰 저장 방지)
+ * - __root.tsx beforeLoad에서도 이 함수를 호출해 단일 경로 보장
+ */
+export async function reissueToken(): Promise<string> {
+  if (isRefreshing) {
+    return new Promise<string>((resolve, reject) => {
+      pendingQueue.push({ resolve, reject });
+    });
+  }
+
+  isRefreshing = true;
+  try {
+    const res = await axios.post(
+      `${env.API_BASE_URL}/api/v1/auth/reissue`,
+      {},
+      { withCredentials: true }
+    );
+    // Zod 검증: 스키마 불일치 시 throw → 무한 401 루프 방지
+    const parsed = apiResponseSchema(reissueResponseDataSchema).parse(res.data);
+    const newToken = parsed.data.accessToken;
+    useAuthStore.getState().setAccessToken(newToken);
+    resolvePendingQueue(newToken);
+    return newToken;
+  } catch (refreshError) {
+    rejectPendingQueue(refreshError);
+    throw refreshError;
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+// ── 응답 인터셉터: 401 → reissue → 재시도 ────────────────────────────
 http.interceptors.response.use(
   (res) => res,
   async (error: unknown) => {
@@ -57,37 +102,16 @@ http.interceptors.response.use(
     if (axiosError.response?.status === 401 && original && !original._retry && !isAuthEndpoint) {
       original._retry = true;
 
-      if (isRefreshing) {
-        // 재발급 중이면 대기 큐에 추가
-        return new Promise<string>((resolve, reject) => {
-          pendingQueue.push({ resolve, reject });
-        }).then((token) => {
-          original.headers.Authorization = `Bearer ${token}`;
-          return http(original);
-        });
-      }
-
-      isRefreshing = true;
       try {
-        const { data } = await axios.post<{ data: { accessToken: string } }>(
-          `${env.API_BASE_URL}/api/v1/auth/reissue`, // 앞에 개발 주소 추가
-          {},
-          { baseURL: env.API_BASE_URL, withCredentials: true }
-        );
-
-        const newToken = data.data.accessToken;
-        useAuthStore.getState().setAccessToken(newToken);
-        resolvePendingQueue(newToken);
-
+        const newToken = await reissueToken();
         original.headers.Authorization = `Bearer ${newToken}`;
         return http(original);
       } catch (refreshError) {
-        rejectPendingQueue(refreshError);
+        // 재발급 실패 → 인증 초기화 후 라우터로 로그인 페이지 이동 (SPA 상태 보존)
+        // getRouter()는 routerRegistry 경유로 순환 의존성을 방지 (런타임에는 항상 존재)
         useAuthStore.getState().clearAuth();
-        window.location.href = '/login';
+        void getRouter()?.navigate({ to: '/login' });
         return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
       }
     }
 

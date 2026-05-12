@@ -7,6 +7,7 @@ const singleRankingEntrySchema = z.object({
   nickname: z.string(),
   score: z.number(),
   grade: z.enum(['S', 'A', 'B', 'C', 'D', 'F']).nullable().optional(),
+  playTime: z.number().nullable().optional(),
 });
 
 const speedRankingEntrySchema = z.object({
@@ -65,6 +66,7 @@ export const singleInitialResponseSchema = weekHeaderSchema
         rank: z.number(),
         score: z.number(),
         grade: z.enum(['S', 'A', 'B', 'C', 'D', 'F']).nullable().optional(),
+        playTime: z.number().nullable().optional(),
       })
       .nullable(),
     around: z.array(singleRankingEntrySchema),

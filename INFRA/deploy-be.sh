@@ -55,7 +55,7 @@ for i in $(seq 1 20); do
 done
 
 # upstream 파일 교체
-cat > "$NGINX_CONF_DIR/00-upstream.conf" <<EOF
+tee "$NGINX_CONF_DIR/00-upstream.conf" <<EOF
 # Blue-Green 배포 시 deploy.sh가 이 파일을 교체하고 nginx -s reload 수행
 upstream backend {
     server spring-$NEXT:8080;

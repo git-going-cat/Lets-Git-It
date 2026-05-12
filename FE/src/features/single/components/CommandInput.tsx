@@ -1,49 +1,63 @@
-import { useCommandInput } from '../hooks/useCommandInput';
+import { type HistoryStatus, useCommandInput } from '../hooks/useCommandInput';
+
+const HISTORY_STATUS_CLASS: Record<HistoryStatus, string> = {
+  ok: 'text-green-400/60',
+  miss: 'text-yellow-400',
+  typo: 'text-red-400',
+  'wrong-branch': 'text-red-400',
+  switch: 'text-green-400/60',
+};
 
 export default function CommandInput() {
   const {
     inputRef,
     inputValue,
-    historyText,
-    isError,
+    history,
     isPlaying,
+    activeBranch,
     handleInputChange,
     handleKeyDown,
   } = useCommandInput();
 
   return (
-    // overflow-hidden으로 영역 제한, padding 4px 8px로 NES.css 4px box-shadow 확장 공간 확보
-    <div className="font-pixel mx-auto flex h-full w-full flex-col justify-center gap-2 overflow-hidden px-2 py-1">
-      {/* box-sizing: border-box → border 4px가 width 안에 포함 → 100%가 부모 기준으로 정확히 맞음 */}
-      <div
-        className={`nes-container is-dark box-border w-full !px-3 !py-2 ${isError ? 'is-error' : ''}`}
-      >
-        {historyText ? (
-          <p className={`m-0 !text-2xl ${isError ? 'text-red-400' : 'text-green-400'}`}>
-            {historyText}
-          </p>
-        ) : (
-          <p className="m-0 !text-2xl text-gray-500">Waiting for input...</p>
-        )}
-      </div>
+    <div className="font-pixel flex h-full w-full overflow-hidden px-2 py-1">
+      <div className="nes-container is-dark box-border flex w-full flex-col !px-3 !py-2">
+        {/* 히스토리 — 최근 2줄, 위로 쌓이며 하단 정렬. 입력창은 항상 바닥 고정 */}
+        <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden">
+          {history.length === 0 ? (
+            <p className="text-xl text-gray-500">Waiting for input...</p>
+          ) : (
+            history.slice(-2).map((entry, i) => (
+              <div key={i} className="flex gap-2 text-xl leading-tight">
+                <span className="select-none text-gray-500">&gt;</span>
+                <span className={HISTORY_STATUS_CLASS[entry.status]}>{entry.text}</span>
+              </div>
+            ))
+          )}
+        </div>
 
-      <div className="nes-field w-full">
-        <input
-          ref={inputRef}
-          type="text"
-          id="command_input"
-          className="nes-input is-dark box-border w-full !text-2xl"
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onCopy={(e) => e.preventDefault()}
-          onPaste={(e) => e.preventDefault()}
-          onCut={(e) => e.preventDefault()}
-          disabled={!isPlaying}
-          autoComplete="off"
-          spellCheck="false"
-          autoFocus
-        />
+        {/* 구분선 */}
+        <div className="my-1.5 border-t border-gray-600" />
+
+        {/* 입력줄 — 하단 고정 */}
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="select-none !text-xl text-cyan-400/80">({activeBranch})</span>
+          <span className="select-none !text-2xl text-white">$</span>
+          <input
+            ref={inputRef}
+            type="text"
+            className="flex-1 bg-transparent !text-2xl text-white outline-none"
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onCopy={(e) => e.preventDefault()}
+            onPaste={(e) => e.preventDefault()}
+            onCut={(e) => e.preventDefault()}
+            disabled={!isPlaying}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
       </div>
     </div>
   );

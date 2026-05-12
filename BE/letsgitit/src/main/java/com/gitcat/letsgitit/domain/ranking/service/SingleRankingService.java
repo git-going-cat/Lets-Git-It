@@ -45,5 +45,5 @@ public interface SingleRankingService {
 		int size,
 		UUID memberId);
 
-	int updateSingleScore(Difficulty difficulty, UUID memberId, int score, Grade grade);
+	int updateSingleScore(Difficulty difficulty, UUID memberId, int score, Grade grade, int playTimeMs);
 }

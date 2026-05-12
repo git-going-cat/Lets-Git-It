@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,6 +40,18 @@ public class SingleController implements SingleControllerDocs {
 
 		SingleSessionStartResponse response = singleService.startSession(memberId, request);
 		return ApiResponse.ok("싱글 게임 세션 생성 성공", response);
+	}
+
+	@Override
+	@DeleteMapping("/sessions/{sessionId}")
+	public ResponseEntity<?> terminateSession(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
+		@PathVariable
+		String sessionId) {
+		UUID memberId = userDetails.getMemberId();
+		singleService.terminateSession(memberId, sessionId);
+		return ApiResponse.ok("싱글 게임 세션 종료 성공");
 	}
 
 	@Override

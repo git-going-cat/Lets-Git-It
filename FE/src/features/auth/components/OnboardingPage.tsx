@@ -26,7 +26,7 @@ const STEP_TITLE: Record<OnboardingStep, string> = {
  * useOnboarding 훅이 관리하는 step에 따라 단계 컴포넌트를 렌더링합니다.
  */
 export default function OnboardingPage() {
-  const { step, goToStep, finishOnboarding } = useOnboarding();
+  const { step, goToStep, finishOnboarding, completingNetworkError } = useOnboarding();
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black">
@@ -49,8 +49,21 @@ export default function OnboardingPage() {
         {step === 'tutorial' && <TutorialStep onComplete={finishOnboarding} />}
 
         {step === 'completing' && (
-          <div className="flex items-center justify-center h-24">
-            <p className="text-white text-sm animate-pulse">온보딩을 완료하는 중...</p>
+          <div className="flex flex-col items-center justify-center gap-4 h-24">
+            {completingNetworkError ? (
+              <>
+                <p className="text-red-400 text-sm">네트워크 연결을 확인하고 다시 시도해주세요.</p>
+                <button
+                  type="button"
+                  className="nes-btn is-warning text-sm"
+                  onClick={() => void finishOnboarding()}
+                >
+                  다시 시도
+                </button>
+              </>
+            ) : (
+              <p className="text-white text-sm animate-pulse">온보딩을 완료하는 중...</p>
+            )}
           </div>
         )}
       </OnboardingModal>

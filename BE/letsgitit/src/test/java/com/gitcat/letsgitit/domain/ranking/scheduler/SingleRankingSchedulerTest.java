@@ -24,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.gitcat.letsgitit.domain.ranking.constants.RankingKeyUtil;
 import com.gitcat.letsgitit.domain.ranking.entity.SingleRanking;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRedisRepository;
 import com.gitcat.letsgitit.domain.ranking.repository.SingleRankingRedisRepository.RankEntry;
@@ -68,14 +69,16 @@ class SingleRankingSchedulerTest {
 			.willReturn(normalEntries);
 		given(singleRankingRedisRepository.getGrades(anyString(), anyList()))
 			.willReturn(Map.of());
+		given(singleRankingRedisRepository.getPlayTimes(anyString(), anyList()))
+			.willReturn(Map.of());
 
 		// when
 		scheduler.settleSingleRanking();
 		TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.afterCommit());
 
-		// then — NORMAL만 saveAll 1회, deleteKey 2회 (ZSet 키 + grade 키)
+		// then — NORMAL만 saveAll 1회, deleteKey 3회 (ZSet 키 + grade 키 + playTime 키)
 		verify(singleRankingRepository, times(1)).saveAll(anyList());
-		verify(singleRankingRedisRepository, times(2)).deleteKey(anyString());
+		verify(singleRankingRedisRepository, times(3)).deleteKey(anyString());
 	}
 
 	@Test
@@ -95,6 +98,8 @@ class SingleRankingSchedulerTest {
 			.willReturn(entries);
 		given(singleRankingRedisRepository.getGrades(anyString(), anyList()))
 			.willReturn(Map.of());
+		given(singleRankingRedisRepository.getPlayTimes(anyString(), anyList()))
+			.willReturn(Map.of());
 
 		ArgumentCaptor<List<SingleRanking>> captor = ArgumentCaptor.forClass(List.class);
 
@@ -112,10 +117,11 @@ class SingleRankingSchedulerTest {
 	}
 
 	@Test
-	void 정산_시_score가_올바르게_반올림되어_저장된다() {
-		// given — score 9800.6 → 9801로 저장
+	void 정산_시_composite_score를_역산해_원래_점수가_저장된다() {
+		// given — Redis에는 composite score, DB에는 원래 점수가 저장되어야 함
 		UUID id1 = UUID.randomUUID();
-		List<RankEntry> entries = List.of(new RankEntry(id1.toString(), 9800.6));
+		double composite = (9801.0 + 1) * RankingKeyUtil.SCORE_UNIT + 1_000_000;
+		List<RankEntry> entries = List.of(new RankEntry(id1.toString(), composite));
 
 		given(singleRankingRedisRepository.getTotalCount(anyString()))
 			.willReturn(1L) // EASY
@@ -124,6 +130,8 @@ class SingleRankingSchedulerTest {
 		given(singleRankingRedisRepository.getRangeByRank(anyString(), eq(0L), anyLong()))
 			.willReturn(entries);
 		given(singleRankingRedisRepository.getGrades(anyString(), anyList()))
+			.willReturn(Map.of());
+		given(singleRankingRedisRepository.getPlayTimes(anyString(), anyList()))
 			.willReturn(Map.of());
 
 		ArgumentCaptor<List<SingleRanking>> captor = ArgumentCaptor.forClass(List.class);
@@ -134,6 +142,91 @@ class SingleRankingSchedulerTest {
 		// then
 		verify(singleRankingRepository).saveAll(captor.capture());
 		assertThat(captor.getValue().get(0).getScore()).isEqualTo(9801);
+	}
+
+	@Test
+	void 정산_시_기존_plain_score_Redis_데이터는_그대로_DB에_저장된다() {
+		// given
+		UUID id1 = UUID.randomUUID();
+		List<RankEntry> entries = List.of(new RankEntry(id1.toString(), 9800.0));
+
+		given(singleRankingRedisRepository.getTotalCount(anyString()))
+			.willReturn(1L)
+			.willReturn(0L)
+			.willReturn(0L);
+		given(singleRankingRedisRepository.getRangeByRank(anyString(), eq(0L), anyLong()))
+			.willReturn(entries);
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList()))
+			.willReturn(Map.of());
+		given(singleRankingRedisRepository.getPlayTimes(anyString(), anyList()))
+			.willReturn(Map.of());
+
+		ArgumentCaptor<List<SingleRanking>> captor = ArgumentCaptor.forClass(List.class);
+
+		// when
+		scheduler.settleSingleRanking();
+
+		// then
+		verify(singleRankingRepository).saveAll(captor.capture());
+		assertThat(captor.getValue().get(0).getScore()).isEqualTo(9800);
+		assertThat(captor.getValue().get(0).getPlayTime()).isNull();
+	}
+
+	@Test
+	void 정산_시_playTime_Hash_값이_DB에_저장된다() {
+		// given
+		UUID id1 = UUID.randomUUID();
+		double composite = (9800.0 + 1) * RankingKeyUtil.SCORE_UNIT + 1_000_000;
+		int playTimeMs = 95_432;
+		List<RankEntry> entries = List.of(new RankEntry(id1.toString(), composite));
+
+		given(singleRankingRedisRepository.getTotalCount(anyString()))
+			.willReturn(1L)
+			.willReturn(0L)
+			.willReturn(0L);
+		given(singleRankingRedisRepository.getRangeByRank(anyString(), eq(0L), anyLong()))
+			.willReturn(entries);
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList()))
+			.willReturn(Map.of());
+		given(singleRankingRedisRepository.getPlayTimes(anyString(), anyList()))
+			.willReturn(Map.of(id1, playTimeMs));
+
+		ArgumentCaptor<List<SingleRanking>> captor = ArgumentCaptor.forClass(List.class);
+
+		// when
+		scheduler.settleSingleRanking();
+
+		// then
+		verify(singleRankingRepository).saveAll(captor.capture());
+		assertThat(captor.getValue().get(0).getPlayTime()).isEqualTo(playTimeMs);
+	}
+
+	@Test
+	void 정산_시_playTime_Hash_값이_없으면_null로_저장된다() {
+		// given
+		UUID id1 = UUID.randomUUID();
+		double composite = (9800.0 + 1) * RankingKeyUtil.SCORE_UNIT + 1_000_000;
+		List<RankEntry> entries = List.of(new RankEntry(id1.toString(), composite));
+
+		given(singleRankingRedisRepository.getTotalCount(anyString()))
+			.willReturn(1L)
+			.willReturn(0L)
+			.willReturn(0L);
+		given(singleRankingRedisRepository.getRangeByRank(anyString(), eq(0L), anyLong()))
+			.willReturn(entries);
+		given(singleRankingRedisRepository.getGrades(anyString(), anyList()))
+			.willReturn(Map.of());
+		given(singleRankingRedisRepository.getPlayTimes(anyString(), anyList()))
+			.willReturn(Map.of());
+
+		ArgumentCaptor<List<SingleRanking>> captor = ArgumentCaptor.forClass(List.class);
+
+		// when
+		scheduler.settleSingleRanking();
+
+		// then
+		verify(singleRankingRepository).saveAll(captor.capture());
+		assertThat(captor.getValue().get(0).getPlayTime()).isNull();
 	}
 
 	@Test

@@ -8,7 +8,6 @@ import type { TutorialOverlayState } from '../hooks/useTutorialMode';
 interface TutorialOverlayProps {
   state: TutorialOverlayState;
   onNext: (metaIndex: number) => void;
-  onExit?: () => void;
 }
 
 /**
@@ -20,8 +19,10 @@ interface TutorialOverlayProps {
  *
  * explanation 단계:
  *   - 딤 배경 + 중앙 해설 카드 (Enter 키 또는 버튼으로 다음 이동)
+ *
+ * 종료는 ESC/⏸ → TutorialPauseModal → 스킵 경로로 일원화.
  */
-export default function TutorialOverlay({ state, onNext, onExit }: TutorialOverlayProps) {
+export default function TutorialOverlay({ state, onNext }: TutorialOverlayProps) {
   const tutorialSteps = useSingleStore((s) => s.tutorialSteps);
   const [blurActive, setBlurActive] = useState(true);
   const nextBtnRef = useRef<HTMLButtonElement>(null);
@@ -86,11 +87,7 @@ export default function TutorialOverlay({ state, onNext, onExit }: TutorialOverl
         />
 
         {/* 상단 고정 설명 카드 — 항상 표시, pointer-events-none으로 입력 방해 안 함 */}
-        <div
-          className={`font-pixel absolute top-3 left-[15%] w-[70%] z-40 tutorial-bubble-wrap ${
-            onExit ? 'pointer-events-auto' : 'pointer-events-none'
-          }`}
-        >
+        <div className="font-pixel absolute top-3 left-game-sidebar w-game-center z-40 tutorial-bubble-wrap pointer-events-none">
           <div className="nes-container is-dark with-title px-3 py-2">
             <p className="title text-sm">
               STEP {stepNumber} / {totalSteps}
@@ -124,15 +121,6 @@ export default function TutorialOverlay({ state, onNext, onExit }: TutorialOverl
                 ? '명령어가 화면 중앙으로 내려옵니다...'
                 : '↓ 중앙의 명령어를 입력하세요!'}
             </p>
-            {onExit && (
-              <button
-                type="button"
-                className="nes-btn is-error mt-3 w-full text-sm"
-                onClick={onExit}
-              >
-                나가기
-              </button>
-            )}
           </div>
         </div>
       </>
@@ -172,11 +160,6 @@ export default function TutorialOverlay({ state, onNext, onExit }: TutorialOverl
         >
           {isLast ? '튜토리얼 완료! 🎉' : '다음  [Enter ↵]'}
         </button>
-        {onExit && (
-          <button type="button" className="nes-btn is-error mt-3 w-full text-base" onClick={onExit}>
-            나가기
-          </button>
-        )}
       </div>
     </div>
   );

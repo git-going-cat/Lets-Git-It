@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 import { useModal } from '@/shared/hooks/useModal';
 import { useAudioStore } from '@/shared/store/audioStore';
 
@@ -6,7 +8,8 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ onClose }: SettingsModalProps) {
-  useModal({ isOpen: true, onClose });
+  const { containerRef } = useModal({ isOpen: true, onClose });
+  const titleId = useId();
 
   const { bgmEnabled, bgmVolume, setBgmEnabled, setBgmVolume } = useAudioStore();
 
@@ -16,11 +19,18 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
       onClick={onClose}
     >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className="flex w-80 flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-200 bg-[#f3f3f3] px-4 py-2">
-          <span className="text-sm font-semibold text-gray-700">설정</span>
+          <span id={titleId} className="text-sm font-semibold text-gray-700">
+            설정
+          </span>
           <button
             type="button"
             onClick={onClose}

@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 
 import type { StartSessionData } from '../schemas/single.schema';
-import type { Command, Difficulty, ItemType, PlayLogEntry } from '../types/single.types';
+import type { ItemType, PlayLogEntry, SingleCommand } from '../types/single.types';
 import type { TutorialStep } from '@/features/auth/schemas/onboarding.schema';
+import type { Difficulty } from '@/shared/types/game.types';
 
 const SINGLE_SESSION_TTL_MS = 30 * 60 * 1000;
 
@@ -12,7 +13,7 @@ interface SingleSessionState {
   sessionExpiresAt: number | null;
   difficulty: Difficulty | null;
   bestScore: number;
-  commandSet: Command[];
+  commandSet: SingleCommand[];
   isTutorial: boolean;
   tutorialSteps: TutorialStep[];
   // playLog는 현재 BE API에서 미지원 — 악성 유저 대응을 위해 FE에서 구조만 선행 구현
@@ -33,7 +34,7 @@ interface SingleSessionActions {
 const ITEM_DROP_RATE: Record<Difficulty, number> = { EASY: 0.4, NORMAL: 0.3, HARD: 0.2 };
 const ITEM_TYPES: ItemType[] = ['stash', 'cherry-pick', 'restore'];
 
-function assignItemDrops(commands: Command[], difficulty: Difficulty): Command[] {
+function assignItemDrops(commands: SingleCommand[], difficulty: Difficulty): SingleCommand[] {
   const rate = ITEM_DROP_RATE[difficulty];
   return commands.map((cmd) => {
     if (Math.random() < rate) {
