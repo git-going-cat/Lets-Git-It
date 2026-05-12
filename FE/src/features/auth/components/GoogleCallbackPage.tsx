@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useSearch } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -13,6 +13,7 @@ import { useAuthStore } from '@/features/auth/store/authStore';
 export default function GoogleCallbackPage() {
   const { loginWithOAuth } = useAuth();
   const clearAuth = useAuthStore((s) => s.clearAuth);
+  const navigate = useNavigate();
   const { code, error } = useSearch({ strict: false }) as { code?: string; error?: string };
   const called = useRef(false);
 
@@ -20,16 +21,23 @@ export default function GoogleCallbackPage() {
     if (error) {
       // 백엔드 OAuth 처리 실패 → 기존 세션 초기화 후 로그인 페이지로 복귀
       clearAuth();
-      window.location.href = '/login';
+      void navigate({ to: '/login' });
       return;
     }
-    if (called.current || !code) return;
+    if (!code) {
+      // code도 error도 없는 직접 URL 진입 → 로그인 페이지로 복귀 (무한 spinner 방지)
+      // error 분기와 달리 clearAuth()를 호출하지 않는 것은 의도된 동작:
+      // 단순 직접 진입은 기존 로그인 세션을 유지해야 하므로 세션 초기화 없이 이동.
+      void navigate({ to: '/login' });
+      return;
+    }
+    if (called.current) return;
     called.current = true;
     loginWithOAuth(code).catch(() => {
       // 코드 만료·무효 → 로그인 페이지로 복귀
-      window.location.href = '/login';
+      void navigate({ to: '/login' });
     });
-  }, [code, error, loginWithOAuth]);
+  }, [code, error, loginWithOAuth, clearAuth, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#1b1a4b]">

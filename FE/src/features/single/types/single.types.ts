@@ -13,6 +13,10 @@ export interface PlayLogEntry {
 export interface SaveResultRequest {
   status: 'SUCCESS' | 'GAMEOVER';
   score: number;
+  /**
+   * 플레이 시간(ms).
+   * BE는 이 값을 초 단위로 변환해 누적 플레이 시간에 반영한다.
+   */
   playTime: number;
   grade: string;
   playLog: PlayLogEntry[];

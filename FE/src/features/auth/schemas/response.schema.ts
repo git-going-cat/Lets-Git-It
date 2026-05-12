@@ -24,6 +24,7 @@ export const characterInfoSchema = z.object({
 });
 
 export const loginResponseDataSchema = characterInfoSchema.extend({
+  memberId: z.string(),
   accessToken: z.string(),
   isFirstLogin: z.boolean(),
   /** 탈퇴 후 30일 이내 재가입으로 기존 계정이 복구된 경우 true */

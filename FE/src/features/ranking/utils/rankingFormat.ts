@@ -28,6 +28,18 @@ export function formatScore(mode: RankingMode, entry: RankingEntry): string {
   return 'score' in entry ? `${entry.score.toLocaleString()} pt` : '-';
 }
 
+/** 싱글 랭킹 동점자 구분용 플레이 시간을 포맷팅합니다. */
+export function formatPlayTime(playTime?: number | null): string {
+  if (playTime == null) return '-';
+  return formatClearTime(playTime);
+}
+
+/** 랭킹 항목에서 싱글 플레이 시간 값을 안전하게 추출합니다. */
+export function getPlayTime(entry: RankingEntry): number | null {
+  if (!('playTime' in entry)) return null;
+  return entry.playTime ?? null;
+}
+
 /** 내 순위(MyRank)의 점수 값을 포맷팅된 문자열로 변환 */
 export function formatMyRankScore(mode: RankingMode, myRank: Exclude<MyRank, null>): string {
   if (mode === 'coop') return formatClearTime((myRank as CoopMyRank).clearTime);
@@ -124,12 +136,14 @@ export function getModeLabel(mode: RankingMode): string {
 }
 
 /**
- * 이전 주차 계산
+ * 이전 주차 계산 (ISO-8601 기준)
  *
- * @description 1주차이면 이전 달 마지막 주로 이동. 주차 이동 로직 단일 출처.
+ * @description 현재 달의 최소 주차(0 또는 1)에 도달하면 이전 달 마지막 주로 이동.
  */
 export function getPrevWeek(current: WeekParam): WeekParam {
-  if (current.week === 1) {
+  const minWeek = getMinWeekOfMonth(current.year, current.month);
+
+  if (current.week <= minWeek) {
     const prevMonth = current.month === 1 ? 12 : current.month - 1;
     const prevYear = current.month === 1 ? current.year - 1 : current.year;
     return { year: prevYear, month: prevMonth, week: getLastWeekOfMonth(prevYear, prevMonth) };
@@ -137,17 +151,69 @@ export function getPrevWeek(current: WeekParam): WeekParam {
   return { ...current, week: current.week - 1 };
 }
 
+/**
+ * 현재 날짜 기반 주차 파라미터 반환
+ *
+ * @param date 계산 기준일 (기본값: 현재 시간)
+ * @returns {WeekParam} 연, 월, 주차 (ISO-8601 기준)
+ */
 export function getCurrentWeek(date = new Date()): WeekParam {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
-  const firstDay = new Date(year, month - 1, 1).getDay();
-  const week = Math.ceil((firstDay + date.getDate()) / 7);
+  const week = getIsoWeekOfMonth(date);
 
-  return { year, month, week };
+  return normalizeWeekParam({ year, month, week });
+}
+
+/**
+ * 0주차를 사용자에게 노출하지 않도록 이전 달 마지막 주차로 변환
+ *
+ * @description ISO-8601 기준 첫 주가 4일 미만이면 0주차가 될 수 있으므로 표시/API 파라미터용으로 정규화
+ */
+export function normalizeWeekParam(weekParam: WeekParam): WeekParam {
+  return weekParam.week === 0 ? getPrevWeek(weekParam) : weekParam;
+}
+
+/**
+ * ISO-8601 기준 특정 날짜의 월간 주차(Week of Month) 계산
+ *
+ * @description 월요일 시작, 첫 주에 최소 4일이 포함되어야 1주차로 산정
+ * @param date 계산할 날짜 객체
+ * @returns {number} 0~5 주차 값 반환 (0은 이전 달 마지막 주차로 취급됨)
+ */
+function getIsoWeekOfMonth(date: Date): number {
+  const dayOfMonth = date.getDate();
+  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+  const firstDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay(); // 1=Mon, ..., 7=Sun
+  const daysInFirstWeek = 8 - firstDayOfWeek; // 1일부터 첫 일요일까지의 일수
+
+  let week = 0;
+  if (daysInFirstWeek >= 4) {
+    week = 1;
+  }
+
+  if (dayOfMonth <= daysInFirstWeek) {
+    return week;
+  }
+
+  const remainingDays = dayOfMonth - daysInFirstWeek;
+  week += Math.ceil(remainingDays / 7);
+  return week;
+}
+
+/**
+ * 특정 연/월의 최소 주차 번호 반환
+ *
+ * @description ISO-8601 기준 1일이 속한 주가 4일 미만이면 0주차, 4일 이상이면 1주차 반환
+ */
+function getMinWeekOfMonth(year: number, month: number): number {
+  const firstDay = new Date(year, month - 1, 1);
+  const firstDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay();
+  const daysInFirstWeek = 8 - firstDayOfWeek;
+  return daysInFirstWeek >= 4 ? 1 : 0;
 }
 
 function getLastWeekOfMonth(year: number, month: number): number {
-  const firstDay = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
-  return Math.ceil((firstDay + daysInMonth) / 7);
+  return getIsoWeekOfMonth(new Date(year, month - 1, daysInMonth));
 }

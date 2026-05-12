@@ -1,24 +1,41 @@
 import posthog from 'posthog-js';
 
-export const analytics = {
-  identifyUser: (nickname: string) => posthog.identify(nickname, { nickname }),
-  resetUser: () => posthog.reset(),
+import { env } from '@/config/env';
 
-  gameModeSelected: (mode: 'single' | 'multi') => posthog.capture('game_mode_selected', { mode }),
+// 빈 키 환경에서 init이 가드되어 posthog가 uninitialized 상태로 남는다.
+// 이 상태에서 capture/identify/reset 호출 시 콘솔 경고가 발생하므로 호출 자체를 no-op 처리.
+const isEnabled = Boolean(env.POSTHOG_KEY);
+
+const capture = (event: string, props?: Record<string, unknown>) => {
+  if (!isEnabled) return;
+  posthog.capture(event, props);
+};
+
+export const analytics = {
+  identifyUser: (memberId: string) => {
+    if (!isEnabled || !memberId) return;
+    posthog.identify(memberId);
+  },
+  resetUser: () => {
+    if (!isEnabled) return;
+    posthog.reset();
+  },
+
+  gameModeSelected: (mode: 'single' | 'multi') => capture('game_mode_selected', { mode }),
 
   gameStarted: (mode: 'single' | 'tutorial', difficulty?: string) =>
-    posthog.capture('game_started', { mode, difficulty }),
+    capture('game_started', { mode, difficulty }),
 
   gameCompleted: (difficulty: string, score: number, playTimeMs: number) =>
-    posthog.capture('game_completed', { difficulty, score, play_time_ms: playTimeMs }),
+    capture('game_completed', { difficulty, score, play_time_ms: playTimeMs }),
 
   gameOver: (difficulty: string, playTimeMs: number) =>
-    posthog.capture('game_over', { difficulty, play_time_ms: playTimeMs }),
+    capture('game_over', { difficulty, play_time_ms: playTimeMs }),
 
-  gameAbandoned: () => posthog.capture('game_abandoned'),
+  gameAbandoned: () => capture('game_abandoned'),
 
   tutorialStepCompleted: (step: number, total: number) =>
-    posthog.capture('tutorial_step_completed', { step, total }),
+    capture('tutorial_step_completed', { step, total }),
 
-  tutorialSkipped: (at_step: number) => posthog.capture('tutorial_skipped', { at_step }),
+  tutorialSkipped: (at_step: number) => capture('tutorial_skipped', { at_step }),
 };

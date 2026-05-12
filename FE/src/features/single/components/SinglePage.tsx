@@ -44,12 +44,13 @@ function GameEndFlowInner({ result }: { result: GameResult }) {
 
 function GameEndFlow() {
   const result = useAtomValue(gameResultAtom);
+  const sessionId = useSingleStore((state) => state.sessionId);
   if (!result) return null;
-  return <GameEndFlowInner key={result.status + result.score} result={result} />;
+  return <GameEndFlowInner key={`${sessionId}-${result.status}-${result.score}`} result={result} />;
 }
 
 export default function SinglePage() {
-  useBgm();
+  useBgm({ resetOnMount: true });
   useSinglePageGuards();
   const navigate = useNavigate();
   const { difficulty } = useSearch({ from: '/single' });
@@ -71,9 +72,17 @@ export default function SinglePage() {
 
     return () => {
       cancelled = true;
-      useSingleStore.getState().clearSession();
+      // 결과 저장 중 sessionId가 비워지지 않도록 세션 정리는 다음 진입 시 setSession에 맡긴다.
     };
   }, [difficulty, navigate]);
+
+  if (!sessionId) {
+    return (
+      <div className="font-pixel flex h-screen items-center justify-center bg-black text-2xl text-white">
+        세션을 준비하는 중...
+      </div>
+    );
+  }
 
   return (
     <Provider>

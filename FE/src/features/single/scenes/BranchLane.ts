@@ -16,6 +16,16 @@ const FALLBACK_COLORS = [
 ];
 const DEFAULT_COLOR = { line: 0x6b7280, text: '#9ca3af' };
 
+const BRIGHT_COLORS: Record<string, number> = {
+  main: 0x93c5fd, // 밝은 파랑
+  feature: 0xe0aaff, // 밝은 보라
+  hotfix: 0xfca5a5, // 밝은 빨강
+  develop: 0x6ee7b7, // 밝은 초록
+};
+const LINE_TO_BRIGHT: Record<number, number> = Object.fromEntries(
+  Object.entries(BRANCH_COLORS).map(([k, v]) => [v.line, BRIGHT_COLORS[k]])
+);
+
 const PIXEL_FONT = "'NeoDunggeunGothicPro', monospace";
 
 const LANE = {
@@ -150,20 +160,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
   private addBlinkIndicator(): void {
     if (!this.commandNode || this.blinkIndicator) return;
 
-    // 브랜치별 밝은 색상 매핑 (fallback: 기존 색상)
-    const BRIGHT_COLORS: Record<string, number> = {
-      main: 0x93c5fd, // 밝은 파랑
-      feature: 0xe0aaff, // 밝은 보라
-      hotfix: 0xfca5a5, // 밝은 빨강
-      develop: 0x6ee7b7, // 밝은 초록
-    };
-    // branchColor는 생성자에서 결정됨
-    const brightColor =
-      BRIGHT_COLORS[
-        (Object.keys(BRANCH_COLORS).find(
-          (k) => BRANCH_COLORS[k].line === this.branchColor.line
-        ) as keyof typeof BRIGHT_COLORS) || ''
-      ] ?? 0xffffff;
+    const brightColor = LINE_TO_BRIGHT[this.branchColor.line] ?? 0xffffff;
 
     const r = NODE.RADIUS + 10;
     const TOTAL_SEGS = 14;

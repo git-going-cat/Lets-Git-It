@@ -38,11 +38,11 @@ export default function GameEndScreen({ status, onVideoEnd, churuRatio = 0 }: Ga
   }, [phase, onVideoEnd]);
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-100">
       {phase === 'escape' ? (
-        // 게임 화면에 반투명 오버레이, 우측 15% 패널에 탈출 애니메이션
+        // 게임 화면에 반투명 오버레이, 우측 사이드바 패널에 탈출 애니메이션
         <div className="relative h-full w-full bg-black/30">
-          <div className="absolute right-0 top-0 h-full w-[15%]">
+          <div className="absolute right-0 top-0 h-full w-game-sidebar">
             <EscapeAnimation
               mode={status === 'SUCCESS' ? 'success' : 'escape_failed'}
               churuRatio={churuRatio}
@@ -52,12 +52,14 @@ export default function GameEndScreen({ status, onVideoEnd, churuRatio = 0 }: Ga
         </div>
       ) : (
         <div className="fixed inset-0 flex items-center justify-center bg-black/80">
+          {/* 80vh/80vw: 영상이 화면을 꽉 채우지 않고 모달처럼 여백을 두기 위한 80% 제한. bg-[rgba(19,19,19,0.97)]: 영상 플레이어 다크 배경(0.97 알파로 미세한 깊이감) */}
           <div className="max-h-[80vh] max-w-[80vw] overflow-hidden rounded-lg border border-white/10 bg-[rgba(19,19,19,0.97)] shadow-2xl">
             <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
               <span className="text-yellow-400">⚠</span>
               <span className="text-sm font-medium text-white/70">{VIDEO_TITLE[status]}</span>
             </div>
             <div className="flex flex-col items-center gap-4 p-4">
+              {/* calc(80vh-8rem): 컨테이너 max-h(80vh)에서 헤더(py-2.5)·내부 padding(p-4)·건너뛰기 버튼 영역을 뺀 영상 높이 */}
               <video
                 src={VIDEO_SRC[status]}
                 autoPlay

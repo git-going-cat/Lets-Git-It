@@ -27,20 +27,15 @@ import TutorialPauseModal from './TutorialPauseModal';
 
 interface SingleGameContentProps {
   onTutorialComplete?: () => void;
-  onTutorialExit?: () => void;
 }
 
-export default function SingleGameContent({
-  onTutorialComplete,
-  onTutorialExit,
-}: SingleGameContentProps) {
+export default function SingleGameContent({ onTutorialComplete }: SingleGameContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const [shaking, setShaking] = useState(false);
 
   const { sessionId, difficulty, commandSet, isTutorial } = useSingleStore();
   const gameStatus = useAtomValue(gameStatusAtom);
-  const gameStatusRef = useRef(gameStatus);
   const totalCommands = useMemo(
     () => commandSet.filter((c) => c.type !== 'SWITCH').length,
     [commandSet]
@@ -63,18 +58,16 @@ export default function SingleGameContent({
   const { overlayState, modalPhase, handleNext, handleResume, handleSkip } =
     useTutorialMode(isTutorial);
 
+  // 다시하기는 EventBus 'game:restart' 이벤트로 처리하므로,
+  // sessionId/commandSet 변경마다 Phaser 인스턴스를 재생성하지 않는다.
+  // hasSession boolean 트랜지션(false→true / true→false)에서만 effect가 발화하도록 deps를 단순화.
+  // isTutorial은 게임 모드 자체가 달라지므로 계속 deps에 포함.
+  const hasSession = !!sessionId && !!difficulty;
   useEffect(() => {
-    if (modalPhase === 'skipped') {
-      void onTutorialComplete?.();
-    }
-  }, [modalPhase, onTutorialComplete]);
+    if (!containerRef.current || !hasSession) return;
 
-  useEffect(() => {
-    gameStatusRef.current = gameStatus;
-  }, [gameStatus]);
-
-  useEffect(() => {
-    if (!containerRef.current || !sessionId || !difficulty) return;
+    // 최신 세션 데이터를 effect 진입 시점에 캡쳐 (deps 변경이 없으므로 첫 진입의 값이 사용됨)
+    const initialSession = useSingleStore.getState();
 
     const game = new Phaser.Game({
       ...singleGameConfig,
@@ -86,19 +79,20 @@ export default function SingleGameContent({
 
     game.events.once('ready', () => {
       game.scene.add('SingleScene', SingleScene, true, {
-        sessionId,
-        difficulty,
-        commandSet,
-        isTutorial,
+        sessionId: initialSession.sessionId,
+        difficulty: initialSession.difficulty,
+        commandSet: initialSession.commandSet,
+        isTutorial: initialSession.isTutorial,
       });
-      if (gameStatusRef.current === 'playing') EventBus.emit('game:start');
+      // 첫 진입 시 'game:start'는 StartModal에서, 다시하기는 'game:restart'로 처리하므로
+      // 여기서 game:start를 emit하지 않는다.
     });
 
     return () => {
       game.destroy(true);
       gameRef.current = null;
     };
-  }, [sessionId, difficulty, commandSet, isTutorial]);
+  }, [hasSession, isTutorial]);
 
   return (
     <div className="relative flex h-screen overflow-hidden text-white">
@@ -109,10 +103,10 @@ export default function SingleGameContent({
         aria-hidden="true"
         draggable={false}
       />
-      <div className="relative flex w-[15%] flex-col">
+      <div className="relative flex w-game-sidebar flex-col">
         <SingleHUD />
       </div>
-      <div className="relative grid h-full w-[70%] grid-rows-single-game">
+      <div className="relative grid h-full w-game-center grid-rows-single-game">
         <GameProgress />
         <div
           ref={containerRef}
@@ -126,7 +120,7 @@ export default function SingleGameContent({
         </div>
         <CommandInput />
       </div>
-      <div className="relative flex w-[15%] flex-col">
+      <div className="relative flex w-game-sidebar flex-col">
         <div className="flex h-48 flex-col">
           <div className="flex justify-end p-2">
             {gameStatus !== 'idle' && (
@@ -152,14 +146,15 @@ export default function SingleGameContent({
       {/* 튜토리얼 전용 오버레이 및 모달 */}
       {isTutorial && (
         <>
-          {overlayState && (
-            <TutorialOverlay state={overlayState} onNext={handleNext} onExit={onTutorialExit} />
-          )}
+          {overlayState && <TutorialOverlay state={overlayState} onNext={handleNext} />}
           {modalPhase === 'paused' && (
             <TutorialPauseModal onResume={handleResume} onSkip={handleSkip} />
           )}
           {modalPhase === 'completed' && (
             <TutorialCompleteModal isSkipped={false} onHome={onTutorialComplete ?? (() => {})} />
+          )}
+          {modalPhase === 'skipped' && (
+            <TutorialCompleteModal isSkipped={true} onHome={onTutorialComplete ?? (() => {})} />
           )}
         </>
       )}

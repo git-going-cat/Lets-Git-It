@@ -115,42 +115,33 @@ setPopKeys((prev) => {
 
 ### 5. StashOverlay (`StashOverlay.tsx`)
 
-`item:use { slot: 0 }` 수신 시 반투명 파란 오버레이 + "STASH!" 텍스트를 5초간 표시한다.  
-`command:complete` 수신 시 조기 종료. 오타(`command:wrong`) 시에는 유지.
-
-**activeRef 패턴**: EventBus 핸들러는 useEffect 클로저 안에서 등록되므로 `active` 상태에 stale closure가 생긴다. `activeRef`를 별도 관리해 핸들러 안에서 현재 상태를 정확히 읽는다.
+`item:use { slot: 0 }` 수신 시 반투명 파란 오버레이 + "STASH!" 텍스트를 표시하고, `stash:end` 수신 시 숨긴다. SingleScene이 stash의 source of truth이며 StashOverlay는 자체 setTimeout 없이 이벤트만 구독한다.
 
 ```ts
-const activeRef = useRef(false);
-
 useEffect(() => {
-  activeRef.current = active;
-}, [active]);
+  const handleItemUse = ({ slot }: { slot: 0 | 1 | 2 }) => {
+    if (slot !== 0) return;
+    setActive(true);
+    setActiveCount((c) => c + 1);
+  };
 
-const endStash = () => {
-  if (timeoutRef.current) clearTimeout(timeoutRef.current);
-  timeoutRef.current = null;
-  setActive(false);
-  activeRef.current = false;
-};
+  const handleEnd = () => {
+    setActive(false);
+  };
 
-// handleCommandComplete
-if (!activeRef.current) return;
-endStash();
+  EventBus.on('item:use', handleItemUse);
+  EventBus.on('stash:end', handleEnd);
+  return () => {
+    EventBus.off('item:use', handleItemUse);
+    EventBus.off('stash:end', handleEnd);
+  };
+}, []);
 ```
 
-**SingleScene 연동**: `handleCommandComplete`에서 `stashTimeoutId`를 클리어하고 `tweens.resumeAll()`을 호출해 Phaser 타임라인도 복원한다.
-
-```ts
-if (this.stashTimeoutId !== null) {
-  clearTimeout(this.stashTimeoutId);
-  this.stashTimeoutId = null;
-  if (!this.isUserPaused) {
-    this.tweens.resumeAll();
-    this.time.paused = false;
-  }
-}
-```
+**SingleScene 연동**: SingleScene이 모든 stash 종료 지점에서 `stash:end`를 emit한다.
+- `time.delayedCall(5000, ...)` 콜백에서 자연 만료 시
+- `handleCommandComplete`에서 명령어 성공으로 조기 종료 시 (`stashTimeoutId.remove()` + `tweens.resumeAll()` + `timerEvent.paused = false`)
+- `handleGameEnd` / `shutdown`에서 게임 종료·씬 정리 시
 
 **"STASH!" 쾅 애니메이션**: `key={activeCount}`로 매 발동 시 remount → `animate-stash-bang` 재실행.
 
@@ -166,43 +157,44 @@ if (this.stashTimeoutId !== null) {
 
 ### 6. CherryPickOverlay (`CherryPickOverlay.tsx`)
 
-`item:use { slot: 1 }` 수신 시 🐾 발바닥이 stamp → fade 두 단계로 애니메이션을 재생한다.
+`item:use { slot: 1 }` 수신 시 🐾 발바닥이 stamp → fade 단계로 애니메이션을 재생하고, `cherry-pick:end` 수신 시 사라진다.
 
 ```
-phase: null → 'stamp'(550ms) → 'fade'(250ms) → null
+phase: null → 'stamp'(550ms setTimeout) → 'fade' → (cherry-pick:end) → null
 ```
 
-**SingleScene 연동**: `handleItemUse` slot 1에서 `CHERRY_PICK_ANIM_MS(800ms)` 후 `command:complete`를 emit해 React 애니메이션과 Phaser 완료 처리를 동기화한다.
+stamp→fade 전환은 짧은 시각 cue라 setTimeout으로 유지하되, 최종 사라짐(`phase=null`)은 SingleScene의 `cherry-pick:end` 이벤트로 동기화한다. ESC 일시정지 중에도 SingleScene 타이머가 함께 멈추므로 🐾 사라짐 시점이 실제 cherry-pick 완료와 일치한다.
+
+**SingleScene 연동**: `handleItemUse` slot 1에서 `time.delayedCall(CHERRY_PICK_ANIM_MS, ...)` 콜백이 `command:complete`(React state)와 `cherry-pick:end`(오버레이 동기화)를 함께 emit한다. `handleGameEnd` / `shutdown`에서도 cherry-pick 활성 중이면 `cherry-pick:end`를 emit해 정리한다.
 
 ```ts
 // src/features/single/constants/itemAnimations.ts
 export const CHERRY_PICK_ANIM_MS = 800;
 ```
 
-SingleScene과 CherryPickOverlay 양쪽이 이 상수를 import해 타이밍을 공유한다.
-
-**타이머 관리**: 타이머 ID를 `useEffect` 클로저 변수에 저장하고 cleanup 및 재진입 시 clear한다.  
-초기 구현에서 `handler` 내부의 `return () => { clearTimeout(t1); clearTimeout(t2) }` 는 EventBus 핸들러의 반환값이라 React cleanup으로 실행되지 않아 타이머 누수가 발생했다. 아이템을 연속 사용하면 이전 타이머가 남아 `setPhase`가 예상치 못한 시점에 호출되는 문제가 있었다.
-
 ```ts
+// CherryPickOverlay.tsx
 useEffect(() => {
-  let t1: ReturnType<typeof setTimeout> | undefined;
-  let t2: ReturnType<typeof setTimeout> | undefined;
+  let stampTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const handler = ({ slot }: { slot: 0 | 1 | 2 }) => {
+  const handleItemUse = ({ slot }: { slot: 0 | 1 | 2 }) => {
     if (slot !== 1) return;
-    clearTimeout(t1);  // 연속 사용 시 이전 타이머 취소
-    clearTimeout(t2);
+    clearTimeout(stampTimer);
     setPhase('stamp');
-    t1 = setTimeout(() => setPhase('fade'), STAMP_MS);
-    t2 = setTimeout(() => setPhase(null), CHERRY_PICK_ANIM_MS);
+    stampTimer = setTimeout(() => setPhase('fade'), STAMP_MS);
   };
 
-  EventBus.on('item:use', handler);
+  const handleEnd = () => {
+    clearTimeout(stampTimer);
+    setPhase(null);
+  };
+
+  EventBus.on('item:use', handleItemUse);
+  EventBus.on('cherry-pick:end', handleEnd);
   return () => {
-    EventBus.off('item:use', handler);
-    clearTimeout(t1);  // unmount 시 잔여 타이머 정리
-    clearTimeout(t2);
+    EventBus.off('item:use', handleItemUse);
+    EventBus.off('cherry-pick:end', handleEnd);
+    clearTimeout(stampTimer);
   };
 }, []);
 ```
@@ -316,6 +308,8 @@ if (!asset) return null;
 // EventBus.ts EventMap에 추가
 'item:acquired': { slot: 0 | 1 | 2 };
 'command:wrong': void;
+'stash:end': void;          // StashOverlay 동기화
+'cherry-pick:end': void;    // CherryPickOverlay 동기화
 ```
 
 ### 10. 오타·Miss 화면 흔들림 (`command:wrong`)
@@ -399,12 +393,11 @@ stash 중 Phaser의 `tweens.pauseAll()`이 호출되어 있다.
 Phaser 기반 오버레이는 트윈이 멈추면 애니메이션도 함께 멈춘다.  
 React CSS 애니메이션은 Phaser 타임라인과 독립적이므로 stash 중에도 정상 재생된다.
 
-### Stash 조기 종료를 Phaser·React 양쪽에서 처리하는 이유
+### Stash 종료를 SingleScene이 source of truth로 두는 이유
 
-- **Phaser(`SingleScene`)**: `stashTimeoutId`를 클리어해 5초 후 자동 재개를 취소하고, `tweens.resumeAll()`로 낙하를 즉시 재개한다.
-- **React(`StashOverlay`)**: `command:complete` 수신 시 오버레이를 닫는다.
+이전 구현은 `StashOverlay`가 자체 `setTimeout`(브라우저 실시간)으로 5초를 측정하고 SingleScene이 별도 setTimeout으로 같은 5초를 측정하는 이중 타이머 구조였다. ESC 일시정지 중 SingleScene 타이머는 멈추지만 StashOverlay 쪽은 계속 흘러 STASH! 텍스트만 먼저 사라지는 동기화 깨짐이 발생했다.
 
-두 레이어가 `command:complete`를 독립적으로 구독하므로 어느 쪽도 상대방에게 신호를 보낼 필요가 없다.
+수정안: SingleScene이 모든 stash/cherry-pick 종료 지점에서 `stash:end` / `cherry-pick:end`를 emit하고, 오버레이는 이 이벤트만 구독한다. ESC 일시정지 → SingleScene 타이머 정지 → 이벤트 emit 시점도 함께 지연 → 오버레이 사라짐 시점이 실제 효과 종료와 일치한다.
 
 ### CherryPickOverlay와 SingleScene이 상수를 공유하는 이유
 
@@ -446,7 +439,7 @@ Phaser 씬 컨테이너(`containerRef`)만 흔들면 부모의 `overflow: hidden
 
 | 파일 | 변경 내용 |
 |------|---------|
-| `src/core/bridge/EventBus.ts` | `item:acquired`, `command:wrong` 이벤트 추가 |
+| `src/core/bridge/EventBus.ts` | `item:acquired`, `command:wrong`, `stash:end`, `cherry-pick:end` 이벤트 추가 |
 | `src/features/single/types/single.types.ts` | `Command.itemDrop?: ItemType` 필드 추가 |
 | `src/features/single/store/singleStore.ts` | `assignItemDrops()` 추가, `setSession`에서 호출 |
 | `src/features/single/hooks/useSingleGame.ts` | 사전 배정 드롭 처리, `item:acquired` emit, restore `item:use` emit 추가 |
@@ -471,9 +464,11 @@ Phaser 씬 컨테이너(`containerRef`)만 흔들면 부모의 `overflow: hidden
 - 슬롯이 가득 찬 상태에서 아이템 노드 성공 → 팝 없음, 슬롯 변화 없음 확인
 - 아이템 노드 miss → 아이템 미획득 확인
 - Alt+1 (stash): "STASH!" 쾅 애니메이션 표시, 5초 후 자동 종료, Phaser 낙하 재개 확인
-- Stash 중 명령어 성공 → 5초 전 stash 즉시 종료, 낙하 재개 확인
+- Stash 중 ESC 일시정지 → STASH! 텍스트 유지 + 노드 정지 유지, 이어하기 시 잔여 시간 후 자동 종료 확인 (오버레이가 SingleScene과 동기화)
+- Stash 중 명령어 성공 → 5초 전 stash 즉시 종료(`stash:end` emit), 낙하 재개 확인
 - Stash 중 오타 → stash 유지 확인
 - Alt+2 (cherry-pick): 🐾 발바닥 stamp → fade 재생 확인, 800ms 후 Phaser 자동 완료 확인
+- Cherry-pick 중 ESC 일시정지 → 노드 정지 유지, 이어하기 시 잔여 시간 후 자동 완료 확인
 - Alt+2 연속 사용 시 이전 애니메이션이 중단되고 새 애니메이션으로 재시작되는지 확인 (타이머 중첩 없음)
 - Alt+3 (restore): ♥ 힐링 아우라 700ms 재생 확인
 - Alt+3 연속 사용 시 애니메이션 중첩 없이 재시작되는지 확인
