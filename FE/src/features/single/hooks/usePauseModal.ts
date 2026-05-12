@@ -4,10 +4,10 @@ import { useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
+import { gameStatusAtom, prePauseStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { singleApi } from '../api/singleApi';
 import { gameResultAtom } from '../store/gameResultAtom';
-import { gameStatusAtom, prePauseStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
 /**

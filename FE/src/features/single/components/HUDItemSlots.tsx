@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAtomValue } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
+import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
-import { gameStatusAtom } from '../store/gameStatusAtom';
 import { itemSlotsAtom } from '../store/itemSlotsAtom';
 
 const ITEM_LABELS: [string, string, string] = ['stash', 'cherry-pick', 'restore'];

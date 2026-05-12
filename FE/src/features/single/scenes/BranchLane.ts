@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import type { Command, ItemType } from '../types/single.types';
+import type { ItemType, SingleCommand } from '../types/single.types';
 
 const BRANCH_COLORS: Record<string, { line: number; text: string }> = {
   main: { line: 0x3b82f6, text: '#60a5fa' },
@@ -50,7 +50,7 @@ const NODE = {
   TEXT_MAX_WIDTH: 420,
   TEXT_BG_PADDING_X: 12,
   TEXT_BG_PADDING_Y: 8,
-  START_Y: -10,
+  START_Y: -80,
   END_OVERSHOOT: 60,
 } as const;
 
@@ -87,7 +87,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
   }
 
   /** 명령어 노드를 상단에서 하단까지 낙하시킵니다. 시간 초과 시 `onTimeout`을 호출합니다. */
-  showCommand(command: Command, fallDuration: number, onTimeout: () => void): void {
+  showCommand(command: SingleCommand, fallDuration: number, onTimeout: () => void): void {
     this.clearCommand();
 
     const node = this.buildNode(command.text, command.itemDrop);
@@ -111,7 +111,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
    * 튜토리얼 전용: 명령어 노드를 상단에서 targetY까지 fallDuration ms 동안 낙하시킵니다.
    * 낙하 완료 후 자동으로 위치가 고정됩니다.
    */
-  startTutorialFall(command: Command, targetY: number, fallDuration: number): void {
+  startTutorialFall(command: SingleCommand, targetY: number, fallDuration: number): void {
     this.clearCommand();
     const node = this.buildNode(command.text);
     node.setPosition(this.laneWidth / 2, NODE.START_Y);
@@ -331,8 +331,8 @@ export class BranchLane extends Phaser.GameObjects.Container {
       g.strokeCircle(0, 0, NODE.RADIUS);
     }
 
-    // 원 위쪽에 명령어 텍스트 배치
-    const textY = -(NODE.RADIUS + NODE.TEXT_GAP);
+    // 원 아래쪽에 명령어 텍스트 배치
+    const textY = NODE.RADIUS + NODE.TEXT_GAP;
     const label = this.scene.add
       .text(0, textY, text, {
         fontSize: NODE.TEXT_FONT_SIZE,
@@ -346,7 +346,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
           y: NODE.TEXT_BG_PADDING_Y,
         },
       })
-      .setOrigin(0.5, 1); // bottom-center anchor → 텍스트 하단이 textY에 위치
+      .setOrigin(0.5, 0); // top-center anchor → 텍스트 상단이 textY에 위치
 
     // 좌우 끝 레인에서 텍스트가 캔버스 밖으로 잘리지 않도록 x 위치를 클램핑
     const EDGE_PADDING = 8;
