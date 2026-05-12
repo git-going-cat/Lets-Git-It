@@ -59,6 +59,12 @@ export default function SinglePage() {
   useEffect(() => {
     if (!difficulty) return;
 
+    // 이전 진입에서 남은 stale 세션을 초기화. 같은 페이지에 재진입할 때 이전
+    // sessionId/commandSet/sessionExpiresAt이 남아있으면 SingleGameContent가
+    // stale data로 Phaser scene을 init하거나 useSinglePageGuards가 만료된
+    // sessionExpiresAt으로 즉시 expire를 발화한다.
+    useSingleStore.getState().clearSession();
+
     let cancelled = false;
 
     singleApi
@@ -72,7 +78,8 @@ export default function SinglePage() {
 
     return () => {
       cancelled = true;
-      // 결과 저장 중 sessionId가 비워지지 않도록 세션 정리는 다음 진입 시 setSession에 맡긴다.
+      // 결과 저장 중 sessionId가 비워지지 않도록 unmount cleanup에서는 세션 정리를 하지 않는다.
+      // 다음 진입 시 위의 clearSession()이 안전 시점에 처리한다.
     };
   }, [difficulty, navigate]);
 
