@@ -10,6 +10,7 @@ export const verifyPasswordSchema = z.object({
 
 export const changePasswordSchema = z
   .object({
+    currentPassword: z.string().min(1, '현재 비밀번호를 입력해주세요.'),
     newPassword: z
       .string()
       .min(8, '비밀번호는 8자 이상이어야 합니다.')
@@ -22,6 +23,10 @@ export const changePasswordSchema = z
   .refine((data) => data.newPassword === data.confirmPassword, {
     message: '새 비밀번호가 일치하지 않습니다.',
     path: ['confirmPassword'],
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: '현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.',
+    path: ['newPassword'],
   });
 
 export type EditNicknameForm = z.infer<typeof editNicknameSchema>;

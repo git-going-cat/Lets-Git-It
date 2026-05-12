@@ -12,8 +12,13 @@
 @theme {
   --font-pixel: 'NeoDunggeunGothicPro', monospace;
   --grid-template-rows-single-game: auto minmax(0, 1fr) 160px;
+  --width-explorer: 1040px;
+  --width-window-min: 300px;
+  --width-profile-modal: 540px;
+  --width-character-editor: 860px;
   --width-modal-lg: 900px;
   --width-modal-md: 600px;
+  --height-ranking-modal: 600px;
   --height-modal-lg: 560px;
   --height-modal-md: 480px;
   /* NES 팔레트 — nes.css is-primary/is-error/is-success 버튼 기본/hover/active 색상 */
@@ -26,6 +31,9 @@
   --color-nes-success: #92cc41;
   --color-nes-success-hover: #7fb832;
   --color-nes-success-active: #6fa326;
+  --radius-ranking-modal: 16px;
+  --z-index-window: 100;
+  --z-index-confirm-modal: 120;
   --animate-restore-heal: restore-heal 700ms ease-out forwards;
   --animate-stash-bang: stash-bang 400ms ease-out forwards;
   --animate-paw-stamp: paw-stamp 550ms ease-out forwards;

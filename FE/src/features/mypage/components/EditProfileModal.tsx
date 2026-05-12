@@ -34,10 +34,10 @@ export function EditProfileModal({
   authType,
   currentNickname = '',
 }: EditProfileModalProps) {
-  useModal({ isOpen, onClose });
+  const { containerRef } = useModal({ isOpen, onClose });
 
   const [nickname, setNickname] = useState(currentNickname);
-  const [isNicknameChecked, setIsNicknameChecked] = useState(false);
+  const [checkedNickname, setCheckedNickname] = useState('');
   const [nicknameError, setNicknameError] = useState('');
   const [nicknameSuccess, setNicknameSuccess] = useState('');
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
@@ -52,12 +52,13 @@ export function EditProfileModal({
   const checkNicknameMutation = useCheckNickname();
   const updateNicknameMutation = useUpdateNickname();
   const withdrawMutation = useWithdrawMember();
+  const isNicknameChecked = checkedNickname === nickname;
 
   if (!isOpen) return null;
 
   const handleNicknameChange = (event: ChangeEvent<HTMLInputElement>) => {
     setNickname(event.target.value);
-    setIsNicknameChecked(false);
+    setCheckedNickname('');
     setNicknameError('');
     setNicknameSuccess('');
   };
@@ -77,12 +78,18 @@ export function EditProfileModal({
       return;
     }
 
-    checkNicknameMutation.mutate(nickname, {
+    const nicknameToCheck = nickname;
+
+    checkNicknameMutation.mutate(nicknameToCheck, {
       onSuccess: () => {
-        setIsNicknameChecked(true);
+        if (nicknameToCheck !== nickname) return;
+
+        setCheckedNickname(nicknameToCheck);
         setNicknameSuccess('사용 가능한 닉네임입니다.');
       },
       onError: (error) => {
+        if (nicknameToCheck !== nickname) return;
+
         const errorCode = isAxiosError(error) ? error.response?.data?.code : null;
         if (errorCode === NICKNAME_DUPLICATE_ERROR_CODE) {
           setNicknameError(NICKNAME_RULE.messages.duplicate);
@@ -96,10 +103,11 @@ export function EditProfileModal({
 
   const handleSaveNickname = () => {
     if (!isNicknameChecked) return;
+    const nicknameToSave = checkedNickname;
 
-    updateNicknameMutation.mutate(nickname, {
+    updateNicknameMutation.mutate(nicknameToSave, {
       onSuccess: () => {
-        updateUser({ nickname });
+        updateUser({ nickname: nicknameToSave });
         queryClient.invalidateQueries({ queryKey: MYPAGE_QUERY_KEYS.myRecord });
         setIsNicknameSuccessNoticeOpen(true);
       },
@@ -143,7 +151,12 @@ export function EditProfileModal({
 
   return (
     <>
-      <Win11Window title="내 정보 수정" onClose={onClose} className="w-[540px]">
+      <Win11Window
+        title="내 정보 수정"
+        onClose={onClose}
+        className="w-profile-modal"
+        containerRef={containerRef}
+      >
         <div className="flex w-full flex-col gap-6">
           <section className="flex flex-col gap-2">
             <h3 className="text-base font-bold text-gray-800">닉네임 변경</h3>

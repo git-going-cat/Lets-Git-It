@@ -1,21 +1,23 @@
-import { useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useModal } from '@/shared/hooks/useModal';
 
 import { useRanking } from '../hooks/useRanking';
+import { isInitialRankingPage } from '../utils/rankingEntries';
 import {
   getCurrentWeek,
   getModeLabel,
   getPrevWeek,
   normalizeWeekParam,
 } from '../utils/rankingFormat';
+import { getCachedSingleWeekInfo } from '../utils/rankingWeekCache';
 
 import RankingList from './RankingList';
 import RankingPodium from './RankingPodium';
 import RankingSidebar from './RankingSidebar';
 
-import type { RankingEntry, RankingMode, WeekParam } from '../types/ranking.types';
+import type { RankingMode, WeekParam } from '../types/ranking.types';
 
 // ── 타입 ──────────────────────────────────────────────────
 
@@ -33,7 +35,8 @@ interface RankingModalProps {
  *              selectedWeek=null → 이번 주 API, 값 있음 → 직전 주 history API (2단계).
  */
 export default function RankingModal({ onClose }: RankingModalProps) {
-  useModal({ isOpen: true, onClose });
+  const { containerRef } = useModal({ isOpen: true, onClose });
+  const titleId = useId();
 
   const [activeMode, setActiveMode] = useState<RankingMode>('single-easy');
   const [selectedWeek, setSelectedWeek] = useState<WeekParam | null>(null);
@@ -66,7 +69,7 @@ export default function RankingModal({ onClose }: RankingModalProps) {
     return null;
   }, [data, isCurrentWeek, shouldShowPreparingGuide]);
 
-  const initialData = data?.pages.find((page) => 'top3' in page) ?? null;
+  const initialData = data?.pages.find(isInitialRankingPage) ?? null;
   const cachedSingleWeekInfo = useMemo(() => getCachedSingleWeekInfo(queryClient), [queryClient]);
   const fallbackCurrentWeek = useMemo(() => getCurrentWeek(), []);
   const displayWeek =
@@ -93,18 +96,20 @@ export default function RankingModal({ onClose }: RankingModalProps) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="랭킹"
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* 오버레이 */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* 모달 본체 */}
       {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
-      <div className="relative z-10 flex h-[600px] w-modal-lg overflow-hidden rounded-[16px] bg-[linear-gradient(160deg,#7ECFEA_0%,#9DDAF0_35%,#C5EDF8_65%,#E8C4C4_100%)] shadow-2xl">
+      <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="relative z-10 flex h-ranking-modal w-modal-lg overflow-hidden rounded-ranking-modal bg-[linear-gradient(160deg,#7ECFEA_0%,#9DDAF0_35%,#C5EDF8_65%,#E8C4C4_100%)] shadow-2xl"
+      >
         {/* 좌측 사이드바 */}
         <RankingSidebar activeMode={activeMode} onSelectMode={handleModeChange} />
 
@@ -112,7 +117,9 @@ export default function RankingModal({ onClose }: RankingModalProps) {
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* 헤더 바 */}
           <div className="flex items-center justify-between px-6 py-3">
-            <h2 className="text-lg font-bold text-gray-800">{getModeLabel(activeMode)} 랭킹</h2>
+            <h2 id={titleId} className="text-lg font-bold text-gray-800">
+              {getModeLabel(activeMode)} 랭킹
+            </h2>
             <button
               type="button"
               onClick={onClose}
@@ -164,7 +171,7 @@ export default function RankingModal({ onClose }: RankingModalProps) {
               </div>
             ) : initialData ? (
               <div className="flex flex-1 flex-col overflow-hidden">
-                <RankingPodium mode={activeMode} top3={initialData.top3 as RankingEntry[]} />
+                <RankingPodium mode={activeMode} top3={initialData.top3} />
                 <div ref={rankingScrollRef} className="flex-1 overflow-y-auto">
                   <RankingList
                     key={rankingListKey}
@@ -191,41 +198,5 @@ export default function RankingModal({ onClose }: RankingModalProps) {
         </div>
       </div>
     </div>
-  );
-}
-
-function getCachedSingleWeekInfo(queryClient: ReturnType<typeof useQueryClient>) {
-  return (
-    extractWeekInfo(queryClient.getQueryData(['ranking', 'single-easy', 'current', null])) ??
-    extractWeekInfo(queryClient.getQueryData(['ranking', 'single-normal', 'current', null]))
-  );
-}
-
-function extractWeekInfo(data: unknown): WeekParam | null {
-  if (!isPageContainer(data)) return null;
-  const firstPage = data.pages[0];
-
-  if (!isWeekPage(firstPage)) return null;
-  return normalizeWeekParam({
-    year: firstPage.year,
-    month: firstPage.month,
-    week: firstPage.week,
-  });
-}
-
-function isPageContainer(data: unknown): data is { pages: unknown[] } {
-  return typeof data === 'object' && data !== null && 'pages' in data && Array.isArray(data.pages);
-}
-
-function isWeekPage(data: unknown): data is WeekParam {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'year' in data &&
-    'month' in data &&
-    'week' in data &&
-    typeof data.year === 'number' &&
-    typeof data.month === 'number' &&
-    typeof data.week === 'number'
   );
 }

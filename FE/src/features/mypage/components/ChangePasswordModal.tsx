@@ -95,7 +95,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
     onClose();
   };
 
-  useModal({ isOpen, onClose: handleClose });
+  const { containerRef } = useModal({ isOpen, onClose: handleClose });
 
   if (!isOpen) return null;
 
@@ -130,7 +130,11 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
   const handleChange = () => {
     setChangeError('');
 
-    const result = changePasswordSchema.safeParse({ newPassword, confirmPassword });
+    const result = changePasswordSchema.safeParse({
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    });
     if (!result.success) {
       setChangeError(result.error.issues[0].message);
       return;
@@ -163,7 +167,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
   return (
     <>
-      <Win11Window title="비밀번호 변경" onClose={handleClose}>
+      <Win11Window title="비밀번호 변경" onClose={handleClose} containerRef={containerRef}>
         {/* w-[320px]: 비밀번호 변경 단계의 단일 입력 폼 폭을 고정합니다. */}
         <div className="flex w-[320px] flex-col gap-4">
           {step === 'verify' && (

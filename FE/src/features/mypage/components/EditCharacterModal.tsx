@@ -25,7 +25,7 @@ export default function EditCharacterModal({
   const { selected, handleSelect, closeWithReset, saveCharacterMutation, isDirty } =
     useEditCharacter(currentAsset, onClose);
 
-  useModal({ isOpen, onClose: closeWithReset });
+  const { containerRef } = useModal({ isOpen, onClose: closeWithReset });
 
   if (!isOpen) return null;
 
@@ -70,11 +70,11 @@ export default function EditCharacterModal({
       title="캐릭터 수정"
       onClose={closeWithReset}
       glass
+      containerRef={containerRef}
       // 랭킹 모달의 하늘색-분홍색 그라디언트와 동일한 톤을 사용하기 위한 arbitrary gradient입니다.
       className="max-h-[92vh] border-none bg-[linear-gradient(160deg,#7ECFEA_0%,#9DDAF0_35%,#C5EDF8_65%,#E8C4C4_100%)]"
     >
-      {/* w-[860px]: 캐릭터 미리보기와 6개 선택 행을 한 화면에 안정적으로 배치하기 위한 모달 고정 폭 */}
-      <div className="flex w-[860px] max-w-[calc(100vw-3rem)] flex-col gap-6">
+      <div className="flex w-character-editor max-w-[calc(100vw-3rem)] flex-col gap-6">
         <div className="flex gap-6">
           <section className="flex w-80 flex-col gap-4">
             <div className="relative flex h-80 w-full flex-col items-center justify-center rounded-xl border border-white/60 bg-[rgba(255,255,255,0.72)] shadow-lg backdrop-blur-md">

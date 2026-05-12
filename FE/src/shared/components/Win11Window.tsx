@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 export interface Win11WindowProps {
   title?: string;
@@ -9,6 +9,8 @@ export interface Win11WindowProps {
   children: ReactNode;
   glass?: boolean;
   className?: string;
+  containerRef?: RefObject<HTMLDivElement | null>;
+  ariaLabel?: string;
 }
 
 export function Win11Window({
@@ -17,8 +19,11 @@ export function Win11Window({
   children,
   glass = false,
   className = '',
+  containerRef,
+  ariaLabel,
 }: Win11WindowProps) {
   const [isMaximized, setIsMaximized] = useState(false);
+  const titleId = useId();
 
   const windowBg = glass
     ? 'bg-white/40 backdrop-blur-md border border-white/50 shadow-2xl'
@@ -29,17 +34,25 @@ export function Win11Window({
     : 'bg-[#f3f3f3] border-b border-gray-200 text-gray-800';
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-window flex items-center justify-center bg-black/50 p-4">
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : ariaLabel}
+        tabIndex={-1}
         // h/w-[calc(...)]: Win11 스타일 최대화 상태에서 화면 여백을 유지하며 모달을 확장합니다.
-        className={`flex min-w-[300px] flex-col overflow-hidden rounded-lg ${windowBg} ${className} ${
+        className={`flex min-w-window-min flex-col overflow-hidden rounded-lg ${windowBg} ${className} ${
           isMaximized ? 'h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none' : ''
         }`}
       >
         {/* Title Bar */}
         <div className={`flex items-center justify-between px-3 py-2 select-none ${titleBg}`}>
           <div className="flex items-center gap-2">
-            <span className="text-base font-semibold">{title}</span>
+            <span id={title ? titleId : undefined} className="text-base font-semibold">
+              {title}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <button

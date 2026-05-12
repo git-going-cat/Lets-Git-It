@@ -97,7 +97,7 @@ const SIDEBAR_TREE = [
  * @description 싱글/멀티 탭 전환 + 세부 모드 선택 + 게임 시작 라우팅
  */
 export default function Win11ExplorerModal({ initialTab, onClose }: Win11ExplorerModalProps) {
-  useModal({ isOpen: true, onClose });
+  const { containerRef } = useModal({ isOpen: true, onClose });
 
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ExplorerTab>(initialTab);
@@ -124,22 +124,22 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="모드 선택"
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* 오버레이 */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* 모달 본체 — Win11 탐색기 스타일 */}
-      {/* w-[1040px], h/w-[calc(...)]: 상세 설명 가독성과 최대화 상태를 위한 탐색기 모달 크기입니다. */}
+      {/* h/w-[calc(...)]: Win11 스타일 최대화 상태에서 화면 여백을 유지하며 모달을 확장합니다. */}
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="모드 선택"
+        tabIndex={-1}
         className={`relative z-10 flex flex-col overflow-hidden rounded-lg bg-[#f3f3f3] shadow-2xl ring-1 ring-black/10 ${
           isMaximized
             ? 'h-[calc(100vh-2rem)] w-[calc(100vw-2rem)]'
-            : 'h-modal-lg w-[1040px] max-w-[calc(100vw-3rem)]'
+            : 'h-modal-lg w-explorer max-w-[calc(100vw-3rem)]'
         }`}
       >
         {/* ── 탭 바 ── */}
@@ -161,7 +161,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                   className="flex items-center gap-2 rounded-sm outline-none! focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40"
                 >
                   <span className="text-base">📁</span>
-                  {tab === 'single' ? '싱글모드' : '멀티모드'}
+                  <span>{tab === 'single' ? '싱글모드' : '멀티모드'}</span>
                 </button>
                 {activeTab === tab && (
                   <button
