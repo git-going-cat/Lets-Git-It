@@ -1,9 +1,11 @@
-import { useCommandInput } from '../hooks/useCommandInput';
+import { type HistoryStatus, useCommandInput } from '../hooks/useCommandInput';
 
-const HISTORY_STATUS_CLASS: Record<'ok' | 'typo' | 'miss', string> = {
+const HISTORY_STATUS_CLASS: Record<HistoryStatus, string> = {
   ok: 'text-green-400/60',
   miss: 'text-yellow-400',
   typo: 'text-red-400',
+  'wrong-branch': 'text-red-400',
+  switch: 'text-green-400/60',
 };
 
 export default function CommandInput() {
