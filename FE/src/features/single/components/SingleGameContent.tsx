@@ -5,11 +5,11 @@ import Phaser from 'phaser';
 import screenBg from '@/assets/bg/screen.png';
 import { EventBus } from '@/core/bridge/EventBus';
 import { singleGameConfig } from '@/game/config';
+import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { useSingleGame } from '../hooks/useSingleGame';
 import { useTutorialMode } from '../hooks/useTutorialMode';
 import { SingleScene } from '../scenes/SingleScene';
-import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
 import CatSprite from './CatSprite';

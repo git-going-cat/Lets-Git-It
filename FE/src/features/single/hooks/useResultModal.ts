@@ -5,10 +5,10 @@ import { useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
 import { MYPAGE_QUERY_KEYS } from '@/features/mypage/constants/queryKeys';
+import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { singleApi } from '../api/singleApi';
 import { gameResultAtom } from '../store/gameResultAtom';
-import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
 /**
