@@ -85,7 +85,7 @@ LoginForm.tsx → useAuth().login()
     ↓
 authApi.login() → POST /api/v1/auth/login
     ↓
-응답: { accessToken, isFirstLogin, nickname, onboardingStatus, character... }
+응답: { memberId, accessToken, isFirstLogin, nickname, onboardingStatus, character... }
     ↓
 useAuthStore.setAuth(accessToken, AuthUser)
     - accessToken: Zustand 메모리 저장 (localStorage 미포함, XSS 방어)

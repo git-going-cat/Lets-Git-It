@@ -214,6 +214,7 @@ POST /api/v1/auth/login
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
+| `memberId` | String (UUID) | 회원 ID |
 | `accessToken` | String | Access Token |
 | `isFirstLogin` | Boolean | 최초 로그인 여부 (온보딩 진행 여부 판단) |
 | `nickname` | String | 닉네임 |
@@ -230,6 +231,7 @@ POST /api/v1/auth/login
   "status": 200,
   "message": "로그인 성공",
   "data": {
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
     "accessToken": "eyJhbGciOi...",
     "isFirstLogin": false,
     "nickname": "dobby",
@@ -316,6 +318,7 @@ POST /api/v1/auth/token
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
+| `memberId` | String (UUID) | 회원 ID |
 | `accessToken` | String | Access Token |
 | `isFirstLogin` | Boolean | 최초 로그인 여부 (온보딩 진행 여부 판단) |
 | `nickname` | String | 닉네임 (최초 로그인 시 null) |
@@ -332,6 +335,7 @@ POST /api/v1/auth/token
   "status": 200,
   "message": "로그인 성공",
   "data": {
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
     "accessToken": "eyJhbGciOi...",
     "isFirstLogin": false,
     "nickname": "dobby",
@@ -586,6 +590,7 @@ GET /api/v1/members/me
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
+| `memberId` | String (UUID) | 회원 ID |
 | `nickname` | String | 닉네임 |
 | `authType` | String | `OAUTH` / `LOCAL` |
 | `provider` | String | `GOOGLE` |
@@ -615,6 +620,7 @@ GET /api/v1/members/me
   "status": 200,
   "message": "내 정보 조회 성공",
   "data": {
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
     "nickname": "dobby",
     "authType": "LOCAL",
     "provider": null,

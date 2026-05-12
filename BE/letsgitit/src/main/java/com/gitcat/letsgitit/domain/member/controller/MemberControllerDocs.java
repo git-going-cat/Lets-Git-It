@@ -55,6 +55,7 @@ public interface MemberControllerDocs {
 			  "status": 200,
 			  "message": "내 정보 조회 성공",
 			  "data": {
+			    "memberId": "550e8400-e29b-41d4-a716-446655440000",
 			    "nickname": "dobby",
 			    "authType": "LOCAL",
 			    "provider": null,
