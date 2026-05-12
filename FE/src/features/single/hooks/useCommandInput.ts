@@ -2,15 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
+import { isSwitchCommand, parseSwitchTarget } from '@/shared/game/branchParser';
+import { comboAtom } from '@/shared/store/comboAtom';
+import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
+import { totalAttemptsAtom, typoCountAtom } from '@/shared/store/typoAtom';
 
 import { activeBranchAtom } from '../store/activeBranchAtom';
-import { comboAtom } from '../store/comboAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
-import { gameStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 import { tutorialInputBlockedAtom } from '../store/tutorialInputBlockedAtom';
-import { totalAttemptsAtom, typoCountAtom } from '../store/typoAtom';
-import { isSwitchCommand, parseSwitchTarget } from '../utils/branchParser';
 
 /**
  * 커맨드 입력 처리 훅.
@@ -28,8 +28,7 @@ export function useCommandInput() {
   const setCombo = useSetAtom(comboAtom);
 
   const [inputValue, setInputValue] = useState('');
-  const [historyText, setHistoryText] = useState('');
-  const [isError, setIsError] = useState(false);
+  const [history, setHistory] = useState<{ text: string; status: 'ok' | 'typo' | 'miss' }[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const isTutorialBlocked = useAtomValue(tutorialInputBlockedAtom);
@@ -54,10 +53,8 @@ export function useCommandInput() {
       const textMatches = trimmed === currentCommand.text;
       const branchMatches = !isNormal || activeBranch === currentCommand.branchName;
 
-      setHistoryText(inputValue);
-
       if (textMatches && branchMatches) {
-        setIsError(false);
+        setHistory((prev) => [...prev, { text: inputValue, status: 'ok' }]);
         setTotalAttempts((prev) => prev + 1);
         EventBus.emit('command:complete', { index: commandIndex });
         if (currentCommand.type === 'CREATE' || currentCommand.type === 'SWITCH') {
@@ -77,10 +74,9 @@ export function useCommandInput() {
           setActiveBranch(target);
           EventBus.emit('branch:switch', { branch: target });
         }
-        setIsError(false);
       } else {
         // 오타: 콤보 리셋 + 오타 카운트. 목숨 차감 없음 (시간 초과 miss에서만 차감)
-        setIsError(true);
+        setHistory((prev) => [...prev, { text: inputValue, status: 'typo' }]);
         setTotalAttempts((prev) => prev + 1);
         setCombo(0);
         setTypoCount((prev) => prev + 1);
@@ -101,14 +97,12 @@ export function useCommandInput() {
   useEffect(() => {
     const resetInput = () => {
       setInputValue('');
-      setHistoryText('');
-      setIsError(false);
+      setHistory([]);
     };
 
     const handleMiss = () => {
       setInputValue('');
-      setHistoryText('MISS!');
-      setIsError(true);
+      setHistory((prev) => [...prev, { text: 'MISS!', status: 'miss' }]);
       EventBus.emit('command:wrong');
     };
 
@@ -127,9 +121,9 @@ export function useCommandInput() {
   return {
     inputRef,
     inputValue,
-    historyText,
-    isError,
+    history,
     isPlaying,
+    activeBranch,
     handleInputChange,
     handleKeyDown,
   };

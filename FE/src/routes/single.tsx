@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { z } from 'zod';
 
-import { DIFFICULTIES } from '@/features/single/types/single.types';
+import { DIFFICULTIES } from '@/shared/types/game.types';
 
 const searchSchema = z.object({
   difficulty: z.enum(DIFFICULTIES).optional(),
