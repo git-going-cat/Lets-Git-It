@@ -44,40 +44,51 @@ describe('calcScore', () => {
   });
 
   describe('시간 감점', () => {
-    it('EASY: 기준 시간 초과 10초 시 timeRate만큼 감점된다', () => {
-      const excessSec = 10;
+    it('EASY: 기준 시간 초과 10초 시 100ms 단위 감점이 적용된다', () => {
+      const excessMs = 10_000;
       const { score } = calcScore({
-        playTimeMs: (SCORE_CONFIG.EASY.idealTimeSec + excessSec) * 1000,
+        playTimeMs: SCORE_CONFIG.EASY.idealTimeSec * 1000 + excessMs,
         typoCount: 0,
         livesLost: 0,
         difficulty: 'EASY',
         ...NO_BONUS,
       });
-      expect(score).toBe(10000 - excessSec * SCORE_CONFIG.EASY.timeRate);
+      expect(score).toBe(10000 - (excessMs / 100) * SCORE_CONFIG.EASY.timePenaltyPer100ms);
     });
 
-    it('NORMAL: 기준 시간 초과 60초 시 timeRate만큼 감점된다', () => {
-      const excessSec = 60;
+    it('NORMAL: 기준 시간 초과 30초 시 100ms 단위 감점이 적용된다', () => {
+      const excessMs = 30_000;
       const { score } = calcScore({
-        playTimeMs: (SCORE_CONFIG.NORMAL.idealTimeSec + excessSec) * 1000,
+        playTimeMs: SCORE_CONFIG.NORMAL.idealTimeSec * 1000 + excessMs,
         typoCount: 0,
         livesLost: 0,
         difficulty: 'NORMAL',
         ...NO_BONUS,
       });
-      expect(score).toBe(10000 - excessSec * SCORE_CONFIG.NORMAL.timeRate);
+      expect(score).toBe(10000 - (excessMs / 100) * SCORE_CONFIG.NORMAL.timePenaltyPer100ms);
     });
 
-    it('HARD: 기준 시간 초과 30초 시 timeRate만큼 감점된다', () => {
-      const excessSec = 30;
+    it('HARD: 기준 시간 초과 20초 시 100ms 단위 감점이 적용된다', () => {
+      const excessMs = 20_000;
       const { score } = calcScore({
-        playTimeMs: (SCORE_CONFIG.HARD.idealTimeSec + excessSec) * 1000,
+        playTimeMs: SCORE_CONFIG.HARD.idealTimeSec * 1000 + excessMs,
         typoCount: 0,
         livesLost: 0,
         difficulty: 'HARD',
         ...NO_BONUS,
       });
-      expect(score).toBe(10000 - excessSec * SCORE_CONFIG.HARD.timeRate);
+      expect(score).toBe(10000 - (excessMs / 100) * SCORE_CONFIG.HARD.timePenaltyPer100ms);
+    });
+
+    it('100ms 미만의 초과분은 감점되지 않는다 (floor 처리)', () => {
+      const { score } = calcScore({
+        playTimeMs: SCORE_CONFIG.EASY.idealTimeSec * 1000 + 99,
+        typoCount: 0,
+        livesLost: 0,
+        difficulty: 'EASY',
+        ...NO_BONUS,
+      });
+      expect(score).toBe(10000);
     });
 
     it('기준 시간보다 빠르게 완료 시 시간 감점은 0이다 (음수 감점 없음)', () => {
@@ -186,10 +197,10 @@ describe('calcScore', () => {
 
   describe('복합 감점', () => {
     it('EASY: 시간 초과 10초 + 오타 3개 + 목숨 1개 손실 시 올바르게 계산된다', () => {
-      // timePenalty = 10 × 15 = 150
-      // typoPenalty = 3 × 110 = 330
-      // livesPenalty = 1 × 500 = 500
-      // score = 10000 - 150 - 330 - 500 = 9020
+      // timePenalty = (10000ms / 100) × 6 = 100 × 6 = 600
+      // typoPenalty = 3 × 220 = 660
+      // livesPenalty = 1 × 800 = 800
+      // score = 10000 - 600 - 660 - 800 = 7940
       const { score } = calcScore({
         playTimeMs: (SCORE_CONFIG.EASY.idealTimeSec + 10) * 1000,
         typoCount: 3,
@@ -197,22 +208,22 @@ describe('calcScore', () => {
         difficulty: 'EASY',
         ...NO_BONUS,
       });
-      expect(score).toBe(9020);
+      expect(score).toBe(7940);
     });
 
-    it('NORMAL: 시간 초과 120초 + 오타 10개 + 목숨 2개 손실 시 올바르게 계산된다', () => {
-      // timePenalty = 120 × 30 = 3600
-      // typoPenalty = 10 × 200 = 2000
-      // livesPenalty = 2 × 700 = 1400
-      // score = 10000 - 3600 - 2000 - 1400 = 3000
+    it('NORMAL: 시간 초과 30초 + 오타 5개 + 목숨 1개 손실 시 올바르게 계산된다', () => {
+      // timePenalty = (30000ms / 100) × 6 = 300 × 6 = 1800
+      // typoPenalty = 5 × 400 = 2000
+      // livesPenalty = 1 × 1200 = 1200
+      // score = 10000 - 1800 - 2000 - 1200 = 5000
       const { score } = calcScore({
-        playTimeMs: (SCORE_CONFIG.NORMAL.idealTimeSec + 120) * 1000,
-        typoCount: 10,
-        livesLost: 2,
+        playTimeMs: (SCORE_CONFIG.NORMAL.idealTimeSec + 30) * 1000,
+        typoCount: 5,
+        livesLost: 1,
         difficulty: 'NORMAL',
         ...NO_BONUS,
       });
-      expect(score).toBe(3000);
+      expect(score).toBe(5000);
     });
   });
 

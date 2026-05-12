@@ -3,16 +3,16 @@ import type { Grade } from '@/shared/types/game.types';
 
 /** 난이도별 감점 파라미터 */
 interface ScoreConfig {
-  idealTimeSec: number; // 기준 시간 초과 1초당 감점
-  timeRate: number;
+  idealTimeSec: number;
+  timePenaltyPer100ms: number; // 기준 시간 초과 100ms당 감점 (100ms 단위 floor)
   typoPenalty: number;
   livesPenalty: number;
 }
 
 export const SCORE_CONFIG: Record<Difficulty, ScoreConfig> = {
-  EASY: { idealTimeSec: 360, timeRate: 15, typoPenalty: 110, livesPenalty: 500 },
-  NORMAL: { idealTimeSec: 240, timeRate: 30, typoPenalty: 200, livesPenalty: 700 },
-  HARD: { idealTimeSec: 180, timeRate: 50, typoPenalty: 350, livesPenalty: 1000 },
+  EASY: { idealTimeSec: 75, timePenaltyPer100ms: 6, typoPenalty: 220, livesPenalty: 800 },
+  NORMAL: { idealTimeSec: 110, timePenaltyPer100ms: 6, typoPenalty: 400, livesPenalty: 1200 },
+  HARD: { idealTimeSec: 150, timePenaltyPer100ms: 6, typoPenalty: 700, livesPenalty: 1700 },
 };
 
 const MAX_SCORE = 10000;
@@ -68,10 +68,10 @@ export function calcScore({
 }: ScoreParams): ScoreResult {
   const config = SCORE_CONFIG[difficulty];
 
-  const playTimeSec = playTimeMs / 1000;
-
-  // 기준 시간 초과분만 감점 - 기준 시간 이내 클리어 시 0
-  const timePenalty = Math.max(0, (playTimeSec - config.idealTimeSec) * config.timeRate);
+  // 기준 시간 초과분만 감점 - 100ms 단위로 floor 후 곱셈. 기준 시간 이내 클리어 시 0
+  const idealTimeMs = config.idealTimeSec * 1000;
+  const overMs = Math.max(0, playTimeMs - idealTimeMs);
+  const timePenalty = Math.floor(overMs / 100) * config.timePenaltyPer100ms;
   const typoPenalty = typoCount * config.typoPenalty;
   const livesPenalty = livesLost * config.livesPenalty;
 
