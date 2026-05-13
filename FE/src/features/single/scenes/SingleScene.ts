@@ -292,6 +292,10 @@ export class SingleScene extends Phaser.Scene {
   private readonly handleGameStart = (): void => {
     // 튜토리얼 모드: 타이머 없이 useTutorialMode의 tutorial:show-command를 기다림
     if (this.isTutorialMode) return;
+    // idle 상태에서 ESC → game:pause → resume(game:resume 미발행)로 tweens.pauseAll()이
+    // 호출된 채 game:start에 도달할 수 있다. 게임 시작 시점에 TweenManager를 반드시 재개한다.
+    this.isUserPaused = false;
+    this.tweens.resumeAll();
     this.startTimer();
     this.showCurrentCommand();
   };

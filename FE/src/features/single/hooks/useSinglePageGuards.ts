@@ -49,18 +49,12 @@ export function useSinglePageGuards() {
   }, [sessionId, sessionExpiresAt]);
 
   useEffect(() => {
-    const GUARD_KEY = 'single:historyGuard';
-
-    if (sessionStorage.getItem(GUARD_KEY)) {
-      sessionStorage.removeItem(GUARD_KEY);
-      navigate({ to: '/home', replace: true });
-      return;
-    }
-
+    // pushState로 중복 히스토리 항목을 추가해 최초 브라우저 뒤로가기 시 popstate를 캐치한다.
+    // popstate 발화 시 홈으로 replace 이동하면 중복 항목이 제거되어 이후 앞으로가기도 차단된다.
+    // (sessionStorage GUARD_KEY 방식은 정상적인 메뉴 재진입도 차단하는 부작용이 있어 제거함)
     window.history.pushState(null, '', window.location.href);
 
     const handlePopState = () => {
-      sessionStorage.setItem(GUARD_KEY, 'true');
       navigate({ to: '/home', replace: true });
     };
 
