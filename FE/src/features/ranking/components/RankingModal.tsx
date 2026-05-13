@@ -11,6 +11,7 @@ import {
   getPrevWeek,
   normalizeWeekParam,
 } from '../utils/rankingFormat';
+import { rankingQueryKey } from '../utils/rankingQueryKey';
 import { getCachedSingleWeekInfo } from '../utils/rankingWeekCache';
 
 import RankingList from './RankingList';
@@ -80,6 +81,12 @@ export default function RankingModal({ onClose }: RankingModalProps) {
   }`;
 
   const handleModeChange = (mode: RankingMode) => {
+    if (mode === activeMode) return;
+
+    queryClient.removeQueries({
+      queryKey: rankingQueryKey(mode, null),
+      exact: true,
+    });
     setActiveMode(mode);
     setSelectedWeek(null);
   };
