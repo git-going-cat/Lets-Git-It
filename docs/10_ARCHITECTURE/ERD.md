@@ -146,7 +146,7 @@ REFERENCES member (member_id)
 CREATE TABLE competitive_ranking (
 competitive_ranking_id BINARY(16)  NOT NULL,
 member_id              BINARY(16)  NOT NULL,
-mode                   VARCHAR(50) NOT NULL COMMENT 'TIME_ATTACK / CONTRIBUTION_RUN',
+mode                   VARCHAR(50) NOT NULL COMMENT 'TIME_ATTACK / CONTRIBUTION',
 score                  INT         NOT NULL DEFAULT 0,
 rank                   INT         NOT NULL,
 week                   VARCHAR(10) NOT NULL COMMENT '예: 2025-04-3 (year-month-weekOfMonth)'
@@ -227,7 +227,7 @@ CONSTRAINT fk_coop_ranking_result FOREIGN KEY (coop_result_id) REFERENCES coop_r
 CREATE TABLE member_best_record (
 member_best_record_id BINARY(16)  NOT NULL,
 member_id             BINARY(16)  NOT NULL,
-mode                  VARCHAR(50) NOT NULL COMMENT 'SINGLE_EASY / SINGLE_NORMAL / SINGLE_HARD / TIME_ATTACK / CONTRIBUTION_RUN',
+mode                  VARCHAR(50) NOT NULL COMMENT 'SINGLE_EASY / SINGLE_NORMAL / SINGLE_HARD / TIME_ATTACK / CONTRIBUTION',
 best_score            INT         NOT NULL DEFAULT 0,
 best_rank             INT         NOT NULL COMMENT '해당 기록의 순위',
 updated_at            DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -318,11 +318,11 @@ CONSTRAINT fk_single_command_set_item FOREIGN KEY (single_command_set_id) REFERE
 CREATE TABLE competitive_command_set (
 competitive_command_set_id BINARY(16)  NOT NULL,
 set_number                 INT         NOT NULL COMMENT '1 / 2 / 3',
-mode                       VARCHAR(50) NOT NULL COMMENT 'CONTRIBUTION_RUN / TIME_ATTACK',
+mode                       VARCHAR(50) NOT NULL COMMENT 'CONTRIBUTION / TIME_ATTACK',
 PRIMARY KEY (competitive_command_set_id),
 UNIQUE KEY uq_competitive_command_set (set_number, mode),
 CONSTRAINT chk_competitive_command_set_mode
-CHECK (mode IN ('CONTRIBUTION_RUN', 'TIME_ATTACK'))
+CHECK (mode IN ('CONTRIBUTION', 'TIME_ATTACK'))
 );
 
 
