@@ -42,7 +42,7 @@ SELECT BIN_TO_UUID(member_id) FROM member;
 
 ```
 ranking:SINGLE:{difficulty}:{week}         # 예: ranking:SINGLE:NORMAL:2025-04-3
-ranking:CONTRIBUTION_RUN:{week}            # 예: ranking:CONTRIBUTION_RUN:2025-04-3
+ranking:CONTRIBUTION:{week}                # 예: ranking:CONTRIBUTION:2025-04-3
 ranking:TIME_ATTACK:{week}                 # 예: ranking:TIME_ATTACK:2025-04-3
 ranking:COOP:{coop_map_id}:{week}          # 예: ranking:COOP:{UUID}:2025-04-3
 ```
