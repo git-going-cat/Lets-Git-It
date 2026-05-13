@@ -113,6 +113,7 @@ export function useRanking(
       isSingleMode(mode) && firstPage.hasPrev && typeof firstPage.prevCursor === 'number'
         ? { cursor: firstPage.prevCursor, direction: 'previous' }
         : undefined,
+    refetchOnWindowFocus: false,
     enabled,
   });
 }
