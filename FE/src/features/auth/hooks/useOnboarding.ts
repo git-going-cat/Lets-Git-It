@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { isAxiosError } from 'axios';
 
 import { onboardingApi } from '../api/onboardingApi';
 import { useAuthStore } from '../store/authStore';
@@ -30,11 +31,13 @@ function resolveInitialStep(status: OnboardingStatus): OnboardingStep {
 export function useOnboarding() {
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const navigate = useNavigate();
 
   const [step, setStep] = useState<OnboardingStep>(() =>
     resolveInitialStep(user?.onboardingStatus ?? 'NONE')
   );
+  const [completingNetworkError, setCompletingNetworkError] = useState(false);
 
   const goToStep = useCallback(
     (next: OnboardingStep) => {
@@ -55,18 +58,34 @@ export function useOnboarding() {
   /**
    * 튜토리얼 완료 or 스킵 처리.
    * completeTutorial API 호출 후 홈으로 이동.
+   * - 401(토큰 만료): 인증 초기화 후 로그인 페이지로
+   * - 네트워크 에러(응답 없음): completing 상태 유지 + 재시도 버튼 노출
+   * - 기타(409 등, 이미 완료): 무시하고 홈으로 이동
    */
   const finishOnboarding = useCallback(async () => {
     setStep('completing');
-    await completeTutorial()
-      .then(() => {
-        updateUser({ onboardingStatus: 'TUTORIAL_DONE' });
-      })
-      .catch(() => {
-        // 이미 TUTORIAL_DONE인 경우 예외 발생 → 무시하고 홈으로 이동
-      });
+    setCompletingNetworkError(false);
+    try {
+      await completeTutorial();
+      updateUser({ onboardingStatus: 'TUTORIAL_DONE' });
+    } catch (error) {
+      if (isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          // 토큰 만료 → 인증 초기화 후 로그인으로
+          clearAuth();
+          await navigate({ to: '/login' });
+          return;
+        }
+        if (!error.response) {
+          // 네트워크 에러 → completing 단계에 재시도 버튼 노출, throw 없이 처리
+          setCompletingNetworkError(true);
+          return;
+        }
+        // 그 외 서버 에러(409 이미 완료 등) → 무시하고 홈으로 이동
+      }
+    }
     await navigate({ to: '/home' });
-  }, [completeTutorial, navigate, updateUser]);
+  }, [clearAuth, completeTutorial, navigate, updateUser]);
 
-  return { step, goToStep, finishOnboarding, user };
+  return { step, goToStep, finishOnboarding, completingNetworkError, user };
 }

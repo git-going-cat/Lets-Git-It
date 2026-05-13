@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
+import { gameStatusAtom, prePauseStatusAtom } from '@/shared/store/gameStatusAtom';
 
-import { gameStatusAtom, prePauseStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
 /**

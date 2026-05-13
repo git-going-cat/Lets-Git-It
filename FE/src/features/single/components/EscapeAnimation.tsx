@@ -17,21 +17,13 @@ interface EscapeAnimationProps {
   onComplete?: () => void;
 }
 
-export default function EscapeAnimation({
-  mode,
-  churuRatio = 0,
-  onComplete,
-}: EscapeAnimationProps) {
+function useEscapePhase(
+  asset: ReturnType<typeof useCurrentCharacterAsset>['data'],
+  climbDuration: number,
+  mode: 'success' | 'escape_failed',
+  onComplete: (() => void) | undefined
+): Phase {
   const [phase, setPhase] = useState<Phase>('at-bottom');
-  const { data: asset, isError } = useCurrentCharacterAsset();
-
-  const stopTop = mode === 'success' ? 15 : 18 + (1 - churuRatio) * 82;
-  const climbDuration = Math.round(((110 - stopTop) / 95) * CLIMB_BASE_MS);
-
-  useEffect(() => {
-    if (!isError) return;
-    onComplete?.();
-  }, [isError, onComplete]);
 
   // double-RAF: browser renders at-bottom first, then starts climb transition
   useEffect(() => {
@@ -47,17 +39,36 @@ export default function EscapeAnimation({
   }, [asset]);
 
   useEffect(() => {
-    if (phase !== 'climbing') return;
-    const t = setTimeout(() => setPhase('arrived'), climbDuration);
-    return () => clearTimeout(t);
-  }, [phase, climbDuration]);
+    if (phase === 'climbing') {
+      const t = setTimeout(() => setPhase('arrived'), climbDuration);
+      return () => clearTimeout(t);
+    }
+    if (phase === 'arrived') {
+      const completionMs = mode === 'success' ? PUSH_CART_MS : LIFT_CYCLE_MS;
+      const t = setTimeout(() => onComplete?.(), completionMs);
+      return () => clearTimeout(t);
+    }
+  }, [phase, climbDuration, mode, onComplete]);
+
+  return phase;
+}
+
+export default function EscapeAnimation({
+  mode,
+  churuRatio = 0,
+  onComplete,
+}: EscapeAnimationProps) {
+  const { data: asset } = useCurrentCharacterAsset();
+
+  const stopTop = mode === 'success' ? 15 : 18 + (1 - churuRatio) * 82;
+  const climbDuration = Math.round(((110 - stopTop) / 95) * CLIMB_BASE_MS);
 
   useEffect(() => {
-    if (phase !== 'arrived') return;
-    const completionMs = mode === 'success' ? PUSH_CART_MS : LIFT_CYCLE_MS;
-    const t = setTimeout(() => onComplete?.(), completionMs);
-    return () => clearTimeout(t);
-  }, [phase, mode, onComplete]);
+    if (asset) return;
+    onComplete?.();
+  }, [asset, onComplete]);
+
+  const phase = useEscapePhase(asset, climbDuration, mode, onComplete);
 
   if (!asset) return null;
 

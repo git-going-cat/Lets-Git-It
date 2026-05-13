@@ -97,7 +97,7 @@ const SIDEBAR_TREE = [
  * @description 싱글/멀티 탭 전환 + 세부 모드 선택 + 게임 시작 라우팅
  */
 export default function Win11ExplorerModal({ initialTab, onClose }: Win11ExplorerModalProps) {
-  useModal({ isOpen: true, onClose });
+  const { containerRef } = useModal({ isOpen: true, onClose });
 
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ExplorerTab>(initialTab);
@@ -124,22 +124,22 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="모드 선택"
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* 오버레이 */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* 모달 본체 — Win11 탐색기 스타일 */}
-      {/* w-[1040px], h/w-[calc(...)]: 상세 설명 가독성과 최대화 상태를 위한 탐색기 모달 크기입니다. */}
+      {/* h/w-[calc(...)]: Win11 스타일 최대화 상태에서 화면 여백을 유지하며 모달을 확장합니다. */}
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="모드 선택"
+        tabIndex={-1}
         className={`relative z-10 flex flex-col overflow-hidden rounded-lg bg-[#f3f3f3] shadow-2xl ring-1 ring-black/10 ${
           isMaximized
             ? 'h-[calc(100vh-2rem)] w-[calc(100vw-2rem)]'
-            : 'h-modal-lg w-[1040px] max-w-[calc(100vw-3rem)]'
+            : 'h-modal-lg w-explorer max-w-[calc(100vw-3rem)]'
         }`}
       >
         {/* ── 탭 바 ── */}
@@ -161,7 +161,7 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
                   className="flex items-center gap-2 rounded-sm outline-none! focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40"
                 >
                   <span className="text-base">📁</span>
-                  {tab === 'single' ? '싱글모드' : '멀티모드'}
+                  <span>{tab === 'single' ? '싱글모드' : '멀티모드'}</span>
                 </button>
                 {activeTab === tab && (
                   <button
@@ -184,38 +184,93 @@ export default function Win11ExplorerModal({ initialTab, onClose }: Win11Explore
           </div>
           {/* 창 컨트롤 버튼 */}
           <div className="flex gap-1">
-            {['─', '□', '✕'].map((icon, i) => (
-              <button
-                key={icon}
-                type="button"
-                onClick={
-                  i === 0 ? onClose : i === 1 ? () => setIsMaximized((prev) => !prev) : onClose
-                }
-                className={`flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors ${
-                  i === 2 ? 'hover:bg-red-500 hover:text-white' : 'hover:bg-gray-200'
-                }`}
-                aria-label={
-                  i === 0
-                    ? '최소화'
-                    : i === 1
-                      ? isMaximized
-                        ? '이전 크기로 복원'
-                        : '최대화'
-                      : '닫기'
-                }
-                title={
-                  i === 0
-                    ? '최소화'
-                    : i === 1
-                      ? isMaximized
-                        ? '이전 크기로 복원'
-                        : '최대화'
-                      : '닫기'
-                }
+            {/* 최소화 버튼 */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors hover:bg-gray-200"
+              aria-label="최소화"
+              title="최소화"
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 12 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
               >
-                {icon}
-              </button>
-            ))}
+                <rect x="2" y="5.5" width="8" height="1" fill="currentColor" />
+              </svg>
+            </button>
+            {/* 최대화/복원 버튼 */}
+            <button
+              type="button"
+              onClick={() => setIsMaximized((prev) => !prev)}
+              className="flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors hover:bg-gray-200"
+              aria-label={isMaximized ? '이전 크기로 복원' : '최대화'}
+              title={isMaximized ? '이전 크기로 복원' : '최대화'}
+            >
+              {isMaximized ? (
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M4.5 4.5V2.5H9.5V7.5H7.5" stroke="currentColor" strokeWidth="1" />
+                  <rect
+                    x="2.5"
+                    y="4.5"
+                    width="5"
+                    height="5"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    fill="transparent"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="2.5"
+                    y="2.5"
+                    width="7"
+                    height="7"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  />
+                </svg>
+              )}
+            </button>
+            {/* 닫기 버튼 */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors hover:bg-red-500 hover:text-white"
+              aria-label="닫기"
+              title="닫기"
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 12 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
           </div>
         </div>
 

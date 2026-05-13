@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 import { useModal } from '@/shared/hooks/useModal';
 
 import { useDictionaryModal } from '../hooks/useDictionaryModal';
@@ -17,7 +19,8 @@ const USAGE_FILTER_OPTIONS: { label: string; value: DictionaryUsageFilter }[] = 
 ];
 
 export default function DictionaryModal({ onClose }: DictionaryModalProps) {
-  useModal({ isOpen: true, onClose });
+  const { containerRef } = useModal({ isOpen: true, onClose });
+  const titleId = useId();
 
   const {
     searchQuery,
@@ -35,17 +38,21 @@ export default function DictionaryModal({ onClose }: DictionaryModalProps) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
       onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="명령어 도감"
     >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className="flex h-modal-lg w-modal-lg max-w-full overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex w-1/2 flex-col border-r border-gray-200 bg-gray-50">
           <div className="flex flex-col gap-3 border-b border-gray-200 bg-[#f3f3f3] px-4 py-3">
-            <h2 className="text-sm font-semibold text-gray-700">명령어 도감</h2>
+            <h2 id={titleId} className="text-sm font-semibold text-gray-700">
+              명령어 도감
+            </h2>
             <input
               type="text"
               placeholder="명령어 검색..."

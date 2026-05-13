@@ -3,19 +3,19 @@ import { useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
+import { parseSwitchTarget } from '@/shared/game/branchParser';
+import { comboAtom } from '@/shared/store/comboAtom';
+import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
+import { totalAttemptsAtom, typoCountAtom } from '@/shared/store/typoAtom';
 
 import { activeBranchAtom } from '../store/activeBranchAtom';
 import { churuCountAtom } from '../store/churuAtom';
-import { comboAtom } from '../store/comboAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
 import { gameResultAtom } from '../store/gameResultAtom';
-import { gameStatusAtom } from '../store/gameStatusAtom';
 import { itemSlotsAtom } from '../store/itemSlotsAtom';
 import { livesAtom, MAX_LIVES } from '../store/livesAtom';
 import { useSingleStore } from '../store/singleStore';
 import { elapsedTimeAtom } from '../store/timerAtom';
-import { totalAttemptsAtom, typoCountAtom } from '../store/typoAtom';
-import { parseSwitchTarget } from '../utils/branchParser';
 import { calcScore, CHURU_THRESHOLD } from '../utils/scoreCalculator';
 
 import { useEscHandler } from './useEscHandler';

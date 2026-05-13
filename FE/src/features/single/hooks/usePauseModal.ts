@@ -4,10 +4,10 @@ import { useAtomValue, useSetAtom } from 'jotai';
 
 import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
+import { gameStatusAtom, prePauseStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { singleApi } from '../api/singleApi';
 import { gameResultAtom } from '../store/gameResultAtom';
-import { gameStatusAtom, prePauseStatusAtom } from '../store/gameStatusAtom';
 import { useSingleStore } from '../store/singleStore';
 
 /**
@@ -44,9 +44,21 @@ export function usePauseModal() {
     setIsRestarting(true);
     try {
       const nextSession = await singleApi.startSession(difficulty);
-      setGameResult(null);
-      setGameStatus(prePauseStatus === 'idle' ? 'idle' : 'playing');
+      // setSession 먼저 → status 전환 → 'game:restart' emit으로 Phaser/atom 동기 리셋.
+      // idle 상태에서 PauseModal을 띄우고 restart 한 경우(StartModal 화면)는
+      // 다시 idle로 돌아가 새 StartModal이 떠야 하므로 game:restart는 emit하지 않는다.
       useSingleStore.getState().setSession(nextSession);
+      setGameResult(null);
+      const targetStatus = prePauseStatus === 'idle' ? 'idle' : 'playing';
+      setGameStatus(targetStatus);
+      if (targetStatus === 'playing') {
+        EventBus.emit('game:restart', {
+          sessionId: nextSession.sessionId,
+          difficulty: nextSession.difficulty,
+          commandSet: useSingleStore.getState().commandSet,
+          isTutorial: useSingleStore.getState().isTutorial,
+        });
+      }
     } catch {
       navigate({ to: '/home', replace: true });
     } finally {

@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 interface OnboardingModalProps {
   title: string;
@@ -32,11 +32,21 @@ export default function OnboardingModal({
   modalClassName,
 }: OnboardingModalProps) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
+  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showTooltip = () => {
+    // 연속 클릭 시 이전 타이머 취소 후 새로 시작 (타이머 누수 방지)
+    if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
     setTooltipVisible(true);
-    setTimeout(() => setTooltipVisible(false), 1800);
+    tooltipTimerRef.current = setTimeout(() => setTooltipVisible(false), 1800);
   };
+
+  // 언마운트 시 잔여 타이머 정리 (unmounted setState 경고 방지)
+  useEffect(() => {
+    return () => {
+      if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+    };
+  }, []);
 
   const visibleGhostCount = Math.min(ghostCount, GHOST_CLASSES.length);
 

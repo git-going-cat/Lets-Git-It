@@ -10,6 +10,7 @@ import type { AuthUser, LoginRequest, LoginResponseData } from '../types/auth.ty
 
 function toAuthUser(data: LoginResponseData): AuthUser {
   return {
+    memberId: data.memberId,
     nickname: data.nickname,
     onboardingStatus: data.onboardingStatus,
     characterHair: data.characterHair,
@@ -37,7 +38,7 @@ export function useAuth() {
   const handleLoginResponse = useCallback(
     async (res: LoginResponseData & { isFirstLogin: boolean; isReactivated: boolean }) => {
       setAuth(res.accessToken, toAuthUser(res));
-      if (res.nickname) analytics.identifyUser(res.nickname);
+      analytics.identifyUser(res.memberId);
       if (res.isReactivated) {
         setReactivated(true);
       }
