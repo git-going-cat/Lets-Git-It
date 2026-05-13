@@ -317,6 +317,37 @@ export const Route = createFileRoute("/home")({
 });
 ```
 
+#### features 간 wiring 예외
+
+서로 다른 두 feature가 결합되어야 하는데 FSD 상 한쪽이 다른 쪽을 직접 import할 수 없는 경우, `routes/` 레이어가 결합 지점이 된다. 이때 callback 안정화(`useCallback`), URL 파라미터 읽기(`useSearch`)는 허용한다. 단, **실제 UI 상태(`useState`)·페이지 조립 로직은 여전히 금지**.
+
+배경 — `features/single`이 튜토리얼 완료 시 `features/auth`의 `onboardingApi.completeTutorial()` + `useAuthStore.updateUser()`를 호출해야 했지만, single이 auth를 직접 import하면 cross-feature 역방향 의존이 발생한다. wrapper를 `features/single/` 안에 두면 같은 문제. `routes/`는 원래 여러 feature를 조합하는 레이어이므로 결합 지점으로 적합.
+
+```tsx
+// ✅ routes/-TutorialRoute.tsx — features 간 wiring 전담
+// features/single은 features/auth를 직접 import하지 않는다.
+// 대신 routes/ 레이어에서 auth API/store를 callback으로 묶어 features/single에 주입.
+export default function TutorialRoute() {
+  const { replay } = useSearch({ from: '/tutorial' });
+
+  const onComplete = useCallback(async () => {
+    const user = useAuthStore.getState().user;
+    if (replay || user?.onboardingStatus === 'TUTORIAL_DONE') return;
+    await onboardingApi.completeTutorial();
+    useAuthStore.getState().updateUser({ onboardingStatus: 'TUTORIAL_DONE' });
+  }, [replay]);
+
+  return <TutorialPage onComplete={onComplete} />;
+}
+```
+
+#### `-` 접두 헬퍼 파일
+
+라우트가 아닌 헬퍼 컴포넌트(예: 위의 wiring wrapper)는 파일명을 `-`로 시작. TanStack Router는 `-`로 시작하는 파일을 라우트 트리에서 자동 제외한다. `routes/` 폴더 안에 두지만 URL에는 매핑되지 않는다.
+
+- `routes/-TutorialRoute.tsx` ✅ (라우트 아님, helper)
+- `routes/tutorial.lazy.tsx` ✅ (실제 라우트, `-TutorialRoute`를 import)
+
 ### Zod
 
 - 게임 중 WebSocket 패킷은 `.safeParse()` 필수 — `.parse()`는 throw하므로 게임 중 사용 금지
@@ -436,6 +467,7 @@ theme: { extend: { width: { hud: '8rem', churu: '9rem' }, zIndex: { '60': '60', 
   - 인터랙션 기반 데이터: 컴포넌트 hook(useQuery)
   - 두 패턴 혼용 금지 (한 라우트는 한 가지로 통일)
 - **lazy 라우트 (`*.lazy.tsx`)**: 진입이 드물거나 chunk가 큰 라우트(게임 화면, 튜토리얼 등)에 적용
+- **라우트 외 헬퍼 (`-*.tsx`)**: features 간 wiring wrapper 등 라우트 아닌 컴포넌트는 `-` 접두로 시작 — TanStack Router 라우트 트리에서 제외됨. UI 상태 보관은 금지, callback 안정화·URL 파라미터 읽기 같은 minimal wiring만 허용 (15장 TanStack Router 절 참조)
 
 ---
 

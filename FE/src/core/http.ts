@@ -1,13 +1,11 @@
 import axios from 'axios';
 
 import { env } from '@/config/env'; // 환경변수 추가
-import {
-  apiResponseSchema,
-  reissueResponseDataSchema,
-} from '@/features/auth/schemas/response.schema';
+import { reissueResponseDataSchema } from '@/features/auth/schemas/response.schema';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { faro } from '@/lib/faro';
 import { getRouter } from '@/routerRegistry';
+import { apiResponseSchema } from '@/shared/schemas/response.schema';
 
 import type { InternalAxiosRequestConfig } from 'axios';
 
