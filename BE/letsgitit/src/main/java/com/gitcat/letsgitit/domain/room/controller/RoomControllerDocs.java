@@ -302,13 +302,6 @@ public interface RoomControllerDocs {
 			        "isHost": false,
 			        "isMe": true
 			      }
-			    ],
-			    "mapList": [
-			      {
-			        "mapId": "550e8400-e29b-41d4-a716-446655440002",
-			        "mapName": "멋깔나는 맵",
-			        "difficulty": 3
-			      }
 			    ]
 			  }
 			}

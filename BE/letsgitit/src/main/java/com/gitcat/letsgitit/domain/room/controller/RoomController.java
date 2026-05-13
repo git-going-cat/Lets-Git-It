@@ -181,7 +181,6 @@ public class RoomController implements RoomControllerDocs {
 		data.put("members", List.of(
 			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true, false),
 			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false, true)));
-		data.put("mapList", List.of(buildSelectedMap()));
 		return ApiResponse.ok("방 입장 성공", data);
 	}
 
