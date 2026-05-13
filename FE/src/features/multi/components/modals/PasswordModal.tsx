@@ -1,21 +1,38 @@
 import { useState } from 'react';
 
-import { useJoinRoom, useVerifyRoomPassword } from '../../hooks/useRoom';
+import {
+  useJoinContributionRoom,
+  useJoinCoopRoom,
+  useVerifyRoomPassword,
+} from '../../hooks/useRoom';
+
+import type { GameMode } from '../../types/room.types';
 
 interface PasswordModalProps {
   roomId: number;
+  mode: GameMode;
   onClose: () => void;
   onSuccess: (roomId: number) => void;
 }
 
-export default function PasswordModal({ roomId, onClose, onSuccess }: PasswordModalProps) {
+export default function PasswordModal({ roomId, mode, onClose, onSuccess }: PasswordModalProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const { mutate: verifyPassword, isPending: isVerifying } = useVerifyRoomPassword();
-  const { mutate: joinRoom, isPending: isJoining } = useJoinRoom();
+  const { mutate: joinContributionRoom, isPending: isJoiningContribution } =
+    useJoinContributionRoom();
+  const { mutate: joinCoopRoom, isPending: isJoiningCoop } = useJoinCoopRoom();
 
-  const isPending = isVerifying || isJoining;
+  const isPending = isVerifying || isJoiningContribution || isJoiningCoop;
+
+  const joinAfterVerify = () => {
+    const joinFn = mode === 'COOP' ? joinCoopRoom : joinContributionRoom;
+    joinFn(roomId, {
+      onSuccess: () => onSuccess(roomId),
+      onError: () => setError('방 입장에 실패했습니다.'),
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,12 +45,7 @@ export default function PasswordModal({ roomId, onClose, onSuccess }: PasswordMo
     verifyPassword(
       { roomId, password },
       {
-        onSuccess: () => {
-          joinRoom(roomId, {
-            onSuccess: () => onSuccess(roomId),
-            onError: () => setError('방 입장에 실패했습니다.'),
-          });
-        },
+        onSuccess: joinAfterVerify,
         onError: () => setError('비밀번호가 틀렸습니다.'),
       }
     );

@@ -5,7 +5,8 @@ import {
   createCoopRoom,
   getRoomByCode,
   getRooms,
-  joinRoom,
+  joinContributionRoom,
+  joinCoopRoom,
   verifyRoomPassword,
 } from '../api/room.api';
 
@@ -62,10 +63,19 @@ export function useVerifyRoomPassword() {
 }
 
 /**
- * roomId로 방에 입장한다. 성공 시 방 상태 및 멤버 목록을 반환한다.
+ * 기여도 뺏기 방에 입장한다. POST /api/v1/rooms/{roomId}/contribution/join
  */
-export function useJoinRoom() {
+export function useJoinContributionRoom() {
   return useMutation({
-    mutationFn: (roomId: number) => joinRoom(roomId),
+    mutationFn: (roomId: number) => joinContributionRoom(roomId),
+  });
+}
+
+/**
+ * 협력 방에 입장한다. POST /api/v1/rooms/{roomId}/coop/join
+ */
+export function useJoinCoopRoom() {
+  return useMutation({
+    mutationFn: (roomId: number) => joinCoopRoom(roomId),
   });
 }

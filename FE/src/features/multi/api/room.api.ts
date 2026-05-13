@@ -3,7 +3,8 @@ import { http } from '@/core/http';
 import {
   createContributionRoomResponseSchema,
   createCoopRoomResponseSchema,
-  joinRoomResponseSchema,
+  joinContributionRoomResponseSchema,
+  joinCoopRoomResponseSchema,
   roomListResponseSchema,
   roomSummarySchema,
   verifyPasswordResponseSchema,
@@ -14,7 +15,8 @@ import type {
   CreateContributionRoomResponse,
   CreateCoopRoomRequest,
   CreateCoopRoomResponse,
-  JoinRoomResponse,
+  JoinContributionRoomResponse,
+  JoinCoopRoomResponse,
   RoomListResponse,
   RoomSummary,
 } from '../types/room.types';
@@ -52,7 +54,12 @@ export async function verifyRoomPassword(roomId: number, password: string): Prom
   verifyPasswordResponseSchema.parse(data.data);
 }
 
-export async function joinRoom(roomId: number): Promise<JoinRoomResponse> {
-  const { data } = await http.post<{ data: unknown }>(`/api/v1/rooms/${roomId}/join`);
-  return joinRoomResponseSchema.parse(data.data);
+export async function joinContributionRoom(roomId: number): Promise<JoinContributionRoomResponse> {
+  const { data } = await http.post<{ data: unknown }>(`/api/v1/rooms/${roomId}/contribution/join`);
+  return joinContributionRoomResponseSchema.parse(data.data);
+}
+
+export async function joinCoopRoom(roomId: number): Promise<JoinCoopRoomResponse> {
+  const { data } = await http.post<{ data: unknown }>(`/api/v1/rooms/${roomId}/coop/join`);
+  return joinCoopRoomResponseSchema.parse(data.data);
 }

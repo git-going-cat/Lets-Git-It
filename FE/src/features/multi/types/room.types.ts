@@ -62,18 +62,38 @@ export interface RoomMember {
 }
 
 export interface MapInfo {
+  mapId: string;
   mapName: string;
-  difficulty: string;
+  difficulty: number;
 }
 
-export interface JoinRoomResponse {
+export interface SelectedMap {
+  mapId: string;
+  mapName: string;
+  difficulty: number;
+}
+
+export interface JoinContributionRoomResponse {
   roomId: number;
   roomCode: string;
   title: string;
-  mode: GameMode;
+  mode: 'CONTRIBUTION_RUN';
   roomState: RoomState;
   currentPlayers: number;
   maxPlayers: number;
+  members: RoomMember[];
+}
+
+export interface JoinCoopRoomResponse {
+  roomId: number;
+  roomCode: string;
+  title: string;
+  teamName: string;
+  mode: 'COOP';
+  roomState: RoomState;
+  currentPlayers: number;
+  maxPlayers: number;
+  selectedMap: SelectedMap;
   members: RoomMember[];
   mapList: MapInfo[];
 }

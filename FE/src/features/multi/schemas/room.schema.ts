@@ -51,14 +51,39 @@ const roomMemberSchema = z.object({
   isMe: z.boolean(),
 });
 
-export const joinRoomResponseSchema = z.object({
+const mapInfoSchema = z.object({
+  mapId: z.string(),
+  mapName: z.string(),
+  difficulty: z.number(),
+});
+
+const selectedMapSchema = z.object({
+  mapId: z.string(),
+  mapName: z.string(),
+  difficulty: z.number(),
+});
+
+export const joinContributionRoomResponseSchema = z.object({
   roomId: z.number(),
   roomCode: z.string(),
   title: z.string(),
-  mode: gameModeSchema,
+  mode: z.literal('CONTRIBUTION_RUN'),
   roomState: roomStateSchema,
   currentPlayers: z.number(),
   maxPlayers: z.number(),
   members: z.array(roomMemberSchema),
-  mapList: z.array(z.object({ mapName: z.string(), difficulty: z.string() })),
+});
+
+export const joinCoopRoomResponseSchema = z.object({
+  roomId: z.number(),
+  roomCode: z.string(),
+  title: z.string(),
+  teamName: z.string(),
+  mode: z.literal('COOP'),
+  roomState: roomStateSchema,
+  currentPlayers: z.number(),
+  maxPlayers: z.number(),
+  selectedMap: selectedMapSchema,
+  members: z.array(roomMemberSchema),
+  mapList: z.array(mapInfoSchema),
 });

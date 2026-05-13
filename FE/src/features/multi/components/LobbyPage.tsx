@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
-import { useJoinRoom, useRoomByCode, useRooms } from '../hooks/useRoom';
+import {
+  useJoinContributionRoom,
+  useJoinCoopRoom,
+  useRoomByCode,
+  useRooms,
+} from '../hooks/useRoom';
 
 import CreateRoomModal from './modals/CreateRoomModal';
 import PasswordModal from './modals/PasswordModal';
@@ -40,23 +45,34 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
 
   const [selectedRoom, setSelectedRoom] = useState<RoomSummary | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [passwordRoomId, setPasswordRoomId] = useState<number | null>(null);
+  const [passwordRoom, setPasswordRoom] = useState<{ roomId: number; mode: GameMode } | null>(null);
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState('');
 
   const { mutate: findByCode, isPending: isFindingCode } = useRoomByCode();
-  const { mutate: joinRoom, isPending: isJoining } = useJoinRoom();
+  const { mutate: joinContributionRoom, isPending: isJoiningContribution } =
+    useJoinContributionRoom();
+  const { mutate: joinCoopRoom, isPending: isJoiningCoop } = useJoinCoopRoom();
+  const isJoining = isJoiningContribution || isJoiningCoop;
 
   const goToRoom = (roomId: number) => {
     void navigate({ to: '/multi/$roomId', params: { roomId: String(roomId) } });
   };
 
+  const joinByMode = (room: RoomSummary, onSuccess: () => void) => {
+    if (room.mode === 'COOP') {
+      joinCoopRoom(room.roomId, { onSuccess });
+    } else {
+      joinContributionRoom(room.roomId, { onSuccess });
+    }
+  };
+
   const handleJoin = (room: RoomSummary) => {
     if (room.status === 'IN_GAME') return;
     if (room.hasPassword) {
-      setPasswordRoomId(room.roomId);
+      setPasswordRoom({ roomId: room.roomId, mode: room.mode });
     } else {
-      joinRoom(room.roomId, { onSuccess: () => goToRoom(room.roomId) });
+      joinByMode(room, () => goToRoom(room.roomId));
     }
   };
 
@@ -80,9 +96,9 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
           return;
         }
         if (room.hasPassword) {
-          setPasswordRoomId(room.roomId);
+          setPasswordRoom({ roomId: room.roomId, mode: room.mode });
         } else {
-          joinRoom(room.roomId, { onSuccess: () => goToRoom(room.roomId) });
+          joinByMode(room, () => goToRoom(room.roomId));
         }
       },
       onError: () => setCodeError('존재하지 않는 방 코드입니다.'),
@@ -420,10 +436,11 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
         />
       )}
 
-      {passwordRoomId !== null && (
+      {passwordRoom !== null && (
         <PasswordModal
-          roomId={passwordRoomId}
-          onClose={() => setPasswordRoomId(null)}
+          roomId={passwordRoom.roomId}
+          mode={passwordRoom.mode}
+          onClose={() => setPasswordRoom(null)}
           onSuccess={(roomId) => goToRoom(roomId)}
         />
       )}
