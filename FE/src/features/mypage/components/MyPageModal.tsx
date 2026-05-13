@@ -58,7 +58,7 @@ export default function MyPageModal({ isOpen, onClose, onOpenLogout }: MyPageMod
       aria-hidden={!isOpen}
       tabIndex={-1}
       // translate-y-[120%]: 닫힘 상태에서 패널을 아래쪽으로 완전히 숨깁니다.
-      className={`absolute bottom-12 left-0 z-40 flex h-auto w-modal-md flex-col rounded-t-xl rounded-br-xl bg-[#f3f3f3]/95 p-6 shadow-2xl backdrop-blur transition-all duration-300 ease-in-out ${
+      className={`absolute bottom-12 left-0 z-40 flex h-auto w-modal-md flex-col rounded-t-xl rounded-br-xl bg-[#f3f3f3]/95 p-6 shadow-2xl backdrop-blur transition-[transform,opacity] will-change-transform duration-300 ease-in-out ${
         isOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-[120%] opacity-0'
       }`}
     >
