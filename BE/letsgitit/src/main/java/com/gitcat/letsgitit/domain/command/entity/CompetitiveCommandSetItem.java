@@ -8,7 +8,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// branch_name / display_text : CONTRIBUTION_RUN 전용 (TIME_ATTACK 은 NULL)
+// branch_name / display_text : CONTRIBUTION 전용 (TIME_ATTACK 은 NULL)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity

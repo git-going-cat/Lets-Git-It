@@ -1,5 +1,7 @@
 # Let's Git it WebSocket 명세 (STOMP Protocol)
 
+## ⭐️ 주의!! 해당 문서는 v1으로, 웹소켓과 관련된 문서는 @WEBSOCKET_API_V2.md을 참고해야 함.
+
 ## 📡 연결 정보
 
 | 항목 | 내용 |
