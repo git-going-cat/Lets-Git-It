@@ -34,6 +34,7 @@ import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
 import com.gitcat.letsgitit.global.jwt.JwtProvider;
 import com.gitcat.letsgitit.global.metrics.AuthMetrics;
+import com.gitcat.letsgitit.global.websocket.WebSocketSessionManager;
 
 import io.jsonwebtoken.ExpiredJwtException;
 
@@ -57,6 +58,8 @@ class AuthServiceImplTest {
 	private AuthenticationManager authenticationManager;
 	@Mock
 	private JwtProvider jwtProvider;
+	@Mock
+	private WebSocketSessionManager webSocketSessionManager;
 
 	private static final String EMAIL = "test@example.com";
 	private static final String PASSWORD = "Password123!";

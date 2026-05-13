@@ -79,6 +79,13 @@ public class JwtProvider {
 	}
 
 	/**
+	 * 토큰 타입(access / refresh) 추출
+	 */
+	public String getTokenType(String token) {
+		return parseClaims(token).get("type", String.class);
+	}
+
+	/**
 	 * 토큰 유효성 검증
 	 * - 서명이 맞는지 (위변조 여부)
 	 * - 만료되지 않았는지
