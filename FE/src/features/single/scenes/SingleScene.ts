@@ -1,15 +1,15 @@
 import Phaser from 'phaser';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { parseSwitchTarget } from '@/shared/game/branchParser';
 
+import { singleBus } from '../bridge/singleBus';
 import { CHERRY_PICK_ANIM_MS } from '../constants/itemAnimations';
 import { TUTORIAL_FALL_DURATION_MS } from '../constants/tutorialData';
 
 import { BranchLane } from './BranchLane';
 
+import type { GameRestartPayload } from '../bridge/singleBus';
 import type { SingleCommand, SingleSceneData } from '../types/single.types';
-import type { GameRestartPayload } from '@/core/bridge/EventBus';
 import type { Difficulty } from '@/shared/types/game.types';
 
 /**
@@ -27,7 +27,7 @@ const TIMER_INTERVAL_MS = 100;
 
 /**
  * 싱글 플레이 메인 씬.
- * 레인 렌더링, 명령어 낙하 타이머, EventBus 기반 React ↔ Phaser 통신을 담당합니다.
+ * 레인 렌더링, 명령어 낙하 타이머, singleBus 기반 React ↔ Phaser 통신을 담당합니다.
  * 게임 이벤트(complete/miss/pause/resume/restart/item:use)를 처리하며
  * 게임 종료 시 모든 Phaser 타이머·트윈을 정리합니다.
  */
@@ -72,7 +72,7 @@ export class SingleScene extends Phaser.Scene {
     }
 
     // scene.restart()는 SHUTDOWN을 emit하지만 인스턴스/이벤터를 보존하므로
-    // SHUTDOWN 핸들러는 한 번만 등록한다. EventBus 리스너는 shutdown()에서 off되고
+    // SHUTDOWN 핸들러는 한 번만 등록한다. singleBus 리스너는 shutdown()에서 off되고
     // 다음 create()의 registerEvents()로 다시 붙는다.
     // game.destroy() 시 Phaser가 shutdown()을 보장하지 않는 버전이 있어 DESTROY도 함께 연결.
     if (!this.lifecycleHandlersRegistered) {
@@ -88,27 +88,27 @@ export class SingleScene extends Phaser.Scene {
     if (this.stashTimeoutId !== null) {
       this.stashTimeoutId.remove();
       this.stashTimeoutId = null;
-      EventBus.emit('stash:end');
+      singleBus.emit('stash:end');
     }
     if (this.cherryPickTimeoutId !== null) {
       this.cherryPickTimeoutId.remove();
       this.cherryPickTimeoutId = null;
-      EventBus.emit('cherry-pick:end');
+      singleBus.emit('cherry-pick:end');
     }
 
-    EventBus.off('game:start', this.handleGameStart);
-    EventBus.off('command:complete', this.handleCommandComplete);
-    EventBus.off('branch:switch', this.handleBranchSwitch);
-    EventBus.off('lane:create', this.handleLaneCreate);
-    EventBus.off('game:pause', this.handleGamePause);
-    EventBus.off('game:resume', this.handleGameResume);
-    EventBus.off('game:restart', this.handleGameRestart);
-    EventBus.off('game:over', this.handleGameEnd);
-    EventBus.off('game:session-expired', this.handleGameEnd);
-    EventBus.off('game:complete', this.handleGameEnd);
-    EventBus.off('item:use', this.handleItemUse);
-    EventBus.off('tutorial:show-command', this.handleTutorialShowCommand);
-    EventBus.off('tutorial:freeze-command', this.handleTutorialFreezeCommand);
+    singleBus.off('game:start', this.handleGameStart);
+    singleBus.off('command:complete', this.handleCommandComplete);
+    singleBus.off('branch:switch', this.handleBranchSwitch);
+    singleBus.off('lane:create', this.handleLaneCreate);
+    singleBus.off('game:pause', this.handleGamePause);
+    singleBus.off('game:resume', this.handleGameResume);
+    singleBus.off('game:restart', this.handleGameRestart);
+    singleBus.off('game:over', this.handleGameEnd);
+    singleBus.off('game:session-expired', this.handleGameEnd);
+    singleBus.off('game:complete', this.handleGameEnd);
+    singleBus.off('item:use', this.handleItemUse);
+    singleBus.off('tutorial:show-command', this.handleTutorialShowCommand);
+    singleBus.off('tutorial:freeze-command', this.handleTutorialFreezeCommand);
   }
 
   private initLanes(commandSet: SingleCommand[]): void {
@@ -122,19 +122,19 @@ export class SingleScene extends Phaser.Scene {
   }
 
   private registerEvents(): void {
-    EventBus.on('game:start', this.handleGameStart);
-    EventBus.on('command:complete', this.handleCommandComplete);
-    EventBus.on('branch:switch', this.handleBranchSwitch);
-    EventBus.on('lane:create', this.handleLaneCreate);
-    EventBus.on('game:pause', this.handleGamePause);
-    EventBus.on('game:resume', this.handleGameResume);
-    EventBus.on('game:restart', this.handleGameRestart);
-    EventBus.on('game:over', this.handleGameEnd);
-    EventBus.on('game:session-expired', this.handleGameEnd);
-    EventBus.on('game:complete', this.handleGameEnd);
-    EventBus.on('item:use', this.handleItemUse);
-    EventBus.on('tutorial:show-command', this.handleTutorialShowCommand);
-    EventBus.on('tutorial:freeze-command', this.handleTutorialFreezeCommand);
+    singleBus.on('game:start', this.handleGameStart);
+    singleBus.on('command:complete', this.handleCommandComplete);
+    singleBus.on('branch:switch', this.handleBranchSwitch);
+    singleBus.on('lane:create', this.handleLaneCreate);
+    singleBus.on('game:pause', this.handleGamePause);
+    singleBus.on('game:resume', this.handleGameResume);
+    singleBus.on('game:restart', this.handleGameRestart);
+    singleBus.on('game:over', this.handleGameEnd);
+    singleBus.on('game:session-expired', this.handleGameEnd);
+    singleBus.on('game:complete', this.handleGameEnd);
+    singleBus.on('item:use', this.handleItemUse);
+    singleBus.on('tutorial:show-command', this.handleTutorialShowCommand);
+    singleBus.on('tutorial:freeze-command', this.handleTutorialFreezeCommand);
   }
 
   private startTimer(): void {
@@ -143,7 +143,7 @@ export class SingleScene extends Phaser.Scene {
       loop: true,
       callback: () => {
         this.elapsedMs += TIMER_INTERVAL_MS;
-        EventBus.emit('timer:tick', this.elapsedMs);
+        singleBus.emit('timer:tick', this.elapsedMs);
       },
     });
   }
@@ -151,7 +151,7 @@ export class SingleScene extends Phaser.Scene {
   private showCurrentCommand(): void {
     if (this.isGameEnded) return;
     if (this.commandIndex >= this.commandSet.length) {
-      EventBus.emit('game:complete');
+      singleBus.emit('game:complete');
       return;
     }
     const cmd = this.commandSet[this.commandIndex];
@@ -173,7 +173,7 @@ export class SingleScene extends Phaser.Scene {
     lane?.clearCommand();
     lane?.flashMiss();
     this.commandIndex++;
-    EventBus.emit('command:miss', { index: missedIndex }); // lives 감소 먼저
+    singleBus.emit('command:miss', { index: missedIndex }); // lives 감소 먼저
     // miss여도 브랜치 구조 변경은 반드시 적용해야 이후 커맨드 진행이 가능
     this.applyBranchEffect(cmd);
     if (!this.isGameEnded) {
@@ -186,8 +186,8 @@ export class SingleScene extends Phaser.Scene {
     if (cmd.type === 'CREATE' || cmd.type === 'SWITCH') {
       const target = parseSwitchTarget(cmd.text);
       if (target) {
-        EventBus.emit('branch:switch', { branch: target });
-        if (cmd.type === 'CREATE') EventBus.emit('lane:create', { branch: target });
+        singleBus.emit('branch:switch', { branch: target });
+        if (cmd.type === 'CREATE') singleBus.emit('lane:create', { branch: target });
       }
     } else if (cmd.type === 'MERGE') {
       const mergedBranch = parseSwitchTarget(cmd.text);
@@ -218,7 +218,7 @@ export class SingleScene extends Phaser.Scene {
         this.tweens.resumeAll();
         if (this.timerEvent) this.timerEvent.paused = false;
       }
-      EventBus.emit('stash:end');
+      singleBus.emit('stash:end');
     }
 
     // 튜토리얼 모드: useTutorialMode가 tutorial:show-command를 emit할 때까지 대기
@@ -266,7 +266,7 @@ export class SingleScene extends Phaser.Scene {
           this.tweens.resumeAll();
           if (this.timerEvent) this.timerEvent.paused = false;
         }
-        EventBus.emit('stash:end');
+        singleBus.emit('stash:end');
       });
     } else if (slot === 1) {
       // cherry-pick: 낙하 정지 후 발바닥 애니메이션, 완료 처리
@@ -282,9 +282,9 @@ export class SingleScene extends Phaser.Scene {
             this.tweens.resumeAll();
             if (this.timerEvent) this.timerEvent.paused = false;
           }
-          EventBus.emit('command:complete', { index: indexAtUse });
+          singleBus.emit('command:complete', { index: indexAtUse });
         }
-        EventBus.emit('cherry-pick:end');
+        singleBus.emit('cherry-pick:end');
       });
     }
   };
@@ -334,12 +334,12 @@ export class SingleScene extends Phaser.Scene {
     if (this.stashTimeoutId !== null) {
       this.stashTimeoutId.remove();
       this.stashTimeoutId = null;
-      EventBus.emit('stash:end');
+      singleBus.emit('stash:end');
     }
     if (this.cherryPickTimeoutId !== null) {
       this.cherryPickTimeoutId.remove();
       this.cherryPickTimeoutId = null;
-      EventBus.emit('cherry-pick:end');
+      singleBus.emit('cherry-pick:end');
     }
     this.lanes.forEach((lane) => lane.clearCommand());
   };

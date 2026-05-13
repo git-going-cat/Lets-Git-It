@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { EventBus } from '@/core/bridge/EventBus';
+import { singleBus } from '../bridge/singleBus';
 
 export default function RestoreOverlay() {
   const [animKey, setAnimKey] = useState(0);
@@ -17,9 +17,9 @@ export default function RestoreOverlay() {
       t = setTimeout(() => setVisible(false), 700);
     };
 
-    EventBus.on('item:use', handler);
+    const unsub = singleBus.subscribe('item:use', handler);
     return () => {
-      EventBus.off('item:use', handler);
+      unsub();
       clearTimeout(t);
     };
   }, []);

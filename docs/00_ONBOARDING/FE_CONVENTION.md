@@ -14,15 +14,17 @@
 ## 2. 레이어드 아키텍처
 
 - View (React UI): 공통 UI 및 게임 레이어 렌더링
-- Logic (Hooks): React 상태와 게임 엔진 간 이벤트 중재 (EventBus 활용)
+- Logic (Hooks): React 상태와 게임 엔진 간 이벤트 중재 (도메인별 이벤트 버스 활용 — `singleBus` 등)
 - Engine (Phaser): 순수 게임 렌더링 및 물리 연산 (React import 금지)
 
 ## 3. 개발 규칙
 
-- Phaser ↔ React: 직접 참조 금지, EventBus를 이용한 이벤트 기반 통신
-- EventBus 이벤트명: 'domain:action' 형태 (game:pause, score:update)
-- Phaser Scene 생명주기: create()에서 EventBus 등록, shutdown()에서 반드시 해제
-- Phaser Scene EventBus 핸들러: 클래스 필드 화살표 함수로 정의, context 인자 사용 금지
+- Phaser ↔ React: 직접 참조 금지, 도메인별 이벤트 버스(`singleBus` 등)를 이용한 이벤트 기반 통신
+- 이벤트 버스 구조: 제네릭 클래스 `core/bridge/TypedEventBus.ts`를 도메인별로 인스턴스화. 싱글 도메인은 `features/single/bridge/singleBus.ts`. 다른 도메인 추가 시 `features/{domain}/bridge/{domain}Bus.ts`로 신설
+- 이벤트명: 'domain:action' 형태 (game:pause, score:update)
+- Phaser Scene 생명주기: create()에서 도메인 버스 등록, shutdown()에서 반드시 해제
+- Phaser Scene 이벤트 핸들러: 클래스 필드 화살표 함수로 정의, context 인자 사용 금지
+- React 훅에서 이벤트 구독은 `bus.subscribe(event, fn)` 사용 권장 — `on` + `off` 분리 작성보다 cleanup 누락이 구조적으로 차단됨
 - Scene 안에서 React import 금지
 - WebSocket: core/socket/SocketManager.ts를 통해서만 연결
 - Zod 적용 범위:
@@ -33,7 +35,7 @@
 
 ## 4. 컴포넌트 설계 규칙
 
-- 데이터 가공, 이벤트 처리, EventBus 구독은 Custom Hook으로 분리
+- 데이터 가공, 이벤트 처리, 도메인 버스 구독은 Custom Hook으로 분리
 - 컴포넌트는 "어떻게 보여줄 것인가"만 담당
 - useEffect 3개 이상이면 hook 분리 우선 검토. 단, **콜드 마운트 / 키 입력 / 리사이즈처럼 의미가 명확히 다른 effect는 4개 이상도 허용** — 단순히 분리되어 있는 effect를 억지로 합치지 말 것
 - Phaser Scene 이벤트 구독은 useEffect + cleanup 필수
@@ -174,7 +176,7 @@ function Parent() {
 - **단일 진입점**: 모든 송수신은 `SocketManager.emit(event, payload)` / `SocketManager.on(event, handler)` 경유. 컴포넌트/훅에서 직접 `io()`/`socket.emit` 금지
 - **토큰 핸드셰이크**: 쿼리스트링 금지(access log 노출). Socket.IO `auth` 옵션 또는 첫 메시지로 전달
 - **패킷 직렬화**: JSON 고정
-- **이벤트 명명 충돌 방지**: EventBus는 `'domain:action'`(콜론), Socket은 `'domain.action'`(점)으로 구분
+- **이벤트 명명 충돌 방지**: 도메인 버스는 `'domain:action'`(콜론), Socket은 `'domain.action'`(점)으로 구분
 - **수신 → 상태 반영**: hook 경유 (`useRoomSocket` 등). atom/store 직접 업데이트는 hook 안에서만, Phaser Scene 안에서 React 상태 라이브러리 호출 금지(컨벤션 2장 레이어 분리)
 - 재연결 전략: BE 합의 후 확정
 - 게임 중 연결 끊김 처리: BE 합의 후 확정
@@ -336,15 +338,16 @@ if (!result.success) {
 
 ### Phaser ↔ React
 
-- React에서 Phaser Scene 직접 참조 금지 — EventBus 경유만 허용
+- React에서 Phaser Scene 직접 참조 금지 — 도메인 버스 경유만 허용
 
 ```ts
 // ❌ 강결합
 const scene = gameInstance.scene.getScene("SingleScene") as SingleScene;
 scene.pauseGame();
 
-// ✅ EventBus 경유
-EventBus.emit("game:pause");
+// ✅ 도메인 버스 경유 (싱글 도메인 예시)
+import { singleBus } from "@/features/single/bridge/singleBus";
+singleBus.emit("game:pause");
 ```
 
 ---
@@ -510,5 +513,5 @@ MR을 올리기 전에 아래 항목을 확인해 주세요.
 > 리뷰어가 특히 주의 깊게 봐주었으면 하는 부분이나,
 > 구현하면서 고민했던 부분, 참고해야 할 컨텍스트가 있다면 작성해 주세요.
 
-<!-- 예시: 기존 EventBus 구조를 변경했으니 Phaser 씬 연동 부분을 중점적으로 확인해 주세요. -->
+<!-- 예시: 기존 이벤트 버스 구조를 변경했으니 Phaser 씬 연동 부분을 중점적으로 확인해 주세요. -->
 ```

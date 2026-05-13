@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
 import { useModal } from '@/shared/hooks/useModal';
 import { gameStatusAtom, prePauseStatusAtom } from '@/shared/store/gameStatusAtom';
 
+import { singleBus } from '../bridge/singleBus';
 import { useSingleStore } from '../store/singleStore';
 
 /**
@@ -55,7 +55,7 @@ export default function StartModal() {
     if (inputValue.trim() === expectedCommand) {
       analytics.gameStarted(isTutorial ? 'tutorial' : 'single', difficulty ?? undefined);
       setGameStatus('playing');
-      EventBus.emit('game:start');
+      singleBus.emit('game:start');
     } else {
       setIsError(true);
       setInputValue('');
