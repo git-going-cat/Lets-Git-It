@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { Provider } from 'jotai';
 
-import { onboardingApi } from '@/features/auth/api/onboardingApi';
-import { useAuthStore } from '@/features/auth/store/authStore';
 import { useBgm } from '@/shared/hooks/useBgm';
 
 import { useSingleStore } from '../store/singleStore';
@@ -13,8 +11,8 @@ import SingleGameContent from './SingleGameContent';
 import StartModal from './StartModal';
 
 import type { SingleCommand } from '../types/single.types';
-import type { TutorialStep } from '@/features/auth/schemas/onboarding.schema';
 import type { CommandType } from '@/shared/types/game.types';
+import type { TutorialStep } from '@/shared/types/tutorial.types';
 
 // ── API 응답 → 게임 커맨드셋 추출 ─────────────────────────────────────────────
 
@@ -55,15 +53,14 @@ function extractCommandSet(steps: TutorialStep[]): SingleCommand[] {
 
 // ── 컴포넌트 ─────────────────────────────────────────────────────────────────
 
-/**
- * 튜토리얼 페이지.
- * 마운트 시 API에서 튜토리얼 데이터를 가져와 게임 세션을 구성합니다.
- * 완료 시 completeTutorial API를 호출하고 /home으로 이동합니다.
- */
-export default function TutorialPage() {
+interface TutorialPageProps {
+  onFetchSteps: () => Promise<TutorialStep[]>;
+  onComplete: () => Promise<void>;
+}
+
+export default function TutorialPage({ onFetchSteps, onComplete }: TutorialPageProps) {
   useBgm();
   const navigate = useNavigate();
-  const { replay } = useSearch({ from: '/tutorial' });
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,7 +69,7 @@ export default function TutorialPage() {
 
     const init = async () => {
       try {
-        const steps = await onboardingApi.getTutorialSteps();
+        const steps = await onFetchSteps();
         if (cancelled) return;
 
         const commandSet = extractCommandSet(steps);
@@ -95,26 +92,12 @@ export default function TutorialPage() {
       cancelled = true;
       useSingleStore.getState().clearSession();
     };
-  }, []);
+  }, [onFetchSteps]);
 
   const handleTutorialComplete = useCallback(async () => {
-    const user = useAuthStore.getState().user;
-
-    if (replay || user?.onboardingStatus === 'TUTORIAL_DONE') {
-      await navigate({ to: '/home', replace: true });
-      return;
-    }
-
-    try {
-      await onboardingApi.completeTutorial();
-      if (user) {
-        useAuthStore.getState().updateUser({ onboardingStatus: 'TUTORIAL_DONE' });
-      }
-    } catch {
-      // 이미 TUTORIAL_DONE인 경우 무시
-    }
+    await onComplete();
     await navigate({ to: '/home', replace: true });
-  }, [navigate, replay]);
+  }, [navigate, onComplete]);
 
   if (error) {
     return (

@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-import { MYPAGE_QUERY_KEYS } from '@/features/mypage/constants/queryKeys';
+import { MYPAGE_QUERY_KEYS } from '@/shared/constants/queryKeys';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { singleApi } from '../api/singleApi';

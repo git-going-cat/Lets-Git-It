@@ -2,8 +2,8 @@ import { create } from 'zustand';
 
 import type { StartSessionData } from '../schemas/single.schema';
 import type { ItemType, PlayLogEntry, SingleCommand } from '../types/single.types';
-import type { TutorialStep } from '@/features/auth/schemas/onboarding.schema';
 import type { Difficulty } from '@/shared/types/game.types';
+import type { TutorialStep } from '@/shared/types/tutorial.types';
 
 const SINGLE_SESSION_TTL_MS = 30 * 60 * 1000;
 
