@@ -690,7 +690,7 @@
     
     # 랭킹 (Sorted Set)
     ranking:SINGLE_EASY:2025-W18
-    ranking:CONTRIBUTION_RUN:2025-W18
+    ranking:CONTRIBUTION:2025-W18
     ranking:COOP:{mapId}:2025-W18
     
     # 게임 세션

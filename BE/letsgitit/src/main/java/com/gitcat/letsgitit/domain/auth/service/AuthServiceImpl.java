@@ -30,6 +30,7 @@ import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
 import com.gitcat.letsgitit.global.jwt.JwtProvider;
 import com.gitcat.letsgitit.global.metrics.AuthMetrics;
+import com.gitcat.letsgitit.global.websocket.WebSocketSessionManager;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.micrometer.core.instrument.Timer;
@@ -49,6 +50,7 @@ public class AuthServiceImpl implements AuthService {
 	private final AuthenticationManager authenticationManager;
 	private final JwtProvider jwtProvider;
 	private final AuthMetrics authMetrics;
+	private final WebSocketSessionManager webSocketSessionManager;
 
 	// Math.random() 대신 SecureRandom 사용
 	// → 암호학적으로 안전한 난수 생성기, 인증 코드 예측 불가능
@@ -256,6 +258,7 @@ public class AuthServiceImpl implements AuthService {
 					authRedisRepository.addRefreshTokenToBlacklist(oldRefreshToken, remainingMs);
 				}
 			}
+			webSocketSessionManager.notifyDisconnectByNewLogin(memberId);
 
 			// 4. 새 AT/RT 발급
 			String accessToken = jwtProvider.createAccessToken(email);
@@ -325,6 +328,7 @@ public class AuthServiceImpl implements AuthService {
 					authRedisRepository.addRefreshTokenToBlacklist(oldRefreshToken, remainingMs);
 				}
 			}
+			webSocketSessionManager.notifyDisconnectByNewLogin(memberId);
 
 			// 5. JWT 발급
 			String accessToken = jwtProvider.createAccessToken(email);
@@ -408,6 +412,7 @@ public class AuthServiceImpl implements AuthService {
 			// 9. 새 RT 발급 + Redis 저장 + Cookie 갱신 (RTR 전략)
 			String newRefreshToken = jwtProvider.createRefreshToken(email);
 			authRedisRepository.saveRefreshToken(memberId, newRefreshToken);
+			webSocketSessionManager.notifyDisconnectByReissue(memberId);
 
 			ResponseCookie cookie = ResponseCookie.from(AuthConstants.REFRESH_TOKEN_COOKIE, newRefreshToken)
 				.httpOnly(true)
@@ -467,6 +472,7 @@ public class AuthServiceImpl implements AuthService {
 
 			// 6. Redis에서 RT 삭제
 			authRedisRepository.deleteRefreshToken(memberId);
+			webSocketSessionManager.notifyDisconnectByLogout(memberId);
 
 			// 7. HttpOnly Cookie 만료 처리
 			ResponseCookie expiredCookie = ResponseCookie.from(AuthConstants.REFRESH_TOKEN_COOKIE, "")
