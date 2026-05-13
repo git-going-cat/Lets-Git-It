@@ -35,9 +35,7 @@ export const createCoopRoomResponseSchema = z.object({
   maxPlayers: z.number(),
 });
 
-export const verifyPasswordResponseSchema = z.object({
-  verified: z.boolean(),
-});
+export const verifyPasswordResponseSchema = z.object({});
 
 const roomMemberSchema = z.object({
   playerId: z.string(),

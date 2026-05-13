@@ -17,7 +17,6 @@ import type {
   JoinRoomResponse,
   RoomListResponse,
   RoomSummary,
-  VerifyPasswordResponse,
 } from '../types/room.types';
 
 export async function getRooms(mode: string): Promise<RoomListResponse> {
@@ -46,14 +45,11 @@ export async function createCoopRoom(body: CreateCoopRoomRequest): Promise<Creat
   return createCoopRoomResponseSchema.parse(data.data);
 }
 
-export async function verifyRoomPassword(
-  roomId: number,
-  password: string
-): Promise<VerifyPasswordResponse> {
+export async function verifyRoomPassword(roomId: number, password: string): Promise<void> {
   const { data } = await http.post<{ data: unknown }>(`/api/v1/rooms/${roomId}/password/verify`, {
     password,
   });
-  return verifyPasswordResponseSchema.parse(data.data);
+  verifyPasswordResponseSchema.parse(data.data);
 }
 
 export async function joinRoom(roomId: number): Promise<JoinRoomResponse> {

@@ -77,7 +77,3 @@ export interface JoinRoomResponse {
   members: RoomMember[];
   mapList: MapInfo[];
 }
-
-export interface VerifyPasswordResponse {
-  verified: boolean;
-}

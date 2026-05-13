@@ -52,7 +52,7 @@ export function useCreateCoopRoom() {
 
 /**
  * 비밀방의 비밀번호를 서버에서 검증한다.
- * 검증 성공 시 `verified: true`를 반환한다.
+ * HTTP 200 응답 시 성공, 오류 시 서버가 에러 코드를 반환한다.
  */
 export function useVerifyRoomPassword() {
   return useMutation({

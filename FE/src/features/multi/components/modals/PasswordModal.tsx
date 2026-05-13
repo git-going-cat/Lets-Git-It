@@ -28,11 +28,7 @@ export default function PasswordModal({ roomId, onClose, onSuccess }: PasswordMo
     verifyPassword(
       { roomId, password },
       {
-        onSuccess: (data) => {
-          if (!data.verified) {
-            setError('비밀번호가 틀렸습니다.');
-            return;
-          }
+        onSuccess: () => {
           joinRoom(roomId, {
             onSuccess: () => onSuccess(roomId),
             onError: () => setError('방 입장에 실패했습니다.'),
