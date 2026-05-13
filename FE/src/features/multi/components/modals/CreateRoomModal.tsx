@@ -1,16 +1,17 @@
 import { useState } from 'react';
 
-import { useCreateRoom } from '../../hooks/useRoom';
+import { useCreateContributionRoom, useCreateCoopRoom } from '../../hooks/useRoom';
 
 import type { GameMode } from '../../types/room.types';
 
-const MODE_LABELS: Record<GameMode, string> = {
+type CreateRoomMode = 'CONTRIBUTION_RUN' | 'COOP';
+
+const MODE_LABELS: Record<CreateRoomMode, string> = {
   CONTRIBUTION_RUN: '기여도 뺏기',
-  TIME_ATTACK: '타임어택',
   COOP: '협력',
 };
 
-const LOBBY_MODES: GameMode[] = ['CONTRIBUTION_RUN', 'TIME_ATTACK', 'COOP'];
+const CREATE_MODES: CreateRoomMode[] = ['CONTRIBUTION_RUN', 'COOP'];
 
 interface CreateRoomModalProps {
   defaultMode: GameMode;
@@ -20,18 +21,29 @@ interface CreateRoomModalProps {
 
 export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: CreateRoomModalProps) {
   const [title, setTitle] = useState('');
-  const [mode, setMode] = useState<GameMode>(defaultMode);
+  const [mode, setMode] = useState<CreateRoomMode>(
+    defaultMode === 'COOP' ? 'COOP' : 'CONTRIBUTION_RUN'
+  );
   const [maxPlayers, setMaxPlayers] = useState(4);
+  const [teamName, setTeamName] = useState('');
   const [hasPassword, setHasPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const { mutate: createRoom, isPending } = useCreateRoom();
+  const { mutate: createContributionRoom, isPending: isContributionPending } =
+    useCreateContributionRoom();
+  const { mutate: createCoopRoom, isPending: isCoopPending } = useCreateCoopRoom();
+
+  const isPending = isContributionPending || isCoopPending;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
       setError('방 제목을 입력하세요.');
+      return;
+    }
+    if (mode === 'COOP' && !teamName.trim()) {
+      setError('팀 이름을 입력하세요.');
       return;
     }
     if (hasPassword && !password.trim()) {
@@ -40,18 +52,30 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
     }
     setError('');
 
-    const body = {
-      title: title.trim(),
-      mode,
-      hasPassword,
-      ...(mode !== 'COOP' && { maxPlayers }),
-      ...(hasPassword && { password }),
-    };
+    const onSuccess_ = (data: { roomId: number }) => onSuccess(data.roomId);
+    const onError = () => setError('방 생성에 실패했습니다. 다시 시도해 주세요.');
 
-    createRoom(body, {
-      onSuccess: (data) => onSuccess(data.roomId),
-      onError: () => setError('방 생성에 실패했습니다. 다시 시도해 주세요.'),
-    });
+    if (mode === 'COOP') {
+      createCoopRoom(
+        {
+          title: title.trim(),
+          teamName: teamName.trim(),
+          hasPassword,
+          ...(hasPassword && { password }),
+        },
+        { onSuccess: onSuccess_, onError }
+      );
+    } else {
+      createContributionRoom(
+        {
+          title: title.trim(),
+          maxPlayers,
+          hasPassword,
+          ...(hasPassword && { password }),
+        },
+        { onSuccess: onSuccess_, onError }
+      );
+    }
   };
 
   return (
@@ -99,7 +123,7 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
               mode <span className="text-[10px] text-red-500">*필수</span>
             </label>
             <div className="flex gap-1.5">
-              {LOBBY_MODES.map((m) => (
+              {CREATE_MODES.map((m) => (
                 <button
                   key={m}
                   type="button"
@@ -117,8 +141,8 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
             </div>
           </div>
 
-          {/* MaxPlayers — hidden for COOP */}
-          {mode !== 'COOP' && (
+          {/* MaxPlayers — 기여도 뺏기 전용 */}
+          {mode === 'CONTRIBUTION_RUN' && (
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-700">maxPlayers</label>
               <select
@@ -132,6 +156,24 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* TeamName — 협력 전용 */}
+          {mode === 'COOP' && (
+            <div className="flex flex-col gap-1">
+              <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
+                teamName <span className="text-[10px] text-red-500">*필수</span>
+              </label>
+              <p className="text-[10px] text-gray-400">팀 이름을 입력하세요</p>
+              <input
+                type="text"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="팀 이름 입력"
+                maxLength={20}
+                className="rounded border border-gray-300 px-2 py-1.5 text-xs text-gray-800 outline-none focus:border-[#217346]"
+              />
             </div>
           )}
 

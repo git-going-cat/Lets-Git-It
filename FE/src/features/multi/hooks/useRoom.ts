@@ -1,8 +1,15 @@
 ﻿import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { createRoom, getRoomByCode, getRooms, joinRoom, verifyRoomPassword } from '../api/room.api';
+import {
+  createContributionRoom,
+  createCoopRoom,
+  getRoomByCode,
+  getRooms,
+  joinRoom,
+  verifyRoomPassword,
+} from '../api/room.api';
 
-import type { CreateRoomRequest } from '../types/room.types';
+import type { CreateContributionRoomRequest, CreateCoopRoomRequest } from '../types/room.types';
 
 /**
  * 모드별 방 목록을 5초마다 폴링하여 조회한다.
@@ -26,11 +33,20 @@ export function useRoomByCode() {
 }
 
 /**
- * 새 방을 생성한다. 응답으로 roomId와 roomCode를 반환한다.
+ * 기여도 뺏기 방을 생성한다. POST /api/v1/rooms/contribution
  */
-export function useCreateRoom() {
+export function useCreateContributionRoom() {
   return useMutation({
-    mutationFn: (body: CreateRoomRequest) => createRoom(body),
+    mutationFn: (body: CreateContributionRoomRequest) => createContributionRoom(body),
+  });
+}
+
+/**
+ * 협력 방을 생성한다. POST /api/v1/rooms/coop
+ */
+export function useCreateCoopRoom() {
+  return useMutation({
+    mutationFn: (body: CreateCoopRoomRequest) => createCoopRoom(body),
   });
 }
 

@@ -16,21 +16,35 @@ export interface RoomListResponse {
   rooms: RoomSummary[];
 }
 
-export interface CreateRoomRequest {
+export interface CreateContributionRoomRequest {
   title: string;
-  mode: GameMode;
   maxPlayers?: number;
   hasPassword: boolean;
   password?: string;
 }
 
-export interface CreateRoomResponse {
+export interface CreateContributionRoomResponse {
   roomId: number;
   roomCode: string;
   title: string;
-  mode: GameMode;
   maxPlayers: number;
   hasPassword: boolean;
+}
+
+export interface CreateCoopRoomRequest {
+  title: string;
+  teamName: string;
+  hasPassword: boolean;
+  password?: string;
+}
+
+export interface CreateCoopRoomResponse {
+  roomId: number;
+  roomCode: string;
+  title: string;
+  hasPassword: boolean;
+  teamName: string;
+  maxPlayers: number;
 }
 
 export interface RoomMember {

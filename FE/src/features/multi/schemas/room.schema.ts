@@ -18,13 +18,21 @@ export const roomListResponseSchema = z.object({
   rooms: z.array(roomSummarySchema),
 });
 
-export const createRoomResponseSchema = z.object({
+export const createContributionRoomResponseSchema = z.object({
   roomId: z.number(),
   roomCode: z.string(),
   title: z.string(),
-  mode: gameModeSchema,
   maxPlayers: z.number(),
   hasPassword: z.boolean(),
+});
+
+export const createCoopRoomResponseSchema = z.object({
+  roomId: z.number(),
+  roomCode: z.string(),
+  title: z.string(),
+  hasPassword: z.boolean(),
+  teamName: z.string(),
+  maxPlayers: z.number(),
 });
 
 export const verifyPasswordResponseSchema = z.object({
