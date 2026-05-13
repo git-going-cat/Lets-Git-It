@@ -59,7 +59,7 @@ if (completedCmd?.itemDrop) {
   if (slotIndex !== -1 && !itemSlotsRef[slotIndex]) {
     itemSlotsRef[slotIndex] = true;
     setItemSlots([itemSlotsRef[0], itemSlotsRef[1], itemSlotsRef[2]]);
-    EventBus.emit('item:acquired', { slot: slotIndex });
+    singleBus.emit('item:acquired', { slot: slotIndex });
   }
 }
 ```
@@ -129,11 +129,11 @@ useEffect(() => {
     setActive(false);
   };
 
-  EventBus.on('item:use', handleItemUse);
-  EventBus.on('stash:end', handleEnd);
+  singleBus.on('item:use', handleItemUse);
+  singleBus.on('stash:end', handleEnd);
   return () => {
-    EventBus.off('item:use', handleItemUse);
-    EventBus.off('stash:end', handleEnd);
+    singleBus.off('item:use', handleItemUse);
+    singleBus.off('stash:end', handleEnd);
   };
 }, []);
 ```
@@ -189,11 +189,11 @@ useEffect(() => {
     setPhase(null);
   };
 
-  EventBus.on('item:use', handleItemUse);
-  EventBus.on('cherry-pick:end', handleEnd);
+  singleBus.on('item:use', handleItemUse);
+  singleBus.on('cherry-pick:end', handleEnd);
   return () => {
-    EventBus.off('item:use', handleItemUse);
-    EventBus.off('cherry-pick:end', handleEnd);
+    singleBus.off('item:use', handleItemUse);
+    singleBus.off('cherry-pick:end', handleEnd);
     clearTimeout(stampTimer);
   };
 }, []);
@@ -228,7 +228,7 @@ useEffect(() => {
 }
 ```
 
-**Restore `item:use` emit 누락 수정**: 기존 `useSingleGame`의 restore 처리에서 `EventBus.emit('item:use', { slot: 2 })`가 누락되어 RestoreOverlay가 반응하지 않았다. emit을 추가해 수정.
+**Restore `item:use` emit 누락 수정**: 기존 `useSingleGame`의 restore 처리에서 `singleBus.emit('item:use', { slot: 2 })`가 누락되어 RestoreOverlay가 반응하지 않았다. emit을 추가해 수정.
 
 **타이머 관리**: 초기 구현에서 `setTimeout()` 반환값을 변수에 저장하지 않아 clear가 불가능했다. 연속 사용 시 이전 타이머가 남아 `setVisible(false)`가 겹쳐 호출되는 문제가 있었다.
 
@@ -244,9 +244,9 @@ useEffect(() => {
     t = setTimeout(() => setVisible(false), 700);
   };
 
-  EventBus.on('item:use', handler);
+  singleBus.on('item:use', handler);
   return () => {
-    EventBus.off('item:use', handler);
+    singleBus.off('item:use', handler);
     clearTimeout(t);  // unmount 시 잔여 타이머 정리
   };
 }, []);
@@ -302,10 +302,10 @@ useEffect(() => {
 if (!asset) return null;
 ```
 
-### 9. EventBus 신규 이벤트
+### 9. singleBus 신규 이벤트
 
 ```ts
-// EventBus.ts EventMap에 추가
+// singleBus.ts SingleEventMap에 추가
 'item:acquired': { slot: 0 | 1 | 2 };
 'command:wrong': void;
 'stash:end': void;          // StashOverlay 동기화
@@ -439,7 +439,7 @@ Phaser 씬 컨테이너(`containerRef`)만 흔들면 부모의 `overflow: hidden
 
 | 파일 | 변경 내용 |
 |------|---------|
-| `src/core/bridge/EventBus.ts` | `item:acquired`, `command:wrong`, `stash:end`, `cherry-pick:end` 이벤트 추가 |
+| `src/features/single/bridge/singleBus.ts` | `item:acquired`, `command:wrong`, `stash:end`, `cherry-pick:end` 이벤트 추가 (당시 작업 파일은 `src/core/bridge/EventBus.ts`였음 → 이후 도메인 분리됨) |
 | `src/features/single/types/single.types.ts` | `Command.itemDrop?: ItemType` 필드 추가 |
 | `src/features/single/store/singleStore.ts` | `assignItemDrops()` 추가, `setSession`에서 호출 |
 | `src/features/single/hooks/useSingleGame.ts` | 사전 배정 드롭 처리, `item:acquired` emit, restore `item:use` emit 추가 |

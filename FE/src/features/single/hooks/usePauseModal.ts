@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
 import { gameStatusAtom, prePauseStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { singleApi } from '../api/singleApi';
+import { singleBus } from '../bridge/singleBus';
 import { gameResultAtom } from '../store/gameResultAtom';
 import { useSingleStore } from '../store/singleStore';
 
@@ -31,7 +31,7 @@ export function usePauseModal() {
   const onResume = () => {
     setGameStatus(prePauseStatus);
     // idle에서 pause된 경우 Phaser는 아직 미시작 상태이므로 resume 이벤트 불필요
-    if (prePauseStatus === 'playing') EventBus.emit('game:resume');
+    if (prePauseStatus === 'playing') singleBus.emit('game:resume');
   };
 
   const onRestart = async () => {
@@ -52,7 +52,7 @@ export function usePauseModal() {
       const targetStatus = prePauseStatus === 'idle' ? 'idle' : 'playing';
       setGameStatus(targetStatus);
       if (targetStatus === 'playing') {
-        EventBus.emit('game:restart', {
+        singleBus.emit('game:restart', {
           sessionId: nextSession.sessionId,
           difficulty: nextSession.difficulty,
           commandSet: useSingleStore.getState().commandSet,

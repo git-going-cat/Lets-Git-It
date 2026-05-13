@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { EventBus } from '@/core/bridge/EventBus';
+import { singleBus } from '../bridge/singleBus';
 
 const STAMP_MS = 550;
 
@@ -24,11 +24,12 @@ export default function CherryPickOverlay() {
       setPhase(null);
     };
 
-    EventBus.on('item:use', handleItemUse);
-    EventBus.on('cherry-pick:end', handleEnd);
+    const unsubs = [
+      singleBus.subscribe('item:use', handleItemUse),
+      singleBus.subscribe('cherry-pick:end', handleEnd),
+    ];
     return () => {
-      EventBus.off('item:use', handleItemUse);
-      EventBus.off('cherry-pick:end', handleEnd);
+      unsubs.forEach((fn) => fn());
       clearTimeout(stampTimer);
     };
   }, []);

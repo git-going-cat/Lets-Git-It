@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { isSwitchCommand, parseSwitchTarget } from '@/shared/game/branchParser';
 import { comboAtom } from '@/shared/store/comboAtom';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 import { totalAttemptsAtom, typoCountAtom } from '@/shared/store/typoAtom';
 
+import { singleBus } from '../bridge/singleBus';
 import { activeBranchAtom } from '../store/activeBranchAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
 import { useSingleStore } from '../store/singleStore';
@@ -19,7 +19,7 @@ export type HistoryStatus = 'ok' | 'typo' | 'miss' | 'wrong-branch' | 'switch';
 /**
  * 커맨드 입력 처리 훅.
  * Enter 입력 시 hit / NORMAL 은닉 SWITCH / 잘못된 브랜치 / 오타 네 경로로 판정하고,
- * EventBus로 Phaser 씬에 결과를 전달합니다.
+ * 도메인 버스로 Phaser 씬에 결과를 전달합니다.
  */
 export function useCommandInput() {
   const commandIndex = useAtomValue(currentCommandIndexAtom);
@@ -45,7 +45,7 @@ export function useCommandInput() {
   useEffect(() => {
     if (!existingBranches.has(activeBranch)) {
       setActiveBranch('main');
-      EventBus.emit('branch:switch', { branch: 'main' });
+      singleBus.emit('branch:switch', { branch: 'main' });
     }
   }, [activeBranch, existingBranches, setActiveBranch]);
 
@@ -75,20 +75,20 @@ export function useCommandInput() {
         setCombo(0);
         setTypoCount((prev) => prev + 1);
         useSingleStore.getState().appendLog({ seq: commandIndex, event: 'typo' });
-        EventBus.emit('command:wrong');
+        singleBus.emit('command:wrong');
       };
 
       if (textMatches && branchMatches) {
         setHistory((prev) => [...prev, { text: inputValue, status: 'ok' }]);
         setTotalAttempts((prev) => prev + 1);
-        EventBus.emit('command:complete', { index: commandIndex });
+        singleBus.emit('command:complete', { index: commandIndex });
         if (currentCommand.type === 'CREATE' || currentCommand.type === 'SWITCH') {
           const target = parseSwitchTarget(trimmed);
           if (target) {
             setActiveBranch(target);
-            EventBus.emit('branch:switch', { branch: target });
+            singleBus.emit('branch:switch', { branch: target });
             if (currentCommand.type === 'CREATE') {
-              EventBus.emit('lane:create', { branch: target });
+              singleBus.emit('lane:create', { branch: target });
             }
           }
         }
@@ -100,7 +100,7 @@ export function useCommandInput() {
         if (target && existingBranches.has(target)) {
           setHistory((prev) => [...prev, { text: inputValue, status: 'switch' }]);
           setActiveBranch(target);
-          EventBus.emit('branch:switch', { branch: target });
+          singleBus.emit('branch:switch', { branch: target });
         } else {
           setHistory((prev) => [
             ...prev,
@@ -139,19 +139,16 @@ export function useCommandInput() {
     const handleMiss = () => {
       setInputValue('');
       setHistory((prev) => [...prev, { text: 'MISS!', status: 'miss' }]);
-      EventBus.emit('command:wrong');
+      singleBus.emit('command:wrong');
     };
 
-    EventBus.on('command:miss', handleMiss);
-    EventBus.on('game:restart', resetInput);
-    EventBus.on('game:over', resetInput);
-    EventBus.on('game:complete', resetInput);
-    return () => {
-      EventBus.off('command:miss', handleMiss);
-      EventBus.off('game:restart', resetInput);
-      EventBus.off('game:over', resetInput);
-      EventBus.off('game:complete', resetInput);
-    };
+    const unsubs = [
+      singleBus.subscribe('command:miss', handleMiss),
+      singleBus.subscribe('game:restart', resetInput),
+      singleBus.subscribe('game:over', resetInput),
+      singleBus.subscribe('game:complete', resetInput),
+    ];
+    return () => unsubs.forEach((fn) => fn());
   }, []);
 
   return {

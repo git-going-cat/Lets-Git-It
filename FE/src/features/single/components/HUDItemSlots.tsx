@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useAtomValue } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
+import { singleBus } from '../bridge/singleBus';
 import { itemSlotsAtom } from '../store/itemSlotsAtom';
 
 const ITEM_LABELS: [string, string, string] = ['stash', 'cherry-pick', 'restore'];
@@ -22,10 +22,7 @@ export default function HUDItemSlots() {
         return next;
       });
     };
-    EventBus.on('item:acquired', handler);
-    return () => {
-      EventBus.off('item:acquired', handler);
-    };
+    return singleBus.subscribe('item:acquired', handler);
   }, []);
 
   return (
@@ -39,7 +36,7 @@ export default function HUDItemSlots() {
             type="button"
             className={`nes-btn w-full !text-2xl ${active && isPlaying ? 'is-primary' : 'is-disabled'}`}
             disabled={!active || !isPlaying}
-            onClick={() => EventBus.emit('item:click', { slot: i as 0 | 1 | 2 })}
+            onClick={() => singleBus.emit('item:click', { slot: i as 0 | 1 | 2 })}
           >
             <div className="!text-2xl">Alt+{i + 1}</div>
             <div className="!text-2xl">{ITEM_LABELS[i]}</div>

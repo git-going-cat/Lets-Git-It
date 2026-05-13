@@ -3,11 +3,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { MYPAGE_QUERY_KEYS } from '@/features/mypage/constants/queryKeys';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { singleApi } from '../api/singleApi';
+import { singleBus } from '../bridge/singleBus';
 import { gameResultAtom } from '../store/gameResultAtom';
 import { useSingleStore } from '../store/singleStore';
 
@@ -83,7 +83,7 @@ export function useResultModal() {
       useSingleStore.getState().setSession(nextSession);
       setResult(null);
       setGameStatus('playing');
-      EventBus.emit('game:restart', {
+      singleBus.emit('game:restart', {
         sessionId: nextSession.sessionId,
         difficulty: nextSession.difficulty,
         commandSet: useSingleStore.getState().commandSet,

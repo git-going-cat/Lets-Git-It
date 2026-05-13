@@ -3,10 +3,10 @@ import { useAtomValue } from 'jotai';
 import Phaser from 'phaser';
 
 import screenBg from '@/assets/bg/screen.png';
-import { EventBus } from '@/core/bridge/EventBus';
-import { singleGameConfig } from '@/game/config';
+import { createGameConfig } from '@/game/config';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
+import { singleBus } from '../bridge/singleBus';
 import { useSingleGame } from '../hooks/useSingleGame';
 import { useTutorialMode } from '../hooks/useTutorialMode';
 import { SingleScene } from '../scenes/SingleScene';
@@ -49,16 +49,13 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
   }, []);
 
   useEffect(() => {
-    EventBus.on('command:wrong', triggerShake);
-    return () => {
-      EventBus.off('command:wrong', triggerShake);
-    };
+    return singleBus.subscribe('command:wrong', triggerShake);
   }, [triggerShake]);
 
   const { overlayState, modalPhase, handleNext, handleResume, handleSkip } =
     useTutorialMode(isTutorial);
 
-  // 다시하기는 EventBus 'game:restart' 이벤트로 처리하므로,
+  // 다시하기는 singleBus 'game:restart' 이벤트로 처리하므로,
   // sessionId/commandSet 변경마다 Phaser 인스턴스를 재생성하지 않는다.
   // hasSession boolean 트랜지션(false→true / true→false)에서만 effect가 발화하도록 deps를 단순화.
   // isTutorial은 게임 모드 자체가 달라지므로 계속 deps에 포함.
@@ -70,9 +67,8 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
     const initialSession = useSingleStore.getState();
 
     const game = new Phaser.Game({
-      ...singleGameConfig,
+      ...createGameConfig(),
       parent: containerRef.current,
-      scene: [],
     });
 
     gameRef.current = game;
@@ -128,7 +124,7 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
                 type="button"
                 className="nes-btn text-2xl"
                 onClick={() =>
-                  isTutorial ? EventBus.emit('tutorial:pause') : EventBus.emit('game:pause')
+                  isTutorial ? singleBus.emit('tutorial:pause') : singleBus.emit('game:pause')
                 }
                 aria-label="일시정지"
               >

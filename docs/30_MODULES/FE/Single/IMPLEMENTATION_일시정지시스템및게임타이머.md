@@ -27,10 +27,10 @@ export function useEscHandler() {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (statusRef.current === 'playing') {
-        EventBus.emit('game:pause');
+        singleBus.emit('game:pause');
       } else if (statusRef.current === 'paused') {
         setGameStatus('playing');
-        EventBus.emit('game:resume');
+        singleBus.emit('game:resume');
       }
     };
     window.addEventListener('keydown', handleEsc);
@@ -64,7 +64,7 @@ game:resume → handleGameResume → gameStatusAtom = 'playing' → PauseModal �
 <div className="flex h-48 flex-col border-b border-gray-700 p-2">
   {/* 상단: 우측 정렬 일시정지 버튼 */}
   <div className="flex justify-end">
-    <button className="nes-btn text-xs" onClick={() => EventBus.emit('game:pause')}>⏸</button>
+    <button className="nes-btn text-xs" onClick={() => singleBus.emit('game:pause')}>⏸</button>
   </div>
   {/* 하단: 중앙 정렬 캐릭터 */}
   <div className="flex flex-1 items-end justify-center pb-2">
@@ -123,7 +123,7 @@ Zustand `persist` 미들웨어로 localStorage에 저장해 새로고침 후에�
 
 `SingleGameContent` 언마운트 시 `game.destroy(true)`를 호출하지만, Phaser 3 일부 버전에서  
 `SceneManager.destroy()` → `sys.destroy()` 경로가 `sys.shutdown()`을 건너뛴다.  
-결과적으로 `EventBus` 핸들러가 정리되지 않은 채 남아, 새 게임 생성 시 이미 파괴된  
+결과적으로 `singleBus` 핸들러가 정리되지 않은 채 남아, 새 게임 생성 시 이미 파괴된  
 `BranchLane`(`this.scene === undefined`)을 참조하는 핸들러가 이중 실행되어 TypeError가 발생했다.
 
 ### `game.events.once(DESTROY, this.shutdown, this)`를 선택한 이유
@@ -134,7 +134,7 @@ Phaser 문서에서 보장하는 리소스 해제 진입점이다.
 
 ### 경과 시간 표시에 `elapsedTimeAtom`을 재사용한 이유
 
-이미 `useSingleGame`이 `timer:tick` EventBus 이벤트로 `elapsedTimeAtom`을 갱신하고 있다.  
+이미 `useSingleGame`이 `timer:tick` singleBus 이벤트로 `elapsedTimeAtom`을 갱신하고 있다.  
 Phaser 타이머(`this.time`)가 일시정지 여부를 제어하므로, 별도의 React 타이머 없이  
 게임 일시정지 상태가 경과 시간에 자동 반영된다.
 
@@ -145,7 +145,7 @@ Phaser 타이머(`this.time`)가 일시정지 여부를 제어하므로, 별도�
 - `PauseModal`의 BGM/SFX 상태는 `audioStore`(Zustand persist)에 연결돼 페이지 이탈·재시작 후에도 유지된다.
 - `😸` 캐릭터는 이모지 임시 대체다. 실제 캐릭터 에셋으로 교체 필요 (TODO)
 - ~~`/single` 경로 직접 접근이 허용된다~~ → **구현 완료**. `routes/single.tsx`의 `validateSearch` + `beforeLoad`에서 `difficulty` search param 없으면 즉시 `/home`으로 redirect한다.
-- `game.events.once(DESTROY, this.shutdown, this)` 픽스는 `shutdown()` 이중 호출이 발생할 수 있다. `shutdown()` 내부의 `EventBus.off`는 이미 해제된 핸들러를 다시 해제해도 오류가 발생하지 않으므로 안전하다.
+- `game.events.once(DESTROY, this.shutdown, this)` 픽스는 `shutdown()` 이중 호출이 발생할 수 있다. `shutdown()` 내부의 `singleBus.off`는 이미 해제된 핸들러를 다시 해제해도 오류가 발생하지 않으므로 안전하다.
 - `SingleScene`에 `isUserPaused` 플래그가 추가되었다. `handleGamePause`에서 `true`, `handleGameResume`에서 `false`로 관리하며, stash/cherry-pick 자동 재개 시점 판단에 사용된다. stash 중 ESC 일시정지 → stash 타이머도 함께 멈춤(`time.delayedCall`이 글로벌 `time.paused`에 묶임) → 이어하기 시 잔여 시간 후 자동 재개. `handleGameResume`은 stash/cherry-pick 활성 중이면 `tweens.resumeAll()`을 호출하지 않아 노드 낙하가 stash 완료 시점과 정확히 일치한다. → `IMPLEMENTATION_아이템드롭및사용.md` — "4. stash 구현" 참고.
 - `elapsedTimeAtom`은 ms 단위다. 결과 화면에서 `playTimeMs`로 전달할 때 단위 변환 주의.
 - `GameProgress`의 진행도 바 너비가 `w-full`로 고정되어 있어 경과 시간 span이 추가되면 내부 레이아웃이 좁아진다. 해상도 1280×720 기준으로 확인 필요.

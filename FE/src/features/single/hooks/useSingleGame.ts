@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
 import { parseSwitchTarget } from '@/shared/game/branchParser';
 import { comboAtom } from '@/shared/store/comboAtom';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 import { totalAttemptsAtom, typoCountAtom } from '@/shared/store/typoAtom';
 
+import { singleBus } from '../bridge/singleBus';
 import { activeBranchAtom } from '../store/activeBranchAtom';
 import { churuCountAtom } from '../store/churuAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
@@ -23,7 +23,7 @@ import { useEscHandler } from './useEscHandler';
 import { ITEM_SLOT_MAP } from '../types/single.types';
 
 /**
- * EventBus → Jotai 원자 브릿지.
+ * singleBus → Jotai 원자 브릿지.
  * Phaser 씬이 emit하는 게임 이벤트를 구독하여 HUD 상태를 갱신하고,
  * 게임 종료 시 최종 점수를 계산해 gameResultAtom에 저장합니다.
  * Alt+1/2/3 아이템 사용 키 리스너도 여기서 등록합니다.
@@ -51,7 +51,7 @@ export function useSingleGame() {
   }, [typoCount]);
 
   useEffect(() => {
-    // lives·elapsedMs·livesLost·churu·combo는 EventBus 핸들러 클로저에서 직접 변경되므로 ref로 관리
+    // lives·elapsedMs·livesLost·churu·combo는 singleBus 핸들러 클로저에서 직접 변경되므로 ref로 관리
     const stateRef = {
       lives: MAX_LIVES,
       elapsedMs: 0,
@@ -114,7 +114,7 @@ export function useSingleGame() {
         if (target) setActiveBranch(target);
       }
       if (newLives <= 0) {
-        EventBus.emit('game:over');
+        singleBus.emit('game:over');
       }
     };
 
@@ -139,7 +139,7 @@ export function useSingleGame() {
         if (slotIndex !== -1 && !itemSlotsRef[slotIndex]) {
           itemSlotsRef[slotIndex] = true;
           setItemSlots([itemSlotsRef[0], itemSlotsRef[1], itemSlotsRef[2]]);
-          EventBus.emit('item:acquired', { slot: slotIndex as 0 | 1 | 2 });
+          singleBus.emit('item:acquired', { slot: slotIndex as 0 | 1 | 2 });
         }
         // 슬롯이 이미 찼으면 아이템 소멸 (획득 불가)
       }
@@ -234,7 +234,7 @@ export function useSingleGame() {
         const newLives = Math.min(stateRef.lives + 1, MAX_LIVES);
         stateRef.lives = newLives;
         setLives(newLives);
-        EventBus.emit('item:use', { slot: 2 });
+        singleBus.emit('item:use', { slot: 2 });
       } else if (slotIndex === 1) {
         // cherry-pick: CREATE·SWITCH면 activeBranch 먼저 이동 후 Phaser에 위임
         const cmd = useSingleStore.getState().commandSet[commandIndexRef.current];
@@ -242,10 +242,10 @@ export function useSingleGame() {
           const target = parseSwitchTarget(cmd.text);
           if (target) setActiveBranch(target);
         }
-        EventBus.emit('item:use', { slot: 1 });
+        singleBus.emit('item:use', { slot: 1 });
       } else {
         // stash: Phaser에 위임 (slot 0)
-        EventBus.emit('item:use', { slot: 0 });
+        singleBus.emit('item:use', { slot: 0 });
       }
     };
 
@@ -261,31 +261,23 @@ export function useSingleGame() {
       applyItemSlot(slot);
     };
 
-    EventBus.on('game:start', handleGameStart);
-    EventBus.on('command:miss', handleMiss);
-    EventBus.on('command:complete', handleComplete);
-    EventBus.on('timer:tick', handleTimerTick);
-    EventBus.on('game:pause', handleGamePause);
-    EventBus.on('game:resume', handleGameResume);
-    EventBus.on('game:over', handleGameOver);
-    EventBus.on('game:complete', handleGameComplete);
-    EventBus.on('game:session-expired', handleSessionExpired);
-    EventBus.on('game:restart', handleGameRestart);
-    EventBus.on('item:click', handleItemClick);
+    const unsubs = [
+      singleBus.subscribe('game:start', handleGameStart),
+      singleBus.subscribe('command:miss', handleMiss),
+      singleBus.subscribe('command:complete', handleComplete),
+      singleBus.subscribe('timer:tick', handleTimerTick),
+      singleBus.subscribe('game:pause', handleGamePause),
+      singleBus.subscribe('game:resume', handleGameResume),
+      singleBus.subscribe('game:over', handleGameOver),
+      singleBus.subscribe('game:complete', handleGameComplete),
+      singleBus.subscribe('game:session-expired', handleSessionExpired),
+      singleBus.subscribe('game:restart', handleGameRestart),
+      singleBus.subscribe('item:click', handleItemClick),
+    ];
     window.addEventListener('keydown', handleAltKey);
 
     return () => {
-      EventBus.off('game:start', handleGameStart);
-      EventBus.off('command:miss', handleMiss);
-      EventBus.off('command:complete', handleComplete);
-      EventBus.off('timer:tick', handleTimerTick);
-      EventBus.off('game:pause', handleGamePause);
-      EventBus.off('game:resume', handleGameResume);
-      EventBus.off('game:over', handleGameOver);
-      EventBus.off('game:complete', handleGameComplete);
-      EventBus.off('game:session-expired', handleSessionExpired);
-      EventBus.off('game:restart', handleGameRestart);
-      EventBus.off('item:click', handleItemClick);
+      unsubs.forEach((fn) => fn());
       window.removeEventListener('keydown', handleAltKey);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

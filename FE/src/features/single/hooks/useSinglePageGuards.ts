@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
-import { EventBus } from '@/core/bridge/EventBus';
-
+import { singleBus } from '../bridge/singleBus';
 import { useSingleStore } from '../store/singleStore';
 
 /**
@@ -20,7 +19,7 @@ export function useSinglePageGuards() {
     // setSession이 새 세션을 set하면 두 값이 함께 갱신되어 effect가 재발화한다.
     if (!sessionId || !sessionExpiresAt) return;
 
-    const expireSession = () => EventBus.emit('game:session-expired');
+    const expireSession = () => singleBus.emit('game:session-expired');
     const remainingMs = sessionExpiresAt - Date.now();
 
     if (remainingMs <= 0) {

@@ -48,13 +48,11 @@ src/
 │   │   ├── Avatar.tsx
 │   │   ├── RouteErrorFallback.tsx    ← routes/ errorComponent 전용
 │   │   └── LoadingSpinner.tsx        ← routes/ pendingComponent 전용
-│   ├── types/
-│   │   ├── game.types.ts
-│   │   ├── user.types.ts
-│   │   ├── socket.types.ts
-│   │   └── ranking.types.ts
-│   └── utils/
-│       └── scoreCalculator.ts
+│   └── types/
+│       ├── game.types.ts
+│       ├── user.types.ts
+│       ├── socket.types.ts
+│       └── ranking.types.ts
 │
 ├── features/
 │   ├── auth/
@@ -216,7 +214,8 @@ src/
 │
 ├── core/
 │   ├── bridge/
-│   │   ├── EventBus.ts
+│   │   ├── TypedEventBus.ts          ← 도메인별 이벤트 버스 제네릭 클래스
+│   │   ├── EventBus.ts               ← TypedEventBus 진입점 re-export
 │   │   └── GameBridge.ts
 │   └── socket/
 │       └── SocketManager.ts
@@ -283,7 +282,7 @@ export function ComponentName({}: Props) {
 ```ts
 // TODO: 구현 필요
 // Phaser 4 Scene 클래스
-// React 코드 import 금지 — EventBus 경유만 허용
+// React 코드 import 금지 — 도메인 버스(features/{domain}/bridge/{domain}Bus.ts) 경유만 허용
 ```
 
 ### schemas/\*.schema.ts
@@ -339,7 +338,7 @@ export function XxxPage() {
 | `components/common/` 폴더 생성                                      | 공통 컴포넌트는 `shared/components/`로 일원화         |
 | 최상위 `schemas/` 폴더에 스키마 추가                                | 스키마는 사용하는 feature 안 `schemas/`에 위치        |
 | `import.meta.env` 직접 접근                                         | 반드시 `config/env.ts`를 통해서만 참조                |
-| Phaser Scene에서 React import                                       | EventBus 경유만 허용                                  |
+| Phaser Scene에서 React import                                       | 도메인 버스(singleBus 등) 경유만 허용                 |
 | WebSocket 패킷에 `.parse()` 사용                                    | 게임 중 터짐 — `.safeParse()` 만 허용                 |
 | `assets/character/` 네이밍 임의 변경                                | BE 합의 기준 그대로 사용                              |
 | 서버 데이터를 Zustand/Jotai에 중복 저장                             | TanStack Query가 관리 — store에 넣지 말 것            |
