@@ -27,7 +27,8 @@ public class RoomController implements RoomControllerDocs {
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/contribution")
-	public ResponseEntity<?> createContributionRoom(@RequestBody Map<String, Object> body) {
+	public ResponseEntity<?> createContributionRoom(@RequestBody
+	Map<String, Object> body) {
 		Map<String, Object> data = new LinkedHashMap<>();
 		data.put("roomId", 42);
 		data.put("roomCode", "A3F9KX");
@@ -40,7 +41,8 @@ public class RoomController implements RoomControllerDocs {
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/coop")
-	public ResponseEntity<?> createCoopRoom(@RequestBody Map<String, Object> body) {
+	public ResponseEntity<?> createCoopRoom(@RequestBody
+	Map<String, Object> body) {
 		Map<String, Object> data = new LinkedHashMap<>();
 		data.put("roomId", 42);
 		data.put("teamName", body.getOrDefault("teamName", "팀이름"));
@@ -56,8 +58,10 @@ public class RoomController implements RoomControllerDocs {
 	@Override
 	@GetMapping
 	public ResponseEntity<?> getRooms(
-		@RequestParam(required = false, defaultValue = "ALL") String mode,
-		@RequestParam(required = false) String code) {
+		@RequestParam(required = false, defaultValue = "ALL")
+		String mode,
+		@RequestParam(required = false)
+		String code) {
 
 		if (code != null) {
 			if ("XXXXXX".equals(code)) {
@@ -102,8 +106,10 @@ public class RoomController implements RoomControllerDocs {
 	@Override
 	@PostMapping("/{roomId}/password/verify")
 	public ResponseEntity<?> verifyRoomPassword(
-		@PathVariable Long roomId,
-		@RequestBody Map<String, Object> body) {
+		@PathVariable
+		Long roomId,
+		@RequestBody
+		Map<String, Object> body) {
 		if (9999L == roomId) {
 			throw new BusinessException(ROOM_NOT_FOUND);
 		}
@@ -117,7 +123,8 @@ public class RoomController implements RoomControllerDocs {
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/{roomId}/contribution/join")
-	public ResponseEntity<?> joinContributionRoom(@PathVariable Long roomId) {
+	public ResponseEntity<?> joinContributionRoom(@PathVariable
+	Long roomId) {
 		if (9999L == roomId) {
 			throw new BusinessException(ROOM_NOT_FOUND);
 		}
@@ -144,7 +151,8 @@ public class RoomController implements RoomControllerDocs {
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/{roomId}/coop/join")
-	public ResponseEntity<?> joinCoopRoom(@PathVariable Long roomId) {
+	public ResponseEntity<?> joinCoopRoom(@PathVariable
+	Long roomId) {
 		if (9999L == roomId) {
 			throw new BusinessException(ROOM_NOT_FOUND);
 		}
@@ -174,7 +182,8 @@ public class RoomController implements RoomControllerDocs {
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@DeleteMapping("/{roomId}/leave")
-	public ResponseEntity<?> leaveRoom(@PathVariable Long roomId) {
+	public ResponseEntity<?> leaveRoom(@PathVariable
+	Long roomId) {
 		return ApiResponse.ok("방 나가기 성공");
 	}
 
@@ -182,8 +191,10 @@ public class RoomController implements RoomControllerDocs {
 	@Override
 	@PatchMapping("/{roomId}/contribution")
 	public ResponseEntity<?> updateContributionRoom(
-		@PathVariable Long roomId,
-		@RequestBody Map<String, Object> body) {
+		@PathVariable
+		Long roomId,
+		@RequestBody
+		Map<String, Object> body) {
 		if (9996L == roomId) {
 			throw new BusinessException(NOT_HOST);
 		}
@@ -194,8 +205,10 @@ public class RoomController implements RoomControllerDocs {
 	@Override
 	@PatchMapping("/{roomId}/coop")
 	public ResponseEntity<?> updateCoopRoom(
-		@PathVariable Long roomId,
-		@RequestBody Map<String, Object> body) {
+		@PathVariable
+		Long roomId,
+		@RequestBody
+		Map<String, Object> body) {
 		if (9996L == roomId) {
 			throw new BusinessException(NOT_HOST);
 		}
@@ -206,8 +219,10 @@ public class RoomController implements RoomControllerDocs {
 	@Override
 	@DeleteMapping("/{roomId}/members/{playerId}")
 	public ResponseEntity<?> kickMember(
-		@PathVariable Long roomId,
-		@PathVariable String playerId) {
+		@PathVariable
+		Long roomId,
+		@PathVariable
+		String playerId) {
 		if (9996L == roomId) {
 			throw new BusinessException(NOT_HOST);
 		}
@@ -223,7 +238,8 @@ public class RoomController implements RoomControllerDocs {
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@GetMapping("/{roomId}/contribution/state")
-	public ResponseEntity<?> getContributionRoomState(@PathVariable Long roomId) {
+	public ResponseEntity<?> getContributionRoomState(@PathVariable
+	Long roomId) {
 		if (9999L == roomId) {
 			throw new BusinessException(ROOM_NOT_FOUND);
 		}
@@ -247,7 +263,8 @@ public class RoomController implements RoomControllerDocs {
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@GetMapping("/{roomId}/coop/state")
-	public ResponseEntity<?> getCoopRoomState(@PathVariable Long roomId) {
+	public ResponseEntity<?> getCoopRoomState(@PathVariable
+	Long roomId) {
 		if (9999L == roomId) {
 			throw new BusinessException(ROOM_NOT_FOUND);
 		}
