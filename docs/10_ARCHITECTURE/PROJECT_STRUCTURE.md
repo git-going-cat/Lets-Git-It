@@ -230,7 +230,7 @@ com.gitcat.letsgitit.domain
 │   │   ├── ChatMessage.java
 │   │   └── HostTransferRequestMessage.java
 │   ├── constants
-│   │   └── RoomRedisKeys.java
+│   │   └── RoomConstants.java
 │   └── exception
 │       ├── RoomNotFoundException.java
 │       └── RoomFullException.java

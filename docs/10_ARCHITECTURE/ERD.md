@@ -80,7 +80,7 @@ CONSTRAINT chk_single_ranking_grade CHECK (grade IN ('S', 'A', 'B', 'C', 'D'))
 -- =============================================
 CREATE TABLE contribution_result (
 contribution_result_id BINARY(16)   NOT NULL,
-room_id                VARCHAR(100) NOT NULL COMMENT '대기방 Redis ID (추적용)',
+room_id                BIGINT       NOT NULL COMMENT '대기방 ID',
 session_id             VARCHAR(100) NOT NULL COMMENT '게임 세션 Redis ID',
 played_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 PRIMARY KEY (contribution_result_id),
@@ -112,7 +112,7 @@ REFERENCES member (member_id)
 -- =============================================
 CREATE TABLE timeattack_result (
 timeattack_result_id BINARY(16)   NOT NULL,
-room_id              VARCHAR(100) NOT NULL COMMENT '대기방 Redis ID (추적용)',
+room_id              BIGINT       NOT NULL COMMENT '대기방 ID',
 session_id           VARCHAR(100) NOT NULL COMMENT '게임 세션 Redis ID',
 played_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 PRIMARY KEY (timeattack_result_id),
@@ -175,7 +175,7 @@ PRIMARY KEY (coop_map_id)
 -- =============================================
 CREATE TABLE coop_result (
 coop_result_id BINARY(16)   NOT NULL,
-room_id        VARCHAR(100) NOT NULL COMMENT '대기방 Redis ID (추적용)',
+room_id        BIGINT       NOT NULL COMMENT '대기방 ID',
 session_id     VARCHAR(100) NOT NULL COMMENT '게임 세션 Redis ID',
 map_name       VARCHAR(100) NOT NULL COMMENT '플레이 시점 맵 이름 스냅샷',
 map_difficulty VARCHAR(20)  NOT NULL COMMENT '플레이 시점 맵 난이도 스냅샷',

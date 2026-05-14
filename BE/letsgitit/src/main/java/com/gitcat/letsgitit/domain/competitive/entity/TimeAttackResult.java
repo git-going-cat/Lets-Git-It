@@ -22,8 +22,8 @@ public class TimeAttackResult {
 	@Column(name = "timeattack_result_id", nullable = false, columnDefinition = "BINARY(16)")
 	private UUID id;
 
-	@Column(name = "room_id", nullable = false, length = 100)
-	private String roomId;
+	@Column(name = "room_id", nullable = false)
+	private Long roomId;
 
 	@Column(name = "session_id", nullable = false, length = 100)
 	private String sessionId;
@@ -31,7 +31,7 @@ public class TimeAttackResult {
 	@Column(name = "played_at", nullable = false)
 	private LocalDateTime playedAt;
 
-	public static TimeAttackResult of(String roomId, String sessionId) {
+	public static TimeAttackResult of(Long roomId, String sessionId) {
 		TimeAttackResult result = new TimeAttackResult();
 		result.roomId = roomId;
 		result.sessionId = sessionId;

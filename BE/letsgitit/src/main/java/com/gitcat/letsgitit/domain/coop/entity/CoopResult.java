@@ -23,8 +23,8 @@ public class CoopResult {
 	@Column(name = "coop_result_id", nullable = false, columnDefinition = "BINARY(16)")
 	private UUID id;
 
-	@Column(name = "room_id", nullable = false, length = 100)
-	private String roomId;
+	@Column(name = "room_id", nullable = false)
+	private Long roomId;
 
 	@Column(name = "session_id", nullable = false, length = 100)
 	private String sessionId;
@@ -44,7 +44,7 @@ public class CoopResult {
 	@Column(name = "played_at", nullable = false)
 	private LocalDateTime playedAt;
 
-	public static CoopResult of(String roomId, String sessionId, String mapName,
+	public static CoopResult of(Long roomId, String sessionId, String mapName,
 		String mapDifficulty, String teamName, int clearTime) {
 		CoopResult result = new CoopResult();
 		result.roomId = roomId;
