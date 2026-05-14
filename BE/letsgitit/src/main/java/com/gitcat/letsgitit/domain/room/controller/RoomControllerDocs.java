@@ -229,8 +229,7 @@ public interface RoomControllerDocs {
 			        "characterOutfit": "Outfit_01",
 			        "characterOutfitColor": "Outfit-color_01",
 			        "isReady": false,
-			        "isHost": true,
-			        "isMe": false
+			        "isHost": true
 			      },
 			      {
 			        "playerId": "550e8400-e29b-41d4-a716-446655440001",
@@ -242,8 +241,7 @@ public interface RoomControllerDocs {
 			        "characterOutfit": "Outfit_01",
 			        "characterOutfitColor": "Outfit-color_01",
 			        "isReady": false,
-			        "isHost": false,
-			        "isMe": true
+			        "isHost": false
 			      }
 			    ]
 			  }
@@ -305,8 +303,7 @@ public interface RoomControllerDocs {
 			        "characterOutfit": "Outfit_01",
 			        "characterOutfitColor": "Outfit-color_01",
 			        "isReady": false,
-			        "isHost": true,
-			        "isMe": false
+			        "isHost": true
 			      },
 			      {
 			        "playerId": "550e8400-e29b-41d4-a716-446655440001",
@@ -318,8 +315,7 @@ public interface RoomControllerDocs {
 			        "characterOutfit": "Outfit_01",
 			        "characterOutfitColor": "Outfit-color_01",
 			        "isReady": false,
-			        "isHost": false,
-			        "isMe": true
+			        "isHost": false
 			      }
 			    ]
 			  }
@@ -474,8 +470,7 @@ public interface RoomControllerDocs {
 			        "characterOutfit": "Outfit_01",
 			        "characterOutfitColor": "Outfit-color_01",
 			        "isReady": false,
-			        "isHost": true,
-			        "isMe": false
+			        "isHost": true
 			      },
 			      {
 			        "playerId": "550e8400-e29b-41d4-a716-446655440001",
@@ -487,8 +482,7 @@ public interface RoomControllerDocs {
 			        "characterOutfit": "Outfit_01",
 			        "characterOutfitColor": "Outfit-color_01",
 			        "isReady": false,
-			        "isHost": false,
-			        "isMe": true
+			        "isHost": false
 			      }
 			    ]
 			  }
@@ -544,8 +538,7 @@ public interface RoomControllerDocs {
 			        "characterOutfit": "Outfit_01",
 			        "characterOutfitColor": "Outfit-color_01",
 			        "isReady": false,
-			        "isHost": true,
-			        "isMe": false
+			        "isHost": true
 			      },
 			      {
 			        "playerId": "550e8400-e29b-41d4-a716-446655440001",
@@ -557,8 +550,7 @@ public interface RoomControllerDocs {
 			        "characterOutfit": "Outfit_01",
 			        "characterOutfitColor": "Outfit-color_01",
 			        "isReady": false,
-			        "isHost": false,
-			        "isMe": true
+			        "isHost": false
 			      }
 			    ]
 			  }
