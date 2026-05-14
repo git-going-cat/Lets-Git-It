@@ -12,3 +12,10 @@ export function isSwitchCommand(text: string): boolean {
 export function isCreateCommand(text: string): boolean {
   return /^git\s+switch\s+-c\s+\S+$/.test(text.trim());
 }
+
+/** `git add <path>` 형태에서 path를 추출합니다. 매칭 실패 시 null. */
+export function parseAddTarget(text: string | undefined): string | null {
+  if (!text) return null;
+  const match = text.trim().match(/^git\s+add\s+(\S+)$/);
+  return match ? match[1] : null;
+}
