@@ -58,15 +58,15 @@ export default function EscapeAnimation({
   churuRatio = 0,
   onComplete,
 }: EscapeAnimationProps) {
-  const { data: asset, isError } = useCurrentCharacterAsset();
+  const { data: asset } = useCurrentCharacterAsset();
 
   const stopTop = mode === 'success' ? 15 : 18 + (1 - churuRatio) * 82;
   const climbDuration = Math.round(((110 - stopTop) / 95) * CLIMB_BASE_MS);
 
   useEffect(() => {
-    if (!isError) return;
+    if (asset) return;
     onComplete?.();
-  }, [isError, onComplete]);
+  }, [asset, onComplete]);
 
   const phase = useEscapePhase(asset, climbDuration, mode, onComplete);
 

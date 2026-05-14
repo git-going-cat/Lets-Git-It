@@ -1,30 +1,30 @@
 import { useEffect, useState } from 'react';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import AnimatedCharacter from '@/shared/components/AnimatedCharacter';
 import { useCurrentCharacterAsset } from '@/shared/hooks/useCurrentCharacterAsset';
 
+import { singleBus } from '../bridge/singleBus';
+import { useExistingBranches } from '../hooks/useExistingBranches';
 import { useSingleStore } from '../store/singleStore';
 
 export default function PlayerCharacter() {
   const commandSet = useSingleStore((s) => s.commandSet);
+  const existingBranches = useExistingBranches();
   const { data: asset } = useCurrentCharacterAsset();
   const [activeBranch, setActiveBranch] = useState('main');
 
   useEffect(() => {
     const handler = ({ branch }: { branch: string }) => setActiveBranch(branch);
-    EventBus.on('branch:switch', handler);
-    return () => {
-      EventBus.off('branch:switch', handler);
-    };
+    return singleBus.subscribe('branch:switch', handler);
   }, []);
 
   if (!asset) return null;
 
   const branches = [...new Set(commandSet.map((c) => c.branchName))];
   const totalLanes = branches.length || 1;
-  const resolvedBranch =
-    branches.length > 0 && !branches.includes(activeBranch) ? branches[0] : activeBranch;
+  // 머지·미생성 등으로 현재 브랜치가 숨겨진 상태면 main으로 폴백.
+  // useCommandInput의 자동 복구 useEffect가 activeBranch atom도 곧 main으로 동기화한다.
+  const resolvedBranch = existingBranches.has(activeBranch) ? activeBranch : 'main';
   const laneIndex = Math.max(0, branches.indexOf(resolvedBranch));
   const leftPercent = ((laneIndex + 0.5) / totalLanes) * 100;
 

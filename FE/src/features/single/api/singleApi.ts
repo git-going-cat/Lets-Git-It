@@ -1,9 +1,10 @@
 import { http } from '@/core/http';
-import { apiResponseSchema } from '@/features/auth/schemas/response.schema';
+import { apiResponseSchema } from '@/shared/schemas/response.schema';
 
 import { saveResultDataSchema, startSessionDataSchema } from '../schemas/single.schema';
 
-import type { Difficulty, SaveResultRequest, StartSessionData } from '../types/single.types';
+import type { SaveResultRequest, StartSessionData } from '../types/single.types';
+import type { Difficulty } from '@/shared/types/game.types';
 
 export const singleApi = {
   startSession: async (difficulty: Difficulty): Promise<StartSessionData> => {

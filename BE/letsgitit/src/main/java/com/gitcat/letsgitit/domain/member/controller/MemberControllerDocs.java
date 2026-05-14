@@ -55,6 +55,7 @@ public interface MemberControllerDocs {
 			  "status": 200,
 			  "message": "내 정보 조회 성공",
 			  "data": {
+			    "memberId": "550e8400-e29b-41d4-a716-446655440000",
 			    "nickname": "dobby",
 			    "authType": "LOCAL",
 			    "provider": null,
@@ -71,7 +72,7 @@ public interface MemberControllerDocs {
 			      { "mode": "SINGLE_EASY",      "bestScore": 9500 },
 			      { "mode": "SINGLE_NORMAL",    "bestScore": 7200 },
 			      { "mode": "SINGLE_HARD",      "bestScore": 5100 },
-			      { "mode": "CONTRIBUTION_RUN", "totalContribution": 88000 },
+			      { "mode": "CONTRIBUTION",     "totalContribution": 88000 },
 			      { "mode": "TIME_ATTACK",      "totalCount": 10500},
 			      { "mode": "COOP",             "bestClearTime": 61000 }
 			    ]

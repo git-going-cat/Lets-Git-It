@@ -1,4 +1,4 @@
-deploy-prod:
+deploy-prod-be:
   stage: deploy
   image: docker:latest
   tags: [prod]
@@ -7,8 +7,38 @@ deploy-prod:
     - git config --global --add safe.directory /home/ubuntu/S14P31A304
   rules:
     - if: $CI_COMMIT_BRANCH == "prod"
+      changes:
+        - BE/**/*
+        - INFRA/Dockerfile.be
+        - INFRA/deploy-be.sh
+        - INFRA/docker-compose.be.yml
   script:
+    - git config --global credential.helper store
+    - cp /home/ubuntu/.git-credentials /root/.git-credentials
     - cd /home/ubuntu/S14P31A304
+    - git config pull.rebase false
     - git pull origin prod
-    - bash INFRA/deploy.sh
-    - docker compose -f INFRA/docker-compose.fe.yml up -d --build nginx
+    - PROJECT_DIR=/home/ubuntu/S14P31A304 bash INFRA/deploy-be.sh
+
+deploy-prod-fe:
+  stage: deploy
+  image: docker:latest
+  tags: [prod]
+  before_script:
+    - apk add --no-cache git curl bash
+    - git config --global --add safe.directory /home/ubuntu/S14P31A304
+  rules:
+    - if: $CI_COMMIT_BRANCH == "prod"
+      changes:
+        - FE/**/*
+        - nginx/**/*
+        - INFRA/Dockerfile.fe
+        - INFRA/deploy-fe.sh
+        - INFRA/docker-compose.fe.yml
+  script:
+    - git config --global credential.helper store
+    - cp /home/ubuntu/.git-credentials /root/.git-credentials
+    - cd /home/ubuntu/S14P31A304
+    - git config pull.rebase false
+    - git pull origin prod
+    - PROJECT_DIR=/home/ubuntu/S14P31A304 bash INFRA/deploy-fe.sh

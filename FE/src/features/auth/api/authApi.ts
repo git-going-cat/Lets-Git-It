@@ -1,7 +1,7 @@
 ﻿import { http } from '@/core/http';
+import { apiResponseSchema } from '@/shared/schemas/response.schema';
 
 import {
-  apiResponseSchema,
   emptyResponseSchema,
   loginResponseDataSchema,
   reissueResponseDataSchema,

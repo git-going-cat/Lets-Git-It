@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
+import { gameStatusAtom, prePauseStatusAtom } from '@/shared/store/gameStatusAtom';
 
-import { gameStatusAtom, prePauseStatusAtom } from '../store/gameStatusAtom';
+import { singleBus } from '../bridge/singleBus';
 import { useSingleStore } from '../store/singleStore';
 
 /**
@@ -31,15 +31,15 @@ export function useEscHandler() {
       if (e.key !== 'Escape') return;
       if (useSingleStore.getState().isTutorial) {
         // 튜토리얼 모드: ESC → 스킵 확인 모달
-        EventBus.emit('tutorial:pause');
+        singleBus.emit('tutorial:pause');
         return;
       }
       if (statusRef.current === 'idle' || statusRef.current === 'playing') {
         setPrePauseStatus(statusRef.current);
-        EventBus.emit('game:pause');
+        singleBus.emit('game:pause');
       } else if (statusRef.current === 'paused') {
         setGameStatus(prePauseStatusRef.current);
-        if (prePauseStatusRef.current === 'playing') EventBus.emit('game:resume');
+        if (prePauseStatusRef.current === 'playing') singleBus.emit('game:resume');
       }
     };
     window.addEventListener('keydown', handleEsc);

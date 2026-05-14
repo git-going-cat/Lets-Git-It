@@ -116,6 +116,7 @@ public interface AuthControllerDocs {
 			  "status": 200,
 			  "message": "로그인 성공",
 			  "data": {
+			    "memberId": "550e8400-e29b-41d4-a716-446655440000",
 			    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
 			    "isFirstLogin": false,
 			    "nickname": "dobby",
@@ -151,6 +152,7 @@ public interface AuthControllerDocs {
 			  "status": 200,
 			  "message": "로그인 성공",
 			  "data": {
+			    "memberId": "550e8400-e29b-41d4-a716-446655440000",
 			    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
 			    "isFirstLogin": false,
 			    "nickname": "dobby",

@@ -1,14 +1,44 @@
-deploy-dev:
+deploy-dev-be:
   stage: deploy
   image: docker:latest
   tags: [dev]
   before_script:
-    - apk add --no-cache git curl bash   # curl bash 추가
+    - apk add --no-cache git curl bash
     - git config --global --add safe.directory /home/ubuntu/develop/S14P31A304
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"
+      changes:
+        - BE/**/*
+        - INFRA/Dockerfile.be
+        - INFRA/deploy-be.sh
+        - INFRA/docker-compose.be.yml
   script:
+    - git config --global credential.helper store
+    - cp /home/ubuntu/.git-credentials /root/.git-credentials
     - cd /home/ubuntu/develop/S14P31A304
+    - git config pull.rebase false
     - git pull origin develop
-    - bash INFRA/deploy.sh
-    - docker compose -f INFRA/docker-compose.fe.yml up -d --build nginx
+    - bash INFRA/deploy-be.sh
+
+deploy-dev-fe:
+  stage: deploy
+  image: docker:latest
+  tags: [dev]
+  before_script:
+    - apk add --no-cache git curl bash
+    - git config --global --add safe.directory /home/ubuntu/develop/S14P31A304
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+      changes:
+        - FE/**/*
+        - nginx/**/*
+        - INFRA/Dockerfile.fe
+        - INFRA/deploy-fe.sh
+        - INFRA/docker-compose.fe.yml
+  script:
+    - git config --global credential.helper store
+    - cp /home/ubuntu/.git-credentials /root/.git-credentials
+    - cd /home/ubuntu/develop/S14P31A304
+    - git config pull.rebase false
+    - git pull origin develop
+    - bash INFRA/deploy-fe.sh

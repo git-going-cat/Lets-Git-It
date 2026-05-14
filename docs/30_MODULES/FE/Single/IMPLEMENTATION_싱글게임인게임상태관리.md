@@ -155,13 +155,13 @@ score = max(0, 10000 - 시간감점 - 오타감점 - 목숨감점)
 
 **감점 파라미터 (SCORE_CONFIG)**:
 
-| 난이도 | idealTimeSec | timeRate(초당) | typoPenalty(개당) | livesPenalty(개당) |
-|--------|-------------|----------------|-------------------|--------------------|
-| EASY   | 360         | 15             | 110               | 500                |
-| NORMAL | 240         | 30             | 200               | 700                |
-| HARD   | 180         | 50             | 350               | 1000               |
+| 난이도 | idealTimeSec | timePenaltyPer100ms | typoPenalty(개당) | livesPenalty(개당) |
+|--------|-------------|---------------------|-------------------|--------------------|
+| EASY   | 75          | 6 (1초당 60점)      | 220               | 800                |
+| NORMAL | 110         | 6 (1초당 60점)      | 400               | 1200               |
+| HARD   | 150         | 6 (1초당 60점)      | 700               | 1700               |
 
-S등급(10000점) 기준 EASY: 오타 9개 이하, 목숨 손실 1개 이하(2개면 경계), 기준시간 67초 이내 초과까지 허용.
+시간 감점은 `Math.floor(overMs / 100) * timePenaltyPer100ms`로 100ms 단위 floor 처리되어 동점자 회피와 정밀한 차등을 보장한다.
 
 ### 11. singleApi + Zod 스키마 구현
 
@@ -191,8 +191,8 @@ S등급(10000점) 기준 EASY: 오타 9개 이하, 목숨 손실 1개 이하(2�
 
 ### 11. SingleScene 껍데기
 
-`create()` / `shutdown()`에 EventBus 등록·해제 위치만 표시했다.  
-React import 없이 EventBus 경유만 허용하는 구조.
+`create()` / `shutdown()`에 singleBus 등록·해제 위치만 표시했다.  
+React import 없이 singleBus 경유만 허용하는 구조.
 
 ---
 
@@ -220,14 +220,14 @@ CSS animation은 요소가 DOM에 처음 마운트될 때 자동 재생된다.
 
 ### GameStatus 타입을 store가 아닌 types에 둔 이유
 
-`PauseModal`, `ResultModal`, `SingleScene`(EventBus emit 타입)이 모두 이 타입을 참조한다.  
+`PauseModal`, `ResultModal`, `SingleScene`(singleBus emit 타입)이 모두 이 타입을 참조한다.  
 store에 두면 타입 하나를 위해 store 전체를 import해야 하는 의존 방향이 생긴다.
 
 ### 세션 데이터를 TanStack Query 대신 Zustand에 둔 이유
 
 컨벤션은 "서버 상태는 TanStack Query가 단독 관리"이나, 싱글 세션 데이터는 성격이 다르다.
 - 세션은 한 번 받고 재조회하지 않는 초기화 데이터다.
-- `commandSet`을 Phaser Scene이 EventBus를 통해 접근해야 해서 Query 캐시에서 꺼내 쓰기 어렵다.
+- `commandSet`을 Phaser Scene이 singleBus를 통해 접근해야 해서 Query 캐시에서 꺼내 쓰기 어렵다.
 - 프로젝트 전체에서 이 패턴을 쓰는 모드가 싱글뿐이라 예외 케이스를 추가할 만큼의 이유가 없다.
 
 ### Zustand v5에서 `create<T>(fn)` 단일 호출을 쓴 이유
@@ -238,7 +238,7 @@ curried 형태(`create<T>()((set) => ...)`)는 타입 추론이 필요한 미들
 ### gameResultAtom에 missCount·typoCount를 추가한 이유
 
 ResultModal에서 MISS / TYPO 수치를 표시해야 한다.  
-EventBus는 Phaser → React 단방향이므로 React 측에서 수신해 atom에 저장한다.  
+singleBus는 Phaser → React 단방향이므로 React 측에서 수신해 atom에 저장한다.  
 `missCount`는 `useSingleGame`의 `stateRef.livesLost`(목숨 차감 누적), `typoCount`는 `typoRef.current`(클로저 stale 방지용 ref)에서 읽는다.
 
 ### 점수를 플레이 중에 표시하지 않은 이유

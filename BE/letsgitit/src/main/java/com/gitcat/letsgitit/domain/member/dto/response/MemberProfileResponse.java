@@ -3,6 +3,7 @@ package com.gitcat.letsgitit.domain.member.dto.response;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.gitcat.letsgitit.domain.member.entity.Member;
@@ -14,6 +15,7 @@ import com.gitcat.letsgitit.global.enums.AuthType;
 import com.gitcat.letsgitit.global.enums.Provider;
 
 public record MemberProfileResponse(
+	UUID memberId,
 	String nickname,
 	AuthType authType,
 	Provider provider,
@@ -33,6 +35,7 @@ public record MemberProfileResponse(
 		List<MemberBestRecord> bestRecords,
 		MemberCoopBestRecord coopBestRecord) {
 		return new MemberProfileResponse(
+			member.getId(),
 			member.getNickname(),
 			member.getAuthType(),
 			member.getProvider(),
@@ -90,11 +93,11 @@ public record MemberProfileResponse(
 
 		private static RecordResponse contributionRecord(
 			Map<BestRecordMode, MemberBestRecord> recordMap) {
-			MemberBestRecord record = recordMap.get(BestRecordMode.CONTRIBUTION_RUN);
+			MemberBestRecord record = recordMap.get(BestRecordMode.CONTRIBUTION);
 			int totalContribution = record == null ? 0 : record.getBestScore();
 
 			return new RecordResponse(
-				BestRecordMode.CONTRIBUTION_RUN.name(),
+				BestRecordMode.CONTRIBUTION.name(),
 				null,
 				totalContribution,
 				null,

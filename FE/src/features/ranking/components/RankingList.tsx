@@ -1,10 +1,18 @@
-import { type RefObject, useCallback, useRef, useState } from 'react';
+import { type RefObject, useCallback, useRef } from 'react';
 
 import { useRankingListScroll } from '../hooks/useRankingListScroll';
-import { formatScore, getGrade, getValueLabel, GRADE_COLOR_CLASSES } from '../utils/rankingFormat';
+import { createRankSet, isInitialRankingPage, mergeRankingEntries } from '../utils/rankingEntries';
+import {
+  formatPlayTime,
+  formatScore,
+  getGrade,
+  getPlayTime,
+  getValueLabel,
+  GRADE_COLOR_CLASSES,
+} from '../utils/rankingFormat';
 
 import type { useRanking } from '../hooks/useRanking';
-import type { MyRank, RankingEntry, RankingMode } from '../types/ranking.types';
+import type { RankingEntry, RankingMode } from '../types/ranking.types';
 
 type RankingQueryResult = ReturnType<typeof useRanking>;
 type RankingDirection = 'up' | 'down';
@@ -21,12 +29,6 @@ interface RankingListProps {
   isFetchingPreviousPage: RankingQueryResult['isFetchingPreviousPage'];
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   scrollResetKey: string;
-}
-
-interface InitialRankingPage {
-  top3?: RankingEntry[];
-  around?: RankingEntry[];
-  myRank?: MyRank;
 }
 
 export default function RankingList({
@@ -49,11 +51,9 @@ export default function RankingList({
   const lastScrollTopRef = useRef(0);
   const previousScrollHeightRef = useRef<number | null>(null);
   const scrollDirectionRef = useRef<RankingDirection | null>(null);
-  const [hasUserScrolled, setHasUserScrolled] = useState(false);
 
-  const initialPageIndex = data?.pages.findIndex((page) => 'around' in page) ?? -1;
-  const initialPage =
-    initialPageIndex >= 0 ? (data?.pages[initialPageIndex] as InitialRankingPage) : undefined;
+  const initialPage = data?.pages.find(isInitialRankingPage);
+  const initialPageIndex = initialPage && data ? data.pages.indexOf(initialPage) : -1;
   const around = mergeRankingEntries(initialPage?.around ?? []);
   const myRank = initialPage?.myRank ?? null;
   const hasMyRankingWindow = myRank !== null || around.length > 0;
@@ -131,10 +131,8 @@ export default function RankingList({
     suppressScrollRef,
     hasUpper,
     hasLower,
-    hasUserScrolled,
     visibleUpperListLength: visibleUpperList.length,
     shouldPreloadLowerRankings,
-    setHasUserScrolled,
     loadUpperRankings,
     loadLowerRankings,
   });
@@ -145,6 +143,8 @@ export default function RankingList({
     const isMe = myRankValue !== null && entry.rank === myRankValue;
     const shouldFocusEntry = focusRank !== null && entry.rank === focusRank;
     const grade = getGrade(mode, entry);
+    const playTime = getPlayTime(entry);
+    const shouldShowPlayTime = mode.startsWith('single-');
 
     return (
       <div key={entry.rank} ref={shouldFocusEntry ? focusTargetCallback : undefined}>
@@ -165,6 +165,11 @@ export default function RankingList({
             )}
           </span>
           <span className="w-24 text-right font-semibold">{formatScore(mode, entry)}</span>
+          {shouldShowPlayTime && (
+            <span className="w-24 text-right text-xs font-medium text-gray-500">
+              {formatPlayTime(playTime)}
+            </span>
+          )}
           {showGrade && (
             <span className="flex w-14 justify-center">
               {grade && (
@@ -187,6 +192,7 @@ export default function RankingList({
         <span className="w-12 text-center">순위</span>
         <span className="flex-1">닉네임</span>
         <span className="w-24 text-right">{valueLabel}</span>
+        {mode.startsWith('single-') && <span className="w-24 text-right">플레이 시간</span>}
         {showGrade && <span className="w-14 text-center">등급</span>}
       </div>
 
@@ -217,20 +223,4 @@ export default function RankingList({
       </div>
     </div>
   );
-}
-
-function createRankSet(entries: RankingEntry[]): Set<number> {
-  return new Set(entries.map((entry) => entry.rank));
-}
-
-function mergeRankingEntries(entries: RankingEntry[]): RankingEntry[] {
-  const rankingByRank = new Map<number, RankingEntry>();
-
-  entries.forEach((entry) => {
-    if (!rankingByRank.has(entry.rank)) {
-      rankingByRank.set(entry.rank, entry);
-    }
-  });
-
-  return [...rankingByRank.values()].sort((a, b) => a.rank - b.rank);
 }

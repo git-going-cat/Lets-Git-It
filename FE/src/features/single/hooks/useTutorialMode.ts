@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
 
+import { singleBus } from '../bridge/singleBus';
 import { TUTORIAL_FALL_DURATION_MS } from '../constants/tutorialData';
 import { useSingleStore } from '../store/singleStore';
 import { tutorialInputBlockedAtom } from '../store/tutorialInputBlockedAtom';
@@ -60,7 +60,7 @@ export function useTutorialMode(isTutorial: boolean) {
     const handleGameStart = () => {
       setInputBlocked(false);
       setOverlayState({ phase: 'description', metaIndex: 1 });
-      EventBus.emit('tutorial:show-command');
+      singleBus.emit('tutorial:show-command');
     };
 
     const handleCommandComplete = ({ index }: { index: number }) => {
@@ -72,14 +72,12 @@ export function useTutorialMode(isTutorial: boolean) {
       setModalPhase('paused');
     };
 
-    EventBus.on('game:start', handleGameStart);
-    EventBus.on('command:complete', handleCommandComplete);
-    EventBus.on('tutorial:pause', handleTutorialPause);
-    return () => {
-      EventBus.off('game:start', handleGameStart);
-      EventBus.off('command:complete', handleCommandComplete);
-      EventBus.off('tutorial:pause', handleTutorialPause);
-    };
+    const unsubs = [
+      singleBus.subscribe('game:start', handleGameStart),
+      singleBus.subscribe('command:complete', handleCommandComplete),
+      singleBus.subscribe('tutorial:pause', handleTutorialPause),
+    ];
+    return () => unsubs.forEach((fn) => fn());
   }, [isTutorial, setInputBlocked]);
 
   useEffect(() => {
@@ -92,7 +90,7 @@ export function useTutorialMode(isTutorial: boolean) {
   useEffect(() => {
     if (!overlayState || overlayState.phase !== 'description') return;
     const timer = setTimeout(() => {
-      EventBus.emit('tutorial:freeze-command');
+      singleBus.emit('tutorial:freeze-command');
     }, TUTORIAL_FALL_DURATION_MS);
     return () => clearTimeout(timer);
   }, [overlayState?.phase, overlayState?.metaIndex]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -107,7 +105,7 @@ export function useTutorialMode(isTutorial: boolean) {
       } else {
         setInputBlocked(false);
         setOverlayState({ phase: 'description', metaIndex: nextMeta });
-        EventBus.emit('tutorial:show-command');
+        singleBus.emit('tutorial:show-command');
       }
     },
     [setInputBlocked, totalCommands]

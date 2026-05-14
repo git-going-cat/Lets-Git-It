@@ -28,15 +28,15 @@ public interface RankingControllerDocs {
 			    "difficulty": "NORMAL",
 			    "year": 2026, "month": 4, "week": 18,
 			    "top3": [
-			      {"rank": 1, "nickname": "gitcat", "score": 9800},
-			      {"rank": 2, "nickname": "brnch", "score": 9200},
-			      {"rank": 3, "nickname": "merge", "score": 8700}
+			      {"rank": 1, "nickname": "gitcat", "score": 9800, "playTime": 95432},
+			      {"rank": 2, "nickname": "brnch", "score": 9200, "playTime": 103210},
+			      {"rank": 3, "nickname": "merge", "score": 8700, "playTime": null}
 			    ],
-			    "myRank": {"rank": 42, "score": 7200},
+			    "myRank": {"rank": 42, "score": 7200, "playTime": 143000},
 			    "around": [
-			      {"rank": 40, "nickname": "user1", "score": 7400},
-			      {"rank": 42, "nickname": "dobby", "score": 7200},
-			      {"rank": 44, "nickname": "user4", "score": 7000}
+			      {"rank": 40, "nickname": "user1", "score": 7400, "playTime": 138000},
+			      {"rank": 42, "nickname": "dobby", "score": 7200, "playTime": 143000},
+			      {"rank": 44, "nickname": "user4", "score": 7000, "playTime": null}
 			    ],
 			    "prevCursor": 40, "hasPrev": true,
 			    "nextCursor": 44, "hasNext": true
@@ -49,8 +49,8 @@ public interface RankingControllerDocs {
 			  "message": "싱글 랭킹 조회 성공",
 			  "data": {
 			    "rankings": [
-			      {"rank": 45, "nickname": "user5", "score": 6900},
-			      {"rank": 46, "nickname": "user6", "score": 6800}
+			      {"rank": 45, "nickname": "user5", "score": 6900, "playTime": 155000},
+			      {"rank": 46, "nickname": "user6", "score": 6800, "playTime": null}
 			    ],
 			    "prevCursor": 45, "hasPrev": true,
 			    "nextCursor": 46, "hasNext": true
@@ -63,8 +63,8 @@ public interface RankingControllerDocs {
 			  "message": "싱글 랭킹 조회 성공",
 			  "data": {
 			    "rankings": [
-			      {"rank": 20, "nickname": "user1", "score": 8100},
-			      {"rank": 39, "nickname": "user2", "score": 7600}
+			      {"rank": 20, "nickname": "user1", "score": 8100, "playTime": 121000},
+			      {"rank": 39, "nickname": "user2", "score": 7600, "playTime": null}
 			    ],
 			    "prevCursor": 20, "hasPrev": true,
 			    "nextCursor": 39, "hasNext": true
@@ -218,10 +218,11 @@ public interface RankingControllerDocs {
 		    "difficulty": "NORMAL",
 		    "year": 2025, "month": 4, "week": 3,
 		    "top3": [
-		      {"rank": 1, "nickname": "gitcat", "score": 9800}
+		      {"rank": 1, "nickname": "gitcat", "score": 9800, "playTime": 95432},
+		      {"rank": 2, "nickname": "branch", "score": 9200, "playTime": null}
 		    ],
-		    "myRank": {"rank": 42, "score": 7200},
-		    "around": [{"rank": 42, "nickname": "dobby", "score": 7200}],
+		    "myRank": {"rank": 42, "score": 7200, "playTime": 143000},
+		    "around": [{"rank": 42, "nickname": "dobby", "score": 7200, "playTime": 143000}],
 		    "prevCursor": 40, "hasPrev": true,
 		    "nextCursor": 44, "hasNext": true
 		  }

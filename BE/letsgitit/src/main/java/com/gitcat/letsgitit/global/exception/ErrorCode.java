@@ -58,6 +58,8 @@ public enum ErrorCode {
 	INVALID_PASSWORD(HttpStatus.BAD_REQUEST.value(), "INVALID_PASSWORD", "비밀번호가 일치하지 않습니다."),
 	NOT_HOST(HttpStatus.FORBIDDEN.value(), "NOT_HOST", "방장만 수행할 수 있습니다."),
 	PLAYER_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "PLAYER_NOT_FOUND", "해당 플레이어를 찾을 수 없습니다."),
+	PLAYER_NOT_IN_ROOM(HttpStatus.FORBIDDEN.value(), "PLAYER_NOT_IN_ROOM", "해당 방에 참여하지 않은 플레이어입니다."),
+	CANNOT_KICK_SELF(HttpStatus.BAD_REQUEST.value(), "CANNOT_KICK_SELF", "자기 자신을 추방할 수 없습니다."),
 
 	// single game session
 	SESSION_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다."),
