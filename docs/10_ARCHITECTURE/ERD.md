@@ -305,7 +305,7 @@ single_command_set_id      BINARY(16)   NOT NULL,
 sequence                   INT          NOT NULL COMMENT '명령어 순서',
 command_text               VARCHAR(255) NOT NULL COMMENT '명령어 텍스트',
 branch_name                VARCHAR(100) NULL     COMMENT '명령어가 속한 브랜치명',
-command_type               VARCHAR(10)  NOT NULL DEFAULT 'COMMON' COMMENT 'CREATE / MERGE / COMMON',
+command_type               VARCHAR(10)  NOT NULL DEFAULT 'COMMON' COMMENT 'CREATE / MERGE / SWITCH / COMMON / CONFLICT',
 PRIMARY KEY (single_command_set_item_id),
 UNIQUE KEY uq_single_command_set_item (single_command_set_id, sequence),
 CONSTRAINT fk_single_command_set_item FOREIGN KEY (single_command_set_id) REFERENCES single_command_set (single_command_set_id)
