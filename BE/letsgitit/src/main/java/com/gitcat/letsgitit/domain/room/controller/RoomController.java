@@ -6,7 +6,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.validation.Valid;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -17,12 +20,23 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gitcat.letsgitit.domain.coop.service.CoopService;
+import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
+import com.gitcat.letsgitit.domain.room.dto.request.PasswordVerifyRequest;
+import com.gitcat.letsgitit.domain.room.service.RoomService;
+import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.response.ApiResponse;
 
+import lombok.RequiredArgsConstructor;
+
 @RestController
 @RequestMapping("/api/v1/rooms")
+@RequiredArgsConstructor
 public class RoomController implements RoomControllerDocs {
+
+	private final RoomService roomService;
+	private final CoopService coopService;
 
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
@@ -54,75 +68,38 @@ public class RoomController implements RoomControllerDocs {
 		return ApiResponse.create("협력 모드 방 생성 성공", data);
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@GetMapping
 	public ResponseEntity<?> getRooms(
 		@RequestParam(required = false, defaultValue = "ALL")
-		String mode) {
-
-		Map<String, Object> contributionRoom = new LinkedHashMap<>();
-		contributionRoom.put("roomId", 42);
-		contributionRoom.put("title", "같이 기여도 뺏기 해요!");
-		contributionRoom.put("mode", "CONTRIBUTION");
-		contributionRoom.put("currentPlayers", 2);
-		contributionRoom.put("maxPlayers", 4);
-		contributionRoom.put("hasPassword", false);
-		contributionRoom.put("roomState", "WAITING");
-		contributionRoom.put("selectedMap", null);
-
-		Map<String, Object> coopRoom = new LinkedHashMap<>();
-		coopRoom.put("roomId", 43);
-		coopRoom.put("title", "같이 협력 해요!");
-		coopRoom.put("mode", "COOP");
-		coopRoom.put("currentPlayers", 2);
-		coopRoom.put("maxPlayers", 4);
-		coopRoom.put("hasPassword", false);
-		coopRoom.put("roomState", "WAITING");
-		coopRoom.put("selectedMap", buildSelectedMap());
-
-		Map<String, Object> data = Map.of("rooms", List.of(contributionRoom, coopRoom));
-		return ApiResponse.ok("방 목록 조회 성공", data);
+		RoomMode mode) {
+		return ApiResponse.ok("방 목록 조회 성공", roomService.getRooms(mode));
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
+	@Override
+	@GetMapping("/coop/maps")
+	public ResponseEntity<?> getCoopMaps() {
+		return ApiResponse.ok("맵 목록 조회 성공", coopService.getCoopMaps());
+	}
+
 	@Override
 	@GetMapping("/search")
 	public ResponseEntity<?> searchRoom(
 		@RequestParam
 		String code) {
-		if ("XXXXXX".equals(code)) {
-			throw new BusinessException(ROOM_NOT_FOUND);
-		}
-		if ("INGAME1".equals(code)) {
-			throw new BusinessException(ROOM_IN_GAME);
-		}
-		Map<String, Object> data = new LinkedHashMap<>();
-		data.put("roomId", 42);
-		data.put("title", "같이 기여도 뺏기 해요!");
-		data.put("mode", "CONTRIBUTION");
-		data.put("currentPlayers", 2);
-		data.put("maxPlayers", 4);
-		data.put("hasPassword", true);
-		data.put("roomState", "WAITING");
-		return ApiResponse.ok("방 코드로 검색 성공", data);
+		return ApiResponse.ok("방 코드로 검색 성공", roomService.searchByCode(code));
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@PostMapping("/{roomId}/password/verify")
 	public ResponseEntity<?> verifyRoomPassword(
 		@PathVariable
 		Long roomId,
-		@RequestBody
-		Map<String, Object> body) {
-		if (9999L == roomId) {
-			throw new BusinessException(ROOM_NOT_FOUND);
-		}
-		String password = (String)body.getOrDefault("password", "");
-		if ("wrong".equals(password)) {
-			throw new BusinessException(INVALID_PASSWORD);
-		}
+		@RequestBody @Valid
+		PasswordVerifyRequest request,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails) {
+		roomService.verifyRoomPassword(roomId, request.password(), userDetails.getMemberId());
 		return ApiResponse.ok("비밀번호 확인 성공");
 	}
 
@@ -184,11 +161,14 @@ public class RoomController implements RoomControllerDocs {
 		return ApiResponse.ok("방 입장 성공", data);
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@DeleteMapping("/{roomId}/leave")
-	public ResponseEntity<?> leaveRoom(@PathVariable
-	Long roomId) {
+	public ResponseEntity<?> leaveRoom(
+		@PathVariable
+		Long roomId,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails) {
+		roomService.leaveRoom(roomId, userDetails.getMemberId());
 		return ApiResponse.ok("방 나가기 성공");
 	}
 
@@ -220,23 +200,16 @@ public class RoomController implements RoomControllerDocs {
 		return ApiResponse.ok("방 정보 수정 성공");
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@DeleteMapping("/{roomId}/members/{playerId}")
 	public ResponseEntity<?> kickMember(
 		@PathVariable
 		Long roomId,
 		@PathVariable
-		String playerId) {
-		if (9996L == roomId) {
-			throw new BusinessException(NOT_HOST);
-		}
-		if ("notfound".equals(playerId)) {
-			throw new BusinessException(PLAYER_NOT_FOUND);
-		}
-		if ("self".equals(playerId)) {
-			throw new BusinessException(CANNOT_KICK_SELF);
-		}
+		String playerId,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails) {
+		roomService.kickMember(roomId, userDetails.getMemberId(), playerId);
 		return ApiResponse.ok("추방 성공");
 	}
 
