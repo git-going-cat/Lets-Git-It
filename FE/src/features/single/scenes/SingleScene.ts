@@ -20,7 +20,7 @@ import type { Difficulty } from '@/shared/types/game.types';
 const FALL_DURATION_MS: Record<Difficulty, number> = {
   EASY: 25_000,
   NORMAL: 15_000,
-  HARD: 7_000,
+  HARD: 12_000,
 };
 
 const TIMER_INTERVAL_MS = 100;
@@ -34,7 +34,10 @@ const TIMER_INTERVAL_MS = 100;
 export class SingleScene extends Phaser.Scene {
   private commandSet: SingleCommand[] = [];
   private commandIndex = 0;
+  private difficulty: Difficulty = 'NORMAL';
   private fallDuration = FALL_DURATION_MS.NORMAL;
+  private lastSpawnedIndex = -1;
+  private hardSpawnTimer: Phaser.Time.TimerEvent | null = null;
   private lanes = new Map<string, BranchLane>();
   private timerEvent: Phaser.Time.TimerEvent | null = null;
   private elapsedMs = 0;
@@ -58,11 +61,11 @@ export class SingleScene extends Phaser.Scene {
     this.commandIndex = 0;
     this.elapsedMs = 0;
     this.isGameEnded = false;
-    // scene.restart()는 인스턴스를 보존하므로, 이전 게임에서 ESC(handleGamePause)가
-    // set한 isUserPaused와 tweens.pauseAll() 상태가 새 게임으로 흘러들어와
-    // 아이템(stash/cherry-pick) resume 콜백의 `!isUserPaused` 가드를 막아 멈춤이 발생한다.
-    // 매 create()마다 명시적으로 초기화해 새 세션을 깨끗한 상태로 시작한다.
+    // scene.restart()는 인스턴스를 보존하므로 ESC(handleGamePause)가 set한 isUserPaused와
+    // tweens.pauseAll() 상태가 새 세션으로 흘러들어온다. 매 create()마다 명시적으로 초기화.
     this.isUserPaused = false;
+    this.difficulty = difficulty;
+    this.lastSpawnedIndex = -1;
     this.isTutorialMode = raw.isTutorial ?? false;
     this.fallDuration = FALL_DURATION_MS[difficulty];
 
@@ -91,6 +94,10 @@ export class SingleScene extends Phaser.Scene {
   shutdown(): void {
     this.timerEvent?.remove();
     this.timerEvent = null;
+    if (this.hardSpawnTimer) {
+      this.hardSpawnTimer.remove();
+      this.hardSpawnTimer = null;
+    }
     this.lanes.clear();
     if (this.stashTimeoutId !== null) {
       this.stashTimeoutId.remove();
@@ -123,7 +130,7 @@ export class SingleScene extends Phaser.Scene {
     this.lanes.clear();
     branches.forEach((branch, i) => {
       const lane = new BranchLane(this, i, branches.length, branch);
-      if (branch !== 'main') lane.setAlpha(0);
+      if (branch !== 'main') lane.setHidden();
       this.lanes.set(branch, lane);
     });
   }
@@ -156,6 +163,11 @@ export class SingleScene extends Phaser.Scene {
   }
 
   private showCurrentCommand(): void {
+    // HARD 미리보기 타이머가 남아 있으면 취소 (사용자가 60% 시점보다 빨리 완료한 경우)
+    if (this.hardSpawnTimer) {
+      this.hardSpawnTimer.remove();
+      this.hardSpawnTimer = null;
+    }
     if (this.isGameEnded) return;
     if (this.commandIndex >= this.commandSet.length) {
       singleBus.emit('game:complete');
@@ -165,6 +177,35 @@ export class SingleScene extends Phaser.Scene {
     this.lanes.get(cmd.branchName)?.showCommand(cmd, this.fallDuration, () => {
       this.onCommandTimeout();
     });
+    this.lastSpawnedIndex = this.commandIndex;
+    if (this.difficulty === 'HARD') {
+      this.scheduleNextHardSpawn();
+    }
+  }
+
+  /** HARD 전용: fallDuration × 0.6 후 다음 명령어를 미리 spawn합니다. */
+  private scheduleNextHardSpawn(): void {
+    this.hardSpawnTimer = this.time.delayedCall(this.fallDuration * 0.6, () => {
+      this.hardSpawnTimer = null;
+      this.spawnNextHard();
+    });
+  }
+
+  /** HARD 전용: 다음 commandIndex 노드를 해당 레인이 표시된 경우에만 enqueue합니다. */
+  private spawnNextHard(): void {
+    if (this.isGameEnded) return;
+    const nextIndex = this.lastSpawnedIndex + 1;
+    if (nextIndex >= this.commandSet.length) return;
+    const nextCmd = this.commandSet[nextIndex];
+    const nextLane = this.lanes.get(nextCmd.branchName);
+    // 레인이 아직 reveal되지 않은 경우(CREATE 완료 전) spawn skip.
+    // command:complete → applyBranchEffect → revealLane 이후 handleCommandComplete에서 spawn.
+    if (!nextLane?.isRevealed()) return;
+    nextLane.enqueueCommand(nextCmd, this.fallDuration, () => {
+      this.onCommandTimeout();
+    });
+    this.lastSpawnedIndex = nextIndex;
+    this.scheduleNextHardSpawn();
   }
 
   // BranchLane tween 완료 시 콜백.
@@ -177,18 +218,22 @@ export class SingleScene extends Phaser.Scene {
     const missedIndex = this.commandIndex;
     const cmd = this.commandSet[this.commandIndex];
     const lane = this.lanes.get(cmd.branchName);
-    lane?.clearCommand();
+    // HARD: 같은 레인에 노드가 2개일 수 있으므로 최하단 노드만 제거한다.
+    // EASY/NORMAL: 노드가 1개뿐이므로 removeBottomNode와 clearAll은 동일 효과.
+    lane?.removeBottomNode();
     lane?.flashMiss();
     this.commandIndex++;
     singleBus.emit('command:miss', { index: missedIndex }); // lives 감소 먼저
     // miss여도 브랜치 구조 변경은 반드시 적용해야 이후 커맨드 진행이 가능
     this.applyBranchEffect(cmd);
-    if (!this.isGameEnded) {
-      this.showCurrentCommand(); // lives 남아있으면 진행 (마지막이면 game:complete)
+    if (!this.isGameEnded && this.lastSpawnedIndex < this.commandIndex) {
+      // 다음 명령어가 아직 화면에 없을 때만 spawn (HARD: 이미 있을 경우 skip)
+      this.showCurrentCommand();
     }
   }
 
-  // CREATE·SWITCH: 레인 공개 및 브랜치 전환 / MERGE: 병합된 레인 숨김
+  // CREATE·SWITCH: 레인 공개 및 브랜치 전환 / MERGE·CONFLICT: 병합된 레인 숨김
+  // CONFLICT는 PR B에서 일반 MERGE처럼 처리. PR C에서 미니게임 트리거가 추가될 예정.
   private applyBranchEffect(cmd: SingleCommand): void {
     if (cmd.type === 'CREATE' || cmd.type === 'SWITCH') {
       const target = parseSwitchTarget(cmd.text);
@@ -196,7 +241,7 @@ export class SingleScene extends Phaser.Scene {
         singleBus.emit('branch:switch', { branch: target });
         if (cmd.type === 'CREATE') singleBus.emit('lane:create', { branch: target });
       }
-    } else if (cmd.type === 'MERGE') {
+    } else if (cmd.type === 'MERGE' || cmd.type === 'CONFLICT') {
       const mergedBranch = parseSwitchTarget(cmd.text);
       if (mergedBranch) this.lanes.get(mergedBranch)?.hideLane();
     }
@@ -224,12 +269,14 @@ export class SingleScene extends Phaser.Scene {
       if (!this.isUserPaused) {
         this.tweens.resumeAll();
         if (this.timerEvent) this.timerEvent.paused = false;
+        if (this.hardSpawnTimer) this.hardSpawnTimer.paused = false;
       }
       singleBus.emit('stash:end');
     }
 
     // 튜토리얼 모드: useTutorialMode가 tutorial:show-command를 emit할 때까지 대기
-    if (!this.isTutorialMode) {
+    // HARD: 다음 명령어가 이미 화면에 있으면 spawn skip (look-ahead 타이머가 계속 돌고 있음)
+    if (!this.isTutorialMode && this.lastSpawnedIndex < this.commandIndex) {
       this.showCurrentCommand();
     }
   };
@@ -242,12 +289,13 @@ export class SingleScene extends Phaser.Scene {
     // commandIndex가 진행되고 노드가 한 칸 점프하는 현상이 생긴다. delayedCall도 명시적으로 정지.
     if (this.stashTimeoutId) this.stashTimeoutId.paused = true;
     if (this.cherryPickTimeoutId) this.cherryPickTimeoutId.paused = true;
+    if (this.hardSpawnTimer) this.hardSpawnTimer.paused = true;
   };
 
   private readonly handleGameResume = (): void => {
     this.isUserPaused = false;
-    // stash/cherry-pick 활성 중이면 해당 delayedCall만 재개하고 tween/timerEvent는 그대로.
-    // 콜백 완료 시점에 tween·timerEvent도 정상 재개된다.
+    // stash/cherry-pick 활성 중이면 해당 delayedCall만 재개하고 tween/timerEvent/hardSpawnTimer는 그대로.
+    // 콜백 완료 시점에 모두 정상 재개된다.
     if (this.stashTimeoutId !== null) {
       this.stashTimeoutId.paused = false;
       return;
@@ -258,6 +306,7 @@ export class SingleScene extends Phaser.Scene {
     }
     this.tweens.resumeAll();
     if (this.timerEvent) this.timerEvent.paused = false;
+    if (this.hardSpawnTimer) this.hardSpawnTimer.paused = false;
   };
 
   private readonly handleItemUse = ({ slot }: { slot: 0 | 1 | 2 }): void => {
@@ -267,11 +316,13 @@ export class SingleScene extends Phaser.Scene {
       if (this.stashTimeoutId !== null) return;
       this.tweens.pauseAll();
       if (this.timerEvent) this.timerEvent.paused = true;
+      if (this.hardSpawnTimer) this.hardSpawnTimer.paused = true;
       this.stashTimeoutId = this.time.delayedCall(5000, () => {
         this.stashTimeoutId = null;
         if (!this.isGameEnded && !this.isUserPaused) {
           this.tweens.resumeAll();
           if (this.timerEvent) this.timerEvent.paused = false;
+          if (this.hardSpawnTimer) this.hardSpawnTimer.paused = false;
         }
         singleBus.emit('stash:end');
       });
@@ -282,12 +333,14 @@ export class SingleScene extends Phaser.Scene {
       const indexAtUse = this.commandIndex;
       this.tweens.pauseAll();
       if (this.timerEvent) this.timerEvent.paused = true;
+      if (this.hardSpawnTimer) this.hardSpawnTimer.paused = true;
       this.cherryPickTimeoutId = this.time.delayedCall(CHERRY_PICK_ANIM_MS, () => {
         this.cherryPickTimeoutId = null;
         if (!this.isGameEnded) {
           if (!this.isUserPaused) {
             this.tweens.resumeAll();
             if (this.timerEvent) this.timerEvent.paused = false;
+            if (this.hardSpawnTimer) this.hardSpawnTimer.paused = false;
           }
           singleBus.emit('command:complete', { index: indexAtUse });
         }
@@ -338,6 +391,10 @@ export class SingleScene extends Phaser.Scene {
     this.isGameEnded = true;
     this.timerEvent?.remove();
     this.timerEvent = null;
+    if (this.hardSpawnTimer) {
+      this.hardSpawnTimer.remove();
+      this.hardSpawnTimer = null;
+    }
     if (this.stashTimeoutId !== null) {
       this.stashTimeoutId.remove();
       this.stashTimeoutId = null;
@@ -348,6 +405,6 @@ export class SingleScene extends Phaser.Scene {
       this.cherryPickTimeoutId = null;
       singleBus.emit('cherry-pick:end');
     }
-    this.lanes.forEach((lane) => lane.clearCommand());
+    this.lanes.forEach((lane) => lane.clearAll());
   };
 }

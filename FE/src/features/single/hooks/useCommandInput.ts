@@ -64,9 +64,14 @@ export function useCommandInput() {
 
       const trimmed = inputValue.trim();
       if (!trimmed) return;
-      const isNormal = difficulty === 'NORMAL';
-      const textMatches = trimmed === currentCommand.text;
-      const branchMatches = !isNormal || activeBranch === currentCommand.branchName;
+      // EASY만 자동 SWITCH. NORMAL/HARD는 사용자가 직접 git switch를 입력해 브랜치를 이동해야 한다.
+      const requiresManualSwitch = difficulty === 'NORMAL' || difficulty === 'HARD';
+      const normalizeQuotes = (s: string) => s.replace(/'/g, '"');
+      const hasMixedQuotes = (s: string) => s.includes("'") && s.includes('"');
+      const textMatches =
+        !hasMixedQuotes(trimmed) &&
+        normalizeQuotes(trimmed) === normalizeQuotes(currentCommand.text);
+      const branchMatches = !requiresManualSwitch || activeBranch === currentCommand.branchName;
 
       // 오타 페널티 — 콤보 리셋 + typoCount 증가 + 로그 + Phaser 알림.
       // 목숨은 차감하지 않는다 (시간 초과 miss 경로에서만 차감).
@@ -92,8 +97,8 @@ export function useCommandInput() {
             }
           }
         }
-      } else if (isNormal && !textMatches && isSwitchCommand(trimmed)) {
-        // NORMAL 모드 은닉 SWITCH: 점수·시도 횟수 없이 activeBranch만 업데이트.
+      } else if (requiresManualSwitch && !textMatches && isSwitchCommand(trimmed)) {
+        // 수동 SWITCH (NORMAL/HARD): 점수·시도 횟수 없이 activeBranch만 업데이트.
         // 잘못된 브랜치에 있어도 git switch로 빠져나올 수 있어야 하므로 브랜치 체크보다 먼저 처리.
         // 단, 존재하지 않는 브랜치로의 이동은 거부하고 안내 메시지 + 오타 처리한다.
         const target = parseSwitchTarget(trimmed);
@@ -108,7 +113,7 @@ export function useCommandInput() {
           ]);
           applyTypoPenalty();
         }
-      } else if (isNormal && !branchMatches) {
+      } else if (requiresManualSwitch && !branchMatches) {
         // 잘못된 브랜치에서의 입력은 텍스트 일치 여부와 무관하게 브랜치 안내 우선.
         setHistory((prev) => [
           ...prev,
