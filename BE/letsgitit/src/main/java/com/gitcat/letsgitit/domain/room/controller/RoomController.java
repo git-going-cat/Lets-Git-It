@@ -126,8 +126,8 @@ public class RoomController implements RoomControllerDocs {
 		data.put("currentPlayers", 2);
 		data.put("maxPlayers", 4);
 		data.put("members", List.of(
-			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true, false),
-			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false, true)));
+			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true),
+			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false)));
 		return ApiResponse.ok("기여도 뺏기 방 입장 성공", data);
 	}
 
@@ -156,8 +156,8 @@ public class RoomController implements RoomControllerDocs {
 		data.put("maxPlayers", 4);
 		data.put("selectedMap", buildSelectedMap());
 		data.put("members", List.of(
-			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true, false),
-			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false, true)));
+			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true),
+			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false)));
 		return ApiResponse.ok("방 입장 성공", data);
 	}
 
@@ -233,8 +233,8 @@ public class RoomController implements RoomControllerDocs {
 		data.put("currentPlayers", 2);
 		data.put("maxPlayers", 4);
 		data.put("members", List.of(
-			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true, false),
-			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false, true)));
+			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true),
+			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false)));
 		return ApiResponse.ok("방 상태 조회 성공", data);
 	}
 
@@ -260,13 +260,12 @@ public class RoomController implements RoomControllerDocs {
 		data.put("maxPlayers", 4);
 		data.put("selectedMap", buildSelectedMap());
 		data.put("members", List.of(
-			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true, false),
-			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false, true)));
+			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true),
+			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false)));
 		return ApiResponse.ok("방 상태 조회 성공", data);
 	}
 
-	private Map<String, Object> buildMember(String playerId, String nickname, boolean isReady, boolean isHost,
-		boolean isMe) {
+	private Map<String, Object> buildMember(String playerId, String nickname, boolean isReady, boolean isHost) {
 		Map<String, Object> member = new LinkedHashMap<>();
 		member.put("playerId", playerId);
 		member.put("nickname", nickname);
@@ -278,7 +277,6 @@ public class RoomController implements RoomControllerDocs {
 		member.put("characterOutfitColor", "Outfit-color_01");
 		member.put("isReady", isReady);
 		member.put("isHost", isHost);
-		member.put("isMe", isMe);
 		return member;
 	}
 
