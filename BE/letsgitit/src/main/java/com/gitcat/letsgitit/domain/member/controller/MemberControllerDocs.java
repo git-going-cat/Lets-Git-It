@@ -72,7 +72,7 @@ public interface MemberControllerDocs {
 			      { "mode": "SINGLE_EASY",      "bestScore": 9500 },
 			      { "mode": "SINGLE_NORMAL",    "bestScore": 7200 },
 			      { "mode": "SINGLE_HARD",      "bestScore": 5100 },
-			      { "mode": "CONTRIBUTION_RUN", "totalContribution": 88000 },
+			      { "mode": "CONTRIBUTION",     "totalContribution": 88000 },
 			      { "mode": "TIME_ATTACK",      "totalCount": 10500},
 			      { "mode": "COOP",             "bestClearTime": 61000 }
 			    ]

@@ -50,56 +50,62 @@ public class RoomController implements RoomControllerDocs {
 		data.put("title", body.getOrDefault("title", "같이 협력 해요!"));
 		data.put("hasPassword", body.getOrDefault("hasPassword", false));
 		data.put("maxPlayers", 4);
+		data.put("selectedMap", buildSelectedMap());
 		return ApiResponse.create("협력 모드 방 생성 성공", data);
 	}
 
-	// 방 목록 조회(mode) / 방 코드로 검색(code) - 동일 URL, 파라미터로 분기
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@GetMapping
 	public ResponseEntity<?> getRooms(
 		@RequestParam(required = false, defaultValue = "ALL")
-		String mode,
-		@RequestParam(required = false)
-		String code) {
+		String mode) {
 
-		if (code != null) {
-			if ("XXXXXX".equals(code)) {
-				throw new BusinessException(ROOM_NOT_FOUND);
-			}
-			if ("INGAME1".equals(code)) {
-				throw new BusinessException(ROOM_IN_GAME);
-			}
-			Map<String, Object> data = new LinkedHashMap<>();
-			data.put("roomId", 42);
-			data.put("title", "같이 기여도 뺏기 해요!");
-			data.put("mode", "CONTRIBUTION_RUN");
-			data.put("currentPlayers", 2);
-			data.put("maxPlayers", 4);
-			data.put("hasPassword", true);
-			data.put("status", "WAITING");
-			return ApiResponse.ok("방 코드로 검색 성공", data);
-		}
+		Map<String, Object> contributionRoom = new LinkedHashMap<>();
+		contributionRoom.put("roomId", 42);
+		contributionRoom.put("title", "같이 기여도 뺏기 해요!");
+		contributionRoom.put("mode", "CONTRIBUTION");
+		contributionRoom.put("currentPlayers", 2);
+		contributionRoom.put("maxPlayers", 4);
+		contributionRoom.put("hasPassword", false);
+		contributionRoom.put("roomState", "WAITING");
+		contributionRoom.put("selectedMap", null);
 
-		Map<String, Object> data = Map.of(
-			"rooms", List.of(
-				Map.of(
-					"roomId", 42,
-					"title", "같이 기여도 뺏기 해요!",
-					"mode", "CONTRIBUTION_RUN",
-					"currentPlayers", 2,
-					"maxPlayers", 4,
-					"hasPassword", false,
-					"status", "WAITING"),
-				Map.of(
-					"roomId", 43,
-					"title", "같이 협력 해요!",
-					"mode", "COOP",
-					"currentPlayers", 2,
-					"maxPlayers", 4,
-					"hasPassword", false,
-					"status", "WAITING")));
+		Map<String, Object> coopRoom = new LinkedHashMap<>();
+		coopRoom.put("roomId", 43);
+		coopRoom.put("title", "같이 협력 해요!");
+		coopRoom.put("mode", "COOP");
+		coopRoom.put("currentPlayers", 2);
+		coopRoom.put("maxPlayers", 4);
+		coopRoom.put("hasPassword", false);
+		coopRoom.put("roomState", "WAITING");
+		coopRoom.put("selectedMap", buildSelectedMap());
+
+		Map<String, Object> data = Map.of("rooms", List.of(contributionRoom, coopRoom));
 		return ApiResponse.ok("방 목록 조회 성공", data);
+	}
+
+	// TODO: 서비스 로직 연동 후 제거
+	@Override
+	@GetMapping("/search")
+	public ResponseEntity<?> searchRoom(
+		@RequestParam
+		String code) {
+		if ("XXXXXX".equals(code)) {
+			throw new BusinessException(ROOM_NOT_FOUND);
+		}
+		if ("INGAME1".equals(code)) {
+			throw new BusinessException(ROOM_IN_GAME);
+		}
+		Map<String, Object> data = new LinkedHashMap<>();
+		data.put("roomId", 42);
+		data.put("title", "같이 기여도 뺏기 해요!");
+		data.put("mode", "CONTRIBUTION");
+		data.put("currentPlayers", 2);
+		data.put("maxPlayers", 4);
+		data.put("hasPassword", true);
+		data.put("roomState", "WAITING");
+		return ApiResponse.ok("방 코드로 검색 성공", data);
 	}
 
 	// TODO: 서비스 로직 연동 후 제거
@@ -138,7 +144,7 @@ public class RoomController implements RoomControllerDocs {
 		data.put("roomId", roomId);
 		data.put("roomCode", "A3F9KX");
 		data.put("title", "같이 기여도 뺏기 해요!");
-		data.put("mode", "CONTRIBUTION_RUN");
+		data.put("mode", "CONTRIBUTION");
 		data.put("roomState", "WAITING");
 		data.put("currentPlayers", 2);
 		data.put("maxPlayers", 4);
@@ -175,7 +181,6 @@ public class RoomController implements RoomControllerDocs {
 		data.put("members", List.of(
 			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true, false),
 			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false, true)));
-		data.put("mapList", List.of(buildSelectedMap()));
 		return ApiResponse.ok("방 입장 성공", data);
 	}
 
@@ -250,7 +255,7 @@ public class RoomController implements RoomControllerDocs {
 		data.put("roomId", roomId);
 		data.put("roomCode", "A3F9KX");
 		data.put("title", "같이 기여도 뺏기 해요!");
-		data.put("mode", "CONTRIBUTION_RUN");
+		data.put("mode", "CONTRIBUTION");
 		data.put("roomState", "WAITING");
 		data.put("currentPlayers", 2);
 		data.put("maxPlayers", 4);
@@ -284,7 +289,6 @@ public class RoomController implements RoomControllerDocs {
 		data.put("members", List.of(
 			buildMember("550e8400-e29b-41d4-a716-446655440000", "dobby", false, true, false),
 			buildMember("550e8400-e29b-41d4-a716-446655440001", "alice", false, false, true)));
-		data.put("mapList", List.of(buildSelectedMap()));
 		return ApiResponse.ok("방 상태 조회 성공", data);
 	}
 

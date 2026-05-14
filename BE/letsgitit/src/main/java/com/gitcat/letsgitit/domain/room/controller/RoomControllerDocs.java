@@ -46,7 +46,8 @@ public interface RoomControllerDocs {
 		  "title": "협력 모드 같이해요!",
 		  "teamName": "팀이름",
 		  "hasPassword": false,
-		  "password": null
+		  "password": null,
+		  "selectedMapId": "550e8400-e29b-41d4-a716-446655440002"
 		}
 		""")))
 	@ApiResponse(responseCode = "201", description = "방 생성 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
@@ -59,67 +60,85 @@ public interface RoomControllerDocs {
 		    "roomCode": "A3F9KX",
 		    "title": "같이 협력 해요!",
 		    "hasPassword": false,
-		    "maxPlayers": 4
+		    "maxPlayers": 4,
+		    "selectedMap": {
+		      "mapId": "550e8400-e29b-41d4-a716-446655440002",
+		      "mapName": "재밌는 맵",
+		      "difficulty": 3
+		    }
 		  }
 		}
 		""")))
 	ResponseEntity<?> createCoopRoom(Map<String, Object> body);
 
-	@Operation(summary = "방 목록 조회 / 방 코드로 검색", description = """
-		code 파라미터 있으면 방 코드 검색(단건), 없으면 mode별 방 목록 조회.
+	@Operation(summary = "방 목록 조회", description = """
+		mode 파라미터로 게임 모드별 방 목록 조회.
 
-		**Mock 에러 트리거 (코드 검색 시, 테스트용)**
+		`mode`: `ALL` / `CONTRIBUTION` / `COOP` (기본값 `ALL`)
+		""")
+	@ApiResponse(responseCode = "200", description = "조회 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+		{
+		  "status": 200,
+		  "message": "방 목록 조회 성공",
+		  "data": {
+		    "rooms": [
+		      {
+		        "roomId": 42,
+		        "title": "같이 기여도 뺏기 해요!",
+		        "mode": "CONTRIBUTION",
+		        "currentPlayers": 2,
+		        "maxPlayers": 4,
+		        "hasPassword": false,
+		        "roomState": "WAITING",
+		        "selectedMap": null
+		      },
+		      {
+		        "roomId": 43,
+		        "title": "같이 협력 해요!",
+		        "mode": "COOP",
+		        "currentPlayers": 2,
+		        "maxPlayers": 4,
+		        "hasPassword": false,
+		        "roomState": "WAITING",
+		        "selectedMap": {
+		          "mapId": "550e8400-e29b-41d4-a716-446655440002",
+		          "mapName": "선택한 맵 이름",
+		          "difficulty": 2
+		        }
+		      }
+		    ]
+		  }
+		}
+		""")))
+	ResponseEntity<?> getRooms(
+		@Parameter(name = "mode", description = "게임 모드 (ALL / CONTRIBUTION / COOP). 기본값 ALL")
+		String mode);
+
+	@Operation(summary = "방 코드로 검색", description = """
+		6자리 방 코드로 단건 검색.
+
+		**Mock 에러 트리거 (테스트용)**
 		| 요청값 | 발생 에러 |
 		|---|---|
 		| code: "XXXXXX" | 404 ROOM_NOT_FOUND |
 		| code: "INGAME1" | 409 ROOM_IN_GAME |
 		""")
 	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "조회 성공", content = @Content(mediaType = "application/json", examples = {
-			@ExampleObject(name = "방 목록 조회", value = """
-				{
-				  "status": 200,
-				  "message": "방 목록 조회 성공",
-				  "data": {
-				    "rooms": [
-				      {
-				        "roomId": 42,
-				        "title": "같이 기여도 뺏기 해요!",
-				        "mode": "CONTRIBUTION_RUN",
-				        "currentPlayers": 2,
-				        "maxPlayers": 4,
-				        "hasPassword": false,
-				        "status": "WAITING"
-				      },
-				      {
-				        "roomId": 43,
-				        "title": "같이 협력 해요!",
-				        "mode": "COOP",
-				        "currentPlayers": 2,
-				        "maxPlayers": 4,
-				        "hasPassword": false,
-				        "status": "WAITING"
-				      }
-				    ]
-				  }
-				}
-				"""),
-			@ExampleObject(name = "방 코드 검색", value = """
-				{
-				  "status": 200,
-				  "message": "방 코드로 검색 성공",
-				  "data": {
-				    "roomId": 42,
-				    "title": "같이 기여도 뺏기 해요!",
-				    "mode": "CONTRIBUTION_RUN",
-				    "currentPlayers": 2,
-				    "maxPlayers": 4,
-				    "hasPassword": true,
-				    "status": "WAITING"
-				  }
-				}
-				""")
-		})),
+		@ApiResponse(responseCode = "200", description = "검색 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+			{
+			  "status": 200,
+			  "message": "방 코드로 검색 성공",
+			  "data": {
+			    "roomId": 42,
+			    "title": "같이 기여도 뺏기 해요!",
+			    "mode": "CONTRIBUTION",
+			    "currentPlayers": 2,
+			    "maxPlayers": 4,
+			    "hasPassword": true,
+			    "roomState": "WAITING"
+			  }
+			}
+			"""))),
 		@ApiResponse(responseCode = "404", description = "존재하지 않는 방 코드", content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "ROOM_NOT_FOUND", value = """
 			{"status": 404, "code": "ROOM_NOT_FOUND", "message": "존재하지 않는 방입니다.", "errors": []}
 			"""))),
@@ -127,10 +146,8 @@ public interface RoomControllerDocs {
 			{"status": 409, "code": "ROOM_IN_GAME", "message": "이미 게임 중인 방입니다.", "errors": []}
 			""")))
 	})
-	ResponseEntity<?> getRooms(
-		@Parameter(name = "mode", description = "게임 모드 (ALL / CONTRIBUTION_RUN / COOP). 기본값 ALL")
-		String mode,
-		@Parameter(name = "code", description = "방 코드 (6자리). 지정 시 코드 검색 모드")
+	ResponseEntity<?> searchRoom(
+		@Parameter(name = "code", description = "방 코드 (6자리 영문+숫자)", required = true)
 		String code);
 
 	@Operation(summary = "방 비밀번호 검증", description = """
@@ -178,7 +195,7 @@ public interface RoomControllerDocs {
 			    "roomId": 42,
 			    "roomCode": "A3F9KX",
 			    "title": "같이 기여도 뺏기 해요!",
-			    "mode": "CONTRIBUTION_RUN",
+			    "mode": "CONTRIBUTION",
 			    "roomState": "WAITING",
 			    "currentPlayers": 2,
 			    "maxPlayers": 4,
@@ -285,13 +302,6 @@ public interface RoomControllerDocs {
 			        "isHost": false,
 			        "isMe": true
 			      }
-			    ],
-			    "mapList": [
-			      {
-			        "mapId": "550e8400-e29b-41d4-a716-446655440002",
-			        "mapName": "멋깔나는 맵",
-			        "difficulty": 3
-			      }
 			    ]
 			  }
 			}
@@ -359,7 +369,13 @@ public interface RoomControllerDocs {
 		| roomId: 9996 | 403 NOT_HOST |
 		""")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
-		{"title": "변경된 방 제목", "hasPassword": false, "password": null, "teamName": "변경된 팀 이름"}
+		{
+		  "title": "변경된 방 제목",
+		  "teamName": "변경된 팀 이름",
+		  "hasPassword": false,
+		  "password": null,
+		  "selectedMapId": "550e8400-e29b-41d4-a716-446655440002"
+		}
 		""")))
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "방 정보 수정 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
@@ -420,7 +436,7 @@ public interface RoomControllerDocs {
 			    "roomId": 42,
 			    "roomCode": "A3F9KX",
 			    "title": "같이 기여도 뺏기 해요!",
-			    "mode": "CONTRIBUTION_RUN",
+			    "mode": "CONTRIBUTION",
 			    "roomState": "WAITING",
 			    "currentPlayers": 2,
 			    "maxPlayers": 4,
@@ -520,13 +536,6 @@ public interface RoomControllerDocs {
 			        "isReady": false,
 			        "isHost": false,
 			        "isMe": true
-			      }
-			    ],
-			    "mapList": [
-			      {
-			        "mapId": "550e8400-e29b-41d4-a716-446655440002",
-			        "mapName": "멋깔나는 맵",
-			        "difficulty": 3
 			      }
 			    ]
 			  }

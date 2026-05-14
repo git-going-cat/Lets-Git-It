@@ -13,7 +13,7 @@ public class RankingKeyUtil {
 	private static final String SINGLE = "ranking:SINGLE:%s:%s";
 	private static final String SINGLE_GRADE = "ranking:SINGLE:%s:%s:grade";
 	private static final String SINGLE_PLAY_TIME = "ranking:SINGLE:%s:%s:playtime";
-	private static final String CONTRIBUTION = "ranking:CONTRIBUTION_RUN:%s";
+	private static final String CONTRIBUTION = "ranking:CONTRIBUTION:%s";
 	private static final String TIME_ATTACK = "ranking:TIME_ATTACK:%s";
 	private static final String COOP = "ranking:COOP:%s:%s";
 

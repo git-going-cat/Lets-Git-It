@@ -58,11 +58,17 @@ export class SingleScene extends Phaser.Scene {
     this.commandIndex = 0;
     this.elapsedMs = 0;
     this.isGameEnded = false;
+    // scene.restart()는 인스턴스를 보존하므로, 이전 게임에서 ESC(handleGamePause)가
+    // set한 isUserPaused와 tweens.pauseAll() 상태가 새 게임으로 흘러들어와
+    // 아이템(stash/cherry-pick) resume 콜백의 `!isUserPaused` 가드를 막아 멈춤이 발생한다.
+    // 매 create()마다 명시적으로 초기화해 새 세션을 깨끗한 상태로 시작한다.
+    this.isUserPaused = false;
     this.isTutorialMode = raw.isTutorial ?? false;
     this.fallDuration = FALL_DURATION_MS[difficulty];
 
     this.initLanes(commandSet);
     this.lanes.forEach((lane, branchName) => lane.setLaneActive(branchName === 'main'));
+    this.tweens.resumeAll();
     this.registerEvents();
 
     // autoStart: 재시작(restart) 경로에서만 true. 최초 진입은 StartModal의 game:start를 기다린다.
@@ -84,6 +90,7 @@ export class SingleScene extends Phaser.Scene {
 
   shutdown(): void {
     this.timerEvent?.remove();
+    this.timerEvent = null;
     this.lanes.clear();
     if (this.stashTimeoutId !== null) {
       this.stashTimeoutId.remove();
