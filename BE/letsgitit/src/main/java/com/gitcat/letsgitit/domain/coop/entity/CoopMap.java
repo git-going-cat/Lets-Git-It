@@ -4,6 +4,8 @@ import java.util.UUID;
 
 import jakarta.persistence.*;
 
+import com.gitcat.letsgitit.global.entity.BaseEntity;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "coop_map", uniqueConstraints = {
 	@UniqueConstraint(name = "uq_coop_map_name_difficulty", columnNames = {"name", "difficulty"})
 })
-public class CoopMap {
+public class CoopMap extends BaseEntity {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
