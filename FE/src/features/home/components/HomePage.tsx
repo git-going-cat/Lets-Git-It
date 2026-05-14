@@ -20,19 +20,37 @@ import TutorialNpc from './TutorialNpc';
 
 import type { HomeModalType } from '../types/home.types';
 import type { GameMode } from '@/features/multi/types/room.types';
+import type { Difficulty } from '@/shared/types/game.types';
+
+interface HomePageProps {
+  // 다른 페이지에서 ?modal=... 로 복귀한 경우 첫 렌더에 열어둘 모달. routes 레이어가 주입.
+  initialModal: HomeModalType | null;
+  // initialModal 처리 후 URL에서 search param을 제거해 재오픈을 방지. routes 레이어가 주입.
+  onUrlCleanup: () => void;
+  // 싱마 모드 '게임 시작' 시 routes 레이어가 startSession + setSession을 수행. 실패 시 throw.
+  onStartSingle: (difficulty: Difficulty) => Promise<void>;
+}
 
 /**
  * 홈 화면의 배경, 모드 진입, 랭킹/도감/마이페이지 모달 상태를 관리합니다.
+ * cross-feature wiring(URL 파라미터, single API 호출)은 routes/-HomeRoute에서 주입받습니다.
  */
-export function HomePage() {
+export function HomePage({ initialModal, onUrlCleanup, onStartSingle }: HomePageProps) {
   useBgm();
-  const [activeModal, setActiveModal] = useState<HomeModalType | null>(null);
+  // setState in effect를 피하기 위해 useState initializer로 처리.
+  const [activeModal, setActiveModal] = useState<HomeModalType | null>(() => initialModal);
   const [isMyPageOpen, setIsMyPageOpen] = useState(false);
   const [lobbyMode, setLobbyMode] = useState<GameMode | null>(null);
 
   useEffect(() => {
     void import('@/features/single/components/SinglePage');
   }, []);
+
+  // 모달이 열린 뒤 URL은 깔끔하게 정리한다. (재진입 시 자동 재오픈 방지)
+  useEffect(() => {
+    if (!initialModal) return;
+    onUrlCleanup();
+  }, [initialModal, onUrlCleanup]);
 
   const handleOpenModal = (modal: HomeModalType) => {
     setActiveModal(modal);
@@ -99,13 +117,18 @@ export function HomePage() {
       {activeModal === 'settings' && <SettingsModal onClose={handleCloseModal} />}
       {activeModal === 'logout' && <LogoutModal onClose={handleCloseModal} />}
       {activeModal === 'explorer-single' && (
-        <Win11ExplorerModal initialTab="single" onClose={handleCloseModal} />
+        <Win11ExplorerModal
+          initialTab="single"
+          onClose={handleCloseModal}
+          onStartSingle={onStartSingle}
+        />
       )}
       {activeModal === 'explorer-multi' && (
         <Win11ExplorerModal
           initialTab="multi"
           onClose={handleCloseModal}
           onLobbyOpen={(m) => setLobbyMode(m)}
+          onStartSingle={onStartSingle}
         />
       )}
 

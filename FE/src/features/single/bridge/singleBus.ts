@@ -14,7 +14,7 @@ export interface GameRestartPayload {
     commandSequence: number;
     text: string;
     branchName: string;
-    type: 'CREATE' | 'MERGE' | 'COMMON' | 'SWITCH';
+    type: 'CREATE' | 'MERGE' | 'COMMON' | 'SWITCH' | 'CONFLICT';
     itemDrop?: 'restore' | 'stash' | 'cherry-pick';
   }>;
   isTutorial: boolean;

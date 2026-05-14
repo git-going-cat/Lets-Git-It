@@ -24,7 +24,8 @@ export function useExistingBranches(): Set<string> {
       const target = parseSwitchTarget(cmd.text);
       if (!target) continue;
       if (cmd.type === 'CREATE') set.add(target);
-      else if (cmd.type === 'MERGE') set.delete(target);
+      // CONFLICT는 PR B에서 MERGE처럼 처리. PR C에서 동작 분기 추가 예정.
+      else if (cmd.type === 'MERGE' || cmd.type === 'CONFLICT') set.delete(target);
     }
     return set;
   }, [commandSet, commandIndex]);

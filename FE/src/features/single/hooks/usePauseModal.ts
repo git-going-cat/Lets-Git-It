@@ -37,7 +37,7 @@ export function usePauseModal() {
   const onRestart = async () => {
     if (isRestarting) return;
     if (!difficulty) {
-      navigate({ to: '/home', replace: true });
+      void navigate({ to: '/home', replace: true });
       return;
     }
 
@@ -60,7 +60,8 @@ export function usePauseModal() {
         });
       }
     } catch {
-      navigate({ to: '/home', replace: true });
+      // SinglePage가 startSessionError를 구독해 Win11Dialog로 표시한다.
+      useSingleStore.getState().setStartSessionError(true);
     } finally {
       setIsRestarting(false);
     }
@@ -68,7 +69,7 @@ export function usePauseModal() {
 
   const onExit = () => {
     analytics.gameAbandoned();
-    navigate({ to: '/home', replace: true });
+    void navigate({ to: '/home', replace: true });
   };
 
   return { isVisible, onResume, onRestart, onExit };

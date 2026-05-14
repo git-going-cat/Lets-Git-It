@@ -90,9 +90,22 @@ export default function StartModal() {
           )}
 
           {!isTutorial && (
-            <p className="text-2xl leading-relaxed text-yellow-400">
-              Repository를 클론해서 게임을 시작하세요!
-            </p>
+            <>
+              <p className="text-2xl leading-relaxed text-yellow-400">
+                Repository를 클론해서 게임을 시작하세요!
+              </p>
+              {(difficulty === 'NORMAL' || difficulty === 'HARD') && (
+                <p className="text-xl text-orange-400">
+                  브랜치 전환 명령어가 떨어지지 않습니다. 직접 git switch로 브랜치를 이동해야
+                  합니다.
+                </p>
+              )}
+              {difficulty === 'HARD' && (
+                <p className="text-xl text-orange-400">
+                  명령어가 시간차로 떨어집니다. 같은 레인에 두 개가 동시에 보일 수 있습니다.
+                </p>
+              )}
+            </>
           )}
 
           <div>
