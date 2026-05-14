@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import bgImage from '@/assets/bg/screen.png';
 import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
+import LobbyPage from '@/features/multi/components/LobbyPage';
 import MyPageModal from '@/features/mypage/components/MyPageModal';
 import RankingModal from '@/features/ranking/components/RankingModal';
 import { useBgm } from '@/shared/hooks/useBgm';
@@ -18,6 +19,7 @@ import SideMenuButtons from './SideMenuButtons';
 import TutorialNpc from './TutorialNpc';
 
 import type { HomeModalType } from '../types/home.types';
+import type { GameMode } from '@/features/multi/types/room.types';
 import type { Difficulty } from '@/shared/types/game.types';
 
 interface HomePageProps {
@@ -25,7 +27,7 @@ interface HomePageProps {
   initialModal: HomeModalType | null;
   // initialModal 처리 후 URL에서 search param을 제거해 재오픈을 방지. routes 레이어가 주입.
   onUrlCleanup: () => void;
-  // 싱글 모드 '게임 시작' 시 routes 레이어가 startSession + setSession을 수행. 실패 시 throw.
+  // 싱마 모드 '게임 시작' 시 routes 레이어가 startSession + setSession을 수행. 실패 시 throw.
   onStartSingle: (difficulty: Difficulty) => Promise<void>;
 }
 
@@ -38,6 +40,7 @@ export function HomePage({ initialModal, onUrlCleanup, onStartSingle }: HomePage
   // setState in effect를 피하기 위해 useState initializer로 처리.
   const [activeModal, setActiveModal] = useState<HomeModalType | null>(() => initialModal);
   const [isMyPageOpen, setIsMyPageOpen] = useState(false);
+  const [lobbyMode, setLobbyMode] = useState<GameMode | null>(null);
 
   useEffect(() => {
     void import('@/features/single/components/SinglePage');
@@ -124,9 +127,12 @@ export function HomePage({ initialModal, onUrlCleanup, onStartSingle }: HomePage
         <Win11ExplorerModal
           initialTab="multi"
           onClose={handleCloseModal}
+          onLobbyOpen={(m) => setLobbyMode(m)}
           onStartSingle={onStartSingle}
         />
       )}
+
+      {lobbyMode !== null && <LobbyPage mode={lobbyMode} onClose={() => setLobbyMode(null)} />}
 
       {activeModal === 'ranking' && <RankingModal onClose={handleCloseModal} />}
       {activeModal === 'dictionary' && <DictionaryModal onClose={handleCloseModal} />}
