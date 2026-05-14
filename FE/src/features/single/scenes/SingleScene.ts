@@ -241,7 +241,7 @@ export class SingleScene extends Phaser.Scene {
   }
 
   // CREATE·SWITCH: 레인 공개 및 브랜치 전환 / MERGE·CONFLICT: 병합된 레인 숨김
-  // CONFLICT는 PR B에서 일반 MERGE처럼 처리. PR C에서 미니게임 트리거가 추가될 예정.
+  // CONFLICT 미니게임 성공 시 conflict:resolve → command:complete 로 들어와 이 분기를 거친다.
   private applyBranchEffect(cmd: SingleCommand): void {
     if (cmd.type === 'CREATE' || cmd.type === 'SWITCH') {
       const target = parseSwitchTarget(cmd.text);

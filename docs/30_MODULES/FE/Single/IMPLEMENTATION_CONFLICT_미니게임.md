@@ -242,7 +242,13 @@ CONFLICT 미니게임은 본질적으로 "5키 정타로 도메인 액션 1개�
 - **오버레이는 모달 아님**: `useModal` 미사용. ESC가 통과해 `useEscHandler` → PauseModal로 가야 하므로 focus trap을 걸지 않는다. 화살표 키만 keydown 핸들러로 가로채고 나머지는 silent ignore.
 - **체리픽 콜백에서 timer만 재개**: 일반 명령어 경로는 모두 재개하지만 CONFLICT 경로는 `timerEvent`만 재개한다. tween/hardSpawnTimer는 `handleConflictStart`가 다시 멈춰 두므로 여기서 풀면 안 된다.
 - **시나리오 fallback**: `CONFLICT_SCENARIOS[state.scenarioIndex] ?? CONFLICT_SCENARIOS[0]` — 배열 변경 시 인덱스 오버플로 방지.
-- **`parseAddTarget` 형식 가정**: BE가 `git add <path>` 단순 형태를 보내준다는 전제. 옵션 플래그(`-A`, `--all` 등) 추가되면 매칭 실패해 fallback 발동. 현재는 BE 합의 형태라 안전.
+- **`parseAddTarget` 형식 가정**: BE가 CONFLICT 다음 명령어로 `git add <path>` 단순 형태를 보낸다는 계약에 의존. path는 **공백 없는 단일 토큰**만 인식한다. 미지원 형식(모두 매칭 실패 → `DEFAULT_CONFLICT_FILE` fallback):
+  - quoted path: `git add "a b.js"`
+  - `--` 구분자: `git add -- file`
+  - 플래그: `git add -A`, `git add -p`
+  - 여러 파일 인자: `git add a.js b.js`
+
+  BE 형식이 확장되면 `parseAddTarget`도 함께 확장해야 한다.
 
 ---
 
