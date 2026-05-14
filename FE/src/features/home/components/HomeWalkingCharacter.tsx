@@ -17,11 +17,28 @@ const MAX_MOVE_MS = 5000;
 const MIN_IDLE_MS = 1000;
 const MAX_IDLE_MS = 2000;
 const SPECIAL_ANIMATION_MS = {
-  pushCart: 750,
-  lift: 2333,
+  sleep: 1500,
+  sit1: 1500,
+  sit2: 1500,
+  phone: 2000,
+  bookStand: 1200,
+  bookRead: 1200,
+  pushCart: 1200,
+  pickUp: 1500,
+  gift: 1667,
+  lift: 1750,
+  throw: 1750,
+  hit: 1200,
+  punch: 1200,
+  stab: 1200,
+  grabGun: 1200,
+  gunIdle: 1500,
+  shoot: 1200,
+  hurt: 1200,
 } as const;
 
 type SpecialAnimation = keyof typeof SPECIAL_ANIMATION_MS;
+const SPECIAL_ANIMATIONS = Object.keys(SPECIAL_ANIMATION_MS) as SpecialAnimation[];
 
 interface CharacterMotionState {
   animation: CharacterAnimation;
@@ -60,10 +77,15 @@ function getRandomPosition(containerWidth: number, containerHeight: number, curr
 
   const range = maxX - minX;
   const minDistance = Math.min(MIN_MOVE_DISTANCE_PX, Math.max(range, maxY - minY) * 0.5);
+  const minXDistance = Math.min(120, range * 0.4);
   let next = { x: randomBetween(minX, maxX), y: randomBetween(minY, maxY) };
 
   for (let i = 0; i < 12; i++) {
-    if (!current || getDistance(current.x, current.y, next.x, next.y) >= minDistance) {
+    if (
+      !current ||
+      (getDistance(current.x, current.y, next.x, next.y) >= minDistance &&
+        Math.abs(next.x - current.x) >= minXDistance)
+    ) {
       return next;
     }
     next = { x: randomBetween(minX, maxX), y: randomBetween(minY, maxY) };
@@ -81,6 +103,14 @@ function getMoveDuration(distance: number): number {
   return Math.round(clamp(distance * MS_PER_PX, MIN_MOVE_MS, MAX_MOVE_MS));
 }
 
+function isSpecialAnimation(animation: CharacterAnimation): animation is SpecialAnimation {
+  return animation in SPECIAL_ANIMATION_MS;
+}
+
+function getRandomSpecialAnimation(): SpecialAnimation {
+  return SPECIAL_ANIMATIONS[Math.floor(Math.random() * SPECIAL_ANIMATIONS.length)];
+}
+
 interface Position {
   x: number;
   y: number;
@@ -90,15 +120,19 @@ interface ActiveMove {
   target: Position;
 }
 
-function getDirection(fromX: number, fromY: number, toX: number, toY: number): CharacterDirection {
-  const dx = toX - fromX;
-  const dy = toY - fromY;
+function getWalkDirection(fromX: number, toX: number): CharacterDirection {
+  return toX >= fromX ? 'right' : 'left';
+}
 
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    return dx >= 0 ? 'right' : 'left';
+function getSpecialDirection(
+  animation: SpecialAnimation,
+  previousDirection: CharacterDirection
+): CharacterDirection {
+  if (animation === 'sit1' || animation === 'sit2' || animation === 'pushCart') {
+    return previousDirection === 'left' ? 'left' : 'right';
   }
 
-  return dy >= 0 ? 'front' : 'back';
+  return 'front';
 }
 
 export default function HomeWalkingCharacter() {
@@ -164,7 +198,7 @@ export default function HomeWalkingCharacter() {
 
   const startMove = useCallback(
     function startMove(targetPosition?: Position) {
-      if (animationRef.current === 'pushCart' || animationRef.current === 'lift') return;
+      if (isSpecialAnimation(animationRef.current)) return;
 
       const fromX = currentXRef.current;
       const fromY = currentYRef.current;
@@ -185,7 +219,7 @@ export default function HomeWalkingCharacter() {
       setAnimation('walk');
       setMotion({
         animation: 'walk',
-        direction: getDirection(fromX, fromY, target.x, target.y),
+        direction: getWalkDirection(fromX, target.x),
         durationMs,
         initialized: true,
         x: target.x,
@@ -210,12 +244,13 @@ export default function HomeWalkingCharacter() {
   }, []);
 
   const handleCharacterClick = () => {
-    if (animationRef.current === 'pushCart' || animationRef.current === 'lift') return;
+    if (isSpecialAnimation(animationRef.current)) return;
 
     const previousAnimation = animationRef.current;
+    const previousDirection = motion.direction;
     const previousMove = activeMoveRef.current;
     const pausedPosition = getRenderedPosition();
-    const specialAnimation: SpecialAnimation = Math.random() < 0.5 ? 'pushCart' : 'lift';
+    const specialAnimation = getRandomSpecialAnimation();
 
     clearMoveTimeout();
     clearSpecialTimeout();
@@ -227,6 +262,7 @@ export default function HomeWalkingCharacter() {
     setMotion((prev) => ({
       ...prev,
       animation: specialAnimation,
+      direction: getSpecialDirection(specialAnimation, previousDirection),
       durationMs: 0,
       x: pausedPosition.x,
       y: pausedPosition.y,
@@ -236,6 +272,7 @@ export default function HomeWalkingCharacter() {
       specialTimeoutRef.current = null;
 
       if (previousAnimation === 'walk' && previousMove) {
+        setAnimation('idle');
         startMove(previousMove.target);
         return;
       }
@@ -319,7 +356,7 @@ export default function HomeWalkingCharacter() {
       <button
         ref={characterRef}
         type="button"
-        className="pointer-events-auto absolute left-0 top-0 border-0 bg-transparent p-0"
+        className="pointer-events-auto absolute left-0 top-0 border-0 bg-transparent p-0 outline-none! focus:outline-none! focus-visible:outline-none!"
         onClick={handleCharacterClick}
         aria-label="Play character animation"
         style={{
@@ -329,6 +366,7 @@ export default function HomeWalkingCharacter() {
         }}
       >
         <AnimatedCharacter
+          key={`${motion.animation}-${motion.direction}`}
           asset={asset}
           animation={motion.animation}
           direction={motion.direction}
