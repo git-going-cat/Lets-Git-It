@@ -6,7 +6,7 @@ export const myPageRecordModeSchema = z.enum([
   'SINGLE_EASY',
   'SINGLE_NORMAL',
   'SINGLE_HARD',
-  'CONTRIBUTION_RUN',
+  'CONTRIBUTION',
   'TIME_ATTACK',
   'COOP',
 ]);
