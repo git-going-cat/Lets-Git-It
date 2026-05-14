@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSetAtom } from 'jotai';
 
 import { parseSwitchTarget } from '@/shared/game/branchParser';
@@ -34,10 +34,14 @@ export function useItemSlots(
   const setItemSlots = useSetAtom(itemSlotsAtom);
   const setLives = useSetAtom(livesAtom);
   const setActiveBranch = useSetAtom(activeBranchAtom);
+  // CONFLICT 미니게임 진행 중 아이템 사용 차단용 플래그. 도메인 버스 구독으로 유지.
+  const isConflictActiveRef = useRef(false);
 
   useEffect(() => {
     const applyItemSlot = (slotIndex: 0 | 1 | 2) => {
       if (!isPlayingRef.current || !itemSlotsRef.current[slotIndex]) return;
+      // 미니게임 중에는 아이템 사용 차단 — cherry-pick으로 CONFLICT를 한 번 더 트리거하는 사고 등 방지.
+      if (isConflictActiveRef.current) return;
 
       itemSlotsRef.current[slotIndex] = false;
       setItemSlots([itemSlotsRef.current[0], itemSlotsRef.current[1], itemSlotsRef.current[2]]);
@@ -70,10 +74,28 @@ export function useItemSlots(
     const unsubItemClick = singleBus.subscribe('item:click', ({ slot }: { slot: 0 | 1 | 2 }) => {
       applyItemSlot(slot);
     });
+    const unsubConflictStart = singleBus.subscribe('conflict:start', () => {
+      isConflictActiveRef.current = true;
+    });
+    const unsubConflictResolve = singleBus.subscribe('conflict:resolve', () => {
+      isConflictActiveRef.current = false;
+    });
+    // 게임 종료/재시작 시 플래그 잔존 방지.
+    const resetConflictFlag = () => {
+      isConflictActiveRef.current = false;
+    };
+    const unsubRestart = singleBus.subscribe('game:restart', resetConflictFlag);
+    const unsubOver = singleBus.subscribe('game:over', resetConflictFlag);
+    const unsubComplete = singleBus.subscribe('game:complete', resetConflictFlag);
     window.addEventListener('keydown', handleAltKey);
 
     return () => {
       unsubItemClick();
+      unsubConflictStart();
+      unsubConflictResolve();
+      unsubRestart();
+      unsubOver();
+      unsubComplete();
       window.removeEventListener('keydown', handleAltKey);
     };
   }, [

@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 
-import { parseSwitchTarget } from '@/shared/game/branchParser';
+import { parseAddTarget, parseSwitchTarget } from '@/shared/game/branchParser';
+import { generateArrowSequence } from '@/shared/game/conflictArrows';
 
 import { singleBus } from '../bridge/singleBus';
+import { DEFAULT_CONFLICT_FILE } from '../constants/conflict';
 import { CHERRY_PICK_ANIM_MS } from '../constants/itemAnimations';
 import { TUTORIAL_FALL_DURATION_MS } from '../constants/tutorialData';
 
@@ -43,6 +45,7 @@ export class SingleScene extends Phaser.Scene {
   private elapsedMs = 0;
   private isGameEnded = false;
   private isUserPaused = false;
+  private isConflictActive = false;
   private stashTimeoutId: Phaser.Time.TimerEvent | null = null;
   private cherryPickTimeoutId: Phaser.Time.TimerEvent | null = null;
   private isTutorialMode = false;
@@ -64,6 +67,7 @@ export class SingleScene extends Phaser.Scene {
     // scene.restart()는 인스턴스를 보존하므로 ESC(handleGamePause)가 set한 isUserPaused와
     // tweens.pauseAll() 상태가 새 세션으로 흘러들어온다. 매 create()마다 명시적으로 초기화.
     this.isUserPaused = false;
+    this.isConflictActive = false;
     this.difficulty = difficulty;
     this.lastSpawnedIndex = -1;
     this.isTutorialMode = raw.isTutorial ?? false;
@@ -123,6 +127,8 @@ export class SingleScene extends Phaser.Scene {
     singleBus.off('item:use', this.handleItemUse);
     singleBus.off('tutorial:show-command', this.handleTutorialShowCommand);
     singleBus.off('tutorial:freeze-command', this.handleTutorialFreezeCommand);
+    singleBus.off('conflict:start', this.handleConflictStart);
+    singleBus.off('conflict:resolve', this.handleConflictResolve);
   }
 
   private initLanes(commandSet: SingleCommand[]): void {
@@ -149,6 +155,8 @@ export class SingleScene extends Phaser.Scene {
     singleBus.on('item:use', this.handleItemUse);
     singleBus.on('tutorial:show-command', this.handleTutorialShowCommand);
     singleBus.on('tutorial:freeze-command', this.handleTutorialFreezeCommand);
+    singleBus.on('conflict:start', this.handleConflictStart);
+    singleBus.on('conflict:resolve', this.handleConflictResolve);
   }
 
   private startTimer(): void {
@@ -233,7 +241,7 @@ export class SingleScene extends Phaser.Scene {
   }
 
   // CREATE·SWITCH: 레인 공개 및 브랜치 전환 / MERGE·CONFLICT: 병합된 레인 숨김
-  // CONFLICT는 PR B에서 일반 MERGE처럼 처리. PR C에서 미니게임 트리거가 추가될 예정.
+  // CONFLICT 미니게임 성공 시 conflict:resolve → command:complete 로 들어와 이 분기를 거친다.
   private applyBranchEffect(cmd: SingleCommand): void {
     if (cmd.type === 'CREATE' || cmd.type === 'SWITCH') {
       const target = parseSwitchTarget(cmd.text);
@@ -304,8 +312,31 @@ export class SingleScene extends Phaser.Scene {
       this.cherryPickTimeoutId.paused = false;
       return;
     }
+    // 미니게임이 진행 중이면 tween/hardSpawnTimer는 그대로 두고 게임 타이머만 재개.
+    // 미니게임이 끝나는 시점(handleConflictResolve)에 나머지가 재개된다.
+    if (this.isConflictActive) {
+      if (this.timerEvent) this.timerEvent.paused = false;
+      return;
+    }
     this.tweens.resumeAll();
     if (this.timerEvent) this.timerEvent.paused = false;
+    if (this.hardSpawnTimer) this.hardSpawnTimer.paused = false;
+  };
+
+  // CONFLICT 미니게임 시작/종료에 맞춘 일시정지·재개.
+  // 게임 시간(timerEvent)은 그대로 흐르고 명령어 낙하(tween)와 HARD 미리 스폰만 멈춘다.
+  // ESC pause와 직교해야 하므로 isUserPaused는 건드리지 않는다.
+  private readonly handleConflictStart = (): void => {
+    this.isConflictActive = true;
+    this.tweens.pauseAll();
+    if (this.hardSpawnTimer) this.hardSpawnTimer.paused = true;
+  };
+
+  private readonly handleConflictResolve = (): void => {
+    this.isConflictActive = false;
+    // ESC pause가 동시에 진행 중이면 재개 보류 — game:resume 시점에 함께 풀린다.
+    if (this.isUserPaused) return;
+    this.tweens.resumeAll();
     if (this.hardSpawnTimer) this.hardSpawnTimer.paused = false;
   };
 
@@ -337,12 +368,27 @@ export class SingleScene extends Phaser.Scene {
       this.cherryPickTimeoutId = this.time.delayedCall(CHERRY_PICK_ANIM_MS, () => {
         this.cherryPickTimeoutId = null;
         if (!this.isGameEnded) {
-          if (!this.isUserPaused) {
-            this.tweens.resumeAll();
-            if (this.timerEvent) this.timerEvent.paused = false;
-            if (this.hardSpawnTimer) this.hardSpawnTimer.paused = false;
+          const cmd = this.commandSet[indexAtUse];
+          if (cmd?.type === 'CONFLICT') {
+            // CONFLICT는 미니게임을 거쳐야 완료된다. tween/hardSpawnTimer는 handleConflictStart가
+            // 다시 멈춰 두므로 여기서 재개하지 않고 게임 타이머만 재개한다.
+            if (!this.isUserPaused && this.timerEvent) this.timerEvent.paused = false;
+            singleBus.emit('conflict:start', {
+              index: indexAtUse,
+              sequence: generateArrowSequence(),
+              headBranch: cmd.branchName,
+              incomingBranch: parseSwitchTarget(cmd.text) ?? 'incoming',
+              filePath:
+                parseAddTarget(this.commandSet[indexAtUse + 1]?.text) ?? DEFAULT_CONFLICT_FILE,
+            });
+          } else {
+            if (!this.isUserPaused) {
+              this.tweens.resumeAll();
+              if (this.timerEvent) this.timerEvent.paused = false;
+              if (this.hardSpawnTimer) this.hardSpawnTimer.paused = false;
+            }
+            singleBus.emit('command:complete', { index: indexAtUse });
           }
-          singleBus.emit('command:complete', { index: indexAtUse });
         }
         singleBus.emit('cherry-pick:end');
       });

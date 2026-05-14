@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 
 import screenBg from '@/assets/bg/screen.png';
 import { createGameConfig } from '@/game/config';
+import ConflictMiniGameOverlay from '@/shared/components/ConflictMiniGameOverlay';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { singleBus } from '../bridge/singleBus';
@@ -51,6 +52,14 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
   useEffect(() => {
     return singleBus.subscribe('command:wrong', triggerShake);
   }, [triggerShake]);
+
+  // CONFLICT 미니게임은 shared 컴포넌트라 도메인 버스 의존이 없다 — wiring을 여기서 주입한다.
+  const handleConflictResolve = useCallback((index: number) => {
+    singleBus.emit('conflict:resolve', { index });
+  }, []);
+  const handleConflictTypo = useCallback((index: number) => {
+    singleBus.emit('conflict:typo', { index });
+  }, []);
 
   const { overlayState, modalPhase, handleNext, handleResume, handleSkip } =
     useTutorialMode(isTutorial);
@@ -138,6 +147,9 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
         </div>
         <ChuruStack totalCommands={totalCommands} />
       </div>
+
+      {/* CONFLICT 미니게임 — viewport 기준 fixed로 떠 좁은 화면에서도 잘리지 않도록 게임 컨테이너 밖에 배치 */}
+      <ConflictMiniGameOverlay onResolve={handleConflictResolve} onTypo={handleConflictTypo} />
 
       {/* 튜토리얼 전용 오버레이 및 모달 */}
       {isTutorial && (

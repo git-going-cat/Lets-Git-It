@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
-import { isSwitchCommand, parseSwitchTarget } from '@/shared/game/branchParser';
+import { isSwitchCommand, parseAddTarget, parseSwitchTarget } from '@/shared/game/branchParser';
+import { generateArrowSequence } from '@/shared/game/conflictArrows';
+import { CONFLICT_SCENARIOS } from '@/shared/game/conflictScenarios';
 import { comboAtom } from '@/shared/store/comboAtom';
+import { conflictMiniGameAtom } from '@/shared/store/conflictMiniGameAtom';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 import { totalAttemptsAtom, typoCountAtom } from '@/shared/store/typoAtom';
 
 import { singleBus } from '../bridge/singleBus';
+import { DEFAULT_CONFLICT_FILE } from '../constants/conflict';
 import { activeBranchAtom } from '../store/activeBranchAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
 import { useSingleStore } from '../store/singleStore';
 import { tutorialInputBlockedAtom } from '../store/tutorialInputBlockedAtom';
 
 import { useExistingBranches } from './useExistingBranches';
+
+import type { ArrowKey } from '@/shared/game/conflictArrows';
 
 export type HistoryStatus = 'ok' | 'typo' | 'miss' | 'wrong-branch' | 'switch';
 
@@ -30,6 +36,7 @@ export function useCommandInput() {
   const setTypoCount = useSetAtom(typoCountAtom);
   const setTotalAttempts = useSetAtom(totalAttemptsAtom);
   const setCombo = useSetAtom(comboAtom);
+  const [conflictMiniGame, setConflictMiniGame] = useAtom(conflictMiniGameAtom);
 
   const [inputValue, setInputValue] = useState('');
   const [history, setHistory] = useState<{ text: string; status: HistoryStatus }[]>([]);
@@ -55,6 +62,8 @@ export function useCommandInput() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isPlaying) return;
+    // CONFLICT 미니게임 중에는 텍스트 입력을 무시한다 (오버레이가 화살표 키만 받음).
+    if (conflictMiniGame !== null) return;
 
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -84,16 +93,29 @@ export function useCommandInput() {
       };
 
       if (textMatches && branchMatches) {
-        setHistory((prev) => [...prev, { text: inputValue, status: 'ok' }]);
-        setTotalAttempts((prev) => prev + 1);
-        singleBus.emit('command:complete', { index: commandIndex });
-        if (currentCommand.type === 'CREATE' || currentCommand.type === 'SWITCH') {
-          const target = parseSwitchTarget(trimmed);
-          if (target) {
-            setActiveBranch(target);
-            singleBus.emit('branch:switch', { branch: target });
-            if (currentCommand.type === 'CREATE') {
-              singleBus.emit('lane:create', { branch: target });
+        if (currentCommand.type === 'CONFLICT') {
+          // CONFLICT 정타 — 일반 성공 처리(history/totalAttempts/command:complete)는
+          // 보류하고 미니게임을 띄운다. atom 세팅은 conflict:start 구독 핸들러에서 처리.
+          // cherry-pick 아이템 경로(SingleScene)에서 같은 이벤트를 emit하면 동일하게 동작.
+          singleBus.emit('conflict:start', {
+            index: commandIndex,
+            sequence: generateArrowSequence(),
+            headBranch: currentCommand.branchName,
+            incomingBranch: parseSwitchTarget(currentCommand.text) ?? 'incoming',
+            filePath: parseAddTarget(commandSet[commandIndex + 1]?.text) ?? DEFAULT_CONFLICT_FILE,
+          });
+        } else {
+          setHistory((prev) => [...prev, { text: inputValue, status: 'ok' }]);
+          setTotalAttempts((prev) => prev + 1);
+          singleBus.emit('command:complete', { index: commandIndex });
+          if (currentCommand.type === 'CREATE' || currentCommand.type === 'SWITCH') {
+            const target = parseSwitchTarget(trimmed);
+            if (target) {
+              setActiveBranch(target);
+              singleBus.emit('branch:switch', { branch: target });
+              if (currentCommand.type === 'CREATE') {
+                singleBus.emit('lane:create', { branch: target });
+              }
             }
           }
         }
@@ -139,6 +161,7 @@ export function useCommandInput() {
     const resetInput = () => {
       setInputValue('');
       setHistory([]);
+      setConflictMiniGame(null);
     };
 
     const handleMiss = () => {
@@ -147,20 +170,72 @@ export function useCommandInput() {
       singleBus.emit('command:wrong');
     };
 
+    // CONFLICT 미니게임 시작 — 정타/체리픽 양쪽 경로 모두 여기서 atom을 세팅한다.
+    // scenarioIndex는 진입 시 한 번 뽑아 미니게임 동안 고정된다.
+    const handleConflictStart = ({
+      index,
+      sequence,
+      headBranch,
+      incomingBranch,
+      filePath,
+    }: {
+      index: number;
+      sequence: ArrowKey[];
+      headBranch: string;
+      incomingBranch: string;
+      filePath: string;
+    }) => {
+      setConflictMiniGame({
+        sequence,
+        progress: 0,
+        commandIndex: index,
+        scenarioIndex: Math.floor(Math.random() * CONFLICT_SCENARIOS.length),
+        headBranch,
+        incomingBranch,
+        filePath,
+      });
+    };
+
+    // CONFLICT 미니게임 성공 — 보류해 둔 일반 성공 처리를 수행한다.
+    const handleConflictResolve = ({ index }: { index: number }) => {
+      const cmdText = useSingleStore.getState().commandSet[index]?.text ?? '';
+      setHistory((prev) => [...prev, { text: cmdText, status: 'ok' }]);
+      setTotalAttempts((prev) => prev + 1);
+      singleBus.emit('command:complete', { index });
+      setConflictMiniGame(null);
+    };
+
+    // CONFLICT 미니게임 중 화살표 오답 — 기존 오타 페널티와 동일하게 처리.
+    const handleConflictTypo = ({ index }: { index: number }) => {
+      setTotalAttempts((prev) => prev + 1);
+      setCombo(0);
+      setTypoCount((prev) => prev + 1);
+      useSingleStore.getState().appendLog({ seq: index, event: 'typo' });
+      singleBus.emit('command:wrong');
+    };
+
     const unsubs = [
       singleBus.subscribe('command:miss', handleMiss),
       singleBus.subscribe('game:restart', resetInput),
       singleBus.subscribe('game:over', resetInput),
       singleBus.subscribe('game:complete', resetInput),
+      singleBus.subscribe('conflict:start', handleConflictStart),
+      singleBus.subscribe('conflict:resolve', handleConflictResolve),
+      singleBus.subscribe('conflict:typo', handleConflictTypo),
     ];
     return () => unsubs.forEach((fn) => fn());
-  }, []);
+  }, [setCombo, setConflictMiniGame, setTotalAttempts, setTypoCount]);
+
+  // 미니게임 중에는 input을 disabled 처리해 텍스트 입력/포커스를 차단한다.
+  // (handleKeyDown은 Enter 만 다루므로 글자 입력 자체가 들어오는 걸 막아야 한다.)
+  const isInputDisabled = !isPlaying || conflictMiniGame !== null;
 
   return {
     inputRef,
     inputValue,
     history,
     isPlaying,
+    isInputDisabled,
     activeBranch,
     handleInputChange,
     handleKeyDown,

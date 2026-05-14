@@ -27,7 +27,7 @@ interface HomePageProps {
   initialModal: HomeModalType | null;
   // initialModal 처리 후 URL에서 search param을 제거해 재오픈을 방지. routes 레이어가 주입.
   onUrlCleanup: () => void;
-  // 싱마 모드 '게임 시작' 시 routes 레이어가 startSession + setSession을 수행. 실패 시 throw.
+  // 싱글 모드 '게임 시작' 시 routes 레이어가 startSession + setSession을 수행. 실패 시 throw.
   onStartSingle: (difficulty: Difficulty) => Promise<void>;
 }
 

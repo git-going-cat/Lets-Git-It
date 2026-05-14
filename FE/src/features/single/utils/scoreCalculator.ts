@@ -11,7 +11,7 @@ interface ScoreConfig {
 export const SCORE_CONFIG: Record<Difficulty, ScoreConfig> = {
   EASY: { idealTimeSec: 75, timePenaltyPer100ms: 6, typoPenalty: 220, livesPenalty: 800 },
   NORMAL: { idealTimeSec: 110, timePenaltyPer100ms: 6, typoPenalty: 400, livesPenalty: 1200 },
-  HARD: { idealTimeSec: 150, timePenaltyPer100ms: 6, typoPenalty: 700, livesPenalty: 1700 },
+  HARD: { idealTimeSec: 90, timePenaltyPer100ms: 6, typoPenalty: 700, livesPenalty: 1700 },
 };
 
 const MAX_SCORE = 10000;
