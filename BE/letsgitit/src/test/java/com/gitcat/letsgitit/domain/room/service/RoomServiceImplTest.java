@@ -21,8 +21,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 
+import com.gitcat.letsgitit.domain.coop.service.CoopService;
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
-import com.gitcat.letsgitit.domain.room.dto.response.RoomResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
 import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
@@ -41,6 +43,9 @@ class RoomServiceImplTest {
 
 	@Mock
 	private RLock rLock;
+
+	@Mock
+	private CoopService coopService;
 
 	private static final Long ROOM_ID = 1L;
 	private static final UUID MEMBER_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
@@ -72,7 +77,7 @@ class RoomServiceImplTest {
 			RoomCache coop = buildRoom("COOP", "WAITING");
 			given(roomRedisRepository.findAll()).willReturn(List.of(contribution, coop));
 
-			RoomResponse.RoomListResponse result = roomService.getRooms(RoomMode.ALL);
+			RoomListResponse result = roomService.getRooms(RoomMode.ALL);
 
 			assertThat(result.rooms()).hasSize(2);
 		}
@@ -83,7 +88,7 @@ class RoomServiceImplTest {
 			RoomCache coop = buildRoom("COOP", "WAITING");
 			given(roomRedisRepository.findAll()).willReturn(List.of(contribution, coop));
 
-			RoomResponse.RoomListResponse result = roomService.getRooms(RoomMode.CONTRIBUTION);
+			RoomListResponse result = roomService.getRooms(RoomMode.CONTRIBUTION);
 
 			assertThat(result.rooms()).hasSize(1);
 			assertThat(result.rooms().get(0).mode()).isEqualTo("CONTRIBUTION");
@@ -95,7 +100,7 @@ class RoomServiceImplTest {
 			RoomCache coop = buildRoom("COOP", "WAITING");
 			given(roomRedisRepository.findAll()).willReturn(List.of(contribution, coop));
 
-			RoomResponse.RoomListResponse result = roomService.getRooms(RoomMode.COOP);
+			RoomListResponse result = roomService.getRooms(RoomMode.COOP);
 
 			assertThat(result.rooms()).hasSize(1);
 			assertThat(result.rooms().get(0).mode()).isEqualTo("COOP");
@@ -146,7 +151,7 @@ class RoomServiceImplTest {
 			RoomCache room = buildRoom("CONTRIBUTION", "WAITING");
 			given(roomRedisRepository.findByCode("ABC123")).willReturn(Optional.of(room));
 
-			RoomResponse.RoomSearchResponse result = roomService.searchByCode("ABC123");
+			RoomSearchResponse result = roomService.searchByCode("ABC123");
 
 			assertThat(result.roomId()).isEqualTo(ROOM_ID);
 			assertThat(result.roomState()).isEqualTo("WAITING");

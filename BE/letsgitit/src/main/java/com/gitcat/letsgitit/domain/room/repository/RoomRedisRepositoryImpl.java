@@ -19,7 +19,7 @@ import org.springframework.stereotype.Repository;
 
 import com.gitcat.letsgitit.domain.room.constants.RoomConstants;
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
-import com.gitcat.letsgitit.domain.room.dto.SelectedMapDto;
+import com.gitcat.letsgitit.domain.room.dto.response.SelectedMapDto;
 
 import lombok.extern.slf4j.Slf4j;
 
