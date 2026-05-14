@@ -6,7 +6,7 @@ export const commandItemSchema = z.object({
   commandSequence: z.number(),
   text: z.string(),
   branchName: z.string(),
-  type: z.enum(['CREATE', 'MERGE', 'SWITCH', 'COMMON']),
+  type: z.enum(['CREATE', 'MERGE', 'SWITCH', 'COMMON', 'CONFLICT']),
 });
 
 export const startSessionDataSchema = z.object({

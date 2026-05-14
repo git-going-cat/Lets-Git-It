@@ -63,11 +63,13 @@ export class BranchLane extends Phaser.GameObjects.Container {
   private readonly laneWidth: number;
   private readonly canvasHeight: number;
   private readonly branchColor: { line: number; text: string };
-  private commandNode: Phaser.GameObjects.Container | null = null;
-  private fallTween: Phaser.Tweens.Tween | null = null;
+  private commandNodes: Phaser.GameObjects.Container[] = [];
   private flashGraphic: Phaser.GameObjects.Graphics | null = null;
   private activeGlow: Phaser.GameObjects.Graphics | null = null;
   private blinkIndicator: Phaser.GameObjects.Graphics | null = null;
+  // 페이드 트윈 진행 중에도 즉시 판별 가능한 명시 플래그. `this.alpha`는 트윈 시작 직후
+  // 첫 프레임까지 0일 수 있어 spawn 가드로 신뢰하기 어렵다.
+  private revealed = true;
 
   constructor(scene: Phaser.Scene, laneIndex: number, totalLanes: number, branchName: string) {
     const canvasHeight = scene.scale.height;
@@ -86,25 +88,56 @@ export class BranchLane extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  /** 명령어 노드를 상단에서 하단까지 낙하시킵니다. 시간 초과 시 `onTimeout`을 호출합니다. */
+  /** 명령어 노드를 상단에서 하단까지 낙하시킵니다. EASY/NORMAL 래퍼: 기존 노드를 모두 지운 뒤 새 노드를 하나 추가합니다. */
   showCommand(command: SingleCommand, fallDuration: number, onTimeout: () => void): void {
-    this.clearCommand();
+    this.clearAll();
+    this.enqueueCommand(command, fallDuration, onTimeout);
+  }
 
+  /** 노드를 큐 끝에 추가하고 낙하 트윈을 시작합니다. HARD 모드 시간차 spawn에서 직접 호출됩니다. */
+  enqueueCommand(command: SingleCommand, fallDuration: number, onTimeout: () => void): void {
     const node = this.buildNode(command.text, command.itemDrop);
     node.setPosition(this.laneWidth / 2, NODE.START_Y);
     this.add(node);
-    this.commandNode = node;
+    this.commandNodes.push(node);
 
-    this.fallTween = this.scene.tweens.add({
+    const tween = this.scene.tweens.add({
       targets: node,
       y: this.canvasHeight + NODE.END_OVERSHOOT,
       duration: fallDuration,
       ease: 'Linear',
-      onComplete: () => {
-        this.fallTween = null;
-        onTimeout();
-      },
+      onComplete: () => onTimeout(),
     });
+    node.setData('tween', tween);
+  }
+
+  /** 최하단(가장 먼저 spawn된) 노드를 즉시 제거합니다. 성공·실패 공통 노드 삭제 경로입니다. */
+  removeBottomNode(): void {
+    const node = this.commandNodes.shift();
+    if (!node) return;
+    (node.getData('tween') as Phaser.Tweens.Tween | undefined)?.stop();
+    node.destroy();
+  }
+
+  /** 모든 노드와 트윈을 즉시 제거합니다. game:end / restart 시 호출됩니다. */
+  clearAll(): void {
+    this.blinkIndicator = null;
+    for (const node of this.commandNodes) {
+      (node.getData('tween') as Phaser.Tweens.Tween | undefined)?.stop();
+      node.destroy();
+    }
+    this.commandNodes = [];
+  }
+
+  /** 이 레인이 화면에 표시되는 상태인지 반환합니다. SingleScene의 HARD 시간차 spawn 가드에서 사용됩니다. */
+  isRevealed(): boolean {
+    return this.revealed;
+  }
+
+  /** 초기 숨김 처리. SingleScene의 initLanes에서 main 이외 브랜치에 호출됩니다. */
+  setHidden(): void {
+    this.revealed = false;
+    this.setAlpha(0);
   }
 
   /**
@@ -112,53 +145,39 @@ export class BranchLane extends Phaser.GameObjects.Container {
    * 낙하 완료 후 자동으로 위치가 고정됩니다.
    */
   startTutorialFall(command: SingleCommand, targetY: number, fallDuration: number): void {
-    this.clearCommand();
+    this.clearAll();
     const node = this.buildNode(command.text);
     node.setPosition(this.laneWidth / 2, NODE.START_Y);
     this.add(node);
-    this.commandNode = node;
+    this.commandNodes.push(node);
 
-    this.fallTween = this.scene.tweens.add({
+    const tween = this.scene.tweens.add({
       targets: node,
       y: targetY,
       duration: fallDuration,
       ease: 'Cubic.easeOut',
-      onComplete: () => {
-        this.fallTween = null;
-      },
     });
+    node.setData('tween', tween);
   }
 
   /**
    * 튜토리얼 전용: 낙하 중인 명령어를 현재 위치에서 멈추고 점선 깜빡임 인디케이터를 표시합니다.
    */
   freezeWithBlink(): void {
-    if (this.fallTween) {
-      this.fallTween.stop();
-      this.fallTween = null;
+    const node = this.commandNodes[0];
+    if (!node) return;
+    const tween = node.getData('tween') as Phaser.Tweens.Tween | undefined;
+    if (tween) {
+      tween.stop();
+      node.setData('tween', null);
     }
-    if (this.commandNode) {
-      this.addBlinkIndicator();
-    }
-  }
-
-  /** 진행 중인 낙하 트윈, 노드, 점선 인디케이터를 즉시 제거합니다. */
-  clearCommand(): void {
-    if (this.fallTween) {
-      this.fallTween.stop();
-      this.fallTween = null;
-    }
-    // blinkIndicator는 commandNode의 자식 — commandNode.destroy()로 같이 제거됨
-    this.blinkIndicator = null;
-    if (this.commandNode) {
-      this.commandNode.destroy();
-      this.commandNode = null;
-    }
+    this.addBlinkIndicator();
   }
 
   /** 명령어 원 주변에 점선 깜빡임 인디케이터를 추가합니다. */
   private addBlinkIndicator(): void {
-    if (!this.commandNode || this.blinkIndicator) return;
+    const node = this.commandNodes[0];
+    if (!node || this.blinkIndicator) return;
 
     const brightColor = LINE_TO_BRIGHT[this.branchColor.line] ?? 0xffffff;
 
@@ -174,7 +193,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
       g.arc(0, 0, r, startAngle, endAngle);
       g.strokePath();
     }
-    this.commandNode.add(g);
+    node.add(g);
     this.blinkIndicator = g;
 
     this.scene.tweens.add({
@@ -189,11 +208,13 @@ export class BranchLane extends Phaser.GameObjects.Container {
 
   /** 비활성(alpha=0) 레인을 페이드인으로 표시합니다. CREATE 명령어 완료 시 호출됩니다. */
   revealLane(): void {
+    this.revealed = true;
     this.scene.tweens.add({ targets: this, alpha: 1, duration: 500, ease: 'Power2' });
   }
 
   /** 레인을 페이드아웃으로 숨깁니다. MERGE 명령어 완료 시 병합된 브랜치에 호출됩니다. */
   hideLane(): void {
+    this.revealed = false;
     this.scene.tweens.add({ targets: this, alpha: 0, duration: 500, ease: 'Power2' });
   }
 
@@ -220,17 +241,13 @@ export class BranchLane extends Phaser.GameObjects.Container {
     }
   }
 
-  /** 노드를 터뜨리고 녹색 링을 방사합니다. 명령어 성공 시 호출됩니다. */
+  /** 최하단 노드를 터뜨리고 녹색 링을 방사합니다. 명령어 성공 시 호출됩니다. */
   flashSuccess(): void {
-    if (this.fallTween) {
-      this.fallTween.stop();
-      this.fallTween = null;
-    }
-    if (!this.commandNode) return;
+    const node = this.commandNodes.shift();
+    if (!node) return;
 
-    const node = this.commandNode;
+    (node.getData('tween') as Phaser.Tweens.Tween | undefined)?.stop();
     const nodeY = node.y;
-    this.commandNode = null;
 
     // 녹색 링 방사 (노드 위치 기준으로 바깥으로 확장)
     const ring = this.scene.add.graphics();

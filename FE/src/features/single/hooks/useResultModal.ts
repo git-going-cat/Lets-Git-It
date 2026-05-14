@@ -72,12 +72,14 @@ export function useResultModal() {
   const onRestart = async () => {
     if (!difficulty || isRestarting) return;
     setIsRestarting(true);
-    setSaveData(null);
-    setSaveError(false);
-    setIsSaving(false);
-    savedSessionRef.current = null;
     try {
       const nextSession = await singleApi.startSession(difficulty);
+      // 새 세션 확보 후에 결과 모달 상태를 비운다. startSession 실패 시 기존 saveData/saveError를
+      // 보존해야 에러 다이얼로그를 닫고 ResultModal로 복귀했을 때 isNewRecord 표시가 어긋나지 않는다.
+      setSaveData(null);
+      setSaveError(false);
+      setIsSaving(false);
+      savedSessionRef.current = null;
       // setSession을 먼저 호출해 store에 새 세션을 반영한 뒤 status 전환.
       // 'game:restart' 이벤트는 SingleScene.scene.restart + useSingleGame atom 리셋을 트리거한다.
       useSingleStore.getState().setSession(nextSession);
@@ -90,13 +92,14 @@ export function useResultModal() {
         isTutorial: useSingleStore.getState().isTutorial,
       });
     } catch {
-      navigate({ to: '/home', replace: true });
+      // SinglePage가 startSessionError를 구독해 Win11Dialog로 표시한다.
+      useSingleStore.getState().setStartSessionError(true);
     } finally {
       setIsRestarting(false);
     }
   };
 
-  const onHome = () => navigate({ to: '/home' });
+  const onHome = () => void navigate({ to: '/home' });
 
   return {
     isVisible,
