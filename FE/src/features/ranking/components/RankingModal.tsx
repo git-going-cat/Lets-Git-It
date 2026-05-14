@@ -1,7 +1,7 @@
 import { useId, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 
-import { getCoopMaps } from '@/features/multi/api/room.api';
+import { useCoopMaps } from '@/features/multi/hooks/useRoom';
 import { useModal } from '@/shared/hooks/useModal';
 
 import { useRanking } from '../hooks/useRanking';
@@ -52,12 +52,7 @@ export default function RankingModal({ onClose }: RankingModalProps) {
     data: coopMapData,
     isLoading: isCoopMapLoading,
     isError: isCoopMapError,
-  } = useQuery({
-    queryKey: ['coop-maps'],
-    queryFn: getCoopMaps,
-    staleTime: Infinity,
-    enabled: isCoopMode,
-  });
+  } = useCoopMaps(isCoopMode);
   const coopMaps = useMemo(() => coopMapData?.maps ?? [], [coopMapData]);
   const activeCoopQuery = useMemo<CoopRankingQuery | undefined>(() => {
     if (!isCoopMode) return undefined;

@@ -85,7 +85,7 @@ export const timeAttackInitialResponseSchema = weekHeaderSchema.merge(pagination
 });
 
 export const coopInitialResponseSchema = weekHeaderSchema.merge(paginationSchema).extend({
-  mapId: z.number(),
+  mapId: z.union([z.string(), z.number()]),
   mapName: z.string(),
   top3: z.array(coopRankingEntrySchema),
   myRank: z.object({ rank: z.number(), clearTime: z.number() }).nullable(),
