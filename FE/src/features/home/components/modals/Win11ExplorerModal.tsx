@@ -14,7 +14,7 @@ import { useModal } from '@/shared/hooks/useModal';
 
 type ExplorerTab = 'single' | 'multi';
 type SingleDifficulty = 'EASY' | 'NORMAL' | 'HARD';
-type MultiMode = 'contribution' | 'timeattack' | 'coop';
+type MultiMode = 'contribution' | 'coop' | 'timeattack';
 type SelectedItem = SingleDifficulty | MultiMode | null;
 
 interface ExplorerItem {
@@ -28,6 +28,8 @@ interface ExplorerItem {
 interface Win11ExplorerModalProps {
   initialTab: ExplorerTab;
   onClose: () => void;
+  /** 로비 입장 버튼 클릭 시 호출 — 모달을 닫고 해당 모드 로비를 열어야 한다 */
+  onLobbyOpen?: (mode: 'CONTRIBUTION' | 'COOP') => void;
   // routes 레이어에서 주입: clearSession + startSession + setSession을 묶은 wiring callback.
   // 실패 시 throw하므로 모달이 catch해 에러 다이얼로그를 띄운다.
   onStartSingle: (difficulty: SingleDifficulty) => Promise<void>;
@@ -70,18 +72,18 @@ const MULTI_ITEMS: ExplorerItem[] = [
     detail: '먼저 명령어를 입력한 사람의 기여도 증가\n최고 기여도를 달성한 플레이어가 승리',
   },
   {
+    id: 'coop',
+    label: '협력',
+    img: multiCoopImg,
+    description: '팀원과 협력하여 미션 클리어',
+    detail: '팀원과 함께 주어진 Git 미션 수행\n최단 시간 클리어가 목표',
+  },
+  {
     id: 'timeattack',
     label: '타임어택',
     img: multiTimeattackImg,
     description: '제한 시간 내 최대 명령어 입력 대결',
     detail: '시간 내에 최대한 많은 명령어 입력\n가장 많이 입력한 플레이어가 승리',
-  },
-  {
-    id: 'coop',
-    label: '협동',
-    img: multiCoopImg,
-    description: '팀원과 협력하여 미션 클리어',
-    detail: '팀원과 함께 주어진 Git 미션 수행\n최단 시간 클리어가 목표',
   },
 ];
 
@@ -103,6 +105,7 @@ const SIDEBAR_TREE = [
 export default function Win11ExplorerModal({
   initialTab,
   onClose,
+  onLobbyOpen,
   onStartSingle,
 }: Win11ExplorerModalProps) {
   const { containerRef } = useModal({ isOpen: true, onClose });
@@ -117,9 +120,19 @@ export default function Win11ExplorerModal({
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState(false);
 
+  const MULTI_MODE_MAP: Record<string, string> = {
+    contribution: 'CONTRIBUTION',
+    coop: 'COOP',
+  };
+
   const items = activeTab === 'single' ? SINGLE_ITEMS : MULTI_ITEMS;
   const selectedData = items.find((item) => item.id === selectedItem) ?? null;
-  const isPreparingModeSelected = selectedItem !== null && activeTab === 'multi';
+  // 기여도 뺏기·협력은 로비 입장, 타임어택은 준비 중
+  const isLobbyMode =
+    activeTab === 'multi' && (selectedItem === 'contribution' || selectedItem === 'coop');
+  const isPreparingModeSelected =
+    selectedItem !== null &&
+    (selectedItem === 'HARD' || (activeTab === 'multi' && selectedItem === 'timeattack'));
   const isStartButtonDisabled = isPreparingModeSelected || isStarting;
 
   const handleTabChange = (tab: ExplorerTab) => {
@@ -129,22 +142,31 @@ export default function Win11ExplorerModal({
 
   const handleGameStart = async () => {
     if (!selectedItem || isStartButtonDisabled) return;
-    if (activeTab !== 'single') {
-      void navigate({ to: '/multi', search: { mode: selectedItem as MultiMode } });
+    if (isLobbyMode) {
+      const apiMode = (MULTI_MODE_MAP[selectedItem as MultiMode] ?? 'CONTRIBUTION') as
+        | 'CONTRIBUTION'
+        | 'COOP';
+      onClose();
+      if (onLobbyOpen) {
+        onLobbyOpen(apiMode);
+      } else {
+        void navigate({ to: '/multi', search: { mode: apiMode } });
+      }
       return;
     }
-
-    const difficulty = selectedItem as SingleDifficulty;
-    setIsStarting(true);
-    try {
-      // routes wiring callback이 startSession + setSession을 묶어 수행.
-      // SinglePage는 sessionId가 set돼 있으면 자체 fetch를 skip한다.
-      await onStartSingle(difficulty);
-      // 성공 시 navigate 직후 모달이 언마운트되므로 setIsStarting(false)는 호출하지 않는다.
-      void navigate({ to: '/single', search: { difficulty } });
-    } catch {
-      setStartError(true);
-      setIsStarting(false);
+    if (activeTab === 'single') {
+      const difficulty = selectedItem as SingleDifficulty;
+      setIsStarting(true);
+      try {
+        // routes wiring callback이 startSession + setSession을 묶어 수행.
+        // SinglePage는 sessionId가 set돼 있으면 자체 fetch를 skip한다.
+        await onStartSingle(difficulty);
+        // 성공 시 navigate 직후 모달이 언마운트되므로 setIsStarting(false)는 호출하지 않는다.
+        void navigate({ to: '/single', search: { difficulty } });
+      } catch {
+        setStartError(true);
+        setIsStarting(false);
+      }
     }
   };
 
@@ -357,7 +379,7 @@ export default function Win11ExplorerModal({
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedItem(item.id)}
-                  onDoubleClick={activeTab === 'single' ? handleGameStart : undefined}
+                  onDoubleClick={activeTab === 'single' ? () => void handleGameStart() : undefined}
                   className={`flex flex-col items-center gap-2 rounded-lg p-3 outline-none! transition-colors focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
                     selectedItem === item.id
                       ? 'bg-[#cce4f7] ring-2 ring-[#0078d4]/40'
@@ -409,7 +431,7 @@ export default function Win11ExplorerModal({
                     <p className="mb-1 text-sm font-semibold uppercase tracking-wider text-gray-400">
                       세부 정보
                     </p>
-                    <p className="whitespace-pre-line break-words text-sm leading-snug text-gray-600">
+                    <p className="whitespace-pre-line wrap-break-word text-sm leading-snug text-gray-600">
                       {selectedData.description}
                       {'\n\n'}
                       {selectedData.detail}
@@ -423,9 +445,11 @@ export default function Win11ExplorerModal({
                   >
                     {isStarting
                       ? '게임 시작 중...'
-                      : isPreparingModeSelected
-                        ? '게임 준비중'
-                        : '게임 시작'}
+                      : isLobbyMode
+                        ? '로비 입장'
+                        : isPreparingModeSelected
+                          ? '게임 준비중'
+                          : '게임 시작'}
                   </button>
                 </div>
               ) : (

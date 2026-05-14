@@ -1,7 +1,16 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
+import { z } from 'zod';
 
-import PreparingPage from '@/shared/components/PreparingPage';
+import { MultiLobbyRoute } from '@/features/multi/components/MultiLobbyRoute';
+
+const searchSchema = z.object({
+  mode: z.enum(['CONTRIBUTION', 'COOP']).optional(),
+});
 
 export const Route = createFileRoute('/multi')({
-  component: () => <PreparingPage title="멀티 모드 준비 중" />,
+  validateSearch: searchSchema,
+  beforeLoad: ({ search }) => {
+    if (!search.mode) throw redirect({ to: '/home' });
+  },
+  component: MultiLobbyRoute,
 });
