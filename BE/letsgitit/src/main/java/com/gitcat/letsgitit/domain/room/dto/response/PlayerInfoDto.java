@@ -1,4 +1,4 @@
-package com.gitcat.letsgitit.domain.room.dto;
+package com.gitcat.letsgitit.domain.room.dto.response;
 
 import java.util.UUID;
 
@@ -12,6 +12,5 @@ public record PlayerInfoDto(
 	String characterOutfit,
 	String characterOutfitColor,
 	Boolean isReady,
-	Boolean isHost,
-	Boolean isMe) {
+	Boolean isHost) {
 }

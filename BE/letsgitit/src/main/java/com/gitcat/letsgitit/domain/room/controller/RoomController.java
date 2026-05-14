@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.gitcat.letsgitit.domain.coop.service.CoopService;
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
 import com.gitcat.letsgitit.domain.room.dto.request.PasswordVerifyRequest;
 import com.gitcat.letsgitit.domain.room.service.RoomService;
@@ -36,7 +35,6 @@ import lombok.RequiredArgsConstructor;
 public class RoomController implements RoomControllerDocs {
 
 	private final RoomService roomService;
-	private final CoopService coopService;
 
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
@@ -79,7 +77,7 @@ public class RoomController implements RoomControllerDocs {
 	@Override
 	@GetMapping("/coop/maps")
 	public ResponseEntity<?> getCoopMaps() {
-		return ApiResponse.ok("맵 목록 조회 성공", coopService.getCoopMaps());
+		return ApiResponse.ok("맵 목록 조회 성공", roomService.getCoopMaps());
 	}
 
 	@Override
