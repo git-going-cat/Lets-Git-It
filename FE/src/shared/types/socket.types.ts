@@ -1,1 +1,1 @@
-﻿// TODO: 구현 필요
+export type SocketMessageHandler = (message: unknown) => void;

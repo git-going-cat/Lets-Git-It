@@ -128,7 +128,7 @@ function Parent() {
 - 컴포넌트 내부에서 직접 axios 호출 금지
 - features/{domain}/api에 정의된 함수를 TanStack Query와 조합하여 호출
 - WebSocket 송신/수신 함수는 `features/{domain}/socket/`에 분리 (REST와 분리)
-- **인프라 레이어 예외**: `core/http.ts`의 인터셉터, `core/socket/` 등 인프라 코드에서는 raw axios/socket.io 사용 허용. 단 `core/` 외부에서는 금지 — 항상 인프라 레이어가 제공하는 단일 진입점만 사용
+- **인프라 레이어 예외**: `core/http.ts`의 인터셉터, `core/socket/` 등 인프라 코드에서는 raw axios/WebSocket client 사용 허용. 단 `core/` 외부에서는 금지 — 항상 인프라 레이어가 제공하는 단일 진입점만 사용
 
 ## 9. 경로 사용
 
@@ -171,12 +171,12 @@ function Parent() {
 
 ## 13. WebSocket 생명주기
 
-- 연결: 방 입장 확정 시 (`SocketManager.connect`)
-- 해제: 방 완전 이탈 / 홈 이동 시 (`SocketManager.disconnect`)
-- **단일 진입점**: 모든 송수신은 `SocketManager.emit(event, payload)` / `SocketManager.on(event, handler)` 경유. 컴포넌트/훅에서 직접 `io()`/`socket.emit` 금지
-- **토큰 핸드셰이크**: 쿼리스트링 금지(access log 노출). Socket.IO `auth` 옵션 또는 첫 메시지로 전달
+- 연결: 방 입장 확정 시 (`socketManager.connect(token)`)
+- 해제: 방 완전 이탈 / 홈 이동 시 (`socketManager.disconnect()`)
+- **단일 진입점**: 모든 송수신은 `socketManager.publish(destination, body)` / `socketManager.subscribe(destination, handler, key)` 경유. 컴포넌트에서 직접 `io()`/`socket.emit` 금지
+- **개인 구독 경로**: 개인 메시지는 `/user/queue/private`를 구독
+- **토큰 핸드셰이크**: 쿼리스트링 금지(access log 노출). `socketManager.connect(token)` 호출 시 외부에서 주입하고, `SocketManager`는 `useAuthStore`를 직접 import하지 않음
 - **패킷 직렬화**: JSON 고정
-- **이벤트 명명 충돌 방지**: 도메인 버스는 `'domain:action'`(콜론), Socket은 `'domain.action'`(점)으로 구분
 - **수신 → 상태 반영**: hook 경유 (`useRoomSocket` 등). atom/store 직접 업데이트는 hook 안에서만, Phaser Scene 안에서 React 상태 라이브러리 호출 금지(컨벤션 2장 레이어 분리)
 - 재연결 전략: BE 합의 후 확정
 - 게임 중 연결 끊김 처리: BE 합의 후 확정
@@ -235,11 +235,14 @@ Phaser Scene은 React 컨텍스트에 접근할 수 없으므로, Phaser가 직�
 ```ts
 // ✅ Phaser가 접근해야 하는 게임 세션 데이터 — useEffect + Zustand 직접 저장 허용
 useEffect(() => {
-  singleApi.startSession(difficulty)
+  singleApi
+    .startSession(difficulty)
     .then((data) => useSingleStore.getState().setSession(data))
-    .catch(() => navigate({ to: '/home', replace: true }));
+    .catch(() => navigate({ to: "/home", replace: true }));
 
-  return () => { useSingleStore.getState().clearSession(); };
+  return () => {
+    useSingleStore.getState().clearSession();
+  };
 }, [difficulty]);
 ```
 
@@ -328,13 +331,13 @@ export const Route = createFileRoute("/home")({
 // features/single은 features/auth를 직접 import하지 않는다.
 // 대신 routes/ 레이어에서 auth API/store를 callback으로 묶어 features/single에 주입.
 export default function TutorialRoute() {
-  const { replay } = useSearch({ from: '/tutorial' });
+  const { replay } = useSearch({ from: "/tutorial" });
 
   const onComplete = useCallback(async () => {
     const user = useAuthStore.getState().user;
-    if (replay || user?.onboardingStatus === 'TUTORIAL_DONE') return;
+    if (replay || user?.onboardingStatus === "TUTORIAL_DONE") return;
     await onboardingApi.completeTutorial();
-    useAuthStore.getState().updateUser({ onboardingStatus: 'TUTORIAL_DONE' });
+    useAuthStore.getState().updateUser({ onboardingStatus: "TUTORIAL_DONE" });
   }, [replay]);
 
   return <TutorialPage onComplete={onComplete} />;
