@@ -1642,7 +1642,7 @@ POST /api/v1/single/sessions
 | `commandSet[].commandSequence` | Integer | 명령어 식별자 |
 | `commandSet[].text` | String | 명령어 전체 텍스트 |
 | `commandSet[].branchName` | String | 브랜치 이름 |
-| `commandSet[].type` | String | 명령어 타입 (`CREATE` / `MERGE` / `SWITCH` / `COMMON`) |
+| `commandSet[].type` | String | 명령어 타입 (`CREATE` / `MERGE` / `SWITCH` / `COMMON` / `CONFLICT`) |
 | `expiresAt` | DateTime | 세션 만료 시각 (생성 시점 기준 30분 후) |
 
 **type 분류 기준**

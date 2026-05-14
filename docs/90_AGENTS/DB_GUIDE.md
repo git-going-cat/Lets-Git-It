@@ -58,7 +58,7 @@ ranking:COOP:{coop_map_id}:{week}          # 예: ranking:COOP:{UUID}:2025-04-3
 
 ## 명령어 세트 구조
 
-- Single: single_command_set → single_command_set_item (command_type: CREATE/MERGE/COMMON)
+- Single: single_command_set → single_command_set_item (command_type: CREATE/MERGE/SWITCH/COMMON/CONFLICT)
 - Competitive: competitive_command_set → competitive_command_set_item
 - Coop: coop_command_set → coop_command_set_item (라운드제, round 1~5)
 - Tutorial: tutorial_command_set → tutorial_command_set_item (sequence 1~14)
