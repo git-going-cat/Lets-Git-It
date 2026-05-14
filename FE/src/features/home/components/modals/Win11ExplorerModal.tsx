@@ -13,7 +13,7 @@ import { useModal } from '@/shared/hooks/useModal';
 
 type ExplorerTab = 'single' | 'multi';
 type SingleDifficulty = 'EASY' | 'NORMAL' | 'HARD';
-type MultiMode = 'contribution' | 'timeattack' | 'coop';
+type MultiMode = 'contribution' | 'coop' | 'timeattack';
 type SelectedItem = SingleDifficulty | MultiMode | null;
 
 interface ExplorerItem {
@@ -28,7 +28,7 @@ interface Win11ExplorerModalProps {
   initialTab: ExplorerTab;
   onClose: () => void;
   /** 로비 입장 버튼 클릭 시 호출 — 모달을 닫고 해당 모드 로비를 열어야 한다 */
-  onLobbyOpen?: (mode: 'CONTRIBUTION_RUN' | 'TIME_ATTACK' | 'COOP') => void;
+  onLobbyOpen?: (mode: 'CONTRIBUTION' | 'COOP') => void;
 }
 
 // ── 데이터 ────────────────────────────────────────────────
@@ -68,18 +68,18 @@ const MULTI_ITEMS: ExplorerItem[] = [
     detail: '먼저 명령어를 입력한 사람의 기여도 증가\n최고 기여도를 달성한 플레이어가 승리',
   },
   {
-    id: 'timeattack',
-    label: '타임어택',
-    img: multiTimeattackImg,
-    description: '제한 시간 내 최대 명령어 입력 대결',
-    detail: '시간 내에 최대한 많은 명령어 입력\n가장 많이 입력한 플레이어가 승리',
-  },
-  {
     id: 'coop',
     label: '협력',
     img: multiCoopImg,
     description: '팀원과 협력하여 미션 클리어',
     detail: '팀원과 함께 주어진 Git 미션 수행\n최단 시간 클리어가 목표',
+  },
+  {
+    id: 'timeattack',
+    label: '타임어택',
+    img: multiTimeattackImg,
+    description: '제한 시간 내 최대 명령어 입력 대결',
+    detail: '시간 내에 최대한 많은 명령어 입력\n가장 많이 입력한 플레이어가 승리',
   },
 ];
 
@@ -111,8 +111,7 @@ export default function Win11ExplorerModal({
   const [isMaximized, setIsMaximized] = useState(false);
 
   const MULTI_MODE_MAP: Record<string, string> = {
-    contribution: 'CONTRIBUTION_RUN',
-    timeattack: 'TIME_ATTACK',
+    contribution: 'CONTRIBUTION',
     coop: 'COOP',
   };
 
@@ -134,9 +133,8 @@ export default function Win11ExplorerModal({
   const handleGameStart = () => {
     if (!selectedItem) return;
     if (isLobbyMode) {
-      const apiMode = (MULTI_MODE_MAP[selectedItem as MultiMode] ?? 'CONTRIBUTION_RUN') as
-        | 'CONTRIBUTION_RUN'
-        | 'TIME_ATTACK'
+      const apiMode = (MULTI_MODE_MAP[selectedItem as MultiMode] ?? 'CONTRIBUTION') as
+        | 'CONTRIBUTION'
         | 'COOP';
       onClose();
       if (onLobbyOpen) {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { Cat,FolderClosed, Gamepad2, LockKeyhole, LockKeyholeOpen } from 'lucide-react';
 
 import {
   useJoinContributionRoom,
@@ -14,14 +15,12 @@ import PasswordModal from './modals/PasswordModal';
 import type { GameMode, RoomSummary } from '../types/room.types';
 
 const MODE_LABELS: Record<GameMode, string> = {
-  CONTRIBUTION_RUN: '기여도 뺏기',
-  TIME_ATTACK: '타임어택',
+  CONTRIBUTION: '기여도 뺏기',
   COOP: '협력',
 };
 
 const MODE_SHORT: Record<GameMode, string> = {
-  CONTRIBUTION_RUN: 'CONTRIB',
-  TIME_ATTACK: 'TIME',
+  CONTRIBUTION: 'CONTRIB',
   COOP: 'COOP',
 };
 
@@ -40,12 +39,13 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
   const navigate = useNavigate();
   const [currentMode, setCurrentMode] = useState<GameMode>(initialMode);
 
-  const { data, isLoading, refetch } = useRooms(currentMode);
-  const rooms: RoomSummary[] = data?.rooms ?? [];
-
   const [selectedRoom, setSelectedRoom] = useState<RoomSummary | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [passwordRoom, setPasswordRoom] = useState<{ roomId: number; mode: GameMode } | null>(null);
+
+  const isModalOpen = showCreateModal || passwordRoom !== null;
+  const { data, status, refetch } = useRooms(currentMode, !isModalOpen);
+  const rooms: RoomSummary[] = data?.rooms ?? [];
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState('');
 
@@ -68,7 +68,7 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
   };
 
   const handleJoin = (room: RoomSummary) => {
-    if (room.status === 'IN_GAME') return;
+    if (room.roomState === 'IN_GAME') return;
     if (room.hasPassword) {
       setPasswordRoom({ roomId: room.roomId, mode: room.mode });
     } else {
@@ -91,7 +91,7 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
 
     findByCode(trimmed, {
       onSuccess: (room) => {
-        if (room.status === 'IN_GAME') {
+        if (room.roomState === 'IN_GAME') {
           setCodeError('이미 게임 중인 방입니다.');
           return;
         }
@@ -120,9 +120,9 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
         <div className="relative z-10 flex h-160 w-full max-w-245 flex-col overflow-hidden rounded-lg bg-[#f0f0f0] shadow-2xl ring-1 ring-black/10 select-none">
           {/* Title bar */}
           <div className="flex h-9 items-center gap-2 bg-[#217346] px-3">
-            <span className="text-sm text-white/60">📊</span>
+            <Gamepad2 className="h-4 w-4 text-white/60" />
             <span className="flex-1 text-sm font-medium text-white">
-              게임방목록.xlsx — Git Git 코리언
+              게임방목록 — {MODE_LABELS[currentMode]}
             </span>
             <div className="flex">
               <button
@@ -226,9 +226,10 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
             {/* Left sidebar */}
             <div className="flex w-36 shrink-0 flex-col border-r border-gray-300 bg-[#f9f9f9]">
               <div className="flex items-center gap-1 border-b border-gray-300 bg-[#e8f5ee] px-2 py-1.5">
-                <span className="text-xs font-medium text-[#175c35]">📁 방목록</span>
+                <FolderClosed className="h-3.5 w-3.5 text-[#175c35]" />
+                <span className="text-xs font-medium text-[#175c35]">방목록</span>
               </div>
-              {(['CONTRIBUTION_RUN', 'TIME_ATTACK', 'COOP'] as GameMode[]).map((m) => (
+              {(['CONTRIBUTION', 'COOP'] as GameMode[]).map((m) => (
                 <button
                   key={m}
                   type="button"
@@ -237,7 +238,7 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
                     setSelectedRoom(null);
                   }}
                   className={`flex flex-col gap-0.5 border-b border-gray-100/70 px-3 py-2 text-left transition-colors hover:bg-[#f0f7f3] ${
-                    currentMode === m ? 'border-l-[3px] border-l-[#217346] bg-[#d4eadd]' : ''
+                    currentMode === m ? 'border-l-4 border-l-[#217346] bg-[#d4eadd]' : ''
                   }`}
                 >
                   <span
@@ -246,7 +247,7 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
                     {MODE_LABELS[m]}
                   </span>
                   <span
-                    className={`font-mono text-[10px] ${currentMode === m ? 'text-[#3b7a57]' : 'text-gray-400'}`}
+                    className={`font-mono text-xs ${currentMode === m ? 'text-[#3b7a57]' : 'text-gray-400'}`}
                   >
                     {m}
                   </span>
@@ -257,13 +258,13 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
             {/* Room list table */}
             <div className="flex flex-1 flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto bg-white">
-                {isLoading ? (
+                {status === 'pending' ? (
                   <div className="flex h-full items-center justify-center text-sm text-gray-400">
                     불러오는 중...
                   </div>
                 ) : rooms.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center gap-2 text-gray-400">
-                    <span className="text-3xl">📭</span>
+                    <Cat className="h-12 w-12" />
                     <span className="text-sm">방이 없습니다. 첫 번째로 만들어보세요!</span>
                   </div>
                 ) : (
@@ -285,6 +286,9 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
                         <th className="sticky top-0 z-10 w-24 border border-[#c8dfd0] bg-[#e8f5ee] px-2.5 py-1.5 text-center text-xs font-medium text-[#175c35]">
                           상태
                         </th>
+                        <th className="sticky top-0 z-10 w-10 border border-[#c8dfd0] bg-[#e8f5ee] px-2 py-1.5 text-center text-xs font-medium text-[#175c35]">
+                          <LockKeyhole className="mx-auto h-3.5 w-3.5" />
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -303,9 +307,6 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
                             {idx + 1}
                           </td>
                           <td className="overflow-hidden text-ellipsis whitespace-nowrap border border-[#e4ede8] px-2.5 py-2 text-sm text-gray-800">
-                            {room.hasPassword && (
-                              <span className="mr-1 text-xs text-gray-400">🔒</span>
-                            )}
                             {room.title}
                           </td>
                           <td className="border border-[#e4ede8] px-2.5 py-2 text-center font-mono text-xs text-gray-600">
@@ -317,13 +318,18 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
                           <td className="border border-[#e4ede8] px-2.5 py-2 text-center">
                             <span
                               className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
-                                room.status === 'WAITING'
+                                room.roomState === 'WAITING'
                                   ? 'bg-[#e8f5e9] text-[#1b5e20]'
                                   : 'bg-[#f3e5f5] text-[#4a148c]'
                               }`}
                             >
-                              {room.status === 'WAITING' ? '대기 중' : '게임 중'}
+                              {room.roomState === 'WAITING' ? '대기 중' : '게임 중'}
                             </span>
+                          </td>
+                          <td className="border border-[#e4ede8] px-2 py-2 text-center">
+                            {room.hasPassword && (
+                              <LockKeyhole className="mx-auto h-3.5 w-3.5 text-amber-500" />
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -343,56 +349,51 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
                 <>
                   <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-3">
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-mono text-[11px] text-gray-400">roomId</span>
+                      <span className="font-mono text-xs text-gray-400">방 번호</span>
                       <span className="text-sm font-medium text-gray-800">
                         #{selectedRoom.roomId}
                       </span>
                     </div>
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-mono text-[11px] text-gray-400">title</span>
+                      <span className="font-mono text-xs text-gray-400">방 제목</span>
                       <span className="wrap-break-word text-sm font-medium text-gray-800">
                         {selectedRoom.title}
                       </span>
                     </div>
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-mono text-[11px] text-gray-400">mode</span>
+                      <span className="font-mono text-xs text-gray-400">게임 모드</span>
                       <span className="text-sm font-medium text-gray-800">
                         {MODE_LABELS[selectedRoom.mode]}
                       </span>
                     </div>
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-mono text-[11px] text-gray-400">players</span>
+                      <span className="font-mono text-xs text-gray-400">플레이어 수</span>
                       <span className="text-sm font-medium text-gray-800">
                         {selectedRoom.currentPlayers} / {selectedRoom.maxPlayers}
                       </span>
                     </div>
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-mono text-[11px] text-gray-400">status</span>
-                      <span
-                        className={`inline-flex w-fit items-center rounded px-2 py-0.5 text-xs ${
-                          selectedRoom.status === 'WAITING'
-                            ? 'bg-[#e8f5e9] text-[#1b5e20]'
-                            : 'bg-[#f3e5f5] text-[#4a148c]'
-                        }`}
-                      >
-                        {selectedRoom.status === 'WAITING' ? '대기 중' : '게임 중'}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-mono text-[11px] text-gray-400">hasPassword</span>
-                      <span className="text-sm font-medium text-gray-800">
-                        {selectedRoom.hasPassword ? '🔒 비밀방' : '🔓 공개방'}
-                      </span>
+                      <span className="font-mono text-xs text-gray-400">비밀번호 설정</span>
+                      <div className="flex items-center gap-1">
+                        {selectedRoom.hasPassword ? (
+                          <LockKeyhole className="h-3.5 w-3.5 text-gray-800" />
+                        ) : (
+                          <LockKeyholeOpen className="h-3.5 w-3.5 text-gray-800" />
+                        )}
+                        <span className="text-sm font-medium text-gray-800">
+                          {selectedRoom.hasPassword ? '비밀방' : '공개방'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div className="border-t border-gray-300 p-2.5">
                     <button
                       type="button"
                       onClick={() => handleJoin(selectedRoom)}
-                      disabled={selectedRoom.status === 'IN_GAME' || isJoining}
+                      disabled={selectedRoom.roomState === 'IN_GAME' || isJoining}
                       className="flex w-full items-center justify-center gap-1 rounded border border-[#175c35] bg-[#217346] py-2 text-sm font-medium text-white transition-colors hover:bg-[#175c35] disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-400"
                     >
-                      {selectedRoom.status === 'IN_GAME'
+                      {selectedRoom.roomState === 'IN_GAME'
                         ? '게임 중'
                         : isJoining
                           ? '입장 중...'
@@ -401,13 +402,11 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
                   </div>
                 </>
               ) : (
-                <p className="mt-12 px-4 text-center text-sm leading-relaxed text-gray-400">
-                  방을 선택하면
-                  <br />
-                  세부 정보가
-                  <br />
-                  표시됩니다.
-                </p>
+                <div className=" mt-10 px-4 text-center text-sm leading-3 text-gray-400">
+                  <p>방을 선택하면</p>
+                  <p>세부 정보가</p>
+                  <p>표시됩니다.</p>
+                </div>
               )}
             </div>
           </div>

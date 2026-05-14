@@ -1,6 +1,7 @@
 import { http } from '@/core/http';
 
 import {
+  coopMapListResponseSchema,
   createContributionRoomResponseSchema,
   createCoopRoomResponseSchema,
   joinContributionRoomResponseSchema,
@@ -11,6 +12,7 @@ import {
 } from '../schemas/room.schema';
 
 import type {
+  CoopMapListResponse,
   CreateContributionRoomRequest,
   CreateContributionRoomResponse,
   CreateCoopRoomRequest,
@@ -40,6 +42,11 @@ export async function createContributionRoom(
 ): Promise<CreateContributionRoomResponse> {
   const { data } = await http.post<{ data: unknown }>('/api/v1/rooms/contribution', body);
   return createContributionRoomResponseSchema.parse(data.data);
+}
+
+export async function getCoopMaps(): Promise<CoopMapListResponse> {
+  const { data } = await http.get<{ data: unknown }>('/api/v1/rooms/coop/maps');
+  return coopMapListResponseSchema.parse(data.data);
 }
 
 export async function createCoopRoom(body: CreateCoopRoomRequest): Promise<CreateCoopRoomResponse> {

@@ -3,6 +3,7 @@
 import {
   createContributionRoom,
   createCoopRoom,
+  getCoopMaps,
   getRoomByCode,
   getRooms,
   joinContributionRoom,
@@ -14,13 +15,16 @@ import type { CreateContributionRoomRequest, CreateCoopRoomRequest } from '../ty
 
 /**
  * 모드별 방 목록을 5초마다 폴링하여 조회한다.
- * @param mode - 필터링할 게임 모드 (`CONTRIBUTION_RUN` | `TIME_ATTACK` | `COOP`)
+ * @param mode - 필터링할 게임 모드 (`CONTRIBUTION` | `COOP`)
+ * @param enabled - false 시 폴링을 중단한다. 모달이 열려 있을 때 불필요한 요청을 막기 위해 사용한다.
  */
-export function useRooms(mode: string) {
+export function useRooms(mode: string, enabled = true) {
   return useQuery({
     queryKey: ['rooms', mode],
     queryFn: () => getRooms(mode),
-    refetchInterval: 5000,
+    staleTime: 4000,
+    refetchInterval: enabled ? 5000 : false,
+    enabled,
   });
 }
 
@@ -30,6 +34,19 @@ export function useRooms(mode: string) {
 export function useRoomByCode() {
   return useMutation({
     mutationFn: (code: string) => getRoomByCode(code),
+  });
+}
+
+/**
+ * 협력 모드 맵 목록을 조회한다. GET /api/v1/rooms/coop/maps
+ * staleTime: Infinity 로 최초 1회만 서버 요청하고 이후 캐시를 사용한다.
+ */
+export function useCoopMaps(enabled = true) {
+  return useQuery({
+    queryKey: ['coop-maps'],
+    queryFn: getCoopMaps,
+    staleTime: Infinity,
+    enabled,
   });
 }
 

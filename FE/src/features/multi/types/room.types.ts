@@ -1,4 +1,4 @@
-﻿export type GameMode = 'CONTRIBUTION_RUN' | 'TIME_ATTACK' | 'COOP';
+﻿export type GameMode = 'CONTRIBUTION' | 'COOP';
 export type RoomStatus = 'WAITING' | 'IN_GAME';
 export type RoomState = 'WAITING' | 'COUNTDOWN' | 'IN_GAME' | 'RESULT';
 
@@ -9,11 +9,23 @@ export interface RoomSummary {
   currentPlayers: number;
   maxPlayers: number;
   hasPassword: boolean;
-  status: RoomStatus;
+  roomState: RoomStatus;
 }
 
 export interface RoomListResponse {
   rooms: RoomSummary[];
+}
+
+export interface CoopMap {
+  mapId: string;
+  mapName: string;
+  difficulty: number;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export interface CoopMapListResponse {
+  maps: CoopMap[];
 }
 
 export interface CreateContributionRoomRequest {
@@ -36,6 +48,7 @@ export interface CreateCoopRoomRequest {
   teamName: string;
   hasPassword: boolean;
   password?: string;
+  selectedMapId: string;
 }
 
 export interface CreateCoopRoomResponse {
@@ -45,6 +58,11 @@ export interface CreateCoopRoomResponse {
   hasPassword: boolean;
   teamName: string;
   maxPlayers: number;
+  selectedMap: {
+    mapId: string;
+    mapName: string;
+    difficulty: number;
+  };
 }
 
 export interface RoomMember {
@@ -77,7 +95,7 @@ export interface JoinContributionRoomResponse {
   roomId: number;
   roomCode: string;
   title: string;
-  mode: 'CONTRIBUTION_RUN';
+  mode: 'CONTRIBUTION';
   roomState: RoomState;
   currentPlayers: number;
   maxPlayers: number;

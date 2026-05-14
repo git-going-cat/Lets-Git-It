@@ -6,7 +6,7 @@ import LobbyPage from '@/features/multi/components/LobbyPage';
 import type { GameMode } from '@/features/multi/types/room.types';
 
 const searchSchema = z.object({
-  mode: z.enum(['CONTRIBUTION_RUN', 'TIME_ATTACK', 'COOP']).optional(),
+  mode: z.enum(['CONTRIBUTION', 'COOP']).optional(),
 });
 
 /** /multi 라우트에서 LobbyPage를 URL 파라미터와 연결하는 래퍼 */

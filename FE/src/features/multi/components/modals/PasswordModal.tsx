@@ -86,7 +86,7 @@ export default function PasswordModal({ roomId, mode, onClose, onSuccess }: Pass
               className="rounded border border-gray-300 px-2 py-1.5 text-xs text-gray-800 outline-none focus:border-[#217346]"
             />
           </div>
-          {error && <p className="text-[11px] text-red-500">{error}</p>}
+          {error && <p className="text-xs text-red-500">{error}</p>}
         </form>
 
         {/* Footer */}

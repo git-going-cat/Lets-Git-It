@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
-const gameModeSchema = z.enum(['CONTRIBUTION_RUN', 'TIME_ATTACK', 'COOP']);
-const roomStatusSchema = z.enum(['WAITING', 'IN_GAME']);
-const roomStateSchema = z.enum(['WAITING', 'COUNTDOWN', 'IN_GAME', 'RESULT']);
+const gameModeSchema = z.enum(['CONTRIBUTION', 'COOP']);
+const roomStateSchema = z.enum(['WAITING', 'IN_GAME']);
 
 export const roomSummarySchema = z.object({
   roomId: z.number(),
@@ -11,11 +10,23 @@ export const roomSummarySchema = z.object({
   currentPlayers: z.number(),
   maxPlayers: z.number(),
   hasPassword: z.boolean(),
-  status: roomStatusSchema,
+  roomState: roomStateSchema,
 });
 
 export const roomListResponseSchema = z.object({
   rooms: z.array(roomSummarySchema),
+});
+
+export const coopMapSchema = z.object({
+  mapId: z.string(),
+  mapName: z.string(),
+  difficulty: z.number(),
+  isActive: z.boolean(),
+  updatedAt: z.string(),
+});
+
+export const coopMapListResponseSchema = z.object({
+  maps: z.array(coopMapSchema),
 });
 
 export const createContributionRoomResponseSchema = z.object({
@@ -33,6 +44,11 @@ export const createCoopRoomResponseSchema = z.object({
   hasPassword: z.boolean(),
   teamName: z.string(),
   maxPlayers: z.number(),
+  selectedMap: z.object({
+    mapId: z.string(),
+    mapName: z.string(),
+    difficulty: z.number(),
+  }),
 });
 
 export const verifyPasswordResponseSchema = z.object({});
@@ -67,7 +83,7 @@ export const joinContributionRoomResponseSchema = z.object({
   roomId: z.number(),
   roomCode: z.string(),
   title: z.string(),
-  mode: z.literal('CONTRIBUTION_RUN'),
+  mode: z.literal('CONTRIBUTION'),
   roomState: roomStateSchema,
   currentPlayers: z.number(),
   maxPlayers: z.number(),

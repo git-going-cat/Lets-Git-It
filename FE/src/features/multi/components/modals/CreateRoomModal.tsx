@@ -1,17 +1,19 @@
 import { useState } from 'react';
 
-import { useCreateContributionRoom, useCreateCoopRoom } from '../../hooks/useRoom';
+import { useCoopMaps, useCreateContributionRoom, useCreateCoopRoom } from '../../hooks/useRoom';
 
 import type { GameMode } from '../../types/room.types';
 
-type CreateRoomMode = 'CONTRIBUTION_RUN' | 'COOP';
+type CreateRoomMode = 'CONTRIBUTION' | 'COOP';
+
+const PAGE_SIZE = 3;
 
 const MODE_LABELS: Record<CreateRoomMode, string> = {
-  CONTRIBUTION_RUN: '기여도 뺏기',
+  CONTRIBUTION: '기여도 뺏기',
   COOP: '협력',
 };
 
-const CREATE_MODES: CreateRoomMode[] = ['CONTRIBUTION_RUN', 'COOP'];
+const CREATE_MODES: CreateRoomMode[] = ['CONTRIBUTION', 'COOP'];
 
 interface CreateRoomModalProps {
   defaultMode: GameMode;
@@ -22,13 +24,23 @@ interface CreateRoomModalProps {
 export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: CreateRoomModalProps) {
   const [title, setTitle] = useState('');
   const [mode, setMode] = useState<CreateRoomMode>(
-    defaultMode === 'COOP' ? 'COOP' : 'CONTRIBUTION_RUN'
+    defaultMode === 'COOP' ? 'COOP' : 'CONTRIBUTION'
   );
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [teamName, setTeamName] = useState('');
   const [hasPassword, setHasPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
+  const [mapOffset, setMapOffset] = useState(0);
+
+  const { data: mapData, isLoading: isLoadingMaps } = useCoopMaps(mode === 'COOP');
+
+  const handleModeChange = (m: CreateRoomMode) => {
+    setMode(m);
+    setSelectedMapId(null);
+    setMapOffset(0);
+  };
 
   const { mutate: createContributionRoom, isPending: isContributionPending } =
     useCreateContributionRoom();
@@ -46,6 +58,10 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
       setError('팀 이름을 입력하세요.');
       return;
     }
+    if (mode === 'COOP' && !selectedMapId) {
+      setError('맵을 선택하세요.');
+      return;
+    }
     if (hasPassword && !password.trim()) {
       setError('비밀번호를 입력하세요.');
       return;
@@ -61,6 +77,7 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
           title: title.trim(),
           teamName: teamName.trim(),
           hasPassword,
+          selectedMapId: selectedMapId!,
           ...(hasPassword && { password }),
         },
         { onSuccess: onSuccess_, onError }
@@ -103,10 +120,9 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-4">
           {/* Title */}
           <div className="flex flex-col gap-1">
-            <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
-              title <span className="text-[10px] text-red-500">*필수</span>
+            <label className="flex items-center gap-1 text-md font-medium text-gray-700">
+              방 제목 <span className="text-xs text-red-500">*필수</span>
             </label>
-            <p className="text-[10px] text-gray-400">방 제목을 입력하세요</p>
             <input
               type="text"
               value={title}
@@ -119,32 +135,33 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
 
           {/* Mode */}
           <div className="flex flex-col gap-1">
-            <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
-              mode <span className="text-[10px] text-red-500">*필수</span>
+            <label className="flex items-center gap-1 text-md font-medium text-gray-700">
+              게임 모드 <span className="text-xs text-red-500">*필수</span>
             </label>
             <div className="flex gap-1.5">
               {CREATE_MODES.map((m) => (
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setMode(m)}
-                  className={`flex flex-1 flex-col items-center rounded border py-1.5 text-center text-[10px] transition-all ${
+                  onClick={() => handleModeChange(m)}
+                  className={`flex flex-1 flex-col items-center rounded border py-1.5 text-center text-xs transition-all ${
                     mode === m
                       ? 'border-[#217346] bg-[#d4eadd] font-medium text-[#175c35]'
                       : 'border-gray-300 bg-white text-gray-500 hover:border-[#217346] hover:text-[#217346]'
                   }`}
                 >
-                  <span className="text-[10px] font-medium">{MODE_LABELS[m]}</span>
-                  <span className="font-mono text-[8px] text-gray-400">{m}</span>
+                  <span className="text-xs font-medium">{MODE_LABELS[m]}</span>
+                  <span className="font-mono text-xs text-gray-400">{m}</span>
                 </button>
               ))}
             </div>
+            {mode === 'COOP' && <p className="text-xs text-gray-400">협력 모드 - 4명 고정</p>}
           </div>
 
           {/* MaxPlayers — 기여도 뺏기 전용 */}
-          {mode === 'CONTRIBUTION_RUN' && (
+          {mode === 'CONTRIBUTION' && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-700">maxPlayers</label>
+              <label className="text-md font-medium text-gray-700">플레이어 수</label>
               <select
                 value={maxPlayers}
                 onChange={(e) => setMaxPlayers(Number(e.target.value))}
@@ -152,7 +169,7 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
               >
                 {[2, 3, 4].map((n) => (
                   <option key={n} value={n}>
-                    {n} (기본값)
+                    {n}
                   </option>
                 ))}
               </select>
@@ -162,10 +179,10 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
           {/* TeamName — 협력 전용 */}
           {mode === 'COOP' && (
             <div className="flex flex-col gap-1">
-              <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
-                teamName <span className="text-[10px] text-red-500">*필수</span>
+              <label className="flex items-center gap-1 text-md font-medium text-gray-700">
+                팀 이름 <span className="text-xs text-red-500">*필수</span>
               </label>
-              <p className="text-[10px] text-gray-400">팀 이름을 입력하세요</p>
+              <p className="text-xs text-gray-400">팀 이름으로 랭킹이 표시됩니다.</p>
               <input
                 type="text"
                 value={teamName}
@@ -177,14 +194,90 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
             </div>
           )}
 
+          {/* Map selection — 협력 전용 */}
+          {mode === 'COOP' && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1 text-md font-medium text-gray-700">
+                  맵 선택 <span className="text-xs text-red-500">*필수</span>
+                </label>
+                {mapData && (
+                  <span className="text-xs text-gray-400">
+                    {mapOffset + 1}–{Math.min(mapOffset + PAGE_SIZE, mapData.maps.length)} /{' '}
+                    {mapData.maps.length}
+                  </span>
+                )}
+              </div>
+              {isLoadingMaps ? (
+                <p className="text-xs text-gray-400">맵 목록 로딩 중...</p>
+              ) : mapData ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setMapOffset((o) => Math.max(0, o - 1))}
+                    disabled={mapOffset === 0}
+                    className="flex h-14 w-6 shrink-0 items-center justify-center rounded border border-gray-300 text-base font-bold text-gray-500 transition-all hover:border-[#217346] hover:text-[#217346] disabled:cursor-default disabled:border-gray-100 disabled:text-gray-200"
+                  >
+                    ‹
+                  </button>
+                  <div className="flex flex-1 gap-1 overflow-hidden">
+                    {mapData.maps.slice(mapOffset, mapOffset + PAGE_SIZE).map((map) => (
+                      <button
+                        key={map.mapId}
+                        type="button"
+                        disabled={!map.isActive}
+                        onClick={() => setSelectedMapId(map.mapId)}
+                        className={`flex flex-1 flex-col items-center gap-1 rounded border px-1 py-1.5 text-center transition-all ${
+                          selectedMapId === map.mapId
+                            ? 'border-[#217346] bg-[#d4eadd]'
+                            : map.isActive
+                              ? 'border-gray-200 bg-white hover:border-[#217346] hover:bg-[#f0f7f3]'
+                              : 'border-gray-100 bg-gray-50 opacity-40'
+                        } ${!map.isActive ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        <span
+                          className={`text-xs font-medium leading-tight ${
+                            selectedMapId === map.mapId ? 'text-[#175c35]' : 'text-gray-700'
+                          }`}
+                        >
+                          {map.mapName}
+                        </span>
+                        <div className="flex gap-px">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <span
+                              key={i}
+                              className={`text-xs ${
+                                i < map.difficulty ? 'text-yellow-500' : 'text-gray-200'
+                              }`}
+                            >
+                              ★
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMapOffset((o) => o + 1)}
+                    disabled={mapOffset + PAGE_SIZE >= mapData.maps.length}
+                    className="flex h-14 w-6 shrink-0 items-center justify-center rounded border border-gray-300 text-base font-bold text-gray-500 transition-all hover:border-[#217346] hover:text-[#217346] disabled:cursor-default disabled:border-gray-100 disabled:text-gray-200"
+                  >
+                    ›
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {/* Password toggle */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-gray-700">hasPassword</label>
+              <label className="text-md font-medium text-gray-700">비밀번호 설정</label>
               <button
                 type="button"
                 onClick={() => setHasPassword((prev) => !prev)}
-                className={`relative h-5 w-9 rounded-full border-none transition-colors ${
+                className={`relative h-5 w-9 !rounded-full border-none transition-colors ${
                   hasPassword ? 'bg-[#217346]' : 'bg-gray-300'
                 }`}
               >
@@ -200,8 +293,8 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
           {/* Password input */}
           {hasPassword && (
             <div className="flex flex-col gap-1">
-              <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
-                password <span className="text-[10px] text-red-500">*필수</span>
+              <label className="flex items-center gap-1 text-md font-medium text-gray-700">
+                비밀번호 <span className="text-xs text-red-500">*필수</span>
               </label>
               <input
                 type="password"
@@ -213,7 +306,7 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
             </div>
           )}
 
-          {error && <p className="text-[11px] text-red-500">{error}</p>}
+          {error && <p className="text-xs text-red-500">{error}</p>}
         </form>
 
         {/* Footer */}
