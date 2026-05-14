@@ -1,5 +1,7 @@
 import { TypedEventBus } from '@/core/bridge/TypedEventBus';
 
+import type { ArrowKey } from '@/shared/game/conflictArrows';
+
 /**
  * 'game:restart' 이벤트 payload.
  *
@@ -49,6 +51,15 @@ export interface SingleEventMap {
   'tutorial:pause': void;
   'tutorial:show-command': void;
   'tutorial:freeze-command': void;
+  'conflict:start': {
+    index: number;
+    sequence: ArrowKey[];
+    headBranch: string;
+    incomingBranch: string;
+    filePath: string;
+  };
+  'conflict:typo': { index: number };
+  'conflict:resolve': { index: number };
 }
 
 /** 싱글 플레이 전용 이벤트 버스. features/single 도메인 안에서만 사용합니다. */
