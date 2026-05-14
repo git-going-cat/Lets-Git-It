@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 
 import arrowSheet from '@/assets/game/arrow.png';
@@ -49,6 +49,7 @@ export default function ConflictMiniGameOverlay({
   const [state, setState] = useAtom(conflictMiniGameAtom);
   const gameStatus = useAtomValue(gameStatusAtom);
   const [flash, setFlash] = useState<{ index: number; correct: boolean } | null>(null);
+  const titleId = useId();
 
   useEffect(() => {
     if (!flash) return;
@@ -94,10 +95,18 @@ export default function ConflictMiniGameOverlay({
   return (
     <div className="font-pixel absolute inset-0 z-20 flex items-center justify-center bg-black/80">
       {/* w-[720px]: diff 좌/우 패널이 코드 4~5줄 + 헤더를 무리 없이 표시할 수 있는 최소 폭 */}
-      <div className="flex w-[720px] max-w-[95vw] flex-col gap-5">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="flex w-[720px] max-w-[95vw] flex-col gap-5"
+      >
         {/* DIFF 영역 — 충돌 파일 좌/우 비교 */}
         <div className="nes-container is-dark with-title">
-          <p className="title !text-2xl">MERGE CONFLICT</p>
+          <p id={titleId} className="title !text-2xl">
+            MERGE CONFLICT
+          </p>
 
           <div className="flex flex-col gap-4 p-2">
             <div className="flex items-center justify-between">
