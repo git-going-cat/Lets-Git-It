@@ -22,8 +22,8 @@ public class ContributionResult {
 	@Column(name = "contribution_result_id", nullable = false, columnDefinition = "BINARY(16)")
 	private UUID id;
 
-	@Column(name = "room_id", nullable = false, length = 100)
-	private String roomId;
+	@Column(name = "room_id", nullable = false)
+	private Long roomId;
 
 	@Column(name = "session_id", nullable = false, length = 100)
 	private String sessionId;
@@ -31,7 +31,7 @@ public class ContributionResult {
 	@Column(name = "played_at", nullable = false)
 	private LocalDateTime playedAt;
 
-	public static ContributionResult of(String roomId, String sessionId) {
+	public static ContributionResult of(Long roomId, String sessionId) {
 		ContributionResult result = new ContributionResult();
 		result.roomId = roomId;
 		result.sessionId = sessionId;

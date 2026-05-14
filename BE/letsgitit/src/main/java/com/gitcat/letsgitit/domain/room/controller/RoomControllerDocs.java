@@ -2,7 +2,14 @@ package com.gitcat.letsgitit.domain.room.controller;
 
 import java.util.Map;
 
+import jakarta.validation.Valid;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
+import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
+import com.gitcat.letsgitit.domain.room.dto.request.PasswordVerifyRequest;
+import com.gitcat.letsgitit.global.enums.RoomMode;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -71,6 +78,21 @@ public interface RoomControllerDocs {
 		""")))
 	ResponseEntity<?> createCoopRoom(Map<String, Object> body);
 
+	@Operation(summary = "협력 맵 목록 조회", description = "협력 방 생성 전 맵 선택 UI 시 사용.")
+	@ApiResponse(responseCode = "200", description = "조회 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
+		{
+		  "status": 200,
+		  "message": "맵 목록 조회 성공",
+		  "data": {
+		    "maps": [
+		      {"mapId": "550e8400-e29b-41d4-a716-446655440002", "mapName": "초보의 숲", "difficulty": 1, "isActive": true, "updatedAt": "2026-05-13T14:30:45+09:00"},
+		      {"mapId": "550e8400-e29b-41d4-a716-446655440003", "mapName": "병합 지옥", "difficulty": 4, "isActive": true, "updatedAt": "2026-05-13T14:30:45+09:00"}
+		    ]
+		  }
+		}
+		""")))
+	ResponseEntity<?> getCoopMaps();
+
 	@Operation(summary = "방 목록 조회", description = """
 		mode 파라미터로 게임 모드별 방 목록 조회.
 
@@ -112,7 +134,7 @@ public interface RoomControllerDocs {
 		""")))
 	ResponseEntity<?> getRooms(
 		@Parameter(name = "mode", description = "게임 모드 (ALL / CONTRIBUTION / COOP). 기본값 ALL")
-		String mode);
+		RoomMode mode);
 
 	@Operation(summary = "방 코드로 검색", description = """
 		6자리 방 코드로 단건 검색.
@@ -150,13 +172,7 @@ public interface RoomControllerDocs {
 		@Parameter(name = "code", description = "방 코드 (6자리 영문+숫자)", required = true)
 		String code);
 
-	@Operation(summary = "방 비밀번호 검증", description = """
-		**Mock 에러 트리거 (테스트용)**
-		| 요청값 | 발생 에러 |
-		|---|---|
-		| roomId: 9999 | 404 ROOM_NOT_FOUND |
-		| password: "wrong" | 400 INVALID_PASSWORD |
-		""")
+	@Operation(summary = "방 비밀번호 검증")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
 		{"password": "1234"}
 		""")))
@@ -174,7 +190,10 @@ public interface RoomControllerDocs {
 	ResponseEntity<?> verifyRoomPassword(
 		@Parameter(name = "roomId", description = "방 ID", required = true)
 		Long roomId,
-		Map<String, Object> body);
+		@Valid
+		PasswordVerifyRequest request,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails);
 
 	@Operation(summary = "기여도 뺏기 방 입장", description = """
 		WebSocket CONNECT → SUBSCRIBE 후 HTTP API 호출.
@@ -338,7 +357,9 @@ public interface RoomControllerDocs {
 	})
 	ResponseEntity<?> leaveRoom(
 		@Parameter(name = "roomId", description = "방 ID", required = true)
-		Long roomId);
+		Long roomId,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails);
 
 	@Operation(summary = "기여도 뺏기 방 정보 수정 (방장만)", description = """
 		**Mock 에러 트리거 (테스트용)**
@@ -416,7 +437,9 @@ public interface RoomControllerDocs {
 		@Parameter(name = "roomId", description = "방 ID", required = true)
 		Long roomId,
 		@Parameter(name = "playerId", description = "추방할 플레이어 ID (UUID)", required = true)
-		String playerId);
+		String playerId,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails);
 
 	@Operation(summary = "기여도 뺏기 방 상태 조회 (Reconnect fallback)", description = """
 		WebSocket 재연결 후 ROOM_STATE 자동 수신이 3초 내 없을 때 REST fallback으로 호출.
