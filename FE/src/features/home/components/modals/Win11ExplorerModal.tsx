@@ -131,8 +131,7 @@ export default function Win11ExplorerModal({
   const isLobbyMode =
     activeTab === 'multi' && (selectedItem === 'contribution' || selectedItem === 'coop');
   const isPreparingModeSelected =
-    selectedItem !== null &&
-    (selectedItem === 'HARD' || (activeTab === 'multi' && selectedItem === 'timeattack'));
+    selectedItem !== null && activeTab === 'multi' && selectedItem === 'timeattack';
   const isStartButtonDisabled = isPreparingModeSelected || isStarting;
 
   const handleTabChange = (tab: ExplorerTab) => {
