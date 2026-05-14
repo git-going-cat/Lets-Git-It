@@ -1812,7 +1812,7 @@ POST /api/v1/rooms/contribution
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 랜덤 방 코드 |
 | `title` | String | 방 제목 |
 | `maxPlayers` | Integer | 최대 인원 수 |
@@ -1866,7 +1866,7 @@ POST /api/v1/rooms/coop
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 랜덤 방 코드 |
 | `title` | String | 방 제목 |
 | `hasPassword` | Boolean | 비밀번호 설정 여부 |
@@ -1912,7 +1912,7 @@ GET /api/v1/rooms?mode={mode}
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `rooms` | Array | 방 목록 |
-| `rooms[].roomId` | Integer | 방 ID |
+| `rooms[].roomId` | Long | 방 ID |
 | `rooms[].title` | String | 방 제목 |
 | `rooms[].mode` | String | 게임 모드 (`CONTRIBUTION`, `COOP`) |
 | `rooms[].currentPlayers` | Integer | 현재 인원 수 |
@@ -1977,7 +1977,7 @@ GET /api/v1/rooms/search?code={code}
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `title` | String | 방 제목 |
 | `mode` | String | 게임 모드 (`CONTRIBUTION`, `COOP`) |
 | `currentPlayers` | Integer | 현재 인원 수 |
@@ -2059,7 +2059,7 @@ POST /api/v1/rooms/{roomId}/contribution/join
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 방 코드 |
 | `title` | String | 방 제목 |
 | `mode` | String | 게임 모드 (`CONTRIBUTION` 고정) |
@@ -2145,7 +2145,7 @@ POST /api/v1/rooms/{roomId}/coop/join
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 방 코드 |
 | `title` | String | 방 제목 |
 | `teamName` | String | 팀명 |
@@ -2390,7 +2390,7 @@ GET /api/v1/rooms/{roomId}/contribution/state
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 방 코드 |
 | `title` | String | 방 제목 |
 | `mode` | String | 게임 모드 (`CONTRIBUTION` 고정) |
@@ -2475,7 +2475,7 @@ GET /api/v1/rooms/{roomId}/coop/state
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 방 코드 |
 | `title` | String | 방 제목 |
 | `teamName` | String | 팀명 |
