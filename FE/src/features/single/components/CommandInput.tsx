@@ -13,7 +13,7 @@ export default function CommandInput() {
     inputRef,
     inputValue,
     history,
-    isPlaying,
+    isInputDisabled,
     activeBranch,
     handleInputChange,
     handleKeyDown,
@@ -53,7 +53,7 @@ export default function CommandInput() {
             onCopy={(e) => e.preventDefault()}
             onPaste={(e) => e.preventDefault()}
             onCut={(e) => e.preventDefault()}
-            disabled={!isPlaying}
+            disabled={isInputDisabled}
             autoComplete="off"
             spellCheck={false}
           />

@@ -93,7 +93,7 @@ export default function ConflictMiniGameOverlay({
   const scenario = CONFLICT_SCENARIOS[state.scenarioIndex] ?? CONFLICT_SCENARIOS[0];
 
   return (
-    <div className="font-pixel absolute inset-0 z-20 flex items-center justify-center bg-black/80">
+    <div className="font-pixel fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/80">
       {/* w-[720px]: diff 좌/우 패널이 코드 4~5줄 + 헤더를 무리 없이 표시할 수 있는 최소 폭 */}
       <div
         role="dialog"

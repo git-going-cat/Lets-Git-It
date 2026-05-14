@@ -122,7 +122,6 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
           <StashOverlay />
           <CherryPickOverlay />
           <RestoreOverlay />
-          <ConflictMiniGameOverlay onResolve={handleConflictResolve} onTypo={handleConflictTypo} />
         </div>
         <CommandInput />
       </div>
@@ -148,6 +147,9 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
         </div>
         <ChuruStack totalCommands={totalCommands} />
       </div>
+
+      {/* CONFLICT 미니게임 — viewport 기준 fixed로 떠 좁은 화면에서도 잘리지 않도록 게임 컨테이너 밖에 배치 */}
+      <ConflictMiniGameOverlay onResolve={handleConflictResolve} onTypo={handleConflictTypo} />
 
       {/* 튜토리얼 전용 오버레이 및 모달 */}
       {isTutorial && (

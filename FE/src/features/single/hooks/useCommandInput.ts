@@ -226,11 +226,16 @@ export function useCommandInput() {
     return () => unsubs.forEach((fn) => fn());
   }, [setCombo, setConflictMiniGame, setTotalAttempts, setTypoCount]);
 
+  // 미니게임 중에는 input을 disabled 처리해 텍스트 입력/포커스를 차단한다.
+  // (handleKeyDown은 Enter 만 다루므로 글자 입력 자체가 들어오는 걸 막아야 한다.)
+  const isInputDisabled = !isPlaying || conflictMiniGame !== null;
+
   return {
     inputRef,
     inputValue,
     history,
     isPlaying,
+    isInputDisabled,
     activeBranch,
     handleInputChange,
     handleKeyDown,
