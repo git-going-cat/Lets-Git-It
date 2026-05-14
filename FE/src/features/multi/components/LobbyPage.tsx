@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Cat,FolderClosed, Gamepad2, LockKeyhole, LockKeyholeOpen } from 'lucide-react';
+import { Cat, FolderClosed, Gamepad2, LockKeyhole, LockKeyholeOpen } from 'lucide-react';
 
 import {
   useJoinContributionRoom,
@@ -48,6 +48,7 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
   const rooms: RoomSummary[] = data?.rooms ?? [];
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [joinError, setJoinError] = useState('');
 
   const { mutate: findByCode, isPending: isFindingCode } = useRoomByCode();
   const { mutate: joinContributionRoom, isPending: isJoiningContribution } =
@@ -59,20 +60,25 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
     void navigate({ to: '/multi/$roomId', params: { roomId: String(roomId) } });
   };
 
-  const joinByMode = (room: RoomSummary, onSuccess: () => void) => {
+  const joinByMode = (room: RoomSummary, onSuccess: () => void, onError?: () => void) => {
     if (room.mode === 'COOP') {
-      joinCoopRoom(room.roomId, { onSuccess });
+      joinCoopRoom(room.roomId, { onSuccess, onError });
     } else {
-      joinContributionRoom(room.roomId, { onSuccess });
+      joinContributionRoom(room.roomId, { onSuccess, onError });
     }
   };
 
   const handleJoin = (room: RoomSummary) => {
     if (room.roomState === 'IN_GAME') return;
+    setJoinError('');
     if (room.hasPassword) {
       setPasswordRoom({ roomId: room.roomId, mode: room.mode });
     } else {
-      joinByMode(room, () => goToRoom(room.roomId));
+      joinByMode(
+        room,
+        () => goToRoom(room.roomId),
+        () => setJoinError('방 입장에 실패했습니다.')
+      );
     }
   };
 
@@ -98,7 +104,11 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
         if (room.hasPassword) {
           setPasswordRoom({ roomId: room.roomId, mode: room.mode });
         } else {
-          joinByMode(room, () => goToRoom(room.roomId));
+          joinByMode(
+            room,
+            () => goToRoom(room.roomId),
+            () => setCodeError('방 입장에 실패했습니다.')
+          );
         }
       },
       onError: () => setCodeError('존재하지 않는 방 코드입니다.'),
@@ -295,7 +305,10 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
                       {rooms.map((room, idx) => (
                         <tr
                           key={room.roomId}
-                          onClick={() => setSelectedRoom(room)}
+                          onClick={() => {
+                            setSelectedRoom(room);
+                            setJoinError('');
+                          }}
                           onDoubleClick={() => handleJoin(room)}
                           className={`cursor-pointer transition-colors ${
                             selectedRoom?.roomId === room.roomId
@@ -387,6 +400,9 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
                     </div>
                   </div>
                   <div className="border-t border-gray-300 p-2.5">
+                    {joinError && (
+                      <p className="mb-2 text-center text-xs text-red-500">{joinError}</p>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleJoin(selectedRoom)}

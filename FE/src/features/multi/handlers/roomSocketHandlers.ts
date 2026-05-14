@@ -8,14 +8,7 @@
  * ```ts
  * // 예시 — STOMP 구현체 내부에서
  * stompClient.subscribe(`/topic/room/${roomId}`, (frame) => {
- *   const msg = JSON.parse(frame.body) as RoomTopicMessage;
- *   const store = useRoomStore.getState();
- *
- *   switch (msg.type) {
- *     case 'ROOM_STATE':    handleRoomState(msg, store);    break;
- *     case 'PLAYER_JOINED': handlePlayerJoined(msg, store); break;
- *     case 'READY_CHANGED': handleReadyChanged(msg, store); break;
- *   }
+ *   handleRoomTopicMessage(JSON.parse(frame.body), useRoomStore.getState());
  * });
  * ```
  *
@@ -26,6 +19,8 @@
  * ## PUBLISH
  *   - /app/room/{roomId}/ready  → 준비 상태 토글 (파라미터 없음)
  */
+
+import { roomTopicMessageSchema } from '../schemas/room.schema';
 
 import type { useRoomStore } from '../store/roomStore';
 import type {
@@ -69,4 +64,30 @@ export function handlePlayerJoined(msg: PlayerJoinedMessage, store: RoomStoreSta
  */
 export function handleReadyChanged(msg: ReadyChangedMessage, store: RoomStoreState): void {
   store.setMembers(msg.allMembers);
+}
+
+/**
+ * /topic/room/{roomId} 수신 raw 메시지를 검증 후 적절한 핸들러로 위임한다.
+ *
+ * WebSocket 구독 콜백에서 `JSON.parse(frame.body)` 결과를 그대로 전달하면 된다.
+ * 스키마 검증 실패 시 에러 로그만 남기고 UI를 중단하지 않는다 (§3, §8 컨벤션).
+ */
+export function handleRoomTopicMessage(raw: unknown, store: RoomStoreState): void {
+  const result = roomTopicMessageSchema.safeParse(raw);
+  if (!result.success) {
+    console.error('[WS] 방 메시지 파싱 실패:', result.error);
+    return;
+  }
+  const msg = result.data;
+  switch (msg.type) {
+    case 'ROOM_STATE':
+      handleRoomState(msg, store);
+      break;
+    case 'PLAYER_JOINED':
+      handlePlayerJoined(msg, store);
+      break;
+    case 'READY_CHANGED':
+      handleReadyChanged(msg, store);
+      break;
+  }
 }

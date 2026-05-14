@@ -103,3 +103,30 @@ export const joinCoopRoomResponseSchema = z.object({
   members: z.array(roomMemberSchema),
   mapList: z.array(mapInfoSchema),
 });
+
+// ── WebSocket 수신 메시지 스키마 ────────────────────────────────
+// REST API의 roomStateSchema(WAITING|IN_GAME)와 달리 게임 진행 중 상태도 포함
+const wsRoomStateSchema = z.enum(['WAITING', 'COUNTDOWN', 'IN_GAME', 'RESULT']);
+
+export const roomStateMessageSchema = z.object({
+  type: z.literal('ROOM_STATE'),
+  roomState: wsRoomStateSchema,
+  currentPlayers: z.number(),
+  members: z.array(roomMemberSchema),
+});
+
+export const playerJoinedMessageSchema = z.object({
+  type: z.literal('PLAYER_JOINED'),
+  allMembers: z.array(roomMemberSchema),
+});
+
+export const readyChangedMessageSchema = z.object({
+  type: z.literal('READY_CHANGED'),
+  allMembers: z.array(roomMemberSchema),
+});
+
+export const roomTopicMessageSchema = z.discriminatedUnion('type', [
+  roomStateMessageSchema,
+  playerJoinedMessageSchema,
+  readyChangedMessageSchema,
+]);
