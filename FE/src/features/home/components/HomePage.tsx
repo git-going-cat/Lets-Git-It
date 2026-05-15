@@ -28,6 +28,8 @@ import type { Difficulty } from '@/shared/types/game.types';
 interface HomePageProps {
   // 다른 페이지에서 ?modal=... 로 복귀한 경우 첫 렌더에 열어둘 모달. routes 레이어가 주입.
   initialModal: HomeModalType | null;
+  // 대기실에서 나왔을 때 자동으로 열 로비 모드. routes 레이어가 주입.
+  initialLobbyMode: GameMode | null;
   // initialModal 처리 후 URL에서 search param을 제거해 재오픈을 방지. routes 레이어가 주입.
   onUrlCleanup: () => void;
   // 싱글 모드 '게임 시작' 시 routes 레이어가 startSession + setSession을 수행. 실패 시 throw.
@@ -38,22 +40,27 @@ interface HomePageProps {
  * 홈 화면의 배경, 모드 진입, 랭킹/도감/마이페이지 모달 상태를 관리합니다.
  * cross-feature wiring(URL 파라미터, single API 호출)은 routes/-HomeRoute에서 주입받습니다.
  */
-export function HomePage({ initialModal, onUrlCleanup, onStartSingle }: HomePageProps) {
+export function HomePage({
+  initialModal,
+  initialLobbyMode,
+  onUrlCleanup,
+  onStartSingle,
+}: HomePageProps) {
   useBgm();
   // setState in effect를 피하기 위해 useState initializer로 처리.
   const [activeModal, setActiveModal] = useState<HomeModalType | null>(() => initialModal);
   const [isMyPageOpen, setIsMyPageOpen] = useState(false);
-  const [lobbyMode, setLobbyMode] = useState<GameMode | null>(null);
+  const [lobbyMode, setLobbyMode] = useState<GameMode | null>(() => initialLobbyMode);
 
   useEffect(() => {
     void import('@/features/single/components/SinglePage');
   }, []);
 
-  // 모달이 열린 뒤 URL은 깔끔하게 정리한다. (재진입 시 자동 재오픈 방지)
+  // 모달/로비가 열린 뒤 URL은 깔끔하게 정리한다. (재진입 시 자동 재오픈 방지)
   useEffect(() => {
-    if (!initialModal) return;
+    if (!initialModal && !initialLobbyMode) return;
     onUrlCleanup();
-  }, [initialModal, onUrlCleanup]);
+  }, [initialModal, initialLobbyMode, onUrlCleanup]);
 
   const hasOpenModal = activeModal !== null || isMyPageOpen || lobbyMode !== null;
 

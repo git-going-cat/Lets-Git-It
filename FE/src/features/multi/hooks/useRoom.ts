@@ -55,8 +55,10 @@ export function useCoopMaps(enabled = true) {
  * 기여도 뺏기 방을 생성한다. POST /api/v1/rooms/contribution
  */
 export function useCreateContributionRoom() {
+  const initFromContributionCreate = useRoomStore((s) => s.initFromContributionCreate);
   return useMutation({
     mutationFn: (body: CreateContributionRoomRequest) => createContributionRoom(body),
+    onSuccess: (data) => initFromContributionCreate(data),
   });
 }
 
@@ -64,8 +66,10 @@ export function useCreateContributionRoom() {
  * 협력 방을 생성한다. POST /api/v1/rooms/coop
  */
 export function useCreateCoopRoom() {
+  const initFromCoopCreate = useRoomStore((s) => s.initFromCoopCreate);
   return useMutation({
     mutationFn: (body: CreateCoopRoomRequest) => createCoopRoom(body),
+    onSuccess: (data) => initFromCoopCreate(data),
   });
 }
 
@@ -88,6 +92,7 @@ export function useJoinContributionRoom() {
   return useMutation({
     mutationFn: (roomId: number) => joinContributionRoom(roomId),
     onSuccess: (data) => initFromContributionJoin(data),
+    onError: (err) => console.error('[join/contribution] 실패:', err),
   });
 }
 
@@ -99,5 +104,6 @@ export function useJoinCoopRoom() {
   return useMutation({
     mutationFn: (roomId: number) => joinCoopRoom(roomId),
     onSuccess: (data) => initFromCoopJoin(data),
+    onError: (err) => console.error('[join/coop] 실패:', err),
   });
 }

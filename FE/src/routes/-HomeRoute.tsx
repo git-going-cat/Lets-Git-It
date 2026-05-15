@@ -10,10 +10,10 @@ import type { Difficulty } from '@/shared/types/game.types';
 // features/home에서 features/single API/store를 직접 부르면 cross-feature 직접 의존이 된다.
 // FE_CONVENTION §15 wiring 예외에 따라 routes/ 레이어에서 결합한다.
 export default function HomeRoute() {
-  const { modal } = useSearch({ from: '/home' });
+  const { modal, lobby } = useSearch({ from: '/home' });
   const navigate = useNavigate();
 
-  // ?modal=... 진입 후 URL을 깔끔히 정리. 재진입 시 자동 재오픈 방지.
+  // ?modal=... / ?lobby=... 진입 후 URL을 깔끔히 정리. 재진입 시 자동 재오픈 방지.
   const onUrlCleanup = useCallback(() => {
     void navigate({ to: '/home', search: {}, replace: true });
   }, [navigate]);
@@ -28,6 +28,7 @@ export default function HomeRoute() {
   return (
     <HomePage
       initialModal={modal ?? null}
+      initialLobbyMode={lobby ?? null}
       onUrlCleanup={onUrlCleanup}
       onStartSingle={onStartSingle}
     />

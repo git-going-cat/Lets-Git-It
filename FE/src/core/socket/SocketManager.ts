@@ -8,6 +8,9 @@ import type { IMessage, StompSubscription } from '@stomp/stompjs';
 const RECONNECT_DELAY_MS = 5000;
 const INVALID_SOCKET_MESSAGE = Symbol('INVALID_SOCKET_MESSAGE');
 
+type ConnectionEvent = 'connected' | 'disconnected';
+type ConnectionListener = (event: ConnectionEvent) => void;
+
 type PendingSubscription = {
   callback: SocketMessageHandler;
   destination: string;
@@ -28,6 +31,8 @@ class SocketManager {
   private isConnecting = false;
 
   private readonly connectCallbacks = new Set<() => void>();
+
+  private readonly connectionListeners = new Set<ConnectionListener>();
 
   private readonly pendingSubscriptions = new Map<string, PendingSubscription>();
 
@@ -63,12 +68,14 @@ class SocketManager {
       this.queueActiveSubscriptionsForReconnect();
       this.flushPendingSubscriptions();
       this.runConnectCallbacks();
+      this.emitConnectionEvent('connected');
     };
 
     client.onWebSocketClose = () => {
       this.isConnected = false;
       this.isConnecting = false;
       this.queueActiveSubscriptionsForReconnect();
+      this.emitConnectionEvent('disconnected');
       console.warn('[socket] WebSocket connection closed.');
     };
 
@@ -76,6 +83,7 @@ class SocketManager {
       this.isConnected = false;
       this.isConnecting = false;
       this.queueActiveSubscriptionsForReconnect();
+      this.emitConnectionEvent('disconnected');
       console.error('[socket] STOMP error.', {
         body: frame.body,
         message: frame.headers.message,
@@ -206,6 +214,19 @@ class SocketManager {
     callbacks.forEach((callback) => {
       callback();
     });
+  }
+
+  private emitConnectionEvent(event: ConnectionEvent): void {
+    this.connectionListeners.forEach((listener) => listener(event));
+  }
+
+  /**
+   * 소켓 연결/단절 이벤트를 구독한다.
+   * @returns 구독 해제 함수
+   */
+  addConnectionListener(listener: ConnectionListener): () => void {
+    this.connectionListeners.add(listener);
+    return () => this.connectionListeners.delete(listener);
   }
 }
 
