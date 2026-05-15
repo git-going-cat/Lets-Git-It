@@ -1,8 +1,10 @@
 package com.gitcat.letsgitit.domain.room.repository;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -13,15 +15,21 @@ import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.connection.RedisStringCommands;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.data.redis.serializer.SerializationException;
 import org.springframework.stereotype.Repository;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gitcat.letsgitit.domain.room.constants.RoomConstants;
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
@@ -36,7 +44,7 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 
 	private static final long PASSWORD_VERIFIED_TTL_MINUTES = 5;
 
-	// KEYS[1]=memberRoomKey, KEYS[2]=membersKey
+	// KEYS[1]=memberRoomKey, KEYS[2]=membersKey, KEYS[3]=memberMappingsKey
 	// ARGV[1]=roomId, ARGV[2]=memberId, ARGV[3]=serialized memberInfo
 	private static final RedisScript<Long> SAVE_MEMBER_IF_NOT_IN_ANY_ROOM_SCRIPT = RedisScript.of("""
 		if redis.call('EXISTS', KEYS[1]) == 1 then
@@ -44,20 +52,25 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		end
 		redis.call('SET', KEYS[1], ARGV[1])
 		redis.call('HSET', KEYS[2], ARGV[2], ARGV[3])
+		redis.call('SADD', KEYS[3], ARGV[2])
 		return 1
 		""", Long.class);
 
 	private final RedisTemplate<String, Object> gameRedisTemplate;
+	private final StringRedisTemplate gameStringRedisTemplate;
 	private final StringRedisTemplate authStringRedisTemplate;
 	private final ObjectMapper objectMapper;
 
 	public RoomRedisRepositoryImpl(
 		@Qualifier("gameRedisTemplate")
 		RedisTemplate<String, Object> gameRedisTemplate,
+		@Qualifier("gameStringRedisTemplate")
+		StringRedisTemplate gameStringRedisTemplate,
 		@Qualifier("authStringRedisTemplate")
 		StringRedisTemplate authStringRedisTemplate,
 		ObjectMapper objectMapper) {
 		this.gameRedisTemplate = gameRedisTemplate;
+		this.gameStringRedisTemplate = gameStringRedisTemplate;
 		this.authStringRedisTemplate = authStringRedisTemplate;
 		this.objectMapper = objectMapper;
 	}
@@ -114,8 +127,7 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 
 	@Override
 	public Optional<Map<Object, Object>> getRoomInfo(String roomId) {
-		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
-		Map<Object, Object> roomInfo = gameRedisTemplate.opsForHash().entries(key);
+		Map<Object, Object> roomInfo = readRoomInfoFields(roomId);
 		if (roomInfo == null || roomInfo.isEmpty()) {
 			return Optional.empty();
 		}
@@ -126,9 +138,10 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 	public boolean saveMemberIfNotInAnyRoom(String roomId, String memberId, Map<String, Object> memberInfo) {
 		String memberRoomKey = memberRoomKey(memberId);
 		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		Long result = gameRedisTemplate.execute(
+		String memberMappingsKey = roomMemberMappingsKey(roomId);
+		Long result = gameStringRedisTemplate.execute(
 			SAVE_MEMBER_IF_NOT_IN_ANY_ROOM_SCRIPT,
-			List.of(memberRoomKey, membersKey),
+			List.of(memberRoomKey, membersKey, memberMappingsKey),
 			roomId,
 			memberId,
 			toJson(memberInfo));
@@ -136,15 +149,23 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 	}
 
 	@Override
+	public void saveMember(String roomId, String memberId, Map<String, Object> memberInfo) {
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		String memberMappingsKey = roomMemberMappingsKey(roomId);
+		gameStringRedisTemplate.opsForHash().put(membersKey, memberId, toJson(memberInfo));
+		gameStringRedisTemplate.opsForSet().add(memberMappingsKey, memberId);
+	}
+
+	@Override
 	public Map<Object, Object> getMembers(String roomId) {
 		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		return gameRedisTemplate.opsForHash().entries(key);
+		return gameStringRedisTemplate.opsForHash().entries(key);
 	}
 
 	@Override
 	public long getMembersCount(String roomId) {
 		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		Long size = gameRedisTemplate.opsForHash().size(key);
+		Long size = gameStringRedisTemplate.opsForHash().size(key);
 		return size != null ? size : 0L;
 	}
 
@@ -158,7 +179,7 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		String roomIdValue = roomId.toString();
 		String infoKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomIdValue + RoomConstants.ROOM_INFO_KEY_SUFFIX;
 		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomIdValue + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		Map<Object, Object> members = gameRedisTemplate.opsForHash().entries(membersKey);
+		Map<Object, Object> members = gameStringRedisTemplate.opsForHash().entries(membersKey);
 		Object roomCodeObj = gameRedisTemplate.opsForHash().get(infoKey, "roomCode");
 		Object modeObj = gameRedisTemplate.opsForHash().get(infoKey, "mode");
 
@@ -182,8 +203,7 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 			.sorted(Comparator.comparingDouble(t -> t.getScore() != null ? t.getScore() : 0.0))
 			.map(tuple -> {
 				String roomId = String.valueOf(tuple.getValue());
-				String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
-				Map<Object, Object> fields = gameRedisTemplate.opsForHash().entries(key);
+				Map<Object, Object> fields = readRoomInfoFields(roomId);
 				return toCache(roomId, fields);
 			})
 			.filter(Objects::nonNull)
@@ -211,8 +231,7 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 			return Optional.empty();
 		}
 		String roomId = String.valueOf(roomIdObj);
-		String infoKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
-		Map<Object, Object> fields = gameRedisTemplate.opsForHash().entries(infoKey);
+		Map<Object, Object> fields = readRoomInfoFields(roomId);
 		return Optional.ofNullable(toCache(roomId, fields));
 	}
 
@@ -226,25 +245,24 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 	@Override
 	public boolean existsMember(Long roomId, String playerId) {
 		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		return Boolean.TRUE.equals(gameRedisTemplate.opsForHash().hasKey(key, playerId));
+		return Boolean.TRUE.equals(gameStringRedisTemplate.opsForHash().hasKey(key, playerId));
 	}
 
 	@Override
 	public Optional<Long> findJoinedRoomId(String playerId) {
-		Object roomIdObj = gameRedisTemplate.opsForValue().get(memberRoomKey(playerId));
-		if (roomIdObj == null) {
-			return Optional.empty();
-		}
-		return Optional.of(Long.parseLong(String.valueOf(roomIdObj)));
+		String roomIdObj = gameStringRedisTemplate.opsForValue().get(memberRoomKey(playerId));
+		return normalizeRoomIdValue(roomIdObj);
 	}
 
 	@Override
 	public void removeMember(Long roomId, String playerId) {
 		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		gameRedisTemplate.executePipelined(new SessionCallback<Object>() {
+		String memberMappingsKey = roomMemberMappingsKey(roomId.toString());
+		gameStringRedisTemplate.executePipelined(new SessionCallback<Object>() {
 			@Override
 			public <K, V> Object execute(RedisOperations<K, V> operations) throws DataAccessException {
 				operations.opsForHash().delete((K)membersKey, playerId);
+				operations.opsForSet().remove((K)memberMappingsKey, playerId);
 				operations.delete((K)memberRoomKey(playerId));
 				return null;
 			}
@@ -253,9 +271,39 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 
 	@Override
 	public Set<String> findAllMemberIds(Long roomId) {
-		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		Set<Object> keys = gameRedisTemplate.opsForHash().keys(key);
-		return keys.stream().map(String::valueOf).collect(java.util.stream.Collectors.toSet());
+		String roomIdValue = roomId.toString();
+		String memberMappingsKey = roomMemberMappingsKey(roomIdValue);
+		Set<String> members = new HashSet<>();
+		Set<String> indexedMembers = gameStringRedisTemplate.opsForSet().members(memberMappingsKey);
+		if (indexedMembers != null && !indexedMembers.isEmpty()) {
+			members.addAll(indexedMembers);
+			return members;
+		}
+
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomIdValue + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		Set<Object> memberHashKeys = gameStringRedisTemplate.opsForHash().keys(membersKey);
+		if (memberHashKeys != null && !memberHashKeys.isEmpty()) {
+			memberHashKeys.stream()
+				.map(String::valueOf)
+				.forEach(members::add);
+		}
+
+		if (!members.isEmpty()) {
+			gameStringRedisTemplate.opsForSet().add(memberMappingsKey, members.toArray(String[]::new));
+			log.warn("[room] member-mappings index backfilled from members hash. roomId={}, memberCount={}",
+				roomId, members.size());
+			return members;
+		}
+
+		Set<String> legacyMemberIds = findLegacyMappedMemberIds(roomIdValue, Set.of());
+		if (legacyMemberIds.isEmpty()) {
+			return Set.of();
+		}
+
+		gameStringRedisTemplate.opsForSet().add(memberMappingsKey, legacyMemberIds.toArray(String[]::new));
+		log.warn("[room] member-mappings index backfilled from legacy member-room mappings. roomId={}, memberCount={}",
+			roomId, legacyMemberIds.size());
+		return legacyMemberIds;
 	}
 
 	@Override
@@ -269,7 +317,7 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		String roomIdValue = roomId.toString();
 		String infoKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomIdValue + RoomConstants.ROOM_INFO_KEY_SUFFIX;
 		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomIdValue + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		Map<Object, Object> members = gameRedisTemplate.opsForHash().entries(membersKey);
+		Map<Object, Object> members = gameStringRedisTemplate.opsForHash().entries(membersKey);
 		Object roomCodeObj = gameRedisTemplate.opsForHash().get(infoKey, "roomCode");
 		Object modeObj = gameRedisTemplate.opsForHash().get(infoKey, "mode");
 
@@ -291,57 +339,208 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 
 	private void dissolveRoomKeys(String infoKey, String membersKey, Object roomCodeObj, Object modeObj,
 		Map<Object, Object> members, String roomIdValue) {
-		gameRedisTemplate.executePipelined(new SessionCallback<Object>() {
+		String memberMappingsKey = roomMemberMappingsKey(roomIdValue);
+		String roomListKey = modeObj != null ? RoomConstants.ROOM_LIST_KEY_PREFIX + modeObj : null;
+		Set<String> rawMappedMemberIds = gameStringRedisTemplate.opsForSet().members(memberMappingsKey);
+		Set<String> mappedMemberIds = rawMappedMemberIds != null ? new HashSet<>(rawMappedMemberIds) : null;
+		Set<String> knownMemberIds = new HashSet<>();
+		members.keySet().stream()
+			.map(String::valueOf)
+			.forEach(knownMemberIds::add);
+		if (mappedMemberIds != null) {
+			members.keySet().stream()
+				.map(String::valueOf)
+				.forEach(mappedMemberIds::remove);
+			knownMemberIds.addAll(rawMappedMemberIds);
+		}
+
+		Set<String> legacyMappedMemberIds = findLegacyMappedMemberIds(roomIdValue, knownMemberIds);
+		if (!legacyMappedMemberIds.isEmpty()) {
+			log.warn("[room] legacy member-room mappings found during room dissolve. roomId={}, memberCount={}",
+				roomIdValue, legacyMappedMemberIds.size());
+		}
+		gameStringRedisTemplate.executePipelined(new SessionCallback<Object>() {
 			@Override
 			public <K, V> Object execute(RedisOperations<K, V> operations) throws DataAccessException {
 				operations.delete((K)infoKey);
 				operations.delete((K)membersKey);
+				operations.delete((K)memberMappingsKey);
 				if (roomCodeObj != null) {
 					operations.delete((K)(RoomConstants.ROOM_CODE_KEY_PREFIX + roomCodeObj));
-				}
-				if (modeObj != null) {
-					operations.opsForZSet().remove((K)(RoomConstants.ROOM_LIST_KEY_PREFIX + modeObj), roomIdValue);
 				}
 				for (Object memberKey : members.keySet()) {
 					operations.delete((K)memberRoomKey(String.valueOf(memberKey)));
 				}
+				if (mappedMemberIds != null) {
+					for (String memberId : mappedMemberIds) {
+						operations.delete((K)memberRoomKey(memberId));
+					}
+				}
+				for (String memberId : legacyMappedMemberIds) {
+					operations.delete((K)memberRoomKey(memberId));
+				}
 				return null;
 			}
 		});
+		// gameRedisTemplate(ZSet)은 gameStringRedisTemplate 파이프라인과 템플릿이 달라 원자적 처리 불가.
+		// 파이프라인 성공 후 ZSet 삭제 실패 시 room:list:{mode}에 orphan roomId가 남을 수 있으나,
+		// findAll()에서 info hash가 없는 roomId는 null 필터링되므로 서비스 영향 없음.
+		if (roomListKey != null) {
+			gameRedisTemplate.opsForZSet().remove(roomListKey, roomIdValue);
+		}
+	}
+
+	private Set<String> findLegacyMappedMemberIds(String roomIdValue, Set<String> knownMemberIds) {
+		Set<String> legacyMemberIds = gameStringRedisTemplate.execute((RedisCallback<Set<String>>)connection -> {
+			Set<String> discoveredMemberIds = new HashSet<>();
+			ScanOptions options = ScanOptions.scanOptions()
+				.match("member:*:room")
+				.count(1000)
+				.build();
+			RedisStringCommands stringCommands = connection.stringCommands();
+			try (Cursor<byte[]> cursor = connection.scan(options)) {
+				while (cursor.hasNext()) {
+					byte[] keyBytes = cursor.next();
+					byte[] valueBytes = stringCommands.get(keyBytes);
+					if (valueBytes == null) {
+						continue;
+					}
+					Optional<Long> mappedRoomId = normalizeRoomIdValue(new String(valueBytes, StandardCharsets.UTF_8));
+					if (mappedRoomId.isEmpty() || !roomIdValue.equals(String.valueOf(mappedRoomId.get()))) {
+						continue;
+					}
+					String key = new String(keyBytes, StandardCharsets.UTF_8);
+					extractMemberIdFromMemberRoomKey(key)
+						.filter(memberId -> !knownMemberIds.contains(memberId))
+						.ifPresent(discoveredMemberIds::add);
+				}
+			}
+			return discoveredMemberIds;
+		});
+		return legacyMemberIds != null ? legacyMemberIds : Set.of();
+	}
+
+	private Optional<Long> normalizeRoomIdValue(String rawRoomId) {
+		if (rawRoomId == null) {
+			return Optional.empty();
+		}
+
+		String trimmed = rawRoomId.trim();
+		if (trimmed.isEmpty()) {
+			return Optional.empty();
+		}
+
+		try {
+			return Optional.of(Long.parseLong(trimmed));
+		} catch (NumberFormatException ignored) {
+			// fall through to JSON normalization
+		}
+
+		try {
+			JsonNode node = objectMapper.readTree(trimmed);
+			if (node == null || node.isNull()) {
+				return Optional.empty();
+			}
+			if (node.isNumber()) {
+				return Optional.of(node.longValue());
+			}
+			if (node.isTextual()) {
+				return normalizeRoomIdValue(node.asText());
+			}
+			if (node.isArray() && node.size() > 0) {
+				return normalizeRoomIdValue(node.get(node.size() - 1).asText());
+			}
+		} catch (Exception ignored) {
+			// legacy garbage: treat as missing
+		}
+
+		return Optional.empty();
 	}
 
 	private RoomCache toCache(String roomId, Map<Object, Object> fields) {
 		if (fields.isEmpty()) {
 			return null;
 		}
-		Integer maxPlayers = (Integer)fields.get("maxPlayers");
-		Boolean hasPassword = (Boolean)fields.get("hasPassword");
+		Integer maxPlayers = extractInteger(fields, "maxPlayers");
+		Boolean hasPassword = extractBoolean(fields, "hasPassword");
 		if (maxPlayers == null || hasPassword == null) {
 			log.warn("[room] 손상된 방 데이터. roomId={}", roomId);
 			return null;
 		}
 
 		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		int currentPlayers = gameRedisTemplate.opsForHash().size(membersKey).intValue();
+		Long currentPlayers = gameStringRedisTemplate.opsForHash().size(membersKey);
 
 		String selectedMapId = (String)fields.get("selectedMapId");
 		SelectedMapDto selectedMap = selectedMapId == null ? null : new SelectedMapDto(
 			UUID.fromString(selectedMapId),
 			(String)fields.get("selectedMapName"),
-			(Integer)fields.get("selectedMapDifficulty"));
+			extractInteger(fields, "selectedMapDifficulty"));
 		return new RoomCache(
 			Long.parseLong(roomId),
 			(String)fields.get("title"),
 			(String)fields.get("mode"),
-			currentPlayers,
+			currentPlayers != null ? currentPlayers.intValue() : 0,
 			maxPlayers,
 			hasPassword,
 			(String)fields.get("roomState"),
 			selectedMap);
 	}
 
+	private Boolean extractBoolean(Map<Object, Object> fields, String key) {
+		Object val = fields.get(key);
+		if (val == null)
+			return null;
+		if (val instanceof Boolean b)
+			return b;
+		if (val instanceof String s)
+			return Boolean.parseBoolean(s);
+		return null;
+	}
+
+	private Integer extractInteger(Map<Object, Object> fields, String key) {
+		Object val = fields.get(key);
+		if (val == null)
+			return null;
+		if (val instanceof Integer i)
+			return i;
+		if (val instanceof Number n)
+			return n.intValue();
+		if (val instanceof String s) {
+			try {
+				return Integer.parseInt(s);
+			} catch (NumberFormatException e) {
+				return null;
+			}
+		}
+		return null;
+	}
+
 	private String memberRoomKey(String memberId) {
 		return "member:" + memberId + ":room";
+	}
+
+	private String roomMemberMappingsKey(String roomId) {
+		return RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBER_MAPPINGS_KEY_SUFFIX;
+	}
+
+	private Map<Object, Object> readRoomInfoFields(String roomId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		try {
+			return gameRedisTemplate.opsForHash().entries(key);
+		} catch (SerializationException e) {
+			log.warn("[room] room info hash fallback to string template. roomId={}", roomId);
+			return gameStringRedisTemplate.opsForHash().entries(key);
+		}
+	}
+
+	private Optional<String> extractMemberIdFromMemberRoomKey(String key) {
+		String prefix = "member:";
+		String suffix = ":room";
+		if (!key.startsWith(prefix) || !key.endsWith(suffix) || key.length() <= prefix.length() + suffix.length()) {
+			return Optional.empty();
+		}
+		return Optional.of(key.substring(prefix.length(), key.length() - suffix.length()));
 	}
 
 	private String toJson(Map<String, Object> memberInfo) {
