@@ -78,6 +78,12 @@ public enum ErrorCode {
 	COOP_MAP_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "COOP_MAP_NOT_FOUND", "존재하지 않는 협력 맵입니다."),
 	ROOM_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR.value(), "ROOM_CODE_GENERATION_FAILED",
 		"방 코드 생성에 실패했습니다."),
+	MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST.value(), "MESSAGE_TOO_LONG", "메시지가 너무 깁니다."),
+	MESSAGE_EMPTY(HttpStatus.BAD_REQUEST.value(), "MESSAGE_EMPTY", "메시지를 입력해주세요."),
+	NOT_ALL_READY(HttpStatus.BAD_REQUEST.value(), "NOT_ALL_READY", "모든 플레이어가 준비되지 않았습니다."),
+	NOT_ENOUGH_PLAYERS(HttpStatus.BAD_REQUEST.value(), "NOT_ENOUGH_PLAYERS", "협력 모드는 4명이 필요합니다."),
+	GAME_ALREADY_STARTED(HttpStatus.CONFLICT.value(), "GAME_ALREADY_STARTED", "이미 게임이 시작되었습니다."),
+	COMMAND_SET_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "COMMAND_SET_NOT_FOUND", "명령어 세트를 찾을 수 없습니다."),
 
 	// single game session
 	SESSION_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다."),

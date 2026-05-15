@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.BDDMockito.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -18,8 +19,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 
+import com.gitcat.letsgitit.domain.command.dto.response.CommandSetResponse;
+import com.gitcat.letsgitit.domain.command.service.CommandService;
 import com.gitcat.letsgitit.domain.coop.service.CoopService;
+import com.gitcat.letsgitit.domain.member.service.MemberService;
+import com.gitcat.letsgitit.domain.record.service.RecordService;
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
+import com.gitcat.letsgitit.domain.room.dto.request.GameStartRequest;
+import com.gitcat.letsgitit.domain.room.dto.response.GameStartResult;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
 import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
@@ -43,6 +50,15 @@ class RoomServiceImplTest {
 
 	@Mock
 	private CoopService coopService;
+
+	@Mock
+	private CommandService commandService;
+
+	@Mock
+	private MemberService memberService;
+
+	@Mock
+	private RecordService recordService;
 
 	private static final Long ROOM_ID = 1L;
 	private static final UUID MEMBER_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
@@ -225,6 +241,186 @@ class RoomServiceImplTest {
 				.isInstanceOf(BusinessException.class)
 				.extracting(e -> ((BusinessException)e).getErrorCode())
 				.isEqualTo(PLAYER_NOT_FOUND);
+		}
+	}
+
+	@Nested
+	class StartGame {
+
+		private final GameStartRequest request = new GameStartRequest("GAME_START");
+
+		@Test
+		void 방이_없으면_ROOM_NOT_FOUND를_던진다() {
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(false);
+
+			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(ROOM_NOT_FOUND);
+		}
+
+		@Test
+		void 이미_게임_중이면_GAME_ALREADY_STARTED를_던진다() {
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("IN_GAME");
+
+			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(GAME_ALREADY_STARTED);
+		}
+
+		@Test
+		void 방장이_아니면_NOT_HOST를_던진다() {
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(OTHER_ID.toString());
+
+			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(NOT_HOST);
+		}
+
+		@Test
+		void CONTRIBUTION_모드_1명이면_NOT_ENOUGH_PLAYERS를_던진다() {
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
+			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(Set.of(MEMBER_ID.toString()));
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
+
+			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(NOT_ENOUGH_PLAYERS);
+		}
+
+		@Test
+		void COOP_모드_3명이면_NOT_ENOUGH_PLAYERS를_던진다() {
+			UUID p3 = UUID.fromString("cccccccc-0000-0000-0000-000000000003");
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
+			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
+				Set.of(MEMBER_ID.toString(), OTHER_ID.toString(), p3.toString()));
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("COOP");
+
+			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(NOT_ENOUGH_PLAYERS);
+		}
+
+		@Test
+		void 비호스트_멤버가_준비_안되면_NOT_ALL_READY를_던진다() {
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
+			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
+				Set.of(MEMBER_ID.toString(), OTHER_ID.toString()));
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
+			given(roomRedisRepository.countReadyNonHostMembers(ROOM_ID, MEMBER_ID.toString())).willReturn(0L);
+
+			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(NOT_ALL_READY);
+		}
+
+		@Test
+		void CONTRIBUTION_게임_시작_성공_시_IN_GAME으로_상태를_변경하고_토픽을_반환한다() {
+			CommandSetResponse commandSet = new CommandSetResponse(1, "main", List.of());
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
+			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
+				Set.of(MEMBER_ID.toString(), OTHER_ID.toString()));
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
+			given(roomRedisRepository.countReadyNonHostMembers(ROOM_ID, MEMBER_ID.toString())).willReturn(1L);
+			given(memberService.getNicknamesByIds(anyList())).willReturn(
+				Map.of(MEMBER_ID, "방장", OTHER_ID, "플레이어"));
+			given(commandService.getRandomContributionCommandSet()).willReturn(commandSet);
+			given(recordService.getBestRecords(any())).willReturn(List.of());
+
+			GameStartResult result = roomService.startGame(ROOM_ID, MEMBER_ID, request);
+
+			then(roomRedisRepository).should().updateRoomState(ROOM_ID, "IN_GAME");
+			assertThat(result.destination()).isEqualTo("/topic/room/" + ROOM_ID + "/contribution");
+		}
+
+		@Test
+		void COOP_게임_시작_성공_시_IN_GAME으로_상태를_변경하고_토픽을_반환한다() {
+			UUID p3 = UUID.fromString("cccccccc-0000-0000-0000-000000000003");
+			UUID p4 = UUID.fromString("dddddddd-0000-0000-0000-000000000004");
+			String mapId = UUID.randomUUID().toString();
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
+			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
+				Set.of(MEMBER_ID.toString(), OTHER_ID.toString(), p3.toString(), p4.toString()));
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("COOP");
+			given(roomRedisRepository.countReadyNonHostMembers(ROOM_ID, MEMBER_ID.toString())).willReturn(3L);
+			given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
+			given(roomRedisRepository.findSelectedMapId(ROOM_ID)).willReturn(mapId);
+			given(coopService.getGraphPictureByMapId(any())).willReturn("graphData");
+			given(recordService.getBestCoopRecord(any())).willReturn(null);
+
+			GameStartResult result = roomService.startGame(ROOM_ID, MEMBER_ID, request);
+
+			then(roomRedisRepository).should().updateRoomState(ROOM_ID, "IN_GAME");
+			assertThat(result.destination()).isEqualTo("/topic/room/" + ROOM_ID + "/coop");
+		}
+
+		@Test
+		void 데이터_조회_실패_시_WAITING으로_상태를_롤백한다() {
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
+			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
+				Set.of(MEMBER_ID.toString(), OTHER_ID.toString()));
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
+			given(roomRedisRepository.countReadyNonHostMembers(ROOM_ID, MEMBER_ID.toString())).willReturn(1L);
+			given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
+			given(commandService.getRandomContributionCommandSet())
+				.willThrow(new BusinessException(COMMAND_SET_NOT_FOUND));
+
+			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(COMMAND_SET_NOT_FOUND);
+
+			// 선점으로 IN_GAME 변경 후 실패 시 WAITING으로 롤백되어야 한다
+			then(roomRedisRepository).should().updateRoomState(ROOM_ID, "IN_GAME");
+			then(roomRedisRepository).should().updateRoomState(ROOM_ID, "WAITING");
+		}
+
+		@Test
+		void 닉네임_조회_실패_시_WAITING으로_상태를_롤백한다() {
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
+			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
+				Set.of(MEMBER_ID.toString(), OTHER_ID.toString()));
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
+			given(roomRedisRepository.countReadyNonHostMembers(ROOM_ID, MEMBER_ID.toString())).willReturn(1L);
+			given(memberService.getNicknamesByIds(anyList()))
+				.willThrow(new RuntimeException("DB connection failed"));
+
+			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))
+				.isInstanceOf(RuntimeException.class);
+
+			then(roomRedisRepository).should().updateRoomState(ROOM_ID, "IN_GAME");
+			then(roomRedisRepository).should().updateRoomState(ROOM_ID, "WAITING");
 		}
 	}
 
