@@ -8,13 +8,20 @@
  *   - /user/queue/private          → 개인 메시지 (추후 게임 시작 시 사용)
  */
 
-import type { RoomMember, RoomState } from './room.types';
+import type { RoomMember, RoomState, SelectedMap } from './room.types';
 
 // ────────────────────────────────────────────────────────────
 // 메시지 타입 식별자
 // ────────────────────────────────────────────────────────────
 
-export type RoomSocketMessageType = 'ROOM_STATE' | 'PLAYER_JOINED' | 'READY_CHANGED';
+export type RoomSocketMessageType =
+  | 'ROOM_STATE'
+  | 'CONTRIBUTION_ROOM_STATE'
+  | 'COOP_ROOM_STATE'
+  | 'PLAYER_JOINED'
+  | 'READY_CHANGED'
+  | 'PLAYER_LEFT'
+  | 'HOST_DELEGATED';
 
 // ────────────────────────────────────────────────────────────
 // 각 메시지 payload
@@ -49,5 +56,70 @@ export interface ReadyChangedMessage {
   allMembers: RoomMember[];
 }
 
+/**
+ * 플레이어가 방을 나갔을 때 수신
+ * remainMembers로 멤버 목록을 덮어씀
+ */
+export interface PlayerLeftMessage {
+  type: 'PLAYER_LEFT';
+  leftPlayerId: string;
+  leftPlayerNickname: string;
+  remainMembers: RoomMember[];
+}
+
+/**
+ * 방장이 나가서 새 방장이 위임되었을 때 수신
+ * remainMembers로 멤버 목록을 덮어씀
+ */
+export interface HostDelegatedMessage {
+  type: 'HOST_DELEGATED';
+  newHostId: string;
+  newHostNickname: string;
+  remainMembers: RoomMember[];
+}
+
+/**
+ * SUBSCRIBE /topic/room/{roomId} 직후 자동 수신 (재연결 복원용 - 기여도뺏기)
+ * 방의 전체 현재 상태 스냅샷
+ */
+export interface ContributionRoomStateMessage {
+  type: 'CONTRIBUTION_ROOM_STATE';
+  roomId: number;
+  roomCode: string;
+  title: string;
+  mode: 'CONTRIBUTION';
+  roomState: RoomState;
+  currentPlayers: number;
+  maxPlayers: number;
+  hasPassword: boolean;
+  members: RoomMember[];
+}
+
+/**
+ * SUBSCRIBE /topic/room/{roomId} 직후 자동 수신 (재연결 복원용 - 협력)
+ * 방의 전체 현재 상태 스냅샷
+ */
+export interface CoopRoomStateMessage {
+  type: 'COOP_ROOM_STATE';
+  roomId: number;
+  roomCode: string;
+  title: string;
+  teamName: string;
+  mode: 'COOP';
+  roomState: RoomState;
+  currentPlayers: number;
+  maxPlayers: number;
+  hasPassword: boolean;
+  selectedMap: SelectedMap;
+  members: RoomMember[];
+}
+
 /** /topic/room/{roomId} 에서 수신 가능한 모든 메시지 union */
-export type RoomTopicMessage = RoomStateMessage | PlayerJoinedMessage | ReadyChangedMessage;
+export type RoomTopicMessage =
+  | RoomStateMessage
+  | ContributionRoomStateMessage
+  | CoopRoomStateMessage
+  | PlayerJoinedMessage
+  | ReadyChangedMessage
+  | PlayerLeftMessage
+  | HostDelegatedMessage;

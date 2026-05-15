@@ -19,6 +19,7 @@ import { Route as HomeRouteImport } from './routes/home'
 import { Route as CoopRouteImport } from './routes/coop'
 import { Route as ContributionRouteImport } from './routes/contribution'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MultiIndexRouteImport } from './routes/multi.index'
 import { Route as MultiRoomIdRouteImport } from './routes/multi.$roomId'
 import { Route as AuthCallbackGoogleRouteImport } from './routes/auth.callback.google'
 
@@ -72,6 +73,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MultiIndexRoute = MultiIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MultiRoute,
+} as any)
 const MultiRoomIdRoute = MultiRoomIdRouteImport.update({
   id: '/$roomId',
   path: '/$roomId',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/timeattack': typeof TimeattackRoute
   '/tutorial': typeof TutorialRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
+  '/multi/': typeof MultiIndexRoute
   '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
 export interface FileRoutesByTo {
@@ -103,12 +110,12 @@ export interface FileRoutesByTo {
   '/coop': typeof CoopRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
-  '/multi': typeof MultiRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
   '/tutorial': typeof TutorialRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
+  '/multi': typeof MultiIndexRoute
   '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
 export interface FileRoutesById {
@@ -124,6 +131,7 @@ export interface FileRoutesById {
   '/timeattack': typeof TimeattackRoute
   '/tutorial': typeof TutorialRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
+  '/multi/': typeof MultiIndexRoute
   '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
 export interface FileRouteTypes {
@@ -140,6 +148,7 @@ export interface FileRouteTypes {
     | '/timeattack'
     | '/tutorial'
     | '/multi/$roomId'
+    | '/multi/'
     | '/auth/callback/google'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -148,12 +157,12 @@ export interface FileRouteTypes {
     | '/coop'
     | '/home'
     | '/login'
-    | '/multi'
     | '/onboarding'
     | '/single'
     | '/timeattack'
     | '/tutorial'
     | '/multi/$roomId'
+    | '/multi'
     | '/auth/callback/google'
   id:
     | '__root__'
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/timeattack'
     | '/tutorial'
     | '/multi/$roomId'
+    | '/multi/'
     | '/auth/callback/google'
   fileRoutesById: FileRoutesById
 }
@@ -257,6 +267,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/multi/': {
+      id: '/multi/'
+      path: '/'
+      fullPath: '/multi/'
+      preLoaderRoute: typeof MultiIndexRouteImport
+      parentRoute: typeof MultiRoute
+    }
     '/multi/$roomId': {
       id: '/multi/$roomId'
       path: '/$roomId'
@@ -276,10 +293,12 @@ declare module '@tanstack/react-router' {
 
 interface MultiRouteChildren {
   MultiRoomIdRoute: typeof MultiRoomIdRoute
+  MultiIndexRoute: typeof MultiIndexRoute
 }
 
 const MultiRouteChildren: MultiRouteChildren = {
   MultiRoomIdRoute: MultiRoomIdRoute,
+  MultiIndexRoute: MultiIndexRoute,
 }
 
 const MultiRouteWithChildren = MultiRoute._addFileChildren(MultiRouteChildren)

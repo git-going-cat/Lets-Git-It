@@ -65,7 +65,6 @@ const roomMemberSchema = z.object({
   characterOutfitColor: z.string(),
   isReady: z.boolean(),
   isHost: z.boolean(),
-  isMe: z.boolean(),
 });
 
 const mapInfoSchema = z.object({
@@ -126,10 +125,82 @@ export const readyChangedMessageSchema = z.object({
   allMembers: z.array(roomMemberSchema),
 });
 
+export const playerLeftMessageSchema = z.object({
+  type: z.literal('PLAYER_LEFT'),
+  leftPlayerId: z.string(),
+  leftPlayerNickname: z.string(),
+  remainMembers: z.array(roomMemberSchema),
+});
+
+export const hostDelegatedMessageSchema = z.object({
+  type: z.literal('HOST_DELEGATED'),
+  newHostId: z.string(),
+  newHostNickname: z.string(),
+  remainMembers: z.array(roomMemberSchema),
+});
+
+// ── 재연결용 WebSocket 메시지 스키마 ────────────────────────────────
+export const contributionRoomStateMessageSchema = z.object({
+  type: z.literal('CONTRIBUTION_ROOM_STATE'),
+  roomId: z.number(),
+  roomCode: z.string(),
+  title: z.string(),
+  mode: z.literal('CONTRIBUTION'),
+  roomState: wsRoomStateSchema,
+  currentPlayers: z.number(),
+  maxPlayers: z.number(),
+  hasPassword: z.boolean(),
+  members: z.array(roomMemberSchema),
+});
+
+export const coopRoomStateMessageSchema = z.object({
+  type: z.literal('COOP_ROOM_STATE'),
+  roomId: z.number(),
+  roomCode: z.string(),
+  title: z.string(),
+  teamName: z.string(),
+  mode: z.literal('COOP'),
+  roomState: wsRoomStateSchema,
+  currentPlayers: z.number(),
+  maxPlayers: z.number(),
+  hasPassword: z.boolean(),
+  selectedMap: selectedMapSchema,
+  members: z.array(roomMemberSchema),
+});
+
+// ── REST fallback 스키마 ────────────────────────────────
+export const contributionRoomStateResponseSchema = z.object({
+  roomId: z.number(),
+  roomCode: z.string(),
+  title: z.string(),
+  mode: z.literal('CONTRIBUTION'),
+  roomState: roomStateSchema,
+  currentPlayers: z.number(),
+  maxPlayers: z.number(),
+  members: z.array(roomMemberSchema),
+});
+
+export const coopRoomStateResponseSchema = z.object({
+  roomId: z.number(),
+  roomCode: z.string(),
+  title: z.string(),
+  teamName: z.string(),
+  mode: z.literal('COOP'),
+  roomState: roomStateSchema,
+  currentPlayers: z.number(),
+  maxPlayers: z.number(),
+  selectedMap: selectedMapSchema,
+  members: z.array(roomMemberSchema),
+});
+
 export const roomTopicMessageSchema = z.discriminatedUnion('type', [
   roomStateMessageSchema,
+  contributionRoomStateMessageSchema,
+  coopRoomStateMessageSchema,
   playerJoinedMessageSchema,
   readyChangedMessageSchema,
+  playerLeftMessageSchema,
+  hostDelegatedMessageSchema,
 ]);
 
 // ── WebSocket 게임 내 스키마 (공통 채널 + 게임 시작 패킷) ────────────────────────────────
@@ -155,10 +226,6 @@ export const PlayerSchema = z.object({
   isHost: z.boolean(),
 });
 
-export const PlayerWithMeSchema = PlayerSchema.extend({
-  isMe: z.boolean().optional(),
-});
-
 export const RoomStateSchema = z.object({
   type: z.literal('ROOM_STATE'),
   roomId: z.string(),
@@ -175,7 +242,7 @@ export const PlayerJoinedSchema = z.object({
   type: z.literal('PLAYER_JOINED'),
   roomState: z.enum(['WAITING', 'IN_GAME']),
   joinedPlayer: PlayerSchema,
-  allMembers: z.array(PlayerWithMeSchema),
+  allMembers: z.array(PlayerSchema),
 });
 
 export const PlayerLeftSchema = z.object({
@@ -217,7 +284,7 @@ export const HostTransferredSchema = z.object({
   type: z.literal('HOST_TRANSFERRED'),
   newHostId: z.string().uuid(),
   newHostNickname: z.string(),
-  allMembers: z.array(PlayerWithMeSchema),
+  allMembers: z.array(PlayerSchema),
 });
 
 export const ContributionRoomInfoUpdatedSchema = z.object({

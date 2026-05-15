@@ -76,7 +76,6 @@ export interface RoomMember {
   characterOutfitColor: string;
   isReady: boolean;
   isHost: boolean;
-  isMe: boolean;
 }
 
 export interface MapInfo {
@@ -114,4 +113,30 @@ export interface JoinCoopRoomResponse {
   selectedMap: SelectedMap;
   members: RoomMember[];
   mapList: MapInfo[];
+}
+
+/** REST fallback: GET /api/v1/rooms/{roomId}/contribution/state */
+export interface ContributionRoomStateResponse {
+  roomId: number;
+  roomCode: string;
+  title: string;
+  mode: 'CONTRIBUTION';
+  roomState: RoomStatus;
+  currentPlayers: number;
+  maxPlayers: number;
+  members: RoomMember[];
+}
+
+/** REST fallback: GET /api/v1/rooms/{roomId}/coop/state */
+export interface CoopRoomStateResponse {
+  roomId: number;
+  roomCode: string;
+  title: string;
+  teamName: string;
+  mode: 'COOP';
+  roomState: RoomStatus;
+  currentPlayers: number;
+  maxPlayers: number;
+  selectedMap: SelectedMap;
+  members: RoomMember[];
 }

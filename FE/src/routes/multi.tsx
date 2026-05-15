@@ -1,16 +1,18 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
-import { z } from 'zod';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 
-import { MultiLobbyRoute } from '@/features/multi/components/MultiLobbyRoute';
+import bgImage from '@/assets/bg/screen.png';
 
-const searchSchema = z.object({
-  mode: z.enum(['CONTRIBUTION', 'COOP']).optional(),
-});
-
+/** /multi 레이아웃 — 홈 배경 위에 자식 라우트(/multi/, /multi/$roomId)를 Outlet으로 렌더한다. */
 export const Route = createFileRoute('/multi')({
-  validateSearch: searchSchema,
-  beforeLoad: ({ search }) => {
-    if (!search.mode) throw redirect({ to: '/home' });
-  },
-  component: MultiLobbyRoute,
+  component: () => (
+    <div className="relative h-screen w-full overflow-hidden">
+      <img
+        src={bgImage}
+        alt="배경"
+        className="absolute inset-0 h-full w-full object-cover"
+        draggable={false}
+      />
+      <Outlet />
+    </div>
+  ),
 });

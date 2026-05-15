@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import axios from 'axios';
+import { LockKeyhole } from 'lucide-react';
 
 import {
   useJoinContributionRoom,
@@ -13,28 +15,28 @@ interface PasswordModalProps {
   mode: GameMode;
   onClose: () => void;
   onSuccess: (roomId: number) => void;
+  /** 409: 이미 이 방의 멤버 → 재접속 */
+  on409?: (roomId: number) => void;
 }
 
-export default function PasswordModal({ roomId, mode, onClose, onSuccess }: PasswordModalProps) {
+export default function PasswordModal({
+  roomId,
+  mode,
+  onClose,
+  onSuccess,
+  on409,
+}: PasswordModalProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const { mutate: verifyPassword, isPending: isVerifying } = useVerifyRoomPassword();
-  const { mutate: joinContributionRoom, isPending: isJoiningContribution } =
+  const { mutateAsync: verifyPasswordAsync, isPending: isVerifying } = useVerifyRoomPassword();
+  const { mutateAsync: joinContributionRoomAsync, isPending: isJoiningContribution } =
     useJoinContributionRoom();
-  const { mutate: joinCoopRoom, isPending: isJoiningCoop } = useJoinCoopRoom();
+  const { mutateAsync: joinCoopRoomAsync, isPending: isJoiningCoop } = useJoinCoopRoom();
 
   const isPending = isVerifying || isJoiningContribution || isJoiningCoop;
 
-  const joinAfterVerify = () => {
-    const joinFn = mode === 'COOP' ? joinCoopRoom : joinContributionRoom;
-    joinFn(roomId, {
-      onSuccess: () => onSuccess(roomId),
-      onError: () => setError('방 입장에 실패했습니다.'),
-    });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
       setError('비밀번호를 입력하세요.');
@@ -42,13 +44,27 @@ export default function PasswordModal({ roomId, mode, onClose, onSuccess }: Pass
     }
     setError('');
 
-    verifyPassword(
-      { roomId, password },
-      {
-        onSuccess: joinAfterVerify,
-        onError: () => setError('비밀번호가 틀렸습니다.'),
+    try {
+      await verifyPasswordAsync({ roomId, password });
+    } catch {
+      setError('비밀번호가 틀렸습니다.');
+      return;
+    }
+
+    try {
+      if (mode === 'COOP') {
+        await joinCoopRoomAsync(roomId);
+      } else {
+        await joinContributionRoomAsync(roomId);
       }
-    );
+      onSuccess(roomId);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        on409?.(roomId);
+        return;
+      }
+      setError('방 입장에 실패했습니다.');
+    }
   };
 
   return (
@@ -62,7 +78,10 @@ export default function PasswordModal({ roomId, mode, onClose, onSuccess }: Pass
       >
         {/* Header */}
         <div className="flex items-center justify-between bg-[#217346] px-3 py-2">
-          <span className="text-xs font-medium text-white">🔒 비밀번호 입력</span>
+          <div className="flex items-center gap-1">
+            <LockKeyhole className="h-3.5 w-3.5 text-white" />
+            <span className="text-xs font-medium text-white">비밀번호 입력</span>
+          </div>
           <button
             type="button"
             onClick={onClose}

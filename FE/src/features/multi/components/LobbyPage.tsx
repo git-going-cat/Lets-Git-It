@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import axios from 'axios';
 import { Cat, FolderClosed, Gamepad2, LockKeyhole, LockKeyholeOpen } from 'lucide-react';
 
 import {
@@ -8,6 +9,7 @@ import {
   useRoomByCode,
   useRooms,
 } from '../hooks/useRoom';
+import { useRoomStore } from '../store/roomStore';
 
 import CreateRoomModal from './modals/CreateRoomModal';
 import PasswordModal from './modals/PasswordModal';
@@ -39,9 +41,14 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
   const navigate = useNavigate();
   const [currentMode, setCurrentMode] = useState<GameMode>(initialMode);
 
+  const [isMaximized, setIsMaximized] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState<RoomSummary | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [passwordRoom, setPasswordRoom] = useState<{ roomId: number; mode: GameMode } | null>(null);
+  const [passwordRoom, setPasswordRoom] = useState<{
+    roomId: number;
+    mode: GameMode;
+    title: string;
+  } | null>(null);
 
   const isModalOpen = showCreateModal || passwordRoom !== null;
   const { data, status, refetch } = useRooms(currentMode, !isModalOpen);
@@ -60,7 +67,11 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
     void navigate({ to: '/multi/$roomId', params: { roomId: String(roomId) } });
   };
 
-  const joinByMode = (room: RoomSummary, onSuccess: () => void, onError?: () => void) => {
+  const joinByMode = (
+    room: RoomSummary,
+    onSuccess: () => void,
+    onError?: (err: unknown) => void
+  ) => {
     if (room.mode === 'COOP') {
       joinCoopRoom(room.roomId, { onSuccess, onError });
     } else {
@@ -68,16 +79,28 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
     }
   };
 
+  /** 409: 이미 이 방의 멤버 → store 최소 세팅 후 재접속으로 처리 */
+  const handle409OrError = (room: RoomSummary, fallbackMsg: string) => (err: unknown) => {
+    if (axios.isAxiosError(err) && err.response?.status === 409) {
+      useRoomStore
+        .getState()
+        .setPreviewForReconnect({ roomId: room.roomId, title: room.title, mode: room.mode });
+      goToRoom(room.roomId);
+    } else {
+      setJoinError(fallbackMsg);
+    }
+  };
+
   const handleJoin = (room: RoomSummary) => {
     if (room.roomState === 'IN_GAME') return;
     setJoinError('');
     if (room.hasPassword) {
-      setPasswordRoom({ roomId: room.roomId, mode: room.mode });
+      setPasswordRoom({ roomId: room.roomId, mode: room.mode, title: room.title });
     } else {
       joinByMode(
         room,
         () => goToRoom(room.roomId),
-        () => setJoinError('방 입장에 실패했습니다.')
+        handle409OrError(room, '방 입장에 실패했습니다.')
       );
     }
   };
@@ -102,12 +125,12 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
           return;
         }
         if (room.hasPassword) {
-          setPasswordRoom({ roomId: room.roomId, mode: room.mode });
+          setPasswordRoom({ roomId: room.roomId, mode: room.mode, title: room.title });
         } else {
           joinByMode(
             room,
             () => goToRoom(room.roomId),
-            () => setCodeError('방 입장에 실패했습니다.')
+            handle409OrError(room, '방 입장에 실패했습니다.')
           );
         }
       },
@@ -127,7 +150,11 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
         <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
         {/* Excel */}
-        <div className="relative z-10 flex h-160 w-full max-w-245 flex-col overflow-hidden rounded-lg bg-[#f0f0f0] shadow-2xl ring-1 ring-black/10 select-none">
+        <div
+          className={`relative z-10 flex select-none flex-col overflow-hidden rounded-lg bg-[#f0f0f0] shadow-2xl ring-1 ring-black/10 ${
+            isMaximized ? 'h-[calc(100vh-2rem)] w-[calc(100vw-2rem)]' : 'h-160 w-full max-w-245'
+          }`}
+        >
           {/* Title bar */}
           <div className="flex h-9 items-center gap-2 bg-[#217346] px-3">
             <Gamepad2 className="h-4 w-4 text-white/60" />
@@ -145,6 +172,50 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
               </button>
               <button
                 type="button"
+                onClick={() => setIsMaximized((prev) => !prev)}
+                className="flex h-9 w-9 items-center justify-center text-white/85 transition-colors hover:bg-white/15"
+                title={isMaximized ? '이전 크기로 복원' : '최대화'}
+              >
+                {isMaximized ? (
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M4.5 4.5V2.5H9.5V7.5H7.5" stroke="currentColor" strokeWidth="1" />
+                    <rect
+                      x="2.5"
+                      y="4.5"
+                      width="5"
+                      height="5"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                      fill="transparent"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <rect
+                      x="2.5"
+                      y="2.5"
+                      width="7"
+                      height="7"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                    />
+                  </svg>
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={onClose}
                 className="flex h-9 w-9 items-center justify-center text-white/85 transition-colors hover:bg-red-500 hover:text-white"
                 title="닫기"
@@ -159,7 +230,7 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
             {['홈', '삽입', '페이지 레이아웃', '수식', '데이터', '검토', '보기'].map((item) => (
               <span
                 key={item}
-                className={`cursor-pointer rounded-sm px-3 py-1 text-sm ${
+                className={`cursor-pointer rounded-t-sm px-3 py-1 text-sm ${
                   item === '홈'
                     ? 'bg-white font-medium text-[#217346]'
                     : 'text-white/90 hover:bg-white/10'
@@ -269,34 +340,34 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
             <div className="flex flex-1 flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto bg-white">
                 {status === 'pending' ? (
-                  <div className="flex h-full items-center justify-center text-sm text-gray-400">
+                  <div className="flex h-full items-center justify-center text-md text-gray-400">
                     불러오는 중...
                   </div>
                 ) : rooms.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center gap-2 text-gray-400">
                     <Cat className="h-12 w-12" />
-                    <span className="text-sm">방이 없습니다. 첫 번째로 만들어보세요!</span>
+                    <span className="text-md">방이 없습니다. 첫 번째로 만들어보세요!</span>
                   </div>
                 ) : (
                   <table className="w-full table-fixed border-collapse">
                     <thead>
                       <tr>
-                        <th className="sticky top-0 z-10 w-8 border border-[#c8dfd0] bg-[#e8f5ee] px-2 py-1.5 text-center text-xs font-medium text-[#175c35]">
+                        <th className="sticky top-0 z-10 w-8 border border-[#c8dfd0] bg-[#e8f5ee] px-2 py-1.5 text-center text-md font-medium text-[#175c35]">
                           #
                         </th>
-                        <th className="sticky top-0 z-10 border border-[#c8dfd0] bg-[#e8f5ee] px-2.5 py-1.5 text-left text-xs font-medium text-[#175c35]">
+                        <th className="sticky top-0 z-10 border border-[#c8dfd0] bg-[#e8f5ee] px-2.5 py-1.5 text-left text-md font-medium text-[#175c35]">
                           방 제목
                         </th>
-                        <th className="sticky top-0 z-10 w-24 border border-[#c8dfd0] bg-[#e8f5ee] px-2.5 py-1.5 text-center text-xs font-medium text-[#175c35]">
+                        <th className="sticky top-0 z-10 w-30 border border-[#c8dfd0] bg-[#e8f5ee] px-2.5 py-1.5 text-center text-md font-medium text-[#175c35]">
                           모드
                         </th>
-                        <th className="sticky top-0 z-10 w-20 border border-[#c8dfd0] bg-[#e8f5ee] px-2.5 py-1.5 text-center text-xs font-medium text-[#175c35]">
+                        <th className="sticky top-0 z-10 w-20 border border-[#c8dfd0] bg-[#e8f5ee] px-2.5 py-1.5 text-center text-md font-medium text-[#175c35]">
                           인원
                         </th>
-                        <th className="sticky top-0 z-10 w-24 border border-[#c8dfd0] bg-[#e8f5ee] px-2.5 py-1.5 text-center text-xs font-medium text-[#175c35]">
+                        <th className="sticky top-0 z-10 w-24 border border-[#c8dfd0] bg-[#e8f5ee] px-2.5 py-1.5 text-center text-md font-medium text-[#175c35]">
                           상태
                         </th>
-                        <th className="sticky top-0 z-10 w-10 border border-[#c8dfd0] bg-[#e8f5ee] px-2 py-1.5 text-center text-xs font-medium text-[#175c35]">
+                        <th className="sticky top-0 z-10 w-10 border border-[#c8dfd0] bg-[#e8f5ee] px-2 py-1.5 text-center text-md font-medium text-[#175c35]">
                           <LockKeyhole className="mx-auto h-3.5 w-3.5" />
                         </th>
                       </tr>
@@ -318,21 +389,21 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
                               : 'hover:bg-[#f0f7f3]'
                           }`}
                         >
-                          <td className="border border-[#e4ede8] bg-[#f0f7f3] py-2 text-center text-xs text-gray-500">
+                          <td className="border border-[#e4ede8] bg-[#f0f7f3] py-2 text-center text-md text-gray-500">
                             {idx + 1}
                           </td>
-                          <td className="overflow-hidden text-ellipsis whitespace-nowrap border border-[#e4ede8] px-2.5 py-2 text-sm text-gray-800">
+                          <td className="overflow-hidden text-ellipsis whitespace-nowrap border border-[#e4ede8] px-2.5 py-2 text-md text-gray-800">
                             {room.title}
                           </td>
-                          <td className="border border-[#e4ede8] px-2.5 py-2 text-center font-mono text-xs text-gray-600">
+                          <td className="border border-[#e4ede8] px-2.5 py-2 text-center font-mono text-md text-gray-600">
                             {MODE_SHORT[room.mode] ?? room.mode}
                           </td>
-                          <td className="border border-[#e4ede8] px-2.5 py-2 text-center text-sm text-gray-700">
+                          <td className="border border-[#e4ede8] px-2.5 py-2 text-center text-md text-gray-700">
                             {room.currentPlayers}/{room.maxPlayers}
                           </td>
                           <td className="border border-[#e4ede8] px-2.5 py-2 text-center">
                             <span
-                              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
+                              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-md ${
                                 room.roomState === 'WAITING'
                                   ? 'bg-[#e8f5e9] text-[#1b5e20]'
                                   : 'bg-[#f3e5f5] text-[#4a148c]'
@@ -459,6 +530,14 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
           mode={passwordRoom.mode}
           onClose={() => setPasswordRoom(null)}
           onSuccess={(roomId) => goToRoom(roomId)}
+          on409={(roomId) => {
+            useRoomStore.getState().setPreviewForReconnect({
+              roomId,
+              title: passwordRoom!.title,
+              mode: passwordRoom!.mode,
+            });
+            goToRoom(roomId);
+          }}
         />
       )}
     </>
