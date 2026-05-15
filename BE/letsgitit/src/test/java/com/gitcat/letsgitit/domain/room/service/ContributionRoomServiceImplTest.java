@@ -4,6 +4,7 @@ import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.inOrder;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -58,6 +60,9 @@ class ContributionRoomServiceImplTest {
 	private RoomMemberMapper roomMemberMapper;
 
 	@Mock
+	private RoomWebSocketEventPublisher roomWebSocketEventPublisher;
+
+	@Mock
 	private RoomMemberRecoveryService roomMemberRecoveryService;
 
 	@Mock
@@ -75,6 +80,7 @@ class ContributionRoomServiceImplTest {
 
 			Member member = createMember(MEMBER_ID, "dobby");
 			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+
 			given(memberService.findById(MEMBER_ID)).willReturn(member);
 			given(roomCodeGenerator.generate()).willReturn("ABC123");
 			given(roomRedisRepository.reserveRoomCode("ABC123")).willReturn(true);
@@ -217,7 +223,11 @@ class ContributionRoomServiceImplTest {
 			assertThat(response.roomState()).isEqualTo(RoomState.WAITING);
 			assertThat(response.currentPlayers()).isEqualTo(1);
 			assertThat(response.members()).containsExactlyElementsOf(playerInfos);
-			then(rLock).should().unlock();
+
+			InOrder inOrder = inOrder(roomWebSocketEventPublisher, rLock);
+			inOrder.verify(roomWebSocketEventPublisher)
+				.publishPlayerJoined(ROOM_ID, RoomState.WAITING, MEMBER_ID, playerInfos);
+			inOrder.verify(rLock).unlock();
 		}
 	}
 
@@ -275,7 +285,7 @@ class ContributionRoomServiceImplTest {
 		}
 
 		@Test
-		void restores_members_hash_from_member_room_mapping_on_contribution_update() {
+		void 기여도_방_수정_시_member_room_매핑으로_members_hash를_복구한다() {
 			Member member = createMember(MEMBER_ID, "dobby");
 			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, false, null);
 			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
@@ -318,7 +328,7 @@ class ContributionRoomServiceImplTest {
 		}
 
 		@Test
-		void restores_members_hash_from_member_room_mapping_on_contribution_info_fetch() {
+		void 기여도_방_상세_조회_시_member_room_매핑으로_members_hash를_복구한다() {
 			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
 			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
 			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));

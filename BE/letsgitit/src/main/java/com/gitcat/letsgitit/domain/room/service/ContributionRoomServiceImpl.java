@@ -42,6 +42,7 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 	private final RoomRedisRepository roomRedisRepository;
 	private final RoomCodeGenerator roomCodeGenerator;
 	private final RoomMemberMapper roomMemberMapper;
+	private final RoomWebSocketEventPublisher roomWebSocketEventPublisher;
 	private final RoomMemberRecoveryService roomMemberRecoveryService;
 	private final RedissonClient redissonClient;
 
@@ -183,7 +184,13 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 				Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
 				log.info("[room] contribution room joined. roomId={}, memberId={}, currentPlayers={}",
 					roomId, memberId, members.size());
-				return buildJoinContributionRoomResponse(roomId, roomInfo, members);
+				JoinContributionRoomResponse response = buildJoinContributionRoomResponse(roomId, roomInfo, members);
+				roomWebSocketEventPublisher.publishPlayerJoined(
+					roomId,
+					response.roomState(),
+					memberId,
+					response.members());
+				return response;
 			} catch (IllegalStateException e) {
 				log.error("[room] invalid contribution room redis state during join. roomId={}, memberId={}",
 					roomId, memberId, e);

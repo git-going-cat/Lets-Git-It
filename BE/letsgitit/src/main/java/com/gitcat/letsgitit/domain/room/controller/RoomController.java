@@ -119,7 +119,7 @@ public class RoomController implements RoomControllerDocs {
 	Long roomId) {
 		UUID memberId = userDetails.getMemberId();
 		JoinCoopRoomResponse response = coopRoomService.joinCoopRoom(memberId, roomId);
-		return ApiResponse.ok("방 입장 성공", response);
+		return ApiResponse.ok("협력 모드 방 입장 성공", response);
 	}
 
 	@Override

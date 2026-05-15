@@ -4,6 +4,7 @@ import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.inOrder;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -63,6 +65,9 @@ class CoopRoomServiceImplTest {
 
 	@Mock
 	private RoomMemberMapper roomMemberMapper;
+
+	@Mock
+	private RoomWebSocketEventPublisher roomWebSocketEventPublisher;
 
 	@Mock
 	private RoomMemberRecoveryService roomMemberRecoveryService;
@@ -301,7 +306,7 @@ class CoopRoomServiceImplTest {
 		}
 
 		@Test
-		void restores_members_hash_from_member_room_mapping_on_coop_update() {
+		void 협력_방_수정_시_member_room_매핑으로_members_hash를_복구한다() {
 			Member member = createMember(MEMBER_ID, "dobby");
 			UpdateCoopRoomInfoRequest request = new UpdateCoopRoomInfoRequest("새 협력 방", "new-team", false, null,
 				MAP_ID);
@@ -375,11 +380,15 @@ class CoopRoomServiceImplTest {
 			assertThat(response.roomCode()).isEqualTo("COOP12");
 			assertThat(response.selectedMap()).isEqualTo(selectedMap);
 			assertThat(response.members()).containsExactlyElementsOf(playerInfos);
-			then(rLock).should().unlock();
+
+			InOrder inOrder = inOrder(roomWebSocketEventPublisher, rLock);
+			inOrder.verify(roomWebSocketEventPublisher)
+				.publishPlayerJoined(ROOM_ID, RoomState.WAITING, MEMBER_ID, playerInfos);
+			inOrder.verify(rLock).unlock();
 		}
 
 		@Test
-		void restores_members_hash_from_member_room_mapping_on_coop_info_fetch() {
+		void 협력_방_상세_조회_시_member_room_매핑으로_members_hash를_복구한다() {
 			Member member = createMember(MEMBER_ID, "dobby");
 			Map<Object, Object> roomInfo = waitingCoopRoomInfo();
 			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
