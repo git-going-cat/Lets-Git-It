@@ -3,7 +3,7 @@ package com.gitcat.letsgitit.global.websocket.dto;
 public record ForceDisconnectResponse(
 	String type,
 	String code,
-	String message) {
+	String message) implements BaseWebSocketResponse {
 
 	public static ForceDisconnectResponse loggedOut() {
 		return new ForceDisconnectResponse(
