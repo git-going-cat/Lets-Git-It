@@ -2,9 +2,6 @@ package com.gitcat.letsgitit.domain.room.service;
 
 import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -52,25 +49,11 @@ public class RoomServiceImpl implements RoomService {
 			throw new BusinessException(ROOM_NOT_FOUND);
 		}
 		String stored = roomRedisRepository.findPasswordById(roomId);
-		if (!sha256(password).equals(stored)) {
+		if (!password.equals(stored)) {
 			throw new BusinessException(INVALID_PASSWORD);
 		}
 		roomRedisRepository.savePasswordVerified(memberId.toString(), roomId);
 		log.info("[room] 비밀번호 검증 완료. roomId={}, memberId={}", roomId, memberId);
-	}
-
-	private static String sha256(String input) {
-		try {
-			byte[] bytes = MessageDigest.getInstance("SHA-256")
-				.digest(input.getBytes(StandardCharsets.UTF_8));
-			StringBuilder sb = new StringBuilder();
-			for (byte b : bytes) {
-				sb.append(String.format("%02x", b));
-			}
-			return sb.toString();
-		} catch (NoSuchAlgorithmException e) {
-			throw new IllegalStateException(e);
-		}
 	}
 
 	@Override
