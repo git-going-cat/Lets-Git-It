@@ -1,14 +1,51 @@
 package com.gitcat.letsgitit.domain.room.repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
+import com.gitcat.letsgitit.global.enums.GameMode;
 
 public interface RoomRedisRepository {
 
-	// room:list ZSet에서 전체 roomId 조회 후 각 room:{id}:info Hash를 읽어 반환
+	// ── 방 생성/코드 관련 ─────────────────────────────────────────────────────
+
+	Long generateRoomId();
+
+	boolean reserveRoomCode(String roomCode);
+
+	void confirmRoomCode(String roomCode, String roomId);
+
+	void deleteRoomCode(String roomCode);
+
+	// ── 방 정보 Hash (room:{roomId}:info) ────────────────────────────────────
+
+	void saveRoomInfo(String roomId, Map<String, Object> roomInfo);
+
+	void updateRoomInfo(String roomId, Map<String, Object> roomInfo);
+
+	Optional<Map<Object, Object>> getRoomInfo(String roomId);
+
+	// ── 멤버 Hash (room:{roomId}:members) ────────────────────────────────────
+
+	boolean saveMemberIfNotInAnyRoom(String roomId, String memberId, Map<String, Object> memberInfo);
+
+	Map<Object, Object> getMembers(String roomId);
+
+	long getMembersCount(String roomId);
+
+	// ── 방 목록 ZSet (room:list:{MODE}) ──────────────────────────────────────
+
+	void addRoomToList(GameMode mode, String roomId, double score);
+
+	// ── 방 삭제 (생성 실패 롤백용) ───────────────────────────────────────────
+
+	void deleteRoom(Long roomId);
+
+	// ── room:list ZSet에서 전체 roomId 조회 후 각 room:{id}:info Hash를 읽어 반환
+
 	List<RoomCache> findAll();
 
 	// room:{roomId}:info Hash 존재 여부 확인 — 방 존재 검증 시 사용
@@ -26,6 +63,9 @@ public interface RoomRedisRepository {
 	// room:{roomId}:members Hash에 해당 playerId key 존재 여부 확인
 	boolean existsMember(Long roomId, String playerId);
 
+	// 특정 플레이어가 현재 참여 중인 방 조회
+	Optional<Long> findJoinedRoomId(String playerId);
+
 	// room:{roomId}:members Hash에서 playerId 제거 + currentPlayers 감소
 	void removeMember(Long roomId, String playerId);
 
@@ -40,4 +80,7 @@ public interface RoomRedisRepository {
 
 	// room:{roomId}:password:verified:{memberId} String 저장 (TTL: 5분) — 비밀방 입장 전 검증 완료 표시
 	void savePasswordVerified(String memberId, Long roomId);
+
+	// room:{roomId}:password:verified:{memberId} String 존재 여부 조회 — 비밀방 입장 가능 여부 확인
+	boolean isPasswordVerified(String memberId, Long roomId);
 }
