@@ -46,6 +46,7 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 	private final RoomRedisRepository roomRedisRepository;
 	private final RoomCodeGenerator roomCodeGenerator;
 	private final RoomMemberMapper roomMemberMapper;
+	private final RoomWebSocketEventPublisher roomWebSocketEventPublisher;
 	private final RoomMemberRecoveryService roomMemberRecoveryService;
 	private final RedissonClient redissonClient;
 
@@ -196,7 +197,13 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 				log.info("[room] coop room joined. roomId={}, memberId={}, currentPlayers={}", roomId, memberId,
 					members.size());
 
-				return buildJoinCoopRoomResponse(roomId, roomInfo, selectedMap, members);
+				JoinCoopRoomResponse response = buildJoinCoopRoomResponse(roomId, roomInfo, selectedMap, members);
+				roomWebSocketEventPublisher.publishPlayerJoined(
+					roomId,
+					response.roomState(),
+					memberId,
+					response.members());
+				return response;
 			} catch (IllegalStateException e) {
 				log.error("[room] invalid coop room redis state during join. roomId={}, memberId={}", roomId,
 					memberId, e);
