@@ -46,6 +46,7 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 	private final RoomRedisRepository roomRedisRepository;
 	private final RoomCodeGenerator roomCodeGenerator;
 	private final RoomMemberMapper roomMemberMapper;
+	private final RoomMemberRecoveryService roomMemberRecoveryService;
 	private final RedissonClient redissonClient;
 
 	@Override
@@ -126,6 +127,12 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			try {
 				validateCoopRoomMode(roomInfo, roomId, memberId, "join");
 
+				if (roomRedisRepository.existsMember(roomId, memberId.toString())) {
+					log.warn("[room] coop room join rejected: already in room. roomId={}, memberId={}", roomId,
+						memberId);
+					throw new BusinessException(ALREADY_IN_ROOM);
+				}
+
 				boolean hasPassword = RoomRedisReader.readBoolean(roomInfo, "hasPassword");
 				if (hasPassword && !roomRedisRepository.isPasswordVerified(memberId.toString(), roomId)) {
 					log.warn("[room] coop room join rejected: password not verified. roomId={}, memberId={}",
@@ -166,10 +173,18 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 							memberId);
 						throw new BusinessException(ALREADY_IN_ROOM);
 					}
-					log.warn(
-						"[room] coop room join rejected: already in another room. roomId={}, memberId={}, joinedRoomId={}",
-						roomId, memberId, joinedRoomId.orElse(null));
-					throw new BusinessException(ALREADY_IN_ANOTHER_ROOM);
+					if (roomMemberRecoveryService.leavePreviousRoomIfNecessary(memberId, roomId, "coop")) {
+						memberAdded = roomRedisRepository.saveMemberIfNotInAnyRoom(
+							roomId.toString(),
+							memberId.toString(),
+							roomMemberMapper.toMemberInfo(member, false));
+					}
+					if (!memberAdded) {
+						log.warn(
+							"[room] coop room join rejected: already in another room. roomId={}, memberId={}, joinedRoomId={}",
+							roomId, memberId, joinedRoomId.orElse(null));
+						throw new BusinessException(ALREADY_IN_ANOTHER_ROOM);
+					}
 				}
 
 				// 6. selectedMapId 로 맵 정보를 조회한다.
@@ -207,7 +222,7 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 		try {
 			validateCoopRoomMode(roomInfo, roomId, memberId, "update");
 
-			if (!roomRedisRepository.existsMember(roomId, memberId.toString())) {
+			if (!roomMemberRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "coop")) {
 				log.warn("[room] coop room update rejected: member not in room. roomId={}, memberId={}", roomId,
 					memberId);
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);
@@ -244,7 +259,7 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 		try {
 			validateCoopRoomMode(roomInfo, roomId, memberId, "info fetch");
 
-			if (!roomRedisRepository.existsMember(roomId, memberId.toString())) {
+			if (!roomMemberRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "coop")) {
 				log.warn("[room] coop room info rejected: member not in room. roomId={}, memberId={}", roomId,
 					memberId);
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);

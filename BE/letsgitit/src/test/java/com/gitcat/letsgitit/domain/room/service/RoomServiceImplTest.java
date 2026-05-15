@@ -261,6 +261,21 @@ class RoomServiceImplTest {
 		}
 
 		@Test
+		void memberMappings가_비어있어도_members_Hash기반_fallback으로_방장을_위임한다() {
+			String newHostId = OTHER_ID.toString();
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
+			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(Set.of(newHostId));
+
+			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
+
+			then(roomRedisRepository).should().updateHostId(ROOM_ID, newHostId);
+			then(roomRedisRepository).should(never()).dissolveRoom(any());
+		}
+
+		@Test
 		void 방장이_나가고_남은_멤버가_없으면_방을_해산한다() {
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
 			given(redissonClient.getLock(anyString())).willReturn(rLock);
@@ -289,11 +304,25 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
 			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
+			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> roomService.leaveRoom(ROOM_ID, MEMBER_ID))
 				.isInstanceOf(BusinessException.class)
 				.extracting(e -> ((BusinessException)e).getErrorCode())
 				.isEqualTo(PLAYER_NOT_IN_ROOM);
+		}
+
+		@Test
+		void leaves_room_when_member_room_mapping_matches_even_if_members_hash_is_missing() {
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
+			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.of(ROOM_ID));
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(OTHER_ID.toString());
+
+			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
+
+			then(roomRedisRepository).should().removeMember(ROOM_ID, MEMBER_ID.toString());
 		}
 	}
 }
