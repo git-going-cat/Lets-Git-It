@@ -1036,6 +1036,17 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 ## 5. 기여도 뺏기 모드
 
+### 고양이(CAT) 기여도 규칙
+
+제한 시간 내 아무도 입력하지 못해 만료(miss)된 명령어의 기여도는 고양이(`[CAT]`)에게 귀속된다.
+
+- `SCORE_UPDATE` / `COMMAND_EXPIRED` / `CONTRIBUTION_GAME_END`의 `scores` 및 `rankings` 배열에 고양이가 항상 포함된다.
+- 고양이 항목: `playerId: null`, `nickname: "[CAT]"`
+- **기여도 계산 기준**: 분모는 "성공 여부와 무관하게 지금까지 등장한 전체 명령어 수"
+  - 플레이어 기여도(%) = 해당 플레이어 성공 명령어 수 / 전체 등장 명령어 수 × 100
+  - 고양이 기여도(%) = 만료된 명령어 수 / 전체 등장 명령어 수 × 100
+  - 모든 플레이어 + 고양이의 기여도 합계는 100%
+
 ### 5-1. CONTRIBUTION_INPUT
 
 - 발행: `/app/room/{roomId}/contribution/commands`
@@ -1096,23 +1107,23 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 - 경로: `/topic/room/{roomId}/contribution` (브로드캐스트)
 
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| `type` | String | `"SCORE_UPDATE"` 고정 |
-| `gameSessionId` | UUID | 현재 게임 세션 ID |
-| `requestId` | UUID | 요청-응답 매칭용 클라이언트 요청 ID |
-| `serverTime` | Long | 서버 응답 생성 시각 |
-| `commandSequence` | Integer | 완료된 명령어 seq |
-| `winnerId` | UUID | 정답 플레이어 ID |
-| `scores` | Array | 전체 플레이어 현황 |
-| `scores[].playerId` | UUID | 플레이어 ID |
-| `scores[].nickname` | String | 플레이어 닉네임 |
-| `scores[].contribution` | Integer | 현재 기여도 (%) |
-| `scores[].rank` | Integer | 현재 순위 |
-| `progress` | Object | 전체 진행도 |
-| `progress.current` | Integer | 완료된 명령어 수 |
-| `progress.total` | Integer | 전체 명령어 수 |
-| `progress.percent` | Integer | 진행률 퍼센트 |
+| 필드 | 타입 | 설명                           |
+| --- | --- |------------------------------|
+| `type` | String | `"SCORE_UPDATE"` 고정          |
+| `gameSessionId` | UUID | 현재 게임 세션 ID                  |
+| `requestId` | UUID | 요청-응답 매칭용 클라이언트 요청 ID        |
+| `serverTime` | Long | 서버 응답 생성 시각                  |
+| `commandSequence` | Integer | 완료된 명령어 seq                  |
+| `winnerId` | UUID | 정답 플레이어 ID                   |
+| `scores` | Array | 전체 플레이어 현황                   |
+| `scores[].playerId` | UUID | 플레이어 ID. 고양이라면 null.         |
+| `scores[].nickname` | String | 플레이어 닉네임. 고양이라면 [CAT] 으로 고정. |
+| `scores[].contribution` | Integer | 현재 기여도 (%)                   |
+| `scores[].rank` | Integer | 현재 순위                        |
+| `progress` | Object | 전체 진행도                       |
+| `progress.current` | Integer | 완료된 명령어 수                    |
+| `progress.total` | Integer | 전체 명령어 수                     |
+| `progress.percent` | Integer | 진행률 퍼센트                      |
 
 ```json
 {
@@ -1126,7 +1137,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
     { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "contribution": 40, "rank": 1 },
     { "playerId": "550e8400-e29b-41d4-a716-446655440001", "nickname": "alice", "contribution": 35, "rank": 2 },
     { "playerId": "550e8400-e29b-41d4-a716-446655440002", "nickname": "bob",   "contribution": 25, "rank": 3 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440003", "nickname": "carol", "contribution": 0,  "rank": 4 }
+    { "playerId": "550e8400-e29b-41d4-a716-446655440003", "nickname": "carol", "contribution": 10,  "rank": 4 },
+    { "playerId": null, "nickname": "[CAT]", "contribution": 0, "rank": 5 }
   ],
   "progress": {
     "current": 6,
@@ -1197,21 +1209,21 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 #### Response
 
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| `type` | String | `"COMMAND_EXPIRED"` 고정 |
-| `gameSessionId` | UUID | 현재 게임 세션 ID |
-| `serverTime` | Long | 서버 응답 생성 시각 |
-| `commandSequence` | Integer | 만료된 명령어 seq |
-| `scores` | Array | 전체 기여도 목록 |
-| `scores[].playerId` | UUID | 플레이어 ID |
-| `scores[].nickname` | String | 닉네임 |
-| `scores[].contribution` | Integer | 현재 기여도 |
+| 필드 | 타입 | 설명                             |
+| --- | --- |--------------------------------|
+| `type` | String | `"COMMAND_EXPIRED"` 고정         |
+| `gameSessionId` | UUID | 현재 게임 세션 ID                    |
+| `serverTime` | Long | 서버 응답 생성 시각                    |
+| `commandSequence` | Integer | 만료된 명령어 seq                    |
+| `scores` | Array | 전체 기여도 목록                      |
+| `scores[].playerId` | UUID | 플레이어 ID. 고양이라면 null.           |
+| `scores[].nickname` | String | 닉네임. 고양이는 [CAT] 으로 고정.         |
+| `scores[].contribution` | Integer | 현재 기여도                         |
 | `scores[].rank` | Integer | 현재 순위 (동점이면 동일 순위, 다음 순위는 건너뜀) |
-| `progress` | Object | 진행도 |
-| `progress.current` | Integer | 완료된 명령어 수 |
-| `progress.total` | Integer | 전체 명령어 수 |
-| `progress.percent` | Integer | 진행률 퍼센트 |
+| `progress` | Object | 진행도                            |
+| `progress.current` | Integer | 완료된 명령어 수                      |
+| `progress.total` | Integer | 전체 명령어 수                       |
+| `progress.percent` | Integer | 진행률 퍼센트                        |
 
 ```json
 {
@@ -1220,7 +1232,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "serverTime": 1714567894000,
   "commandSequence": 3,
   "scores": [
-    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "contribution": 40, "rank": 1 }
+    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "contribution": 40, "rank": 1 },
+    { "playerId": null, "nickname": "[CAT]", "contribution": 25, "rank": 2 }
   ],
   "progress": {
     "current": 10,
@@ -1246,22 +1259,23 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 1. `contribution` 내림차순
 2. 플레이 횟수 오름차순
 - 동점이면 동일 순위를 부여하고 다음 순위는 건너뛴다.
+- 고양이(`[CAT]`)도 순위에 포함된다. 고양이가 1등이면 `winnerVideoTarget`은 `null`.
 
 #### Response: 정상 종료
 
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| `type` | String | `"CONTRIBUTION_GAME_END"` 고정 |
-| `gameSessionId` | UUID | 현재 게임 세션 ID |
-| `serverTime` | Long | 서버 응답 생성 시각 |
-| `isSuccess` | Boolean | 정상 종료 여부 |
-| `reason` | String | 종료 사유 (`GAME_COMPLETED`) |
-| `rankings` | Array | 최종 순위 목록 |
-| `rankings[].rank` | Integer | 최종 순위 |
-| `rankings[].playerId` | UUID | 플레이어 ID |
-| `rankings[].nickname` | String | 플레이어 닉네임 |
-| `rankings[].contribution` | Integer | 최종 기여도 (%) |
-| `winnerVideoTarget` | UUID | 탈출 영상 대상 플레이어 ID (1등) |
+| 필드 | 타입 | 설명                                      |
+| --- | --- |-----------------------------------------|
+| `type` | String | `"CONTRIBUTION_GAME_END"` 고정            |
+| `gameSessionId` | UUID | 현재 게임 세션 ID                             |
+| `serverTime` | Long | 서버 응답 생성 시각                             |
+| `isSuccess` | Boolean | 정상 종료 여부                                |
+| `reason` | String | 종료 사유 (`GAME_COMPLETED`)                |
+| `rankings` | Array | 최종 순위 목록                                |
+| `rankings[].rank` | Integer | 최종 순위                                   |
+| `rankings[].playerId` | UUID | 플레이어 ID. 고양이라면 null                               |
+| `rankings[].nickname` | String | 플레이어 닉네임. 고양이는 [CAT] 으로 고정.             |
+| `rankings[].contribution` | Integer | 최종 기여도 (%)                              |
+| `winnerVideoTarget` | UUID | 탈출 영상 대상 플레이어 ID (1등). 고양이가 1등이라면 null. |
 
 ```json
 {
@@ -1274,7 +1288,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
     { "rank": 1, "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby",  "contribution": 40 },
     { "rank": 2, "playerId": "661f9511-f30c-52e5-b827-557766551111", "nickname": "alice",  "contribution": 35 },
     { "rank": 3, "playerId": "772g0622-g41d-63f6-c938-668877662222", "nickname": "bob",    "contribution": 25 },
-    { "rank": 4, "playerId": "883h1733-h52e-74g7-d049-779988773333", "nickname": "carol",  "contribution": 0  }
+    { "rank": 4, "playerId": "883h1733-h52e-74g7-d049-779988773333", "nickname": "carol",  "contribution": 10  },
+    { "rank": 5, "playerId": null, "nickname": "[CAT]", "contribution": 5 }
   ],
   "winnerVideoTarget": "550e8400-e29b-41d4-a716-446655440000"
 }
