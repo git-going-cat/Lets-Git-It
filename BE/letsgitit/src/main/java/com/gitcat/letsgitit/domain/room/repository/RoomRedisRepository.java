@@ -103,4 +103,10 @@ public interface RoomRedisRepository {
 
 	// room:{roomId}:info Hash의 selectedMapId 필드 단건 조회 — 협력 모드 맵 식별용
 	String findSelectedMapId(Long roomId);
+
+	// room:{roomId}:members Hash의 특정 playerId 의 isReady 필드를 갱신
+	void updateMemberIsReady(String roomId, String memberId, boolean isReady);
+
+	// room:{roomId}:members Hash의 특정 playerId 의 isHost=true, isReady=true 갱신 — 방장 위임 시 호출
+	void updateMemberToHost(String roomId, String memberId);
 }

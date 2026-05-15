@@ -12,6 +12,7 @@ public record ContributionRoomInfoResponse(
 	GameMode mode,
 	RoomState roomState,
 	Integer currentPlayers,
+	Boolean hasPassword,
 	Integer maxPlayers,
 	List<PlayerInfoDto> members) {
 }

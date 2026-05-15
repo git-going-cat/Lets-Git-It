@@ -58,6 +58,7 @@ public enum ErrorCode {
 	ROOM_MODE_MISMATCH(HttpStatus.BAD_REQUEST.value(), "ROOM_MODE_MISMATCH", "요청한 방 모드와 실제 방 모드가 일치하지 않습니다."),
 	INVALID_PASSWORD(HttpStatus.BAD_REQUEST.value(), "INVALID_PASSWORD", "비밀번호가 일치하지 않습니다."),
 	NOT_HOST(HttpStatus.FORBIDDEN.value(), "NOT_HOST", "방장만 수행할 수 있습니다."),
+	HOST_ALWAYS_READY(HttpStatus.BAD_REQUEST.value(), "HOST_ALWAYS_READY", "방장은 항상 준비 완료 상태입니다."),
 	PLAYER_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "PLAYER_NOT_FOUND", "해당 플레이어를 찾을 수 없습니다."),
 	PLAYER_NOT_IN_ROOM(HttpStatus.FORBIDDEN.value(), "PLAYER_NOT_IN_ROOM", "해당 방에 참여하지 않은 플레이어입니다."),
 	ALREADY_IN_ROOM(HttpStatus.CONFLICT.value(), "ALREADY_IN_ROOM", "이미 해당 방에 참여 중입니다."),

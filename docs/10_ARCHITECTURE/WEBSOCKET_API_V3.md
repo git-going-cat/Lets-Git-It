@@ -343,13 +343,11 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | `type` | String | Y | `"READY_UPDATE"` 고정 |
-| `nickname` | String | Y | 플레이어 닉네임 |
 | `isReady` | Boolean | Y | 준비 여부 |
 
 ```json
 {
   "type": "READY_UPDATE",
-  "nickname": "dobby",
   "isReady": true
 }
 ```
@@ -381,8 +379,9 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 코드 | 설명 |
 | --- | --- |
 | `ROOM_NOT_FOUND` | 방이 존재하지 않음 |
-| `GAME_ALREADY_STARTED` | 이미 게임이 시작됨 |
+| `ROOM_IN_GAME` | 이미 게임이 시작됨 |
 | `PLAYER_NOT_IN_ROOM` | 방에 속하지 않은 플레이어의 요청 |
+| `HOST_ALWAYS_READY` | 방장은 항상 준비 완료 상태 |
 
 ---
 
@@ -1730,7 +1729,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | --- | --- |
 | 공통 에러코드 | `UNAUTHORIZED`, `INVALID_REQUEST` 추가 |
 | 4-0 (신규) | `ROOM_STATE` 재연결 상태 동기화 이벤트 추가 |
-| 4-1 READY_UPDATE | Request에서 `playerId` 제거. 에러에 `PLAYER_NOT_IN_ROOM` 추가 |
+| 4-1 READY_UPDATE | Request에서 `playerId` 제거. Request에서 `nickname` 제거. 에러에 `ROOM_IN_GAME`, `PLAYER_NOT_IN_ROOM`, `HOST_ALWAYS_READY` 추가 |
 | 4-2 GAME_START | Request에서 `playerId` 제거. 각 모드 시작 응답에 `serverTime`, `gameSessionId`, `players` 추가. 기여도에 `initialBranch`, 협력에 `startGraphPicture` 추가 |
 | 4-3 KICK | 발행(Request) 없음 — REST API 처리로 이전. `KICKED.roomId` 타입 UUID→Long |
 | 4-4 LEAVE | 발행(Request) 없음 — REST API 처리로 이전. `playerId`→`leftPlayerId`, `nickname`→`leftPlayerNickname` |
