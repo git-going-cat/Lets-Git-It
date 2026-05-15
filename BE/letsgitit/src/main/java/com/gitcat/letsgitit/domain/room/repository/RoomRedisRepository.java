@@ -14,7 +14,7 @@ public interface RoomRedisRepository {
 	// room:{roomId}:info Hash 존재 여부 확인 — 방 존재 검증 시 사용
 	boolean existsById(Long roomId);
 
-	// room:{roomId}:info Hash의 password 필드 단건 조회 — 비밀번호 검증 시 사용
+	// room:{roomId}:info Hash의 password 필드 단건 조회 — 평문 비밀번호 검증 시 사용
 	String findPasswordById(Long roomId);
 
 	// room:code:{code} String 역인덱스로 roomId 조회 후 room:{id}:info Hash 반환

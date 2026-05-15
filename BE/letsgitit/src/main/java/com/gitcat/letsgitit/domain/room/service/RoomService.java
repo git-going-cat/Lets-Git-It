@@ -15,7 +15,7 @@ public interface RoomService {
 	// 협력 맵 목록 조회
 	CoopMapListResponse getCoopMaps();
 
-	// 비밀방 입장 전 비밀번호 검증 — 불일치 시 INVALID_PASSWORD, 성공 시 verified 상태 Redis 저장
+	// 비밀방 입장 전 비밀번호 평문 검증 — 불일치 시 INVALID_PASSWORD, 성공 시 verified 상태 Redis 저장
 	void verifyRoomPassword(Long roomId, String password, UUID memberId);
 
 	// 방 코드로 단건 조회 — 없으면 ROOM_NOT_FOUND, 게임 중이면 ROOM_IN_GAME

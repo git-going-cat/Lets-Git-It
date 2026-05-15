@@ -96,9 +96,9 @@ class RoomRedisRepositoryImplTest {
 		@Test
 		void password_필드가_있으면_값을_반환한다() {
 			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
-			given(hashOps.get(INFO_KEY, "password")).willReturn("hashedpw");
+			given(hashOps.get(INFO_KEY, "password")).willReturn("plainpw");
 
-			assertThat(repository.findPasswordById(ROOM_ID)).isEqualTo("hashedpw");
+			assertThat(repository.findPasswordById(ROOM_ID)).isEqualTo("plainpw");
 		}
 
 		@Test
