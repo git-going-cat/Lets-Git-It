@@ -457,6 +457,55 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		return Optional.empty();
 	}
 
+	@Override
+	public String findRoomStateById(Long roomId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		Object value = gameRedisTemplate.opsForHash().get(key, "roomState");
+		return value == null ? null : String.valueOf(value);
+	}
+
+	@Override
+	public String findModeById(Long roomId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		Object value = gameRedisTemplate.opsForHash().get(key, "mode");
+		return value == null ? null : String.valueOf(value);
+	}
+
+	@Override
+	public long countReadyNonHostMembers(Long roomId, String hostId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		return gameStringRedisTemplate.opsForHash().entries(key).entrySet().stream()
+			.filter(e -> !hostId.equals(String.valueOf(e.getKey())))
+			.filter(e -> {
+				try {
+					return objectMapper.readTree((String)e.getValue()).path("isReady").asBoolean(false);
+				} catch (Exception ex) {
+					log.warn("[room] countReadyNonHostMembers parse error. memberId={}", e.getKey(), ex);
+					return false;
+				}
+			})
+			.count();
+	}
+
+	@Override
+	public void updateRoomState(Long roomId, String state) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		gameRedisTemplate.opsForHash().put(key, "roomState", state);
+	}
+
+	@Override
+	public void saveGameSessionId(Long roomId, String gameSessionId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		gameRedisTemplate.opsForHash().put(key, "gameSessionId", gameSessionId);
+	}
+
+	@Override
+	public String findSelectedMapId(Long roomId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		Object value = gameRedisTemplate.opsForHash().get(key, "selectedMapId");
+		return value == null ? null : String.valueOf(value);
+	}
+
 	private RoomCache toCache(String roomId, Map<Object, Object> fields) {
 		if (fields.isEmpty()) {
 			return null;

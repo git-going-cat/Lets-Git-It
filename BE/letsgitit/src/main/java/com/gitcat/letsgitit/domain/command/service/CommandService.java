@@ -1,3 +1,8 @@
 package com.gitcat.letsgitit.domain.command.service;
 
-public interface CommandService {}
+import com.gitcat.letsgitit.domain.command.dto.response.CommandSetResponse;
+
+public interface CommandService {
+	// DB에서 기여도 뺏기용 커맨드셋 하나를 랜덤으로 골라서 반환
+	CommandSetResponse getRandomContributionCommandSet();
+}

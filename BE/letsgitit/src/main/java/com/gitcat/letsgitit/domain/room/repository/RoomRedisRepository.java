@@ -85,4 +85,22 @@ public interface RoomRedisRepository {
 
 	// room:{roomId}:password:verified:{memberId} String 존재 여부 조회 — 비밀방 입장 가능 여부 확인
 	boolean isPasswordVerified(String memberId, Long roomId);
+
+	// room:{roomId}:info Hash의 roomState 필드 단건 조회
+	String findRoomStateById(Long roomId);
+
+	// room:{roomId}:info Hash의 mode 필드 단건 조회
+	String findModeById(Long roomId);
+
+	// room:{roomId}:members Hash에서 hostId를 제외한 isReady=true 멤버 수 반환
+	long countReadyNonHostMembers(Long roomId, String hostId);
+
+	// room:{roomId}:info Hash의 roomState 필드 갱신
+	void updateRoomState(Long roomId, String state);
+
+	// room:{roomId}:info Hash에 gameSessionId 필드 저장
+	void saveGameSessionId(Long roomId, String gameSessionId);
+
+	// room:{roomId}:info Hash의 selectedMapId 필드 단건 조회 — 협력 모드 맵 식별용
+	String findSelectedMapId(Long roomId);
 }

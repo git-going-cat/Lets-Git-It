@@ -277,6 +277,12 @@ count_over_time({app="letsgitit", level="WARN"} |= "CONNECT rejected" [5m])
 | single | 결과 저장 성공 | INFO | `[single][saveResult] sessionId={id}, difficulty={difficulty}, score={score}, isNewRecord={bool}` |
 | single | 결과 저장 실패 | WARN | `[single][saveResult] error. sessionId={id}, errorCode={code}` |
 | ranking | 점수 갱신 | INFO | `[ranking][updateScore] difficulty={difficulty}, score={score}, rank={rank}` |
+| room | 비밀번호 검증 완료 | INFO | `[room][verifyRoomPassword] roomId={id}, memberId={id}` |
+| room | 멤버 퇴장 | INFO | `[room][leaveRoom] roomId={id}, memberId={id}` |
+| room | 방 해산 | INFO | `[room][leaveRoom] 방 해산. roomId={id}` |
+| room | 방장 위임 | INFO | `[room][leaveRoom] 방장 위임. roomId={id}, newHostId={id}` |
+| room | 강제 퇴장 | INFO | `[room][kickMember] roomId={id}, playerId={id}` |
+| room | 게임 시작 | INFO | `[room][startGame] roomId={id}, mode={mode}, gameSessionId={id}` |
 | ws | CONNECT 성공 | INFO | `WebSocket CONNECT success. memberId={id}, sessionId={id}` |
 | ws | CONNECT 거부 (헤더) | WARN | `WebSocket CONNECT rejected - missing or invalid Authorization header. sessionId={id}` |
 | ws | CONNECT 거부 (토큰) | WARN | `WebSocket CONNECT rejected - token validation failed. sessionId={id}, errorCode={code}` |

@@ -1029,6 +1029,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 코드 | 설명 |
 | --- | --- |
 | `ROOM_NOT_FOUND` | 방이 존재하지 않음 |
+| `PLAYER_NOT_IN_ROOM` | 방에 속하지 않은 플레이어의 요청 |
 | `MESSAGE_TOO_LONG` | 메시지 길이 초과 (150자 제한) |
 | `MESSAGE_EMPTY` | 메시지가 비어있음 (공백만 있는 경우 포함) |
 

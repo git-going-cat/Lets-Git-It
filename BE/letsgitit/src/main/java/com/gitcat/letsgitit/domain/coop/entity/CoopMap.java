@@ -29,6 +29,9 @@ public class CoopMap extends BaseEntity {
 	@Column(name = "difficulty", nullable = false, length = 20)
 	private int difficulty;
 
+	@Column(name = "graph_picture", columnDefinition = "LONGTEXT")
+	private String graphPicture;
+
 	@Column(name = "is_active", nullable = false)
 	private boolean isActive = true;
 
@@ -38,6 +41,10 @@ public class CoopMap extends BaseEntity {
 		map.difficulty = difficulty;
 		map.isActive = true;
 		return map;
+	}
+
+	public void updateGraphPicture(String graphPicture) {
+		this.graphPicture = graphPicture;
 	}
 
 	public void deactivate() {

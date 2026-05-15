@@ -3,6 +3,10 @@ package com.gitcat.letsgitit.domain.room.service;
 import java.util.UUID;
 
 import com.gitcat.letsgitit.domain.coop.dto.response.CoopMapListResponse;
+import com.gitcat.letsgitit.domain.room.dto.request.ChatRequest;
+import com.gitcat.letsgitit.domain.room.dto.request.GameStartRequest;
+import com.gitcat.letsgitit.domain.room.dto.response.ChatResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.GameStartResult;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
 import com.gitcat.letsgitit.global.enums.RoomMode;
@@ -26,4 +30,10 @@ public interface RoomService {
 
 	// 방 나가기 — 방장이면 위임 또는 방 해체, 아니면 단순 제거
 	void leaveRoom(Long roomId, UUID memberId);
+
+	// 채팅 메시지 처리 — 방 존재 확인, 메시지 검증 후 브로드캐스트용 응답 반환
+	ChatResponse processChat(Long roomId, UUID memberId, ChatRequest request);
+
+	// 게임 시작 — 검증 후 모드별 응답과 브로드캐스트 경로를 묶어 반환
+	GameStartResult startGame(Long roomId, UUID memberId, GameStartRequest request);
 }
