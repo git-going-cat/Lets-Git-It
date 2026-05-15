@@ -1812,7 +1812,7 @@ POST /api/v1/rooms/contribution
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 랜덤 방 코드 |
 | `title` | String | 방 제목 |
 | `maxPlayers` | Integer | 최대 인원 수 |
@@ -1866,7 +1866,7 @@ POST /api/v1/rooms/coop
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 랜덤 방 코드 |
 | `title` | String | 방 제목 |
 | `hasPassword` | Boolean | 비밀번호 설정 여부 |
@@ -1912,7 +1912,7 @@ GET /api/v1/rooms?mode={mode}
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `rooms` | Array | 방 목록 |
-| `rooms[].roomId` | Integer | 방 ID |
+| `rooms[].roomId` | Long | 방 ID |
 | `rooms[].title` | String | 방 제목 |
 | `rooms[].mode` | String | 게임 모드 (`CONTRIBUTION`, `COOP`) |
 | `rooms[].currentPlayers` | Integer | 현재 인원 수 |
@@ -1977,7 +1977,7 @@ GET /api/v1/rooms/search?code={code}
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `title` | String | 방 제목 |
 | `mode` | String | 게임 모드 (`CONTRIBUTION`, `COOP`) |
 | `currentPlayers` | Integer | 현재 인원 수 |
@@ -2059,7 +2059,7 @@ POST /api/v1/rooms/{roomId}/contribution/join
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 방 코드 |
 | `title` | String | 방 제목 |
 | `mode` | String | 게임 모드 (`CONTRIBUTION` 고정) |
@@ -2077,7 +2077,6 @@ POST /api/v1/rooms/{roomId}/contribution/join
 | `members[].characterOutfitColor` | String | 캐릭터 옷색 에셋 ID |
 | `members[].isReady` | Boolean | 준비 여부 |
 | `members[].isHost` | Boolean | 방장 여부 |
-| `members[].isMe` | Boolean | 본인 여부 |
 
 ```json
 {
@@ -2102,8 +2101,7 @@ POST /api/v1/rooms/{roomId}/contribution/join
         "characterOutfit": "Outfit_01",
         "characterOutfitColor": "Outfit-color_01",
         "isReady": false,
-        "isHost": true,
-        "isMe": false
+        "isHost": true
       },
       {
         "playerId": "550e8400-e29b-41d4-a716-446655440001",
@@ -2115,8 +2113,7 @@ POST /api/v1/rooms/{roomId}/contribution/join
         "characterOutfit": "Outfit_01",
         "characterOutfitColor": "Outfit-color_01",
         "isReady": false,
-        "isHost": false,
-        "isMe": true
+        "isHost": false
       }
     ]
   }
@@ -2145,7 +2142,7 @@ POST /api/v1/rooms/{roomId}/coop/join
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 방 코드 |
 | `title` | String | 방 제목 |
 | `teamName` | String | 팀명 |
@@ -2168,7 +2165,6 @@ POST /api/v1/rooms/{roomId}/coop/join
 | `members[].characterOutfitColor` | String | 캐릭터 옷색 에셋 ID |
 | `members[].isReady` | Boolean | 준비 여부 |
 | `members[].isHost` | Boolean | 방장 여부 |
-| `members[].isMe` | Boolean | 본인 여부 |
 | `mapList` | Array | 맵 목록 |
 | `mapList[].mapId` | UUID | 맵 ID |
 | `mapList[].mapName` | String | 맵 이름 |
@@ -2203,8 +2199,7 @@ POST /api/v1/rooms/{roomId}/coop/join
         "characterOutfit": "Outfit_01",
         "characterOutfitColor": "Outfit-color_01",
         "isReady": false,
-        "isHost": true,
-        "isMe": false
+        "isHost": true
       },
       {
         "playerId": "550e8400-e29b-41d4-a716-446655440001",
@@ -2216,8 +2211,7 @@ POST /api/v1/rooms/{roomId}/coop/join
         "characterOutfit": "Outfit_01",
         "characterOutfitColor": "Outfit-color_01",
         "isReady": false,
-        "isHost": false,
-        "isMe": true
+        "isHost": false
       }
     ],
     "mapList": [
@@ -2390,7 +2384,7 @@ GET /api/v1/rooms/{roomId}/contribution/state
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 방 코드 |
 | `title` | String | 방 제목 |
 | `mode` | String | 게임 모드 (`CONTRIBUTION` 고정) |
@@ -2408,7 +2402,6 @@ GET /api/v1/rooms/{roomId}/contribution/state
 | `members[].characterOutfitColor` | String | 캐릭터 옷색 에셋 ID |
 | `members[].isReady` | Boolean | 준비 여부 |
 | `members[].isHost` | Boolean | 방장 여부 |
-| `members[].isMe` | Boolean | 본인 여부 |
 
 ```json
 {
@@ -2433,8 +2426,7 @@ GET /api/v1/rooms/{roomId}/contribution/state
         "characterOutfit": "Outfit_01",
         "characterOutfitColor": "Outfit-color_01",
         "isReady": false,
-        "isHost": true,
-        "isMe": false
+        "isHost": true
       },
       {
         "playerId": "550e8400-e29b-41d4-a716-446655440001",
@@ -2446,8 +2438,7 @@ GET /api/v1/rooms/{roomId}/contribution/state
         "characterOutfit": "Outfit_01",
         "characterOutfitColor": "Outfit-color_01",
         "isReady": false,
-        "isHost": false,
-        "isMe": true
+        "isHost": false
       }
     ]
   }
@@ -2475,7 +2466,7 @@ GET /api/v1/rooms/{roomId}/coop/state
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 방 코드 |
 | `title` | String | 방 제목 |
 | `teamName` | String | 팀명 |
@@ -2498,7 +2489,6 @@ GET /api/v1/rooms/{roomId}/coop/state
 | `members[].characterOutfitColor` | String | 캐릭터 옷색 에셋 ID |
 | `members[].isReady` | Boolean | 준비 여부 |
 | `members[].isHost` | Boolean | 방장 여부 |
-| `members[].isMe` | Boolean | 본인 여부 |
 
 ```json
 {
@@ -2529,8 +2519,7 @@ GET /api/v1/rooms/{roomId}/coop/state
         "characterOutfit": "Outfit_01",
         "characterOutfitColor": "Outfit-color_01",
         "isReady": false,
-        "isHost": true,
-        "isMe": false
+        "isHost": true
       },
       {
         "playerId": "550e8400-e29b-41d4-a716-446655440001",
@@ -2542,8 +2531,7 @@ GET /api/v1/rooms/{roomId}/coop/state
         "characterOutfit": "Outfit_01",
         "characterOutfitColor": "Outfit-color_01",
         "isReady": false,
-        "isHost": false,
-        "isMe": true
+        "isHost": false
       }
     ]
   }

@@ -12,19 +12,81 @@ export interface CharacterAsset {
 const FRAME_W = 48;
 const FRAME_H = 96;
 
-// dirFrames: 방향당 프레임 수 (idle/walk/pushCart=6, lift=14)
+export type CharacterDirection = 'right' | 'back' | 'left' | 'front';
+
+type DirectionFrameMap = Partial<Record<CharacterDirection, number>>;
+
+interface AnimationConfig {
+  y: number;
+  frames: number;
+  fps: number;
+  directionStartFrames: DirectionFrameMap;
+  fallbackDirection: CharacterDirection;
+}
+
+function rowY(row: number): number {
+  return row * FRAME_H;
+}
+
+function directional(row: number, frames: number, fps: number): AnimationConfig {
+  return {
+    y: rowY(row),
+    frames,
+    fps,
+    directionStartFrames: {
+      right: 0,
+      back: frames,
+      left: frames * 2,
+      front: frames * 3,
+    },
+    fallbackDirection: 'front',
+  };
+}
+
+function frontOnly(row: number, frames: number, fps: number, startFrame = 0): AnimationConfig {
+  return {
+    y: rowY(row),
+    frames,
+    fps,
+    directionStartFrames: { front: startFrame },
+    fallbackDirection: 'front',
+  };
+}
+
+function rightLeftOnly(row: number, frames: number, fps: number): AnimationConfig {
+  return {
+    y: rowY(row),
+    frames,
+    fps,
+    directionStartFrames: { right: 0, left: frames },
+    fallbackDirection: 'right',
+  };
+}
+
 const ANIMATIONS = {
-  idle: { y: 96, frames: 6, dirFrames: 6, fps: 4 },
-  walk: { y: 192, frames: 6, dirFrames: 6, fps: 8 },
-  pushCart: { y: 768, frames: 6, dirFrames: 6, fps: 8 },
-  lift: { y: 1056, frames: 14, dirFrames: 14, fps: 6 },
+  idle: directional(1, 6, 4),
+  walk: directional(2, 6, 8),
+  sleep: frontOnly(3, 6, 4),
+  sit1: rightLeftOnly(4, 6, 4),
+  sit2: rightLeftOnly(5, 6, 4),
+  phone: frontOnly(6, 12, 6),
+  bookStand: frontOnly(7, 6, 6),
+  bookRead: frontOnly(7, 6, 6, 6),
+  pushCart: directional(8, 6, 8),
+  pickUp: directional(9, 12, 8),
+  gift: directional(10, 10, 6),
+  lift: directional(11, 14, 8),
+  throw: directional(12, 14, 8),
+  hit: directional(13, 6, 8),
+  punch: directional(14, 6, 8),
+  stab: directional(15, 6, 10),
+  grabGun: directional(16, 4, 6),
+  gunIdle: directional(17, 6, 4),
+  shoot: directional(18, 3, 8),
+  hurt: directional(19, 3, 8),
 } as const;
 
-// 방향 인덱스: srcX = (DIR_INDEX[dir] * dirFrames + frame) * FRAME_W
-const DIR_INDEX = { right: 0, back: 1, left: 2, front: 3 } as const;
-
 export type CharacterAnimation = keyof typeof ANIMATIONS;
-export type CharacterDirection = keyof typeof DIR_INDEX;
 
 function buildLayerPaths(asset: CharacterAsset): string[] {
   const bodyNum = asset.characterBody.replace('Body_', '');
@@ -55,6 +117,14 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
     img.onerror = () => resolve(null);
     img.src = src;
   });
+}
+
+function getSourceX(anim: AnimationConfig, direction: CharacterDirection, frame: number): number {
+  const resolvedDirection =
+    anim.directionStartFrames[direction] !== undefined ? direction : anim.fallbackDirection;
+  const directionStartFrame = anim.directionStartFrames[resolvedDirection] ?? 0;
+
+  return (directionStartFrame + frame) * FRAME_W;
 }
 
 interface AnimatedCharacterProps {
@@ -106,7 +176,7 @@ export default function AnimatedCharacter({
       if (timestamp - lastTimeRef.current >= 1000 / anim.fps) {
         lastTimeRef.current = timestamp;
         ctx.clearRect(0, 0, FRAME_W, FRAME_H);
-        const srcX = (DIR_INDEX[dirRef.current] * anim.dirFrames + frameRef.current) * FRAME_W;
+        const srcX = getSourceX(anim, dirRef.current, frameRef.current);
         for (const img of imagesRef.current) {
           if (img) ctx.drawImage(img, srcX, anim.y, FRAME_W, FRAME_H, 0, 0, FRAME_W, FRAME_H);
         }

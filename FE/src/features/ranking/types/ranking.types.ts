@@ -8,13 +8,11 @@ export interface WeekParam {
 
 // ── 모드 타입 ──────────────────────────────────────────────
 
-export type RankingMode =
-  | 'single-easy'
-  | 'single-normal'
-  | 'single-hard'
-  | 'speed'
-  | 'timeattack'
-  | 'coop';
+export const SINGLE_RANKING_MODES = ['single-easy', 'single-normal', 'single-hard'] as const;
+
+export type SingleRankingMode = (typeof SINGLE_RANKING_MODES)[number];
+
+export type RankingMode = SingleRankingMode | 'speed' | 'timeattack' | 'coop';
 
 // ── 엔트리 타입 (REST API 응답 기준) ──────────────────────
 
@@ -42,6 +40,7 @@ export interface CoopRankingEntry {
   rank: number;
   nickname: string;
   clearTime: number; // ms 단위
+  difficulty: number;
 }
 
 export type RankingEntry =
@@ -111,6 +110,6 @@ export type RankGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
 
 export interface CoopRankingQuery {
   mapName: string;
-  difficulty: string;
-  mapId?: number;
+  difficulty: number;
+  mapId?: string | number;
 }
