@@ -1,0 +1,293 @@
+package com.gitcat.letsgitit.domain.room.service;
+
+import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.*;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import com.gitcat.letsgitit.domain.member.entity.Member;
+import com.gitcat.letsgitit.domain.member.service.MemberService;
+import com.gitcat.letsgitit.domain.room.dto.request.CreateContributionRoomRequest;
+import com.gitcat.letsgitit.domain.room.dto.request.UpdateContributionRoomRequest;
+import com.gitcat.letsgitit.domain.room.dto.response.ContributionRoomInfoResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.CreateContributionRoomResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.JoinContributionRoomResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.PlayerInfoDto;
+import com.gitcat.letsgitit.domain.room.entity.enums.RoomState;
+import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
+import com.gitcat.letsgitit.domain.room.util.RoomMemberMapper;
+import com.gitcat.letsgitit.global.enums.GameMode;
+import com.gitcat.letsgitit.global.exception.BusinessException;
+
+@ExtendWith(MockitoExtension.class)
+class ContributionRoomServiceImplTest {
+
+	private static final UUID MEMBER_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
+	private static final Long ROOM_ID = 1L;
+
+	@InjectMocks
+	private ContributionRoomServiceImpl contributionRoomService;
+
+	@Mock
+	private MemberService memberService;
+
+	@Mock
+	private RoomRedisRepository roomRedisRepository;
+
+	@Mock
+	private RoomCodeGenerator roomCodeGenerator;
+
+	@Mock
+	private RoomMemberMapper roomMemberMapper;
+
+	@Mock
+	private RedissonClient redissonClient;
+
+	@Mock
+	private RLock rLock;
+
+	@Nested
+	class CreateContributionRoom {
+
+		@Test
+		void 방_생성에_성공하면_redis에_저장하고_응답을_반환한다() {
+			Member member = createMember(MEMBER_ID, "dobby");
+			CreateContributionRoomRequest request = new CreateContributionRoomRequest("기여도 방", 4, true, "1234");
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+
+			given(memberService.findById(MEMBER_ID)).willReturn(member);
+			given(roomCodeGenerator.generate()).willReturn("ABC123");
+			given(roomRedisRepository.reserveRoomCode("ABC123")).willReturn(true);
+			given(roomRedisRepository.generateRoomId()).willReturn(ROOM_ID);
+			given(roomMemberMapper.toMemberInfo(member, true)).willReturn(memberInfo);
+			given(roomRedisRepository.saveMemberIfNotInAnyRoom(ROOM_ID.toString(), MEMBER_ID.toString(), memberInfo))
+				.willReturn(true);
+
+			CreateContributionRoomResponse response = contributionRoomService.createContributionRoom(MEMBER_ID,
+				request);
+
+			assertThat(response.roomId()).isEqualTo(ROOM_ID);
+			assertThat(response.roomCode()).isEqualTo("ABC123");
+			assertThat(response.title()).isEqualTo("기여도 방");
+			assertThat(response.hasPassword()).isTrue();
+			assertThat(response.maxPlayers()).isEqualTo(4);
+
+			then(roomRedisRepository).should().saveRoomInfo(eq(ROOM_ID.toString()), anyMap());
+			then(roomRedisRepository).should().confirmRoomCode("ABC123", ROOM_ID.toString());
+			then(roomRedisRepository).should().addRoomToList(eq(GameMode.CONTRIBUTION), eq(ROOM_ID.toString()),
+				anyDouble());
+		}
+
+		@Test
+		void 호스트가_이미_다른_방에_있으면_롤백하고_예외를_던진다() {
+			Member member = createMember(MEMBER_ID, "dobby");
+			CreateContributionRoomRequest request = new CreateContributionRoomRequest("기여도 방", 4, false, null);
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+
+			given(memberService.findById(MEMBER_ID)).willReturn(member);
+			given(roomCodeGenerator.generate()).willReturn("ABC123");
+			given(roomRedisRepository.reserveRoomCode("ABC123")).willReturn(true);
+			given(roomRedisRepository.generateRoomId()).willReturn(ROOM_ID);
+			given(roomMemberMapper.toMemberInfo(member, true)).willReturn(memberInfo);
+			given(roomRedisRepository.saveMemberIfNotInAnyRoom(ROOM_ID.toString(), MEMBER_ID.toString(), memberInfo))
+				.willReturn(false);
+
+			assertThatThrownBy(() -> contributionRoomService.createContributionRoom(MEMBER_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(ALREADY_IN_ANOTHER_ROOM);
+
+			then(roomRedisRepository).should().deleteRoom(ROOM_ID);
+		}
+	}
+
+	@Nested
+	class JoinContributionRoom {
+
+		@Test
+		void 방_모드가_기여도_모드가_아니면_ROOM_MODE_MISMATCH를_던진다() throws Exception {
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			roomInfo.put("mode", GameMode.COOP.name());
+
+			given(redissonClient.getLock("room:" + ROOM_ID + ":join-lock")).willReturn(rLock);
+			given(rLock.tryLock(3L, 10L, TimeUnit.SECONDS)).willReturn(true);
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(rLock.isHeldByCurrentThread()).willReturn(true);
+
+			assertThatThrownBy(() -> contributionRoomService.joinContributionRoom(MEMBER_ID, ROOM_ID))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(ROOM_MODE_MISMATCH);
+
+			then(rLock).should().unlock();
+			then(roomRedisRepository).should(never()).getMembersCount(anyString());
+			then(roomRedisRepository).should(never())
+				.saveMemberIfNotInAnyRoom(anyString(), anyString(), anyMap());
+		}
+
+		@Test
+		void 비밀방_비밀번호_검증이_완료되지_않으면_PASSWORD_NOT_VERIFIED를_던진다() throws Exception {
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			roomInfo.put("hasPassword", true);
+
+			given(redissonClient.getLock("room:" + ROOM_ID + ":join-lock")).willReturn(rLock);
+			given(rLock.tryLock(3L, 10L, TimeUnit.SECONDS)).willReturn(true);
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomRedisRepository.isPasswordVerified(MEMBER_ID.toString(), ROOM_ID)).willReturn(false);
+			given(rLock.isHeldByCurrentThread()).willReturn(true);
+
+			assertThatThrownBy(() -> contributionRoomService.joinContributionRoom(MEMBER_ID, ROOM_ID))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(PASSWORD_NOT_VERIFIED);
+
+			then(rLock).should().unlock();
+			then(roomRedisRepository).should(never()).getMembersCount(anyString());
+		}
+
+		@Test
+		void 이미_같은_방에_입장해_있으면_ALREADY_IN_ROOM을_던진다() throws Exception {
+			Member member = createMember(MEMBER_ID, "dobby");
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+
+			given(redissonClient.getLock("room:" + ROOM_ID + ":join-lock")).willReturn(rLock);
+			given(rLock.tryLock(3L, 10L, TimeUnit.SECONDS)).willReturn(true);
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+			given(memberService.findById(MEMBER_ID)).willReturn(member);
+			given(roomMemberMapper.toMemberInfo(member, false)).willReturn(memberInfo);
+			given(roomRedisRepository.saveMemberIfNotInAnyRoom(ROOM_ID.toString(), MEMBER_ID.toString(), memberInfo))
+				.willReturn(false);
+			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.of(ROOM_ID));
+			given(rLock.isHeldByCurrentThread()).willReturn(true);
+
+			assertThatThrownBy(() -> contributionRoomService.joinContributionRoom(MEMBER_ID, ROOM_ID))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(ALREADY_IN_ROOM);
+
+			then(rLock).should().unlock();
+		}
+
+		@Test
+		void 입장에_성공하면_응답을_반환한다() throws Exception {
+			Member member = createMember(MEMBER_ID, "dobby");
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+
+			given(redissonClient.getLock("room:" + ROOM_ID + ":join-lock")).willReturn(rLock);
+			given(rLock.tryLock(3L, 10L, TimeUnit.SECONDS)).willReturn(true);
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+			given(memberService.findById(MEMBER_ID)).willReturn(member);
+			given(roomMemberMapper.toMemberInfo(member, false)).willReturn(memberInfo);
+			given(roomRedisRepository.saveMemberIfNotInAnyRoom(ROOM_ID.toString(), MEMBER_ID.toString(), memberInfo))
+				.willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+			given(rLock.isHeldByCurrentThread()).willReturn(true);
+
+			JoinContributionRoomResponse response = contributionRoomService.joinContributionRoom(MEMBER_ID, ROOM_ID);
+
+			assertThat(response.roomId()).isEqualTo(ROOM_ID);
+			assertThat(response.mode()).isEqualTo(GameMode.CONTRIBUTION);
+			assertThat(response.roomState()).isEqualTo(RoomState.WAITING);
+			assertThat(response.currentPlayers()).isEqualTo(1);
+			assertThat(response.members()).containsExactlyElementsOf(playerInfos);
+			then(rLock).should().unlock();
+		}
+	}
+
+	@Nested
+	class UpdateContributionRoomInfo {
+
+		@Test
+		void 방_회원이_아니면_PLAYER_NOT_IN_ROOM을_던진다() {
+			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, false, null);
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(waitingContributionRoomInfo()));
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
+
+			assertThatThrownBy(() -> contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(PLAYER_NOT_IN_ROOM);
+		}
+	}
+
+	@Nested
+	class GetContributionRoomInfo {
+
+		@Test
+		void 방_상세_조회에_성공하면_응답을_반환한다() {
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+
+			ContributionRoomInfoResponse response = contributionRoomService.getContributionRoomInfo(MEMBER_ID, ROOM_ID);
+
+			assertThat(response.roomId()).isEqualTo(ROOM_ID);
+			assertThat(response.roomCode()).isEqualTo("ABC123");
+			assertThat(response.currentPlayers()).isEqualTo(1);
+			assertThat(response.members()).containsExactlyElementsOf(playerInfos);
+		}
+	}
+
+	private Member createMember(UUID memberId, String nickname) {
+		Member member = Member.of("user@example.com", "encodedPassword");
+		member.updateNickname(nickname);
+		ReflectionTestUtils.setField(member, "id", memberId);
+		return member;
+	}
+
+	private Map<Object, Object> waitingContributionRoomInfo() {
+		Map<Object, Object> roomInfo = new LinkedHashMap<>();
+		roomInfo.put("roomCode", "ABC123");
+		roomInfo.put("title", "기여도 방");
+		roomInfo.put("mode", GameMode.CONTRIBUTION.name());
+		roomInfo.put("roomState", RoomState.WAITING.name());
+		roomInfo.put("maxPlayers", 4);
+		roomInfo.put("hasPassword", false);
+		roomInfo.put("hostMemberId", MEMBER_ID.toString());
+		return roomInfo;
+	}
+
+	private PlayerInfoDto playerInfo(UUID playerId, boolean isHost) {
+		return new PlayerInfoDto(
+			playerId,
+			"dobby",
+			"Hairstyle_01",
+			"Hairstyle-color_01",
+			"Body_01",
+			"Eyes_01",
+			"Outfit_01",
+			"Outfit-color_01",
+			false,
+			isHost);
+	}
+}

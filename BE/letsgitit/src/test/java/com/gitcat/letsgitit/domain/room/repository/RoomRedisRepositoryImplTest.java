@@ -2,6 +2,7 @@ package com.gitcat.letsgitit.domain.room.repository;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.*;
 
 import java.util.List;
 import java.util.Map;
@@ -13,16 +14,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.DefaultTypedTuple;
 import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.ZSetOperations;
-import org.springframework.data.redis.core.script.RedisScript;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,6 +50,15 @@ class RoomRedisRepositoryImplTest {
 	@Mock
 	private ValueOperations valueOps;
 
+	@Mock
+	private RedisOperations<Object, Object> redisOperations;
+
+	@Mock
+	private HashOperations<Object, Object, Object> pipelineHashOps;
+
+	@Mock
+	private ZSetOperations<Object, Object> pipelineZSetOps;
+
 	private static final Long ROOM_ID = 1L;
 	private static final String INFO_KEY = "room:1:info";
 	private static final String MEMBERS_KEY = "room:1:members";
@@ -55,7 +68,7 @@ class RoomRedisRepositoryImplTest {
 
 	@BeforeEach
 	void setUp() {
-		repository = new RoomRedisRepositoryImpl(gameRedisTemplate, authStringRedisTemplate);
+		repository = new RoomRedisRepositoryImpl(gameRedisTemplate, authStringRedisTemplate, new ObjectMapper());
 	}
 
 	private Map<Object, Object> buildInfoFields(String mode) {
@@ -96,9 +109,9 @@ class RoomRedisRepositoryImplTest {
 		@Test
 		void password_필드가_있으면_값을_반환한다() {
 			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
-			given(hashOps.get(INFO_KEY, "password")).willReturn("hashedpw");
+			given(hashOps.get(INFO_KEY, "password")).willReturn("plainpw");
 
-			assertThat(repository.findPasswordById(ROOM_ID)).isEqualTo("hashedpw");
+			assertThat(repository.findPasswordById(ROOM_ID)).isEqualTo("plainpw");
 		}
 
 		@Test
@@ -160,12 +173,19 @@ class RoomRedisRepositoryImplTest {
 	class RemoveMember {
 
 		@Test
-		void members_Hash에서_해당_플레이어를_삭제한다() {
-			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
+		void members_Hash와_memberRoom매핑을_파이프라인으로_삭제한다() {
+			ArgumentCaptor<SessionCallback<Object>> callbackCaptor = ArgumentCaptor.forClass(SessionCallback.class);
+			given(redisOperations.opsForHash()).willReturn(pipelineHashOps);
 
 			repository.removeMember(ROOM_ID, MEMBER_ID);
 
-			then(hashOps).should().delete(MEMBERS_KEY, MEMBER_ID);
+			then(gameRedisTemplate).should().executePipelined(callbackCaptor.capture());
+
+			callbackCaptor.getValue().execute(redisOperations);
+
+			then(redisOperations).should().opsForHash();
+			then(pipelineHashOps).should().delete(MEMBERS_KEY, MEMBER_ID);
+			then(redisOperations).should().delete("member:" + MEMBER_ID + ":room");
 		}
 	}
 
@@ -295,31 +315,46 @@ class RoomRedisRepositoryImplTest {
 	class DissolveRoom {
 
 		@Test
-		void Lua_스크립트로_4개_키를_원자적으로_삭제한다() {
+		void roomInfo_members_codeKey_listKey와_memberRoom매핑을_파이프라인으로_삭제한다() {
 			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(hashOps.entries(MEMBERS_KEY)).willReturn(Map.of(MEMBER_ID, "member-json"));
 			given(hashOps.get(INFO_KEY, "roomCode")).willReturn(CODE);
 			given(hashOps.get(INFO_KEY, "mode")).willReturn("CONTRIBUTION");
+			given(redisOperations.opsForZSet()).willReturn(pipelineZSetOps);
 
 			repository.dissolveRoom(ROOM_ID);
 
-			then(gameRedisTemplate).should().execute(
-				any(RedisScript.class),
-				eq(List.of(INFO_KEY, MEMBERS_KEY, CODE_KEY, "room:list:CONTRIBUTION")),
-				eq(ROOM_ID.toString()));
+			ArgumentCaptor<SessionCallback<Object>> callbackCaptor = ArgumentCaptor.forClass(SessionCallback.class);
+			then(gameRedisTemplate).should().executePipelined(callbackCaptor.capture());
+
+			callbackCaptor.getValue().execute(redisOperations);
+
+			then(redisOperations).should().delete(INFO_KEY);
+			then(redisOperations).should().delete(MEMBERS_KEY);
+			then(redisOperations).should().delete(CODE_KEY);
+			then(pipelineZSetOps).should().remove("room:list:CONTRIBUTION", ROOM_ID.toString());
+			then(redisOperations).should().delete("member:" + MEMBER_ID + ":room");
 		}
 
 		@Test
-		void roomCode가_없으면_codeKey를_빈_문자열로_전달한다() {
+		void roomCode가_없으면_codeKey는_삭제하지_않는다() {
 			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(hashOps.entries(MEMBERS_KEY)).willReturn(Map.of());
 			given(hashOps.get(INFO_KEY, "roomCode")).willReturn(null);
 			given(hashOps.get(INFO_KEY, "mode")).willReturn("CONTRIBUTION");
+			given(redisOperations.opsForZSet()).willReturn(pipelineZSetOps);
 
 			repository.dissolveRoom(ROOM_ID);
 
-			then(gameRedisTemplate).should().execute(
-				any(RedisScript.class),
-				eq(List.of(INFO_KEY, MEMBERS_KEY, "", "room:list:CONTRIBUTION")),
-				eq(ROOM_ID.toString()));
+			ArgumentCaptor<SessionCallback<Object>> callbackCaptor = ArgumentCaptor.forClass(SessionCallback.class);
+			then(gameRedisTemplate).should().executePipelined(callbackCaptor.capture());
+
+			callbackCaptor.getValue().execute(redisOperations);
+
+			then(redisOperations).should().delete(INFO_KEY);
+			then(redisOperations).should().delete(MEMBERS_KEY);
+			then(redisOperations).should(never()).delete("");
+			then(pipelineZSetOps).should().remove("room:list:CONTRIBUTION", ROOM_ID.toString());
 		}
 	}
 }

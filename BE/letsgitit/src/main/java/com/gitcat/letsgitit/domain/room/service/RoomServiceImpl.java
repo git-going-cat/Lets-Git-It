@@ -2,9 +2,6 @@ package com.gitcat.letsgitit.domain.room.service;
 
 import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -13,8 +10,12 @@ import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
+import com.gitcat.letsgitit.domain.coop.dto.response.CoopMapListResponse;
+import com.gitcat.letsgitit.domain.coop.service.CoopService;
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
-import com.gitcat.letsgitit.domain.room.dto.response.RoomResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.RoomSummaryDto;
 import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
@@ -29,16 +30,17 @@ public class RoomServiceImpl implements RoomService {
 
 	private final RoomRedisRepository roomRedisRepository;
 	private final RedissonClient redissonClient;
+	private final CoopService coopService;
 
 	@Override
-	public RoomResponse.RoomListResponse getRooms(RoomMode mode) {
+	public RoomListResponse getRooms(RoomMode mode) {
 		log.debug("[room] 방 목록 조회. mode={}", mode);
 		List<RoomCache> all = roomRedisRepository.findAll();
-		List<RoomResponse.RoomSummaryDto> rooms = all.stream()
+		List<RoomSummaryDto> rooms = all.stream()
 			.filter(r -> mode == RoomMode.ALL || mode.name().equals(r.mode()))
-			.map(RoomResponse.RoomSummaryDto::from)
+			.map(RoomSummaryDto::from)
 			.toList();
-		return new RoomResponse.RoomListResponse(rooms);
+		return new RoomListResponse(rooms);
 	}
 
 	@Override
@@ -47,25 +49,11 @@ public class RoomServiceImpl implements RoomService {
 			throw new BusinessException(ROOM_NOT_FOUND);
 		}
 		String stored = roomRedisRepository.findPasswordById(roomId);
-		if (!sha256(password).equals(stored)) {
+		if (!password.equals(stored)) {
 			throw new BusinessException(INVALID_PASSWORD);
 		}
 		roomRedisRepository.savePasswordVerified(memberId.toString(), roomId);
 		log.info("[room] 비밀번호 검증 완료. roomId={}, memberId={}", roomId, memberId);
-	}
-
-	private static String sha256(String input) {
-		try {
-			byte[] bytes = MessageDigest.getInstance("SHA-256")
-				.digest(input.getBytes(StandardCharsets.UTF_8));
-			StringBuilder sb = new StringBuilder();
-			for (byte b : bytes) {
-				sb.append(String.format("%02x", b));
-			}
-			return sb.toString();
-		} catch (NoSuchAlgorithmException e) {
-			throw new IllegalStateException(e);
-		}
 	}
 
 	@Override
@@ -128,13 +116,18 @@ public class RoomServiceImpl implements RoomService {
 	}
 
 	@Override
-	public RoomResponse.RoomSearchResponse searchByCode(String code) {
+	public CoopMapListResponse getCoopMaps() {
+		return coopService.getCoopMaps();
+	}
+
+	@Override
+	public RoomSearchResponse searchByCode(String code) {
 		RoomCache room = roomRedisRepository.findByCode(code)
 			.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
 		if ("IN_GAME".equals(room.roomState())) {
 			throw new BusinessException(ROOM_IN_GAME);
 		}
 		log.debug("[room] 방 코드 조회. code={}, roomId={}", code, room.roomId());
-		return RoomResponse.RoomSearchResponse.from(room);
+		return RoomSearchResponse.from(room);
 	}
 }
