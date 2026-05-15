@@ -2016,6 +2016,8 @@ GET /api/v1/rooms/search?code={code}
 POST /api/v1/rooms/{roomId}/password/verify
 ```
 
+> 현재 room 비밀번호는 별도 해시/암호화 없이 Redis `room:{roomId}:info.password` 필드에 평문 저장된 값을 그대로 비교한다.
+
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |

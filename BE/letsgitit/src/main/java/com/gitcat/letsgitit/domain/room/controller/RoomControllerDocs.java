@@ -1,14 +1,16 @@
 package com.gitcat.letsgitit.domain.room.controller;
 
-import java.util.Map;
-
 import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
+import com.gitcat.letsgitit.domain.room.dto.request.CreateContributionRoomRequest;
+import com.gitcat.letsgitit.domain.room.dto.request.CreateCoopRoomRequest;
 import com.gitcat.letsgitit.domain.room.dto.request.PasswordVerifyRequest;
+import com.gitcat.letsgitit.domain.room.dto.request.UpdateContributionRoomRequest;
+import com.gitcat.letsgitit.domain.room.dto.request.UpdateCoopRoomInfoRequest;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,7 +47,9 @@ public interface RoomControllerDocs {
 		  }
 		}
 		""")))
-	ResponseEntity<?> createContributionRoom(Map<String, Object> body);
+	ResponseEntity<?> createContributionRoom(@AuthenticationPrincipal
+	CustomUserDetails userDetails, @Valid
+	CreateContributionRoomRequest request);
 
 	@Operation(summary = "협력 모드 방 생성", description = "maxPlayers 고정 4명. hasPassword: true 일 때 password 필수.")
 	@RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
@@ -76,7 +80,9 @@ public interface RoomControllerDocs {
 		  }
 		}
 		""")))
-	ResponseEntity<?> createCoopRoom(Map<String, Object> body);
+	ResponseEntity<?> createCoopRoom(@AuthenticationPrincipal
+	CustomUserDetails userDetails, @Valid
+	CreateCoopRoomRequest request);
 
 	@Operation(summary = "협력 맵 목록 조회", description = "협력 방 생성 전 맵 선택 UI 시 사용.")
 	@ApiResponse(responseCode = "200", description = "조회 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = """
@@ -260,6 +266,8 @@ public interface RoomControllerDocs {
 		}))
 	})
 	ResponseEntity<?> joinContributionRoom(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@Parameter(name = "roomId", description = "방 ID", required = true)
 		Long roomId);
 
@@ -334,6 +342,8 @@ public interface RoomControllerDocs {
 		}))
 	})
 	ResponseEntity<?> joinCoopRoom(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@Parameter(name = "roomId", description = "방 ID", required = true)
 		Long roomId);
 
@@ -375,9 +385,12 @@ public interface RoomControllerDocs {
 			""")))
 	})
 	ResponseEntity<?> updateContributionRoom(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@Parameter(name = "roomId", description = "방 ID", required = true)
 		Long roomId,
-		Map<String, Object> body);
+		@Valid
+		UpdateContributionRoomRequest request);
 
 	@Operation(summary = "협력 방 정보 수정 (방장만)", description = """
 		**Mock 에러 트리거 (테스트용)**
@@ -403,9 +416,12 @@ public interface RoomControllerDocs {
 			""")))
 	})
 	ResponseEntity<?> updateCoopRoom(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@Parameter(name = "roomId", description = "방 ID", required = true)
 		Long roomId,
-		Map<String, Object> body);
+		@Valid
+		UpdateCoopRoomInfoRequest request);
 
 	@Operation(summary = "멤버 추방 (방장만)", description = """
 		**Mock 에러 트리거 (테스트용)**
@@ -496,6 +512,8 @@ public interface RoomControllerDocs {
 			""")))
 	})
 	ResponseEntity<?> getContributionRoomState(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@Parameter(name = "roomId", description = "방 ID", required = true)
 		Long roomId);
 
@@ -564,6 +582,8 @@ public interface RoomControllerDocs {
 			""")))
 	})
 	ResponseEntity<?> getCoopRoomState(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@Parameter(name = "roomId", description = "방 ID", required = true)
 		Long roomId);
 }

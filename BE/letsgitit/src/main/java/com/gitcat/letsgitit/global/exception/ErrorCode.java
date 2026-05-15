@@ -55,16 +55,37 @@ public enum ErrorCode {
 	ROOM_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "ROOM_NOT_FOUND", "존재하지 않는 방입니다."),
 	ROOM_FULL(HttpStatus.CONFLICT.value(), "ROOM_FULL", "방 정원이 초과되었습니다."),
 	ROOM_IN_GAME(HttpStatus.CONFLICT.value(), "ROOM_IN_GAME", "이미 게임 중인 방입니다."),
+	ROOM_MODE_MISMATCH(HttpStatus.BAD_REQUEST.value(), "ROOM_MODE_MISMATCH", "요청한 방 모드와 실제 방 모드가 일치하지 않습니다."),
 	INVALID_PASSWORD(HttpStatus.BAD_REQUEST.value(), "INVALID_PASSWORD", "비밀번호가 일치하지 않습니다."),
 	NOT_HOST(HttpStatus.FORBIDDEN.value(), "NOT_HOST", "방장만 수행할 수 있습니다."),
 	PLAYER_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "PLAYER_NOT_FOUND", "해당 플레이어를 찾을 수 없습니다."),
 	PLAYER_NOT_IN_ROOM(HttpStatus.FORBIDDEN.value(), "PLAYER_NOT_IN_ROOM", "해당 방에 참여하지 않은 플레이어입니다."),
+	ALREADY_IN_ROOM(HttpStatus.CONFLICT.value(), "ALREADY_IN_ROOM", "이미 해당 방에 참여 중입니다."),
+	ALREADY_IN_ANOTHER_ROOM(HttpStatus.CONFLICT.value(), "ALREADY_IN_ANOTHER_ROOM", "이미 다른 방에 참여 중입니다."),
 	CANNOT_KICK_SELF(HttpStatus.BAD_REQUEST.value(), "CANNOT_KICK_SELF", "자기 자신을 추방할 수 없습니다."),
+	PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST.value(), "PASSWORD_REQUIRED", "비밀번호 설정 시 비밀번호는 필수입니다."),
+	PASSWORD_NOT_VERIFIED(HttpStatus.FORBIDDEN.value(), "PASSWORD_NOT_VERIFIED",
+		"비밀방 입장을 위한 비밀번호 검증이 완료되지 않았습니다."),
+	ROOM_PASSWORD_INVALID_FORMAT(HttpStatus.BAD_REQUEST.value(), "ROOM_PASSWORD_INVALID_FORMAT",
+		"방 비밀번호는 숫자 4자리여야 합니다."),
+	LOCK_ACQUISITION_FAILED(HttpStatus.CONFLICT.value(), "LOCK_ACQUISITION_FAILED",
+		"다른 사용자의 방 입장 처리가 진행 중입니다. 잠시 후 다시 시도해주세요."),
+	LOCK_INTERRUPTED(HttpStatus.INTERNAL_SERVER_ERROR.value(), "LOCK_INTERRUPTED", "방 입장 처리가 중단되었습니다."),
+	CANNOT_REDUCE_MAX_PLAYERS_BELOW_CURRENT(HttpStatus.BAD_REQUEST.value(), "CANNOT_REDUCE_MAX_PLAYERS_BELOW_CURRENT",
+		"현재 인원보다 최대 인원을 줄일 수 없습니다."),
+	COOP_MODE_MAX_PLAYERS_FIXED(HttpStatus.BAD_REQUEST.value(), "COOP_MODE_MAX_PLAYERS_FIXED",
+		"협력 모드는 최대 인원이 4명으로 고정입니다."),
+	COOP_MAP_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "COOP_MAP_NOT_FOUND", "존재하지 않는 협력 맵입니다."),
+	ROOM_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR.value(), "ROOM_CODE_GENERATION_FAILED",
+		"방 코드 생성에 실패했습니다."),
 
 	// single game session
 	SESSION_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다."),
 	SESSION_EXPIRED(HttpStatus.GONE.value(), "SESSION_EXPIRED", "세션이 만료되었습니다."),
 	ALREADY_FINISHED(HttpStatus.CONFLICT.value(), "ALREADY_FINISHED", "이미 종료된 세션입니다."),
+
+	// coop
+	COOP_MAP_NOT_ACTIVE(HttpStatus.BAD_REQUEST.value(), "COOP_MAP_NOT_ACTIVE", "협력 모드 맵이 활성화 되어 있지 않습니다."),
 
 	// system
 	INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST.value(), "INVALID_INPUT_VALUE", "잘못된 값의 파라미터입니다."),

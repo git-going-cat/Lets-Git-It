@@ -4,9 +4,6 @@ import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.BDDMockito.*;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -21,8 +18,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 
+import com.gitcat.letsgitit.domain.coop.service.CoopService;
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
-import com.gitcat.letsgitit.domain.room.dto.response.RoomResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
 import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
@@ -42,22 +41,12 @@ class RoomServiceImplTest {
 	@Mock
 	private RLock rLock;
 
+	@Mock
+	private CoopService coopService;
+
 	private static final Long ROOM_ID = 1L;
 	private static final UUID MEMBER_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
 	private static final UUID OTHER_ID = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002");
-
-	private static String sha256(String input) {
-		try {
-			byte[] bytes = MessageDigest.getInstance("SHA-256").digest(input.getBytes(StandardCharsets.UTF_8));
-			StringBuilder sb = new StringBuilder();
-			for (byte b : bytes) {
-				sb.append(String.format("%02x", b));
-			}
-			return sb.toString();
-		} catch (NoSuchAlgorithmException e) {
-			throw new IllegalStateException(e);
-		}
-	}
 
 	private RoomCache buildRoom(String mode, String roomState) {
 		return new RoomCache(ROOM_ID, "테스트 방", mode, 2, 4, false, roomState, null);
@@ -72,7 +61,7 @@ class RoomServiceImplTest {
 			RoomCache coop = buildRoom("COOP", "WAITING");
 			given(roomRedisRepository.findAll()).willReturn(List.of(contribution, coop));
 
-			RoomResponse.RoomListResponse result = roomService.getRooms(RoomMode.ALL);
+			RoomListResponse result = roomService.getRooms(RoomMode.ALL);
 
 			assertThat(result.rooms()).hasSize(2);
 		}
@@ -83,7 +72,7 @@ class RoomServiceImplTest {
 			RoomCache coop = buildRoom("COOP", "WAITING");
 			given(roomRedisRepository.findAll()).willReturn(List.of(contribution, coop));
 
-			RoomResponse.RoomListResponse result = roomService.getRooms(RoomMode.CONTRIBUTION);
+			RoomListResponse result = roomService.getRooms(RoomMode.CONTRIBUTION);
 
 			assertThat(result.rooms()).hasSize(1);
 			assertThat(result.rooms().get(0).mode()).isEqualTo("CONTRIBUTION");
@@ -95,7 +84,7 @@ class RoomServiceImplTest {
 			RoomCache coop = buildRoom("COOP", "WAITING");
 			given(roomRedisRepository.findAll()).willReturn(List.of(contribution, coop));
 
-			RoomResponse.RoomListResponse result = roomService.getRooms(RoomMode.COOP);
+			RoomListResponse result = roomService.getRooms(RoomMode.COOP);
 
 			assertThat(result.rooms()).hasSize(1);
 			assertThat(result.rooms().get(0).mode()).isEqualTo("COOP");
@@ -109,7 +98,7 @@ class RoomServiceImplTest {
 		void 비밀번호가_일치하면_인증_상태를_저장한다() {
 			String password = "secret";
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
-			given(roomRedisRepository.findPasswordById(ROOM_ID)).willReturn(sha256(password));
+			given(roomRedisRepository.findPasswordById(ROOM_ID)).willReturn(password);
 
 			roomService.verifyRoomPassword(ROOM_ID, password, MEMBER_ID);
 
@@ -129,7 +118,7 @@ class RoomServiceImplTest {
 		@Test
 		void 비밀번호가_틀리면_INVALID_PASSWORD를_던진다() {
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
-			given(roomRedisRepository.findPasswordById(ROOM_ID)).willReturn(sha256("correct"));
+			given(roomRedisRepository.findPasswordById(ROOM_ID)).willReturn("correct");
 
 			assertThatThrownBy(() -> roomService.verifyRoomPassword(ROOM_ID, "wrong", MEMBER_ID))
 				.isInstanceOf(BusinessException.class)
@@ -146,7 +135,7 @@ class RoomServiceImplTest {
 			RoomCache room = buildRoom("CONTRIBUTION", "WAITING");
 			given(roomRedisRepository.findByCode("ABC123")).willReturn(Optional.of(room));
 
-			RoomResponse.RoomSearchResponse result = roomService.searchByCode("ABC123");
+			RoomSearchResponse result = roomService.searchByCode("ABC123");
 
 			assertThat(result.roomId()).isEqualTo(ROOM_ID);
 			assertThat(result.roomState()).isEqualTo("WAITING");
