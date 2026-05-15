@@ -4,7 +4,7 @@ services:
     image: mysql:8.0
     container_name: mysql
     ports:
-      - "3307:3306"
+      - "10.0.0.1:3306:3306"
     env_file:
       - .env
     volumes:
@@ -19,7 +19,7 @@ services:
     image: redis:7-alpine
     container_name: redis-auth
     ports:
-      - "6379:6379"
+      - "10.0.0.1:6379:6379"
     volumes:
       - redis-auth-dev-data:/data
     command: >
@@ -36,7 +36,7 @@ services:
     image: redis:7-alpine
     container_name: redis-game
     ports:
-      - "6380:6380"
+      - "10.0.0.1:6380:6380"
     command: >
       redis-server
       --save ""
@@ -52,7 +52,7 @@ services:
     image: redis:7-alpine
     container_name: redis-ranking
     ports:
-      - "6381:6381"
+      - "10.0.0.1:6381:6381"
     volumes:
       - redis-ranking-dev-data:/data
     command: >
@@ -70,7 +70,7 @@ services:
     image: redis/redisinsight:latest
     container_name: redisinsight
     ports:
-      - "5540:5540"
+      - "10.0.0.1:5540:5540"
     volumes:
       - redisinsight-dev-data:/data
     restart: always
