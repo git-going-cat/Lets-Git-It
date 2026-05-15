@@ -26,10 +26,14 @@ import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.domain.record.service.RecordService;
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
 import com.gitcat.letsgitit.domain.room.dto.request.GameStartRequest;
+import com.gitcat.letsgitit.domain.room.dto.request.ReadyUpdateRequest;
 import com.gitcat.letsgitit.domain.room.dto.response.GameStartResult;
+import com.gitcat.letsgitit.domain.room.dto.response.PlayerInfoDto;
+import com.gitcat.letsgitit.domain.room.dto.response.ReadyChangedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
 import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
+import com.gitcat.letsgitit.domain.room.util.RoomMemberMapper;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 
@@ -60,12 +64,30 @@ class RoomServiceImplTest {
 	@Mock
 	private RecordService recordService;
 
+	@Mock
+	private RoomMemberMapper roomMemberMapper;
+
 	private static final Long ROOM_ID = 1L;
 	private static final UUID MEMBER_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
 	private static final UUID OTHER_ID = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002");
 
 	private RoomCache buildRoom(String mode, String roomState) {
 		return new RoomCache(ROOM_ID, "테스트 방", mode, 2, 4, false, roomState, null);
+	}
+
+	private Map<Object, Object> buildRoomInfo(String roomState) {
+		return buildRoomInfo(roomState, OTHER_ID);
+	}
+
+	private Map<Object, Object> buildRoomInfo(String roomState, UUID hostId) {
+		return Map.of(
+			"roomState", roomState,
+			"mode", "CONTRIBUTION",
+			"hostMemberId", hostId.toString());
+	}
+
+	private PlayerInfoDto buildPlayer(UUID playerId, boolean isReady) {
+		return new PlayerInfoDto(playerId, "닉네임", null, null, null, null, null, null, isReady, false);
 	}
 
 	@Nested
@@ -509,7 +531,7 @@ class RoomServiceImplTest {
 		}
 
 		@Test
-		void leaves_room_when_member_room_mapping_matches_even_if_members_hash_is_missing() {
+		void memberRoom_매핑만_존재하면_members_hash_없이도_퇴장_처리한다() {
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
 			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
@@ -519,6 +541,88 @@ class RoomServiceImplTest {
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
 			then(roomRedisRepository).should().removeMember(ROOM_ID, MEMBER_ID.toString());
+		}
+	}
+
+	@Nested
+	class UpdateReadyStatus {
+
+		private final ReadyUpdateRequest readyRequest = new ReadyUpdateRequest("READY_UPDATE", true);
+
+		@Test
+		void 준비_상태_변경에_성공하면_ReadyChangedResponse를_반환한다() {
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(buildRoomInfo("WAITING")));
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(Map.of());
+			given(roomMemberMapper.toPlayerInfoDtos(any())).willReturn(
+				List.of(buildPlayer(MEMBER_ID, true), buildPlayer(OTHER_ID, true)));
+
+			ReadyChangedResponse result = roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest);
+
+			assertThat(result.playerId()).isEqualTo(MEMBER_ID);
+			assertThat(result.isReady()).isTrue();
+			assertThat(result.allReady()).isTrue();
+			then(roomRedisRepository).should().updateMemberIsReady(ROOM_ID.toString(), MEMBER_ID.toString(), true);
+		}
+
+		@Test
+		void 한_명이라도_준비_안하면_allReady가_false이다() {
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(buildRoomInfo("WAITING")));
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(Map.of());
+			given(roomMemberMapper.toPlayerInfoDtos(any())).willReturn(
+				List.of(buildPlayer(MEMBER_ID, true), buildPlayer(OTHER_ID, false)));
+
+			ReadyChangedResponse result = roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest);
+
+			assertThat(result.allReady()).isFalse();
+		}
+
+		@Test
+		void 방이_없으면_ROOM_NOT_FOUND를_던진다() {
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.empty());
+
+			assertThatThrownBy(() -> roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(ROOM_NOT_FOUND);
+		}
+
+		@Test
+		void 게임_중인_방이면_ROOM_IN_GAME을_던진다() {
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(buildRoomInfo("IN_GAME")));
+
+			assertThatThrownBy(() -> roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(ROOM_IN_GAME);
+		}
+
+		@Test
+		void 방에_없는_플레이어면_PLAYER_NOT_IN_ROOM을_던진다() {
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(buildRoomInfo("WAITING")));
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
+
+			assertThatThrownBy(() -> roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(PLAYER_NOT_IN_ROOM);
+		}
+
+		@Test
+		void 방장이_준비_변경을_요청하면_HOST_ALWAYS_READY를_던진다() {
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(buildRoomInfo("WAITING", MEMBER_ID)));
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+
+			assertThatThrownBy(() -> roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(HOST_ALWAYS_READY);
 		}
 	}
 }

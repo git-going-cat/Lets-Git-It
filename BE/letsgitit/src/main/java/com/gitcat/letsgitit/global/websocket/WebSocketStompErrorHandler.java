@@ -32,9 +32,14 @@ public class WebSocketStompErrorHandler extends StompSubProtocolErrorHandler {
 	public Message<byte[]> handleClientMessageProcessingError(@Nullable
 	Message<byte[]> clientMessage, Throwable ex) {
 		BusinessException businessException = extractBusinessException(ex);
-		ErrorCode errorCode = businessException != null
-			? businessException.getErrorCode()
-			: ErrorCode.INTERNAL_SERVER_ERROR;
+		ErrorCode errorCode;
+		if (businessException != null) {
+			errorCode = businessException.getErrorCode();
+		} else if (isValidationException(ex)) {
+			errorCode = ErrorCode.INVALID_INPUT_VALUE;
+		} else {
+			errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+		}
 
 		StompHeaderAccessor clientHeaderAccessor = null;
 		if (clientMessage != null) {
@@ -73,6 +78,18 @@ public class WebSocketStompErrorHandler extends StompSubProtocolErrorHandler {
 			current = current.getCause();
 		}
 		return null;
+	}
+
+	private boolean isValidationException(Throwable ex) {
+		Throwable current = ex;
+		while (current != null) {
+			if (current instanceof org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException
+				|| current instanceof org.springframework.web.bind.MethodArgumentNotValidException) {
+				return true;
+			}
+			current = current.getCause();
+		}
+		return false;
 	}
 
 	private byte[] serialize(ErrorCode errorCode) {

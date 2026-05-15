@@ -5,8 +5,10 @@ import java.util.UUID;
 import com.gitcat.letsgitit.domain.coop.dto.response.CoopMapListResponse;
 import com.gitcat.letsgitit.domain.room.dto.request.ChatRequest;
 import com.gitcat.letsgitit.domain.room.dto.request.GameStartRequest;
+import com.gitcat.letsgitit.domain.room.dto.request.ReadyUpdateRequest;
 import com.gitcat.letsgitit.domain.room.dto.response.ChatResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.GameStartResult;
+import com.gitcat.letsgitit.domain.room.dto.response.ReadyChangedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
 import com.gitcat.letsgitit.global.enums.RoomMode;
@@ -30,6 +32,9 @@ public interface RoomService {
 
 	// 방 나가기 — 방장이면 위임 또는 방 해체, 아니면 단순 제거
 	void leaveRoom(Long roomId, UUID memberId);
+
+	// 준비 상태 변경 — ROOM_NOT_FOUND / ROOM_IN_GAME / PLAYER_NOT_IN_ROOM
+	ReadyChangedResponse updateReadyStatus(UUID memberId, Long roomId, ReadyUpdateRequest request);
 
 	// 채팅 메시지 처리 — 방 존재 확인, 메시지 검증 후 브로드캐스트용 응답 반환
 	ChatResponse processChat(Long roomId, UUID memberId, ChatRequest request);

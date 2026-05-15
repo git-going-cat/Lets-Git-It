@@ -25,16 +25,22 @@ import com.gitcat.letsgitit.domain.record.service.RecordService;
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
 import com.gitcat.letsgitit.domain.room.dto.request.ChatRequest;
 import com.gitcat.letsgitit.domain.room.dto.request.GameStartRequest;
+import com.gitcat.letsgitit.domain.room.dto.request.ReadyUpdateRequest;
 import com.gitcat.letsgitit.domain.room.dto.response.ChatResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.ContributionPlayerDto;
 import com.gitcat.letsgitit.domain.room.dto.response.ContributionStartedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.CoopPlayerDto;
 import com.gitcat.letsgitit.domain.room.dto.response.CoopStartedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.GameStartResult;
+import com.gitcat.letsgitit.domain.room.dto.response.PlayerInfoDto;
+import com.gitcat.letsgitit.domain.room.dto.response.ReadyChangedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSummaryDto;
+import com.gitcat.letsgitit.domain.room.entity.enums.RoomState;
 import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
+import com.gitcat.letsgitit.domain.room.util.RoomMemberMapper;
+import com.gitcat.letsgitit.domain.room.util.RoomRedisReader;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 
@@ -52,6 +58,7 @@ public class RoomServiceImpl implements RoomService {
 	private final CommandService commandService;
 	private final MemberService memberService;
 	private final RecordService recordService;
+	private final RoomMemberMapper roomMemberMapper;
 
 	@Override
 	public RoomListResponse getRooms(RoomMode mode) {
@@ -112,6 +119,8 @@ public class RoomServiceImpl implements RoomService {
 				String newHostId = remaining.stream().sorted().findFirst().orElseThrow();
 				roomRedisRepository.updateHostId(roomId, newHostId);
 				log.info("[room][leaveRoom] 방장 위임. roomId={}, newHostId={}", roomId, newHostId);
+				roomRedisRepository.updateMemberToHost(roomId.toString(), newHostId);
+				log.info("[room] 방장 위임. roomId={}, newHostId={}", roomId, newHostId);
 			}
 		} finally {
 			lock.unlock();
@@ -146,6 +155,46 @@ public class RoomServiceImpl implements RoomService {
 	@Override
 	public CoopMapListResponse getCoopMaps() {
 		return coopService.getCoopMaps();
+	}
+
+	@Override
+	public ReadyChangedResponse updateReadyStatus(UUID memberId, Long roomId, ReadyUpdateRequest request) {
+		Map<Object, Object> roomInfo = roomRedisRepository.getRoomInfo(roomId.toString())
+			.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
+
+		if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
+			log.warn("[room] 준비 변경 거부: 게임 중인 방. roomId={}, memberId={}", roomId, memberId);
+			throw new BusinessException(ROOM_IN_GAME);
+		}
+
+		String memberIdStr = memberId.toString();
+		if (!roomRedisRepository.existsMember(roomId, memberIdStr)) {
+			log.warn("[room] 준비 변경 거부: 방에 없는 플레이어. roomId={}, memberId={}", roomId, memberId);
+			throw new BusinessException(PLAYER_NOT_IN_ROOM);
+		}
+
+		String hostMemberId = RoomRedisReader.readString(roomInfo, "hostMemberId");
+		if (memberIdStr.equals(hostMemberId)) {
+			log.warn("[room] 준비 변경 거부: 방장은 항상 준비 완료. roomId={}, memberId={}", roomId, memberId);
+			throw new BusinessException(HOST_ALWAYS_READY);
+		}
+
+		roomRedisRepository.updateMemberIsReady(roomId.toString(), memberIdStr, request.isReady());
+
+		Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
+		List<PlayerInfoDto> players = roomMemberMapper.toPlayerInfoDtos(members);
+
+		String nickname = players.stream()
+			.filter(p -> memberId.equals(p.playerId()))
+			.map(PlayerInfoDto::nickname)
+			.findFirst()
+			.orElse("");
+
+		boolean allReady = !players.isEmpty() && players.stream().allMatch(p -> Boolean.TRUE.equals(p.isReady()));
+
+		log.info("[room] 준비 상태 변경. roomId={}, memberId={}, isReady={}, allReady={}",
+			roomId, memberId, request.isReady(), allReady);
+		return ReadyChangedResponse.of(memberId, nickname, request.isReady(), allReady);
 	}
 
 	@Override

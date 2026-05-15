@@ -337,6 +337,45 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		return Boolean.TRUE.equals(authStringRedisTemplate.hasKey(key));
 	}
 
+	@Override
+	public void updateMemberIsReady(String roomId, String memberId, boolean isReady) {
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		String memberJson = (String)gameStringRedisTemplate.opsForHash().get(membersKey, memberId);
+		if (memberJson == null) {
+			throw new IllegalStateException(
+				"Member not found in room members hash. roomId=" + roomId + ", memberId=" + memberId);
+		}
+		try {
+			Map<String, Object> memberInfo = objectMapper.readValue(memberJson,
+				new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+			memberInfo.put("isReady", isReady);
+			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, objectMapper.writeValueAsString(memberInfo));
+		} catch (JsonProcessingException e) {
+			throw new IllegalStateException(
+				"Failed to update member isReady. roomId=" + roomId + ", memberId=" + memberId, e);
+		}
+	}
+
+	@Override
+	public void updateMemberToHost(String roomId, String memberId) {
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		String memberJson = (String)gameStringRedisTemplate.opsForHash().get(membersKey, memberId);
+		if (memberJson == null) {
+			throw new IllegalStateException(
+				"Member not found in room members hash. roomId=" + roomId + ", memberId=" + memberId);
+		}
+		try {
+			Map<String, Object> memberInfo = objectMapper.readValue(memberJson,
+				new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+			memberInfo.put("isHost", true);
+			memberInfo.put("isReady", true);
+			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, objectMapper.writeValueAsString(memberInfo));
+		} catch (JsonProcessingException e) {
+			throw new IllegalStateException(
+				"Failed to update member to host. roomId=" + roomId + ", memberId=" + memberId, e);
+		}
+	}
+
 	private void dissolveRoomKeys(String infoKey, String membersKey, Object roomCodeObj, Object modeObj,
 		Map<Object, Object> members, String roomIdValue) {
 		String memberMappingsKey = roomMemberMappingsKey(roomIdValue);

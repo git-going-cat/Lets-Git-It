@@ -18,6 +18,7 @@ import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.domain.room.dto.request.CreateContributionRoomRequest;
 import com.gitcat.letsgitit.domain.room.dto.request.UpdateContributionRoomRequest;
 import com.gitcat.letsgitit.domain.room.dto.response.ContributionRoomInfoResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.ContributionRoomInfoUpdatedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.CreateContributionRoomResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.JoinContributionRoomResponse;
 import com.gitcat.letsgitit.domain.room.entity.enums.RoomState;
@@ -26,6 +27,7 @@ import com.gitcat.letsgitit.domain.room.util.RoomMemberMapper;
 import com.gitcat.letsgitit.domain.room.util.RoomRedisReader;
 import com.gitcat.letsgitit.global.enums.GameMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
+import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +47,7 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 	private final RoomWebSocketEventPublisher roomWebSocketEventPublisher;
 	private final RoomMemberRecoveryService roomMemberRecoveryService;
 	private final RedissonClient redissonClient;
+	private final WebSocketMessageSender messageSender;
 
 	@Override
 	public CreateContributionRoomResponse createContributionRoom(UUID memberId, CreateContributionRoomRequest request) {
@@ -216,6 +219,12 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 		try {
 			validateContributionRoomMode(roomInfo, roomId, memberId, "update");
 
+			if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
+				log.warn("[room] contribution room update rejected: game in progress. roomId={}, memberId={}", roomId,
+					memberId);
+				throw new BusinessException(ROOM_IN_GAME);
+			}
+
 			// 플레이어가 해당 방에 들어와있는지 검증
 			if (!roomMemberRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "contribution")) {
 				log.warn("[room] contribution room update rejected: member not in room. roomId={}, memberId={}", roomId,
@@ -241,6 +250,8 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			roomRedisRepository.updateRoomInfo(roomId.toString(), buildContributionRoomUpdateInfo(request));
 			log.info("[room] contribution room updated. roomId={}, memberId={}, hasPassword={}, maxPlayers={}",
 				roomId, memberId, request.hasPassword(), request.maxPlayers());
+
+			broadcastRoomInfoUpdated(roomId);
 		} catch (IllegalStateException e) {
 			log.error("[room] invalid contribution room redis state during update. roomId={}, memberId={}",
 				roomId, memberId, e);
@@ -277,6 +288,30 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			log.error("[room] invalid contribution room redis state during info fetch. roomId={}, memberId={}",
 				roomId, memberId, e);
 			throw e;
+		}
+	}
+
+	private void broadcastRoomInfoUpdated(Long roomId) {
+		try {
+			var roomInfoOpt = roomRedisRepository.getRoomInfo(roomId.toString());
+
+			if (roomInfoOpt.isEmpty()) {
+				log.warn("[room] ROOM_INFO_UPDATED skipped: room not found. roomId={}", roomId);
+				return;
+			}
+
+			Map<Object, Object> roomInfo = roomInfoOpt.get();
+
+			Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
+
+			ContributionRoomInfoUpdatedResponse response = ContributionRoomInfoUpdatedResponse.from(
+				buildContributionRoomInfoResponse(roomId, roomInfo, members));
+
+			messageSender.send("/topic/room/" + roomId, response);
+			log.info("[room] contribution room info broadcast. roomId={}", roomId);
+		} catch (RuntimeException e) {
+			log.warn("[room] ROOM_INFO_UPDATED publish failed. roomId={}, reason={}",
+				roomId, e.getClass().getSimpleName(), e);
 		}
 	}
 
@@ -345,6 +380,7 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			GameMode.valueOf(RoomRedisReader.readString(roomInfo, "mode")),
 			RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")),
 			members.size(),
+			RoomRedisReader.readBoolean(roomInfo, "hasPassword"),
 			RoomRedisReader.readInt(roomInfo, "maxPlayers"),
 			roomMemberMapper.toPlayerInfoDtos(members));
 	}
