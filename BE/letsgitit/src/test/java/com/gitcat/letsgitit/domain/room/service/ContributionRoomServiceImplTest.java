@@ -58,6 +58,9 @@ class ContributionRoomServiceImplTest {
 	private RoomMemberMapper roomMemberMapper;
 
 	@Mock
+	private RoomMemberRecoveryService roomMemberRecoveryService;
+
+	@Mock
 	private RedissonClient redissonClient;
 
 	@Mock
@@ -68,10 +71,10 @@ class ContributionRoomServiceImplTest {
 
 		@Test
 		void 방_생성에_성공하면_redis에_저장하고_응답을_반환한다() {
-			Member member = createMember(MEMBER_ID, "dobby");
 			CreateContributionRoomRequest request = new CreateContributionRoomRequest("기여도 방", 4, true, "1234");
-			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
 
+			Member member = createMember(MEMBER_ID, "dobby");
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
 			given(memberService.findById(MEMBER_ID)).willReturn(member);
 			given(roomCodeGenerator.generate()).willReturn("ABC123");
 			given(roomRedisRepository.reserveRoomCode("ABC123")).willReturn(true);
@@ -219,6 +222,42 @@ class ContributionRoomServiceImplTest {
 	}
 
 	@Nested
+	class JoinContributionRoomAutoLeave {
+
+		@Test
+		void 다른_방에_있으면_이전_방을_나가고_현재_방에_입장한다() throws Exception {
+			Member member = createMember(MEMBER_ID, "dobby");
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+			Long previousRoomId = 99L;
+
+			given(redissonClient.getLock("room:" + ROOM_ID + ":join-lock")).willReturn(rLock);
+			given(rLock.tryLock(3L, 10L, TimeUnit.SECONDS)).willReturn(true);
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+			given(memberService.findById(MEMBER_ID)).willReturn(member);
+			given(roomMemberMapper.toMemberInfo(member, false)).willReturn(memberInfo);
+			given(roomRedisRepository.saveMemberIfNotInAnyRoom(ROOM_ID.toString(), MEMBER_ID.toString(), memberInfo))
+				.willReturn(false, true);
+			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.of(previousRoomId));
+			given(roomMemberRecoveryService.leavePreviousRoomIfNecessary(MEMBER_ID, ROOM_ID, "contribution"))
+				.willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+			given(rLock.isHeldByCurrentThread()).willReturn(true);
+
+			JoinContributionRoomResponse response = contributionRoomService.joinContributionRoom(MEMBER_ID, ROOM_ID);
+
+			assertThat(response.roomId()).isEqualTo(ROOM_ID);
+			then(roomMemberRecoveryService).should()
+				.leavePreviousRoomIfNecessary(MEMBER_ID, ROOM_ID, "contribution");
+			then(rLock).should().unlock();
+		}
+	}
+
+	@Nested
 	class UpdateContributionRoomInfo {
 
 		@Test
@@ -226,12 +265,32 @@ class ContributionRoomServiceImplTest {
 			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, false, null);
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
 				.willReturn(Optional.of(waitingContributionRoomInfo()));
-			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), anyMap(), eq("contribution"))).willReturn(false);
 
 			assertThatThrownBy(() -> contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request))
 				.isInstanceOf(BusinessException.class)
 				.extracting(e -> ((BusinessException)e).getErrorCode())
 				.isEqualTo(PLAYER_NOT_IN_ROOM);
+		}
+
+		@Test
+		void restores_members_hash_from_member_room_mapping_on_contribution_update() {
+			Member member = createMember(MEMBER_ID, "dobby");
+			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, false, null);
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("contribution"))).willReturn(true);
+			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+
+			contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request);
+
+			then(roomMemberRecoveryService).should()
+				.ensureMemberInRoom(eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("contribution"));
+			then(roomRedisRepository).should().updateRoomInfo(eq(ROOM_ID.toString()), anyMap());
 		}
 	}
 
@@ -245,7 +304,8 @@ class ContributionRoomServiceImplTest {
 			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
 
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
-			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("contribution"))).willReturn(true);
 			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
 			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
 
@@ -255,6 +315,25 @@ class ContributionRoomServiceImplTest {
 			assertThat(response.roomCode()).isEqualTo("ABC123");
 			assertThat(response.currentPlayers()).isEqualTo(1);
 			assertThat(response.members()).containsExactlyElementsOf(playerInfos);
+		}
+
+		@Test
+		void restores_members_hash_from_member_room_mapping_on_contribution_info_fetch() {
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("contribution"))).willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+
+			ContributionRoomInfoResponse response = contributionRoomService.getContributionRoomInfo(MEMBER_ID, ROOM_ID);
+
+			assertThat(response.roomId()).isEqualTo(ROOM_ID);
+			then(roomMemberRecoveryService).should()
+				.ensureMemberInRoom(eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("contribution"));
 		}
 	}
 

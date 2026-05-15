@@ -17,11 +17,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.RedisStringCommands;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.DefaultTypedTuple;
 import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.SessionCallback;
+import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -39,6 +45,9 @@ class RoomRedisRepositoryImplTest {
 	private RedisTemplate<String, Object> gameRedisTemplate;
 
 	@Mock
+	private StringRedisTemplate gameStringRedisTemplate;
+
+	@Mock
 	private StringRedisTemplate authStringRedisTemplate;
 
 	@Mock
@@ -51,24 +60,41 @@ class RoomRedisRepositoryImplTest {
 	private ValueOperations valueOps;
 
 	@Mock
+	private SetOperations setOps;
+
+	@Mock
 	private RedisOperations<Object, Object> redisOperations;
+
+	@Mock
+	private RedisConnection redisConnection;
+
+	@Mock
+	private RedisStringCommands redisStringCommands;
+
+	@Mock
+	private Cursor<byte[]> scanCursor;
 
 	@Mock
 	private HashOperations<Object, Object, Object> pipelineHashOps;
 
 	@Mock
-	private ZSetOperations<Object, Object> pipelineZSetOps;
+	private SetOperations<Object, Object> pipelineSetOps;
 
 	private static final Long ROOM_ID = 1L;
 	private static final String INFO_KEY = "room:1:info";
 	private static final String MEMBERS_KEY = "room:1:members";
+	private static final String MEMBER_MAPPINGS_KEY = "room:1:member-mappings";
 	private static final String CODE = "ABC123";
 	private static final String CODE_KEY = "room:code:ABC123";
 	private static final String MEMBER_ID = "aaaaaaaa-0000-0000-0000-000000000001";
 
 	@BeforeEach
 	void setUp() {
-		repository = new RoomRedisRepositoryImpl(gameRedisTemplate, authStringRedisTemplate, new ObjectMapper());
+		repository = new RoomRedisRepositoryImpl(
+			gameRedisTemplate,
+			gameStringRedisTemplate,
+			authStringRedisTemplate,
+			new ObjectMapper());
 	}
 
 	private Map<Object, Object> buildInfoFields(String mode) {
@@ -152,7 +178,7 @@ class RoomRedisRepositoryImplTest {
 
 		@Test
 		void 멤버가_존재하면_true를_반환한다() {
-			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
 			given(hashOps.hasKey(MEMBERS_KEY, MEMBER_ID)).willReturn(true);
 
 			assertThat(repository.existsMember(ROOM_ID, MEMBER_ID)).isTrue();
@@ -160,10 +186,34 @@ class RoomRedisRepositoryImplTest {
 
 		@Test
 		void 멤버가_없으면_false를_반환한다() {
-			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
 			given(hashOps.hasKey(MEMBERS_KEY, MEMBER_ID)).willReturn(false);
 
 			assertThat(repository.existsMember(ROOM_ID, MEMBER_ID)).isFalse();
+		}
+	}
+
+	// ===================== findJoinedRoomId =====================
+
+	@Nested
+	class FindJoinedRoomId {
+
+		@Test
+		void legacy_json_string_value도_roomId로_정규화한다() {
+			String memberRoomKey = "member:" + MEMBER_ID + ":room";
+			given(gameStringRedisTemplate.opsForValue()).willReturn(valueOps);
+			given(valueOps.get(memberRoomKey)).willReturn("\"1\"");
+
+			assertThat(repository.findJoinedRoomId(MEMBER_ID)).contains(ROOM_ID);
+		}
+
+		@Test
+		void legacy_jackson_array_wrapper_value도_roomId로_정규화한다() {
+			String memberRoomKey = "member:" + MEMBER_ID + ":room";
+			given(gameStringRedisTemplate.opsForValue()).willReturn(valueOps);
+			given(valueOps.get(memberRoomKey)).willReturn("[\"java.lang.String\",\"1\"]");
+
+			assertThat(repository.findJoinedRoomId(MEMBER_ID)).contains(ROOM_ID);
 		}
 	}
 
@@ -179,12 +229,15 @@ class RoomRedisRepositoryImplTest {
 
 			repository.removeMember(ROOM_ID, MEMBER_ID);
 
-			then(gameRedisTemplate).should().executePipelined(callbackCaptor.capture());
+			then(gameStringRedisTemplate).should().executePipelined(callbackCaptor.capture());
 
+			given(redisOperations.opsForSet()).willReturn(pipelineSetOps);
 			callbackCaptor.getValue().execute(redisOperations);
 
 			then(redisOperations).should().opsForHash();
+			then(redisOperations).should().opsForSet();
 			then(pipelineHashOps).should().delete(MEMBERS_KEY, MEMBER_ID);
+			then(pipelineSetOps).should().remove(MEMBER_MAPPINGS_KEY, MEMBER_ID);
 			then(redisOperations).should().delete("member:" + MEMBER_ID + ":room");
 		}
 	}
@@ -197,12 +250,74 @@ class RoomRedisRepositoryImplTest {
 		@Test
 		void members_Hash의_모든_키를_반환한다() {
 			String other = "bbbbbbbb-0000-0000-0000-000000000002";
-			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(gameStringRedisTemplate.opsForSet()).willReturn(setOps);
+			given(setOps.members(MEMBER_MAPPINGS_KEY)).willReturn(Set.of(MEMBER_ID, other));
+
+			Set<String> result = repository.findAllMemberIds(ROOM_ID);
+
+			assertThat(result).containsExactlyInAnyOrder(MEMBER_ID, other);
+		}
+
+		@Test
+		void memberMappings가_비어있으면_members_Hash에서_fallback하고_backfill한다() {
+			String other = "bbbbbbbb-0000-0000-0000-000000000002";
+			given(gameStringRedisTemplate.opsForSet()).willReturn(setOps);
+			given(setOps.members(MEMBER_MAPPINGS_KEY)).willReturn(Set.of());
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
 			given(hashOps.keys(MEMBERS_KEY)).willReturn(Set.of(MEMBER_ID, other));
 
 			Set<String> result = repository.findAllMemberIds(ROOM_ID);
 
 			assertThat(result).containsExactlyInAnyOrder(MEMBER_ID, other);
+			then(setOps).should().add(MEMBER_MAPPINGS_KEY, MEMBER_ID, other);
+		}
+
+		@Test
+		void memberMappings와_members_Hash가_비어있으면_legacy_mapping_only_멤버를_SCAN으로_복구한다() {
+			String legacyMemberId = "cccccccc-0000-0000-0000-000000000003";
+			String legacyMappingKey = "member:" + legacyMemberId + ":room";
+
+			given(gameStringRedisTemplate.opsForSet()).willReturn(setOps);
+			given(setOps.members(MEMBER_MAPPINGS_KEY)).willReturn(Set.of());
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(hashOps.keys(MEMBERS_KEY)).willReturn(Set.of());
+			given(gameStringRedisTemplate.execute(any(RedisCallback.class)))
+				.willAnswer(
+					invocation -> invocation.<RedisCallback<Set<String>>>getArgument(0).doInRedis(redisConnection));
+			given(redisConnection.stringCommands()).willReturn(redisStringCommands);
+			given(redisConnection.scan(any(ScanOptions.class))).willReturn(scanCursor);
+			given(scanCursor.hasNext()).willReturn(true, false);
+			given(scanCursor.next()).willReturn(legacyMappingKey.getBytes());
+			given(redisStringCommands.get(legacyMappingKey.getBytes())).willReturn(ROOM_ID.toString().getBytes());
+
+			Set<String> result = repository.findAllMemberIds(ROOM_ID);
+
+			assertThat(result).containsExactly(legacyMemberId);
+			then(setOps).should().add(MEMBER_MAPPINGS_KEY, legacyMemberId);
+		}
+
+		@Test
+		void memberMappings가_비어있고_members_Hash도_비어있으면_json_string_legacy_value도_SCAN으로_복구한다() {
+			String legacyMemberId = "dddddddd-0000-0000-0000-000000000004";
+			String legacyMappingKey = "member:" + legacyMemberId + ":room";
+
+			given(gameStringRedisTemplate.opsForSet()).willReturn(setOps);
+			given(setOps.members(MEMBER_MAPPINGS_KEY)).willReturn(Set.of());
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(hashOps.keys(MEMBERS_KEY)).willReturn(Set.of());
+			given(gameStringRedisTemplate.execute(any(RedisCallback.class)))
+				.willAnswer(
+					invocation -> invocation.<RedisCallback<Set<String>>>getArgument(0).doInRedis(redisConnection));
+			given(redisConnection.stringCommands()).willReturn(redisStringCommands);
+			given(redisConnection.scan(any(ScanOptions.class))).willReturn(scanCursor);
+			given(scanCursor.hasNext()).willReturn(true, false);
+			given(scanCursor.next()).willReturn(legacyMappingKey.getBytes());
+			given(redisStringCommands.get(legacyMappingKey.getBytes())).willReturn("\"1\"".getBytes());
+
+			Set<String> result = repository.findAllMemberIds(ROOM_ID);
+
+			assertThat(result).containsExactly(legacyMemberId);
+			then(setOps).should().add(MEMBER_MAPPINGS_KEY, legacyMemberId);
 		}
 	}
 
@@ -251,6 +366,7 @@ class RoomRedisRepositoryImplTest {
 			given(valueOps.get(CODE_KEY)).willReturn("1");
 			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
 			given(hashOps.entries(INFO_KEY)).willReturn(buildInfoFields("CONTRIBUTION"));
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
 			given(hashOps.size(MEMBERS_KEY)).willReturn(2L);
 
 			Optional<RoomCache> result = repository.findByCode(CODE);
@@ -286,8 +402,9 @@ class RoomRedisRepositoryImplTest {
 
 			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
 			given(hashOps.entries("room:1:info")).willReturn(buildInfoFields("CONTRIBUTION"));
-			given(hashOps.size("room:1:members")).willReturn(2L);
 			given(hashOps.entries("room:2:info")).willReturn(buildInfoFields("COOP"));
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(hashOps.size("room:1:members")).willReturn(2L);
 			given(hashOps.size("room:2:members")).willReturn(1L);
 
 			List<RoomCache> result = repository.findAll();
@@ -317,44 +434,110 @@ class RoomRedisRepositoryImplTest {
 		@Test
 		void roomInfo_members_codeKey_listKey와_memberRoom매핑을_파이프라인으로_삭제한다() {
 			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
-			given(hashOps.entries(MEMBERS_KEY)).willReturn(Map.of(MEMBER_ID, "member-json"));
 			given(hashOps.get(INFO_KEY, "roomCode")).willReturn(CODE);
 			given(hashOps.get(INFO_KEY, "mode")).willReturn("CONTRIBUTION");
-			given(redisOperations.opsForZSet()).willReturn(pipelineZSetOps);
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(gameStringRedisTemplate.opsForSet()).willReturn(setOps);
+			given(hashOps.entries(MEMBERS_KEY)).willReturn(Map.of(MEMBER_ID, "member-json"));
+			given(setOps.members(MEMBER_MAPPINGS_KEY)).willReturn(Set.of(MEMBER_ID));
+			given(gameRedisTemplate.opsForZSet()).willReturn(zSetOps);
 
 			repository.dissolveRoom(ROOM_ID);
 
 			ArgumentCaptor<SessionCallback<Object>> callbackCaptor = ArgumentCaptor.forClass(SessionCallback.class);
-			then(gameRedisTemplate).should().executePipelined(callbackCaptor.capture());
+			then(gameStringRedisTemplate).should().executePipelined(callbackCaptor.capture());
 
 			callbackCaptor.getValue().execute(redisOperations);
 
 			then(redisOperations).should().delete(INFO_KEY);
 			then(redisOperations).should().delete(MEMBERS_KEY);
+			then(redisOperations).should().delete(MEMBER_MAPPINGS_KEY);
 			then(redisOperations).should().delete(CODE_KEY);
-			then(pipelineZSetOps).should().remove("room:list:CONTRIBUTION", ROOM_ID.toString());
+			then(zSetOps).should().remove("room:list:CONTRIBUTION", ROOM_ID.toString());
 			then(redisOperations).should().delete("member:" + MEMBER_ID + ":room");
 		}
 
 		@Test
 		void roomCode가_없으면_codeKey는_삭제하지_않는다() {
 			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
-			given(hashOps.entries(MEMBERS_KEY)).willReturn(Map.of());
 			given(hashOps.get(INFO_KEY, "roomCode")).willReturn(null);
 			given(hashOps.get(INFO_KEY, "mode")).willReturn("CONTRIBUTION");
-			given(redisOperations.opsForZSet()).willReturn(pipelineZSetOps);
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(gameStringRedisTemplate.opsForSet()).willReturn(setOps);
+			given(hashOps.entries(MEMBERS_KEY)).willReturn(Map.of());
+			given(setOps.members(MEMBER_MAPPINGS_KEY)).willReturn(Set.of());
+			given(gameRedisTemplate.opsForZSet()).willReturn(zSetOps);
 
 			repository.dissolveRoom(ROOM_ID);
 
 			ArgumentCaptor<SessionCallback<Object>> callbackCaptor = ArgumentCaptor.forClass(SessionCallback.class);
-			then(gameRedisTemplate).should().executePipelined(callbackCaptor.capture());
+			then(gameStringRedisTemplate).should().executePipelined(callbackCaptor.capture());
 
 			callbackCaptor.getValue().execute(redisOperations);
 
 			then(redisOperations).should().delete(INFO_KEY);
 			then(redisOperations).should().delete(MEMBERS_KEY);
+			then(redisOperations).should().delete(MEMBER_MAPPINGS_KEY);
 			then(redisOperations).should(never()).delete("");
-			then(pipelineZSetOps).should().remove("room:list:CONTRIBUTION", ROOM_ID.toString());
+			then(zSetOps).should().remove("room:list:CONTRIBUTION", ROOM_ID.toString());
+		}
+
+		@Test
+		void members_Hash에_없어도_같은_방을_가리키는_stale_memberRoom매핑은_함께_삭제한다() {
+			String staleMemberId = "bbbbbbbb-0000-0000-0000-000000000002";
+			String staleMappingKey = "member:" + staleMemberId + ":room";
+
+			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(hashOps.get(INFO_KEY, "roomCode")).willReturn(CODE);
+			given(hashOps.get(INFO_KEY, "mode")).willReturn("CONTRIBUTION");
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(gameStringRedisTemplate.opsForSet()).willReturn(setOps);
+			given(hashOps.entries(MEMBERS_KEY)).willReturn(Map.of(MEMBER_ID, "member-json"));
+			given(setOps.members(MEMBER_MAPPINGS_KEY)).willReturn(Set.of(MEMBER_ID, staleMemberId));
+			given(gameRedisTemplate.opsForZSet()).willReturn(zSetOps);
+
+			repository.dissolveRoom(ROOM_ID);
+
+			ArgumentCaptor<SessionCallback<Object>> callbackCaptor = ArgumentCaptor.forClass(SessionCallback.class);
+			then(gameStringRedisTemplate).should().executePipelined(callbackCaptor.capture());
+
+			callbackCaptor.getValue().execute(redisOperations);
+
+			then(redisOperations).should().delete("member:" + MEMBER_ID + ":room");
+			then(redisOperations).should().delete(staleMappingKey);
+		}
+
+		@Test
+		void Hash와_Set에_없는_legacy_mapping_only_멤버도_SCAN으로_정리한다() throws Exception {
+			String legacyMemberId = "cccccccc-0000-0000-0000-000000000003";
+			String legacyMappingKey = "member:" + legacyMemberId + ":room";
+
+			given(gameRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(hashOps.get(INFO_KEY, "roomCode")).willReturn(CODE);
+			given(hashOps.get(INFO_KEY, "mode")).willReturn("CONTRIBUTION");
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(gameStringRedisTemplate.opsForSet()).willReturn(setOps);
+			given(hashOps.entries(MEMBERS_KEY)).willReturn(Map.of());
+			given(setOps.members(MEMBER_MAPPINGS_KEY)).willReturn(Set.of());
+			given(gameStringRedisTemplate.execute(any(RedisCallback.class)))
+				.willAnswer(
+					invocation -> invocation.<RedisCallback<Set<String>>>getArgument(0).doInRedis(redisConnection));
+			given(redisConnection.stringCommands()).willReturn(redisStringCommands);
+			given(redisConnection.scan(any(ScanOptions.class))).willReturn(scanCursor);
+			given(scanCursor.hasNext()).willReturn(true, false);
+			given(scanCursor.next()).willReturn(legacyMappingKey.getBytes());
+			given(redisStringCommands.get(legacyMappingKey.getBytes())).willReturn(ROOM_ID.toString().getBytes());
+			given(gameRedisTemplate.opsForZSet()).willReturn(zSetOps);
+
+			repository.dissolveRoom(ROOM_ID);
+
+			ArgumentCaptor<SessionCallback<Object>> callbackCaptor = ArgumentCaptor.forClass(SessionCallback.class);
+			then(gameStringRedisTemplate).should().executePipelined(callbackCaptor.capture());
+
+			callbackCaptor.getValue().execute(redisOperations);
+
+			then(redisOperations).should().delete(legacyMappingKey);
+			then(scanCursor).should().close();
 		}
 	}
 }

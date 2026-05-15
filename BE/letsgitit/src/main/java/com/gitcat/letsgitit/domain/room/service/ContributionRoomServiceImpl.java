@@ -42,6 +42,7 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 	private final RoomRedisRepository roomRedisRepository;
 	private final RoomCodeGenerator roomCodeGenerator;
 	private final RoomMemberMapper roomMemberMapper;
+	private final RoomMemberRecoveryService roomMemberRecoveryService;
 	private final RedissonClient redissonClient;
 
 	@Override
@@ -118,6 +119,12 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			try {
 				validateContributionRoomMode(roomInfo, roomId, memberId, "join");
 
+				if (roomRedisRepository.existsMember(roomId, memberId.toString())) {
+					log.warn("[room] contribution room join rejected: already in room. roomId={}, memberId={}",
+						roomId, memberId);
+					throw new BusinessException(ALREADY_IN_ROOM);
+				}
+
 				boolean hasPassword = RoomRedisReader.readBoolean(roomInfo, "hasPassword");
 				if (hasPassword && !roomRedisRepository.isPasswordVerified(memberId.toString(), roomId)) {
 					log.warn("[room] contribution room join rejected: password not verified. roomId={}, memberId={}",
@@ -158,10 +165,18 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 							roomId, memberId);
 						throw new BusinessException(ALREADY_IN_ROOM);
 					}
-					log.warn(
-						"[room] contribution room join rejected: already in another room. roomId={}, memberId={}, joinedRoomId={}",
-						roomId, memberId, joinedRoomId.orElse(null));
-					throw new BusinessException(ALREADY_IN_ANOTHER_ROOM);
+					if (roomMemberRecoveryService.leavePreviousRoomIfNecessary(memberId, roomId, "contribution")) {
+						memberAdded = roomRedisRepository.saveMemberIfNotInAnyRoom(
+							roomId.toString(),
+							memberId.toString(),
+							roomMemberMapper.toMemberInfo(member, false));
+					}
+					if (!memberAdded) {
+						log.warn(
+							"[room] contribution room join rejected: already in another room. roomId={}, memberId={}, joinedRoomId={}",
+							roomId, memberId, joinedRoomId.orElse(null));
+						throw new BusinessException(ALREADY_IN_ANOTHER_ROOM);
+					}
 				}
 
 				// 6. room info 와 members Hash 전체를 읽어 JoinContributionRoomResponse 를 조립한다.
@@ -195,7 +210,7 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			validateContributionRoomMode(roomInfo, roomId, memberId, "update");
 
 			// 플레이어가 해당 방에 들어와있는지 검증
-			if (!roomRedisRepository.existsMember(roomId, memberId.toString())) {
+			if (!roomMemberRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "contribution")) {
 				log.warn("[room] contribution room update rejected: member not in room. roomId={}, memberId={}", roomId,
 					memberId);
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);
@@ -236,7 +251,7 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			validateContributionRoomMode(roomInfo, roomId, memberId, "info fetch");
 
 			// 플레이어가 해당 방에 들어와있는지 검증
-			if (!roomRedisRepository.existsMember(roomId, memberId.toString())) {
+			if (!roomMemberRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "contribution")) {
 				log.warn("[room] contribution room info rejected: member not in room. roomId={}, memberId={}", roomId,
 					memberId);
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);
@@ -335,4 +350,5 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			throw new BusinessException(ROOM_MODE_MISMATCH);
 		}
 	}
+
 }

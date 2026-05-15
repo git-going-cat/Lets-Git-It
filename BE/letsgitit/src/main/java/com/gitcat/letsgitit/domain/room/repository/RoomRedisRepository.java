@@ -32,6 +32,8 @@ public interface RoomRedisRepository {
 
 	boolean saveMemberIfNotInAnyRoom(String roomId, String memberId, Map<String, Object> memberInfo);
 
+	void saveMember(String roomId, String memberId, Map<String, Object> memberInfo);
+
 	Map<Object, Object> getMembers(String roomId);
 
 	long getMembersCount(String roomId);
