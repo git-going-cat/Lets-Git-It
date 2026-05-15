@@ -74,6 +74,15 @@ public class RedisConfig {
 		return template;
 	}
 
+	@Bean
+	public StringRedisTemplate gameStringRedisTemplate(
+		@Qualifier("gameRedisConnectionFactory")
+		RedisConnectionFactory factory) {
+		StringRedisTemplate template = new StringRedisTemplate();
+		template.setConnectionFactory(factory);
+		return template;
+	}
+
 	@Primary
 	@Bean
 	public RedisTemplate<String, Object> authRedisTemplate(

@@ -65,6 +65,9 @@ class CoopRoomServiceImplTest {
 	private RoomMemberMapper roomMemberMapper;
 
 	@Mock
+	private RoomMemberRecoveryService roomMemberRecoveryService;
+
+	@Mock
 	private RedissonClient redissonClient;
 
 	@Mock
@@ -75,11 +78,11 @@ class CoopRoomServiceImplTest {
 
 		@Test
 		void 방_생성에_성공하면_맵_정보를_포함한_응답을_반환한다() {
-			Member member = createMember(MEMBER_ID, "dobby");
 			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "브랜치 기초", 1);
 			CreateCoopRoomRequest request = new CreateCoopRoomRequest("협력 방", "gitcat", true, "1234", MAP_ID);
-			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
 
+			Member member = createMember(MEMBER_ID, "dobby");
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
 			given(memberService.findById(MEMBER_ID)).willReturn(member);
 			given(coopService.getSelectedMap(MAP_ID)).willReturn(selectedMap);
 			given(roomCodeGenerator.generate()).willReturn("COOP12");
@@ -216,6 +219,44 @@ class CoopRoomServiceImplTest {
 	}
 
 	@Nested
+	class JoinCoopRoomAutoLeave {
+
+		@Test
+		void 다른_방에_있으면_이전_방을_나가고_현재_방에_입장한다() throws Exception {
+			Member member = createMember(MEMBER_ID, "dobby");
+			Map<Object, Object> roomInfo = waitingCoopRoomInfo();
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "é‡‰ëš®ì˜–ç§»?æ¹²ê³—í¹", 1);
+			Long previousRoomId = 99L;
+
+			given(redissonClient.getLock("room:" + ROOM_ID + ":join-lock")).willReturn(rLock);
+			given(rLock.tryLock(3L, 10L, TimeUnit.SECONDS)).willReturn(true);
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+			given(memberService.findById(MEMBER_ID)).willReturn(member);
+			given(roomMemberMapper.toMemberInfo(member, false)).willReturn(memberInfo);
+			given(roomRedisRepository.saveMemberIfNotInAnyRoom(ROOM_ID.toString(), MEMBER_ID.toString(), memberInfo))
+				.willReturn(false, true);
+			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.of(previousRoomId));
+			given(roomMemberRecoveryService.leavePreviousRoomIfNecessary(MEMBER_ID, ROOM_ID, "coop"))
+				.willReturn(true);
+			given(coopService.getSelectedMap(MAP_ID)).willReturn(selectedMap);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+			given(rLock.isHeldByCurrentThread()).willReturn(true);
+
+			JoinCoopRoomResponse response = coopRoomService.joinCoopRoom(MEMBER_ID, ROOM_ID);
+
+			assertThat(response.roomId()).isEqualTo(ROOM_ID);
+			then(roomMemberRecoveryService).should()
+				.leavePreviousRoomIfNecessary(MEMBER_ID, ROOM_ID, "coop");
+			then(rLock).should().unlock();
+		}
+	}
+
+	@Nested
 	class UpdateCoopRoomInfo {
 
 		@Test
@@ -226,7 +267,8 @@ class CoopRoomServiceImplTest {
 			roomInfo.put("hostMemberId", UUID.randomUUID().toString());
 
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
-			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("coop"))).willReturn(true);
 
 			assertThatThrownBy(() -> coopRoomService.updateCoopRoomInfo(MEMBER_ID, ROOM_ID, request))
 				.isInstanceOf(BusinessException.class)
@@ -242,8 +284,10 @@ class CoopRoomServiceImplTest {
 				MAP_ID);
 			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "브랜치 기초", 1);
 
-			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(waitingCoopRoomInfo()));
-			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			Map<Object, Object> roomInfo = waitingCoopRoomInfo();
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("coop"))).willReturn(true);
 			given(coopService.getSelectedMap(MAP_ID)).willReturn(selectedMap);
 
 			coopRoomService.updateCoopRoomInfo(MEMBER_ID, ROOM_ID, request);
@@ -254,6 +298,27 @@ class CoopRoomServiceImplTest {
 				.containsEntry("selectedMapId", MAP_ID.toString())
 				.containsEntry("selectedMapName", "브랜치 기초")
 				.containsEntry("selectedMapDifficulty", 1);
+		}
+
+		@Test
+		void restores_members_hash_from_member_room_mapping_on_coop_update() {
+			Member member = createMember(MEMBER_ID, "dobby");
+			UpdateCoopRoomInfoRequest request = new UpdateCoopRoomInfoRequest("새 협력 방", "new-team", false, null,
+				MAP_ID);
+			Map<Object, Object> roomInfo = waitingCoopRoomInfo();
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "브랜치 기초", 1);
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("coop"))).willReturn(true);
+			given(coopService.getSelectedMap(MAP_ID)).willReturn(selectedMap);
+
+			coopRoomService.updateCoopRoomInfo(MEMBER_ID, ROOM_ID, request);
+
+			then(roomMemberRecoveryService).should()
+				.ensureMemberInRoom(eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("coop"));
+			then(roomRedisRepository).should().updateRoomInfo(eq(ROOM_ID.toString()), anyMap());
 		}
 	}
 
@@ -268,7 +333,8 @@ class CoopRoomServiceImplTest {
 			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "브랜치 기초", 1);
 
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
-			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("coop"))).willReturn(true);
 			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
 			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
 			given(coopService.getSelectedMap(MAP_ID)).willReturn(selectedMap);
@@ -283,9 +349,7 @@ class CoopRoomServiceImplTest {
 
 		@Test
 		void 입장에_성공하면_응답을_반환한다() throws Exception {
-			Member member = createMember(MEMBER_ID, "dobby");
 			Map<Object, Object> roomInfo = waitingCoopRoomInfo();
-			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
 			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
 			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
 			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "브랜치 기초", 1);
@@ -294,6 +358,8 @@ class CoopRoomServiceImplTest {
 			given(rLock.tryLock(3L, 10L, TimeUnit.SECONDS)).willReturn(true);
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
 			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+			Member member = createMember(MEMBER_ID, "dobby");
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
 			given(memberService.findById(MEMBER_ID)).willReturn(member);
 			given(roomMemberMapper.toMemberInfo(member, false)).willReturn(memberInfo);
 			given(roomRedisRepository.saveMemberIfNotInAnyRoom(ROOM_ID.toString(), MEMBER_ID.toString(), memberInfo))
@@ -310,6 +376,29 @@ class CoopRoomServiceImplTest {
 			assertThat(response.selectedMap()).isEqualTo(selectedMap);
 			assertThat(response.members()).containsExactlyElementsOf(playerInfos);
 			then(rLock).should().unlock();
+		}
+
+		@Test
+		void restores_members_hash_from_member_room_mapping_on_coop_info_fetch() {
+			Member member = createMember(MEMBER_ID, "dobby");
+			Map<Object, Object> roomInfo = waitingCoopRoomInfo();
+			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "브랜치기초", 1);
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("coop"))).willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+			given(coopService.getSelectedMap(MAP_ID)).willReturn(selectedMap);
+
+			CoopRoomInfoResponse response = coopRoomService.getCoopRoomInfo(MEMBER_ID, ROOM_ID);
+
+			assertThat(response.roomId()).isEqualTo(ROOM_ID);
+			then(roomMemberRecoveryService).should()
+				.ensureMemberInRoom(eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("coop"));
 		}
 	}
 

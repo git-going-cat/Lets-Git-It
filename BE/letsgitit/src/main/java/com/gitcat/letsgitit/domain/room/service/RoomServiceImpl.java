@@ -65,8 +65,15 @@ public class RoomServiceImpl implements RoomService {
 		RLock lock = redissonClient.getLock("lock:room:" + roomId);
 		lock.lock();
 		try {
-			if (!roomRedisRepository.existsMember(roomId, memberIdStr)) {
+			if (!roomRedisRepository.existsMember(roomId, memberIdStr)
+				&& roomRedisRepository.findJoinedRoomId(memberIdStr)
+					.filter(roomId::equals)
+					.isEmpty()) {
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);
+			}
+			if (!roomRedisRepository.existsMember(roomId, memberIdStr)) {
+				log.warn("[room] leave reconciled from member-room mapping without member hash. roomId={}, memberId={}",
+					roomId, memberId);
 			}
 			roomRedisRepository.removeMember(roomId, memberIdStr);
 
