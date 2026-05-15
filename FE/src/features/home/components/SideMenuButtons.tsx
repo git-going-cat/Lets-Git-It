@@ -21,10 +21,10 @@ export default function SideMenuButtons({ onOpen }: SideMenuButtonsProps) {
         <img
           src={rankingImg}
           alt="랭킹"
-          className="pixel-art h-48 w-48 object-contain drop-shadow-lg"
+          className="pixel-art h-60 w-60 object-contain drop-shadow-lg"
           draggable={false}
         />
-        <span className="-mt-10 text-xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+        <span className="-mt-16 text-xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
           랭킹
         </span>
       </button>

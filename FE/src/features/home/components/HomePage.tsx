@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import bgImage from '@/assets/bg/screen.png';
 import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
@@ -7,7 +7,10 @@ import MyPageModal from '@/features/mypage/components/MyPageModal';
 import RankingModal from '@/features/ranking/components/RankingModal';
 import { useBgm } from '@/shared/hooks/useBgm';
 
+import { useHomeEscSettings } from '../hooks/useHomeEscSettings';
+
 import BoardButton from './BoardButton';
+import HomeWalkingCharacter from './HomeWalkingCharacter';
 import LogoSection from './LogoSection';
 import LogoutModal from './modals/LogoutModal';
 import SettingsModal from './modals/SettingsModal';
@@ -52,9 +55,11 @@ export function HomePage({ initialModal, onUrlCleanup, onStartSingle }: HomePage
     onUrlCleanup();
   }, [initialModal, onUrlCleanup]);
 
-  const handleOpenModal = (modal: HomeModalType) => {
+  const hasOpenModal = activeModal !== null || isMyPageOpen || lobbyMode !== null;
+
+  const handleOpenModal = useCallback((modal: HomeModalType) => {
     setActiveModal(modal);
-  };
+  }, []);
 
   const handleCloseModal = () => {
     setActiveModal(null);
@@ -63,6 +68,11 @@ export function HomePage({ initialModal, onUrlCleanup, onStartSingle }: HomePage
   const handleToggleMyPage = () => {
     setIsMyPageOpen((prev) => !prev);
   };
+
+  useHomeEscSettings({
+    enabled: !hasOpenModal,
+    onOpenSettings: () => handleOpenModal('settings'),
+  });
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
@@ -75,6 +85,8 @@ export function HomePage({ initialModal, onUrlCleanup, onStartSingle }: HomePage
       />
 
       {/* 내부 컴포넌트들은 각각 absolute 클래스를 가지고 있으므로 그대로 렌더링 */}
+      <HomeWalkingCharacter />
+
       <LogoSection />
 
       <div className="absolute left-16 top-34 z-20">
@@ -87,7 +99,7 @@ export function HomePage({ initialModal, onUrlCleanup, onStartSingle }: HomePage
 
       <SideMenuButtons onOpen={handleOpenModal} />
 
-      <div className="absolute bottom-20 left-1/2 -translate-x-1/2">
+      <div className="absolute bottom-20 left-1/2 z-20 -translate-x-1/2">
         <ModeSelectSection onOpen={handleOpenModal} />
       </div>
 

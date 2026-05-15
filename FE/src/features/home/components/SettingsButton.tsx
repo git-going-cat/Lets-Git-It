@@ -17,7 +17,7 @@ export default function SettingsButton({ onClick }: SettingsButtonProps) {
       <img
         src={settingsImg}
         alt="설정"
-        className="pixel-art h-15 w-15 object-contain drop-shadow-lg"
+        className="pixel-art h-13 w-13 object-contain drop-shadow-lg"
         draggable={false}
       />
     </button>

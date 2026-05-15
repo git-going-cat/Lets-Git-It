@@ -26,6 +26,7 @@ const coopRankingEntrySchema = z.object({
   rank: z.number(),
   nickname: z.string(),
   clearTime: z.number(),
+  difficulty: z.number(),
 });
 
 const rankingEntryBaseSchema = z.union([
@@ -85,8 +86,9 @@ export const timeAttackInitialResponseSchema = weekHeaderSchema.merge(pagination
 });
 
 export const coopInitialResponseSchema = weekHeaderSchema.merge(paginationSchema).extend({
-  mapId: z.number(),
+  mapId: z.union([z.string(), z.number()]),
   mapName: z.string(),
+  difficulty: z.number(),
   top3: z.array(coopRankingEntrySchema),
   myRank: z.object({ rank: z.number(), clearTime: z.number() }).nullable(),
   around: z.array(coopRankingEntrySchema),
