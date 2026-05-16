@@ -2374,13 +2374,15 @@ DELETE /api/v1/rooms/{roomId}/members/{playerId}
 
 ---
 
-### 6-9. 기여도 뺏기 방 상태 조회 (Reconnect fallback)
+### 6-9. 기여도 뺏기 방 상태 조회 (Deprecated)
 
 ```
 GET /api/v1/rooms/{roomId}/contribution/state
 ```
 
-> WebSocket 재연결 후 `ROOM_STATE` 자동 수신이 3초 내 없을 때 REST fallback으로 호출
+> Deprecated: 기존 기여도 방 상태 조회 API.
+> 재연결 `ROOM_STATE` 복원용 REST fallback은 `GET /api/v1/rooms/{roomId}/state`를 사용한다.
+> 이 API 응답에는 `type` 필드가 포함되지 않는다.
 
 #### Response
 
@@ -2456,13 +2458,15 @@ GET /api/v1/rooms/{roomId}/contribution/state
 
 ---
 
-### 6-9. 협력 방 상태 조회 (Reconnect fallback)
+### 6-9. 협력 방 상태 조회 (Deprecated)
 
 ```
 GET /api/v1/rooms/{roomId}/coop/state
 ```
 
-> WebSocket 재연결 후 `ROOM_STATE` 자동 수신이 3초 내 없을 때 REST fallback으로 호출
+> Deprecated: 기존 협력 방 상태 조회 API.
+> 재연결 `ROOM_STATE` 복원용 REST fallback은 `GET /api/v1/rooms/{roomId}/state`를 사용한다.
+> 이 API 응답에는 `type` 필드가 포함되지 않는다.
 
 #### Response
 

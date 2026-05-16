@@ -50,6 +50,10 @@ CONNECT 인증이 성공하면 이후 `SEND`, `SUBSCRIBE` 요청에서는 세션
 
 현재 임시 명세 문서에는 일부 개인 메시지 구독 경로가 `/queue/private`로 적혀 있지만, 프론트 구독 기준으로는 `/user/queue/private`를 사용해야 한다.
 
+ROOM_STATE(`CONTRIBUTION_ROOM_STATE`, `COOP_ROOM_STATE`)도 개인 큐(`/user/queue/private`)로 수신한다.
+트리거는 `/topic/room/{roomId}` 구독이지만, payload는 방 전체 브로드캐스트가 아니라 구독자 본인에게만 전송된다.
+ROOM_STATE 조회 실패 시에도 같은 개인 큐로 기존 `ERROR` 포맷이 수신될 수 있다.
+
 ### 4. 이벤트 응답은 공통 envelope 없이 각 DTO가 `type`을 최상위 필드로 가짐
 
 현재 공통 wrapper DTO를 따로 두지 않고, 각 이벤트 응답 DTO가 `type`을 최상위 필드로 가지는 방식을 유지한다.
@@ -98,6 +102,7 @@ CONNECT 인증이 성공하면 이후 `SEND`, `SUBSCRIBE` 요청에서는 세션
 
 - 공개 브로드캐스트: `/topic/...`
 - 개인 메시지: `/user/queue/private`
+- ROOM_STATE: `/topic/room/{roomId}` 구독 직후 `/user/queue/private`로 유니캐스트
 
 ### 3. 에러 포맷
 
