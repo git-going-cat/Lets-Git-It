@@ -15,7 +15,9 @@ import com.gitcat.letsgitit.domain.room.dto.response.KickMemberResultResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.KickedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.PlayerInfoDto;
 import com.gitcat.letsgitit.domain.room.dto.response.PlayerKickedResponse;
+import com.gitcat.letsgitit.domain.room.dto.websocket.response.HostDelegatedResponse;
 import com.gitcat.letsgitit.domain.room.dto.websocket.response.PlayerJoinedResponse;
+import com.gitcat.letsgitit.domain.room.dto.websocket.response.PlayerLeftResponse;
 import com.gitcat.letsgitit.domain.room.entity.enums.RoomState;
 import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
 
@@ -55,6 +57,44 @@ class RoomWebSocketEventPublisherTest {
 			.doesNotThrowAnyException();
 
 		verify(webSocketMessageSender, never()).send(anyString(), any());
+	}
+
+	@Test
+	void PLAYER_LEFT_이벤트를_roomTopic으로_전송한다() {
+		Long roomId = 1L;
+		UUID leftPlayerId = UUID.randomUUID();
+		PlayerInfoDto remainPlayer = player(UUID.randomUUID(), true, true);
+		List<PlayerInfoDto> remainMembers = List.of(remainPlayer);
+
+		publisher.publishPlayerLeft(roomId, leftPlayerId, "dobby", remainMembers);
+
+		ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
+		verify(webSocketMessageSender).send(eq("/topic/room/1"), payloadCaptor.capture());
+
+		PlayerLeftResponse payload = (PlayerLeftResponse)payloadCaptor.getValue();
+		assertThat(payload.type()).isEqualTo("PLAYER_LEFT");
+		assertThat(payload.leftPlayerId()).isEqualTo(leftPlayerId);
+		assertThat(payload.leftPlayerNickname()).isEqualTo("dobby");
+		assertThat(payload.remainMembers()).containsExactly(remainPlayer);
+	}
+
+	@Test
+	void HOST_DELEGATED_이벤트를_roomTopic으로_전송한다() {
+		Long roomId = 1L;
+		UUID newHostId = UUID.randomUUID();
+		PlayerInfoDto newHost = player(newHostId, false, true);
+		List<PlayerInfoDto> remainMembers = List.of(newHost);
+
+		publisher.publishHostDelegated(roomId, newHostId, remainMembers);
+
+		ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
+		verify(webSocketMessageSender).send(eq("/topic/room/1"), payloadCaptor.capture());
+
+		HostDelegatedResponse payload = (HostDelegatedResponse)payloadCaptor.getValue();
+		assertThat(payload.type()).isEqualTo("HOST_DELEGATED");
+		assertThat(payload.newHostId()).isEqualTo(newHostId);
+		assertThat(payload.newHostNickname()).isEqualTo("nickname");
+		assertThat(payload.remainMembers()).containsExactly(newHost);
 	}
 
 	@Test

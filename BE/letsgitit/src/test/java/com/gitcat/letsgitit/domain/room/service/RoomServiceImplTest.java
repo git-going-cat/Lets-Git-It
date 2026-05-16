@@ -71,6 +71,9 @@ class RoomServiceImplTest {
 	@Mock
 	private RoomMemberMapper roomMemberMapper;
 
+	@Mock
+	private RoomWebSocketEventPublisher roomWebSocketEventPublisher;
+
 	private static final Long ROOM_ID = 1L;
 	private static final UUID MEMBER_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
 	private static final UUID OTHER_ID = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002");
@@ -474,60 +477,96 @@ class RoomServiceImplTest {
 
 		@Test
 		void 방장이_아닌_멤버가_나가면_removeMember만_호출한다() {
+			PlayerInfoDto leftPlayer = player(MEMBER_ID, "member", false);
+			PlayerInfoDto host = player(OTHER_ID, "host", true);
+			Map<Object, Object> beforeMembers = Map.of("member", "before");
+			Map<Object, Object> afterMembers = Map.of("host", "after");
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
 			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
 			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(OTHER_ID.toString());
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, afterMembers);
+			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of(leftPlayer, host));
+			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(host));
 
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
 			then(roomRedisRepository).should().removeMember(ROOM_ID, MEMBER_ID.toString());
 			then(roomRedisRepository).should(never()).dissolveRoom(any());
 			then(roomRedisRepository).should(never()).updateHostId(any(), any());
+			then(roomWebSocketEventPublisher).should()
+				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "member", List.of(host));
+			then(roomWebSocketEventPublisher).should(never()).publishHostDelegated(any(), any(), any());
 		}
 
 		@Test
-		void 방장이_나가고_남은_멤버가_있으면_방장을_위임한다() {
+		void 방장이_나가고_남은_멤버가_있으면_PLAYER_LEFT_후_HOST_DELEGATED를_발행한다() {
 			String newHostId = OTHER_ID.toString();
+			PlayerInfoDto leftHost = player(MEMBER_ID, "host", true);
+			PlayerInfoDto newHost = player(OTHER_ID, "newHost", true);
+			Map<Object, Object> beforeMembers = Map.of("host", "before");
+			Map<Object, Object> afterMembers = Map.of("newHost", "after");
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
 			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
 			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
-			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(Set.of(newHostId));
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, afterMembers);
+			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of(leftHost, newHost));
+			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(newHost));
 
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
 			then(roomRedisRepository).should().updateHostId(ROOM_ID, newHostId);
+			then(roomRedisRepository).should().updateMemberHostFlags(ROOM_ID, newHostId);
 			then(roomRedisRepository).should(never()).dissolveRoom(any());
+
+			InOrder inOrder = Mockito.inOrder(roomWebSocketEventPublisher, rLock);
+			inOrder.verify(roomWebSocketEventPublisher)
+				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "host", List.of(newHost));
+			inOrder.verify(roomWebSocketEventPublisher)
+				.publishHostDelegated(ROOM_ID, OTHER_ID, List.of(newHost));
+			inOrder.verify(rLock).unlock();
 		}
 
 		@Test
 		void memberMappings가_비어있어도_members_Hash기반_fallback으로_방장을_위임한다() {
 			String newHostId = OTHER_ID.toString();
+			PlayerInfoDto leftHost = player(MEMBER_ID, "host", true);
+			PlayerInfoDto newHost = player(OTHER_ID, "newHost", true);
+			Map<Object, Object> beforeMembers = Map.of("host", "before");
+			Map<Object, Object> afterMembers = Map.of("newHost", "after");
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
 			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
 			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
-			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(Set.of(newHostId));
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, afterMembers);
+			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of(leftHost, newHost));
+			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(newHost));
 
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
 			then(roomRedisRepository).should().updateHostId(ROOM_ID, newHostId);
+			then(roomRedisRepository).should().updateMemberHostFlags(ROOM_ID, newHostId);
 			then(roomRedisRepository).should(never()).dissolveRoom(any());
 		}
 
 		@Test
 		void 방장이_나가고_남은_멤버가_없으면_방을_해산한다() {
+			PlayerInfoDto leftHost = player(MEMBER_ID, "host", true);
+			Map<Object, Object> beforeMembers = Map.of("host", "before");
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
 			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
 			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
-			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(Set.of());
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, Map.of());
+			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of(leftHost));
+			given(roomMemberMapper.toPlayerInfoDtos(Map.of())).willReturn(List.of());
 
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
 			then(roomRedisRepository).should().dissolveRoom(ROOM_ID);
 			then(roomRedisRepository).should(never()).updateHostId(any(), any());
+			then(roomWebSocketEventPublisher).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -555,16 +594,39 @@ class RoomServiceImplTest {
 
 		@Test
 		void memberRoom_매핑만_존재하면_members_hash_없이도_퇴장_처리한다() {
+			PlayerInfoDto host = player(OTHER_ID, "host", true);
+			Map<Object, Object> beforeMembers = Map.of();
+			Map<Object, Object> afterMembers = Map.of("host", "after");
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
 			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
 			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.of(ROOM_ID));
 			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(OTHER_ID.toString());
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, afterMembers);
+			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of());
+			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(host));
+			given(memberService.getNicknameById(MEMBER_ID)).willReturn("member");
 
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
 			then(roomRedisRepository).should().removeMember(ROOM_ID, MEMBER_ID.toString());
+			then(roomWebSocketEventPublisher).should()
+				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "member", List.of(host));
 		}
+	}
+
+	private PlayerInfoDto player(UUID playerId, String nickname, boolean isHost) {
+		return new PlayerInfoDto(
+			playerId,
+			nickname,
+			"Hair_01",
+			"Hair-color_01",
+			"Body_01",
+			"Eye_01",
+			"Outfit_01",
+			"Outfit-color_01",
+			false,
+			isHost);
 	}
 
 	@Nested

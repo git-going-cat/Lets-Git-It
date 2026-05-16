@@ -77,6 +77,9 @@ public interface RoomRedisRepository {
 	// room:{roomId}:info의 hostId 갱신 — 방장 위임 시 호출
 	void updateHostId(Long roomId, String newHostId);
 
+	// room:{roomId}:members Hash의 isHost 값을 새 방장 기준으로 갱신
+	void updateMemberHostFlags(Long roomId, String newHostId);
+
 	// 방 해체 — room:info, room:members, room:code:{code}, room:list 일괄 삭제
 	void dissolveRoom(Long roomId);
 

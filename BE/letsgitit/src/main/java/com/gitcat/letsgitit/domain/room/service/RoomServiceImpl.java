@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -74,6 +75,7 @@ public class RoomServiceImpl implements RoomService {
 	private final MemberService memberService;
 	private final RecordService recordService;
 	private final RoomMemberMapper roomMemberMapper;
+	private final RoomWebSocketEventPublisher roomWebSocketEventPublisher;
 
 	@Override
 	public RoomListResponse getRooms(RoomMode mode) {
@@ -118,28 +120,69 @@ public class RoomServiceImpl implements RoomService {
 				log.warn("[room] leave reconciled from member-room mapping without member hash. roomId={}, memberId={}",
 					roomId, memberId);
 			}
-			roomRedisRepository.removeMember(roomId, memberIdStr);
-
+			List<PlayerInfoDto> membersBeforeLeave = roomMemberMapper
+				.toPlayerInfoDtos(roomRedisRepository.getMembers(roomId.toString()));
+			String leftPlayerNickname = membersBeforeLeave.stream()
+				.filter(player -> player.playerId().equals(memberId))
+				.map(PlayerInfoDto::nickname)
+				.findFirst()
+				.orElseGet(() -> memberService.getNicknameById(memberId));
 			String hostId = roomRedisRepository.findHostIdById(roomId);
-			if (!memberIdStr.equals(hostId)) {
-				log.info("[room][leaveRoom] roomId={}, memberId={}", roomId, memberId);
+			boolean hostLeft = memberIdStr.equals(hostId);
+
+			roomRedisRepository.removeMember(roomId, memberIdStr);
+			List<PlayerInfoDto> remainMembers = roomMemberMapper
+				.toPlayerInfoDtos(roomRedisRepository.getMembers(roomId.toString()));
+			if (remainMembers.isEmpty()) {
+				roomRedisRepository.dissolveRoom(roomId);
+				log.info("[room][leaveRoom] 방 해산. roomId={}", roomId);
 				return;
 			}
 
-			Set<String> remaining = roomRedisRepository.findAllMemberIds(roomId);
-			if (remaining.isEmpty()) {
-				roomRedisRepository.dissolveRoom(roomId);
-				log.info("[room][leaveRoom] 방 해산. roomId={}", roomId);
-			} else {
-				String newHostId = remaining.stream().sorted().findFirst().orElseThrow();
+			UUID delegatedHostId = null;
+			if (hostLeft) {
+				PlayerInfoDto newHost = pickRandomHost(remainMembers);
+				String newHostId = newHost.playerId().toString();
 				roomRedisRepository.updateHostId(roomId, newHostId);
+				roomRedisRepository.updateMemberHostFlags(roomId, newHostId);
+				delegatedHostId = newHost.playerId();
+				remainMembers = applyHostFlag(remainMembers, delegatedHostId);
 				log.info("[room][leaveRoom] 방장 위임. roomId={}, newHostId={}", roomId, newHostId);
 				roomRedisRepository.updateMemberToHost(roomId.toString(), newHostId);
 				log.info("[room] 방장 위임. roomId={}, newHostId={}", roomId, newHostId);
 			}
+
+			if (!hostLeft) {
+				log.info("[room][leaveRoom] roomId={}, memberId={}", roomId, memberId);
+			}
+			roomWebSocketEventPublisher.publishPlayerLeft(roomId, memberId, leftPlayerNickname, remainMembers);
+			if (delegatedHostId != null) {
+				roomWebSocketEventPublisher.publishHostDelegated(roomId, delegatedHostId, remainMembers);
+			}
 		} finally {
 			lock.unlock();
 		}
+	}
+
+	private PlayerInfoDto pickRandomHost(List<PlayerInfoDto> remainMembers) {
+		List<PlayerInfoDto> candidates = List.copyOf(remainMembers);
+		return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
+	}
+
+	private List<PlayerInfoDto> applyHostFlag(List<PlayerInfoDto> members, UUID hostId) {
+		return members.stream()
+			.map(member -> new PlayerInfoDto(
+				member.playerId(),
+				member.nickname(),
+				member.characterHair(),
+				member.characterHairColor(),
+				member.characterBody(),
+				member.characterEye(),
+				member.characterOutfit(),
+				member.characterOutfitColor(),
+				member.isReady(),
+				member.playerId().equals(hostId)))
+			.toList();
 	}
 
 	@Override
