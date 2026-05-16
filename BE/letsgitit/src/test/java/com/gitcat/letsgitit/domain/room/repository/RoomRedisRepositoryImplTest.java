@@ -2,7 +2,6 @@ package com.gitcat.letsgitit.domain.room.repository;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.BDDMockito.*;
-import static org.mockito.Mockito.*;
 
 import java.util.List;
 import java.util.Map;

@@ -110,9 +110,11 @@ public interface RoomRedisRepository {
 	// room:{roomId}:members Hash의 특정 playerId 의 isReady 필드를 갱신
 	void updateMemberIsReady(String roomId, String memberId, boolean isReady);
 
-	// room:{roomId}:members Hash의 특정 playerId 의 isHost=true, isReady=true 갱신 — 방장 위임 시 호출
-	void updateMemberToHost(String roomId, String memberId);
+	// 방장 위임 원자 처리 (transferHost용)
+	// prevHost: isHost=false, isReady=false / newHost: isHost=true, isReady=true / hostMemberId 변경
+	void transferHostAtomic(String roomId, String prevHostId, String newHostId);
 
-	// room:{roomId}:members Hash의 특정 playerId 의 isHost=false, isReady=false 갱신 — 이전 방장 해제 시 호출
-	void updateMemberFromHost(String roomId, String memberId);
+	// 방장 위임 원자 처리 (leaveRoom용 - 이전 방장은 이미 나간 상태)
+	// hostMemberId 변경 + newHost: isHost=true, isReady=true
+	void delegateHostAtomic(String roomId, String newHostId);
 }
