@@ -798,6 +798,7 @@ class RoomServiceImplTest {
 
 		@Test
 		void 준비_상태_변경에_성공하면_ReadyChangedResponse를_반환한다() {
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
 				.willReturn(Optional.of(buildRoomInfo(RoomState.WAITING)));
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
@@ -814,13 +815,15 @@ class RoomServiceImplTest {
 		}
 
 		@Test
-		void 한_명이라도_준비_안하면_allReady가_false이다() {
+		void 비호스트_멤버_중_준비_안한_멤버가_있으면_allReady가_false이다() {
+			UUID thirdMember = UUID.fromString("cccccccc-0000-0000-0000-000000000003");
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
 				.willReturn(Optional.of(buildRoomInfo(RoomState.WAITING)));
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
 			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(Map.of());
 			given(roomMemberMapper.toPlayerInfoDtos(any())).willReturn(
-				List.of(buildPlayer(MEMBER_ID, true), buildPlayer(OTHER_ID, false)));
+				List.of(buildPlayer(MEMBER_ID, true), buildPlayer(OTHER_ID, true), buildPlayer(thirdMember, false)));
 
 			ReadyChangedResponse result = roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest);
 
@@ -829,6 +832,7 @@ class RoomServiceImplTest {
 
 		@Test
 		void 방이_없으면_ROOM_NOT_FOUND를_던진다() {
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest))
@@ -839,6 +843,7 @@ class RoomServiceImplTest {
 
 		@Test
 		void 게임_중인_방이면_ROOM_IN_GAME을_던진다() {
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
 				.willReturn(Optional.of(buildRoomInfo(RoomState.IN_GAME)));
 
@@ -850,6 +855,7 @@ class RoomServiceImplTest {
 
 		@Test
 		void 방에_없는_플레이어면_PLAYER_NOT_IN_ROOM을_던진다() {
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
 				.willReturn(Optional.of(buildRoomInfo(RoomState.WAITING)));
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
@@ -862,6 +868,7 @@ class RoomServiceImplTest {
 
 		@Test
 		void 방장이_준비_변경을_요청하면_HOST_ALWAYS_READY를_던진다() {
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
 				.willReturn(Optional.of(buildRoomInfo(RoomState.WAITING, MEMBER_ID)));
 			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
@@ -870,6 +877,51 @@ class RoomServiceImplTest {
 				.isInstanceOf(BusinessException.class)
 				.extracting(e -> ((BusinessException)e).getErrorCode())
 				.isEqualTo(HOST_ALWAYS_READY);
+		}
+
+		@Test
+		void room_lock을_획득하고_해제한다() {
+			given(redissonClient.getLock("lock:room:" + ROOM_ID)).willReturn(rLock);
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(buildRoomInfo(RoomState.WAITING)));
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(Map.of());
+			given(roomMemberMapper.toPlayerInfoDtos(any())).willReturn(
+				List.of(buildPlayer(MEMBER_ID, true)));
+
+			roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest);
+
+			InOrder inOrder = Mockito.inOrder(rLock);
+			inOrder.verify(rLock).lock();
+			inOrder.verify(rLock).unlock();
+		}
+
+		@Test
+		void 예외_발생_시에도_lock을_해제한다() {
+			given(redissonClient.getLock("lock:room:" + ROOM_ID)).willReturn(rLock);
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.empty());
+
+			assertThatThrownBy(() -> roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest))
+				.isInstanceOf(BusinessException.class);
+
+			then(rLock).should().lock();
+			then(rLock).should().unlock();
+		}
+
+		@Test
+		void startGame과_동일한_lock_name을_사용한다() {
+			String expectedLockName = "lock:room:" + ROOM_ID;
+			given(redissonClient.getLock(expectedLockName)).willReturn(rLock);
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(buildRoomInfo(RoomState.WAITING)));
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(Map.of());
+			given(roomMemberMapper.toPlayerInfoDtos(any())).willReturn(
+				List.of(buildPlayer(MEMBER_ID, true)));
+
+			roomService.updateReadyStatus(MEMBER_ID, ROOM_ID, readyRequest);
+
+			then(redissonClient).should().getLock(expectedLockName);
 		}
 	}
 

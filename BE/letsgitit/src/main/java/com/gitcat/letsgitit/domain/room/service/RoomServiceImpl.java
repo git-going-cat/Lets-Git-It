@@ -248,42 +248,51 @@ public class RoomServiceImpl implements RoomService {
 
 	@Override
 	public ReadyChangedResponse updateReadyStatus(UUID memberId, Long roomId, ReadyUpdateRequest request) {
-		Map<Object, Object> roomInfo = roomRedisRepository.getRoomInfo(roomId.toString())
-			.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
+		RLock lock = redissonClient.getLock("lock:room:" + roomId);
+		lock.lock();
+		try {
+			Map<Object, Object> roomInfo = roomRedisRepository.getRoomInfo(roomId.toString())
+				.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
 
-		if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
-			log.warn("[room] 준비 변경 거부: 게임 중인 방. roomId={}, memberId={}", roomId, memberId);
-			throw new BusinessException(ROOM_IN_GAME);
+			if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
+				log.warn("[room] 준비 변경 거부: 게임 중인 방. roomId={}, memberId={}", roomId, memberId);
+				throw new BusinessException(ROOM_IN_GAME);
+			}
+
+			String memberIdStr = memberId.toString();
+			if (!roomRedisRepository.existsMember(roomId, memberIdStr)) {
+				log.warn("[room] 준비 변경 거부: 방에 없는 플레이어. roomId={}, memberId={}", roomId, memberId);
+				throw new BusinessException(PLAYER_NOT_IN_ROOM);
+			}
+
+			String hostMemberId = RoomRedisReader.readString(roomInfo, "hostMemberId");
+			if (memberIdStr.equals(hostMemberId)) {
+				log.warn("[room] 준비 변경 거부: 방장은 항상 준비 완료. roomId={}, memberId={}", roomId, memberId);
+				throw new BusinessException(HOST_ALWAYS_READY);
+			}
+
+			roomRedisRepository.updateMemberIsReady(roomId.toString(), memberIdStr, request.isReady());
+
+			Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
+			List<PlayerInfoDto> players = roomMemberMapper.toPlayerInfoDtos(members);
+
+			String nickname = players.stream()
+				.filter(p -> memberId.equals(p.playerId()))
+				.map(PlayerInfoDto::nickname)
+				.findFirst()
+				.orElse("");
+
+			boolean allReady = players.stream()
+				.filter(p -> !p.playerId().toString().equals(hostMemberId))
+				.allMatch(p -> Boolean.TRUE.equals(p.isReady()))
+				&& players.stream().anyMatch(p -> !p.playerId().toString().equals(hostMemberId));
+
+			log.info("[room] 준비 상태 변경. roomId={}, memberId={}, isReady={}, allReady={}",
+				roomId, memberId, request.isReady(), allReady);
+			return ReadyChangedResponse.of(memberId, nickname, request.isReady(), allReady);
+		} finally {
+			lock.unlock();
 		}
-
-		String memberIdStr = memberId.toString();
-		if (!roomRedisRepository.existsMember(roomId, memberIdStr)) {
-			log.warn("[room] 준비 변경 거부: 방에 없는 플레이어. roomId={}, memberId={}", roomId, memberId);
-			throw new BusinessException(PLAYER_NOT_IN_ROOM);
-		}
-
-		String hostMemberId = RoomRedisReader.readString(roomInfo, "hostMemberId");
-		if (memberIdStr.equals(hostMemberId)) {
-			log.warn("[room] 준비 변경 거부: 방장은 항상 준비 완료. roomId={}, memberId={}", roomId, memberId);
-			throw new BusinessException(HOST_ALWAYS_READY);
-		}
-
-		roomRedisRepository.updateMemberIsReady(roomId.toString(), memberIdStr, request.isReady());
-
-		Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
-		List<PlayerInfoDto> players = roomMemberMapper.toPlayerInfoDtos(members);
-
-		String nickname = players.stream()
-			.filter(p -> memberId.equals(p.playerId()))
-			.map(PlayerInfoDto::nickname)
-			.findFirst()
-			.orElse("");
-
-		boolean allReady = !players.isEmpty() && players.stream().allMatch(p -> Boolean.TRUE.equals(p.isReady()));
-
-		log.info("[room] 준비 상태 변경. roomId={}, memberId={}, isReady={}, allReady={}",
-			roomId, memberId, request.isReady(), allReady);
-		return ReadyChangedResponse.of(memberId, nickname, request.isReady(), allReady);
 	}
 
 	@Override
