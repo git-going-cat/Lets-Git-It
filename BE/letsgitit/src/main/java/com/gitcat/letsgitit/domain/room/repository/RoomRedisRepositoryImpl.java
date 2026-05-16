@@ -29,6 +29,7 @@ import org.springframework.data.redis.serializer.SerializationException;
 import org.springframework.stereotype.Repository;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gitcat.letsgitit.domain.room.constants.RoomConstants;
@@ -310,6 +311,18 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 	public void updateHostId(Long roomId, String newHostId) {
 		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
 		gameRedisTemplate.opsForHash().put(key, "hostMemberId", newHostId);
+	}
+
+	@Override
+	public void updateMemberHostFlags(Long roomId, String newHostId) {
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		Map<Object, Object> members = gameStringRedisTemplate.opsForHash().entries(membersKey);
+		for (Map.Entry<Object, Object> entry : members.entrySet()) {
+			String memberId = String.valueOf(entry.getKey());
+			Map<String, Object> memberInfo = readMemberInfo(entry.getValue());
+			memberInfo.put("isHost", memberId.equals(newHostId));
+			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, toJson(memberInfo));
+		}
 	}
 
 	@Override
@@ -657,5 +670,23 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		} catch (JsonProcessingException e) {
 			throw new IllegalStateException("Failed to serialize memberInfo", e);
 		}
+	}
+
+	private Map<String, Object> readMemberInfo(Object memberValue) {
+		if (memberValue instanceof Map<?, ?> memberMap) {
+			return memberMap.entrySet().stream()
+				.collect(java.util.stream.Collectors.toMap(
+					entry -> String.valueOf(entry.getKey()),
+					Map.Entry::getValue,
+					(left, right) -> right));
+		}
+		if (memberValue instanceof String memberJson) {
+			try {
+				return objectMapper.readValue(memberJson, new TypeReference<Map<String, Object>>() {});
+			} catch (Exception e) {
+				throw new IllegalStateException("Failed to deserialize room member info", e);
+			}
+		}
+		throw new IllegalStateException("Unsupported room member info type");
 	}
 }

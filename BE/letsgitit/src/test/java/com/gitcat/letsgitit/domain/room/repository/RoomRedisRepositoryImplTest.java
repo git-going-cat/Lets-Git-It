@@ -336,6 +336,35 @@ class RoomRedisRepositoryImplTest {
 		}
 	}
 
+	// ===================== updateMemberHostFlags =====================
+
+	@Nested
+	class UpdateMemberHostFlags {
+
+		@Test
+		void members_Hash의_isHost를_새_방장_기준으로_갱신한다() {
+			String otherId = "bbbbbbbb-0000-0000-0000-000000000002";
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(hashOps.entries(MEMBERS_KEY)).willReturn(Map.of(
+				MEMBER_ID, """
+					{"playerId":"aaaaaaaa-0000-0000-0000-000000000001","nickname":"a","isHost":true}
+					""",
+				otherId, """
+					{"playerId":"bbbbbbbb-0000-0000-0000-000000000002","nickname":"b","isHost":false}
+					"""));
+
+			repository.updateMemberHostFlags(ROOM_ID, otherId);
+
+			ArgumentCaptor<String> memberCaptor = ArgumentCaptor.forClass(String.class);
+			ArgumentCaptor<String> jsonCaptor = ArgumentCaptor.forClass(String.class);
+			then(hashOps).should(times(2)).put(eq(MEMBERS_KEY), memberCaptor.capture(), jsonCaptor.capture());
+
+			assertThat(jsonCaptor.getAllValues())
+				.anySatisfy(json -> assertThat(json).contains("\"playerId\":\"" + MEMBER_ID + "\"", "\"isHost\":false"))
+				.anySatisfy(json -> assertThat(json).contains("\"playerId\":\"" + otherId + "\"", "\"isHost\":true"));
+		}
+	}
+
 	// ===================== savePasswordVerified =====================
 
 	@Nested

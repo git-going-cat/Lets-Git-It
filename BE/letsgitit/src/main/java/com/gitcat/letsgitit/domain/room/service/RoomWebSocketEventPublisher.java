@@ -11,7 +11,9 @@ import com.gitcat.letsgitit.domain.room.dto.response.KickedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.PlayerInfoDto;
 import com.gitcat.letsgitit.domain.room.dto.response.PlayerKickedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.ReadyChangedResponse;
+import com.gitcat.letsgitit.domain.room.dto.websocket.response.HostDelegatedResponse;
 import com.gitcat.letsgitit.domain.room.dto.websocket.response.PlayerJoinedResponse;
+import com.gitcat.letsgitit.domain.room.dto.websocket.response.PlayerLeftResponse;
 import com.gitcat.letsgitit.domain.room.entity.enums.RoomState;
 import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
 
@@ -42,6 +44,36 @@ public class RoomWebSocketEventPublisher {
 			log.warn(
 				"[room][publishPlayerJoined] PLAYER_JOINED publish failed. roomId={}, joinedPlayerId={}, reason={}",
 				roomId, joinedPlayerId, e.getClass().getSimpleName(), e);
+		}
+	}
+
+	public void publishPlayerLeft(Long roomId, UUID leftPlayerId, String leftPlayerNickname,
+		List<PlayerInfoDto> remainMembers) {
+		try {
+			webSocketMessageSender.send(
+				ROOM_TOPIC_PREFIX + roomId,
+				PlayerLeftResponse.of(leftPlayerId, leftPlayerNickname, remainMembers));
+		} catch (RuntimeException e) {
+			log.warn(
+				"[room][publishPlayerLeft] PLAYER_LEFT publish failed. roomId={}, leftPlayerId={}, reason={}",
+				roomId, leftPlayerId, e.getClass().getSimpleName(), e);
+		}
+	}
+
+	public void publishHostDelegated(Long roomId, UUID newHostId, List<PlayerInfoDto> remainMembers) {
+		try {
+			PlayerInfoDto newHost = remainMembers.stream()
+				.filter(player -> player.playerId().equals(newHostId))
+				.findFirst()
+				.orElseThrow(() -> new IllegalStateException("New host not found in room members"));
+
+			webSocketMessageSender.send(
+				ROOM_TOPIC_PREFIX + roomId,
+				HostDelegatedResponse.of(newHost, remainMembers));
+		} catch (RuntimeException e) {
+			log.warn(
+				"[room][publishHostDelegated] HOST_DELEGATED publish failed. roomId={}, newHostId={}, reason={}",
+				roomId, newHostId, e.getClass().getSimpleName(), e);
 		}
 	}
 
