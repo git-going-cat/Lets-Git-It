@@ -109,4 +109,7 @@ public interface RoomRedisRepository {
 
 	// room:{roomId}:members Hash의 특정 playerId 의 isHost=true, isReady=true 갱신 — 방장 위임 시 호출
 	void updateMemberToHost(String roomId, String memberId);
+
+	// room:{roomId}:members Hash의 특정 playerId 의 isHost=false, isReady=false 갱신 — 이전 방장 해제 시 호출
+	void updateMemberFromHost(String roomId, String memberId);
 }

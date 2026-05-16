@@ -376,6 +376,26 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		}
 	}
 
+	@Override
+	public void updateMemberFromHost(String roomId, String memberId) {
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		String memberJson = (String)gameStringRedisTemplate.opsForHash().get(membersKey, memberId);
+		if (memberJson == null) {
+			throw new IllegalStateException(
+				"Member not found in room members hash. roomId=" + roomId + ", memberId=" + memberId);
+		}
+		try {
+			Map<String, Object> memberInfo = objectMapper.readValue(memberJson,
+				new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+			memberInfo.put("isHost", false);
+			memberInfo.put("isReady", false);
+			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, objectMapper.writeValueAsString(memberInfo));
+		} catch (JsonProcessingException e) {
+			throw new IllegalStateException(
+				"Failed to update member from host. roomId=" + roomId + ", memberId=" + memberId, e);
+		}
+	}
+
 	private void dissolveRoomKeys(String infoKey, String membersKey, Object roomCodeObj, Object modeObj,
 		Map<Object, Object> members, String roomIdValue) {
 		String memberMappingsKey = roomMemberMappingsKey(roomIdValue);

@@ -10,10 +10,12 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Controller;
 
+import com.gitcat.letsgitit.domain.room.dto.request.HostTransferRequest;
 import com.gitcat.letsgitit.domain.room.dto.request.ReadyUpdateRequest;
+import com.gitcat.letsgitit.domain.room.dto.response.HostTransferredResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.ReadyChangedResponse;
 import com.gitcat.letsgitit.domain.room.service.RoomService;
-import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
+import com.gitcat.letsgitit.domain.room.service.RoomWebSocketEventPublisher;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RoomHandler {
 
 	private final RoomService roomService;
-	private final WebSocketMessageSender messageSender;
+	private final RoomWebSocketEventPublisher roomWebSocketEventPublisher;
 
 	@MessageMapping("/room/{roomId}/ready")
 	public void handleReady(
@@ -35,6 +37,18 @@ public class RoomHandler {
 		Principal principal) {
 		UUID memberId = UUID.fromString(principal.getName());
 		ReadyChangedResponse response = roomService.updateReadyStatus(memberId, roomId, request);
-		messageSender.send("/topic/room/" + roomId, response);
+		roomWebSocketEventPublisher.publishReadyChanged(roomId, response);
+	}
+
+	@MessageMapping("/room/{roomId}/transfer-host")
+	public void handleTransferHost(
+		@DestinationVariable
+		Long roomId,
+		@Valid @Payload
+		HostTransferRequest request,
+		Principal principal) {
+		UUID memberId = UUID.fromString(principal.getName());
+		HostTransferredResponse response = roomService.transferHost(roomId, memberId, request.nextHostId());
+		roomWebSocketEventPublisher.publishHostTransferred(roomId, response);
 	}
 }

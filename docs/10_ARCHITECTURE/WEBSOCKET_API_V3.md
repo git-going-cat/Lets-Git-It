@@ -567,7 +567,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `NOT_HOST` | 방장이 아님 |
 | `NOT_ALL_READY` | 전원 준비 미완료 |
 | `NOT_ENOUGH_PLAYERS` | 협력 모드 필수 인원(4명) 미충족 |
-| `GAME_ALREADY_STARTED` | 이미 게임이 진행 중 |
+| `ROOM_IN_GAME` | 이미 게임이 진행 중 |
 
 ---
 
@@ -634,7 +634,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | --- | --- |
 | `NOT_HOST` | 요청자가 방장이 아님 |
 | `PLAYER_NOT_FOUND` | 대상 플레이어가 방에 없음 |
-| `SELF_KICK` | 자기 자신을 강퇴 시도 |
+| `CANNOT_KICK_SELF` | 자기 자신을 추방할 수 없습니다. |
+| `ROOM_IN_GAME` | 게임 중인 방에서는 강퇴할 수 없습니다. |
 
 ---
 
@@ -828,7 +829,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `NOT_HOST` | 요청자가 방장이 아님 |
 | `PLAYER_NOT_FOUND` | 위임 대상 플레이어가 방에 없음 |
 | `SELF_TRANSFER` | 자기 자신에게 위임 시도 |
-| `GAME_ALREADY_STARTED` | 게임이 이미 시작되어 위임 불가 |
+| `ROOM_IN_GAME` | 게임이 이미 시작되어 위임 불가 |
 
 ---
 

@@ -8,6 +8,8 @@ import com.gitcat.letsgitit.domain.room.dto.request.GameStartRequest;
 import com.gitcat.letsgitit.domain.room.dto.request.ReadyUpdateRequest;
 import com.gitcat.letsgitit.domain.room.dto.response.ChatResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.GameStartResult;
+import com.gitcat.letsgitit.domain.room.dto.response.HostTransferredResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.KickMemberResultResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.ReadyChangedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
@@ -27,8 +29,8 @@ public interface RoomService {
 	// 방 코드로 단건 조회 — 없으면 ROOM_NOT_FOUND, 게임 중이면 ROOM_IN_GAME
 	RoomSearchResponse searchByCode(String code);
 
-	// 멤버 추방 (방장만) — NOT_HOST / CANNOT_KICK_SELF / PLAYER_NOT_FOUND
-	void kickMember(Long roomId, UUID currentMemberId, String playerId);
+	// 멤버 추방 (방장만) — NOT_HOST / CANNOT_KICK_SELF / PLAYER_NOT_FOUND / ROOM_IN_GAME
+	KickMemberResultResponse kickMember(Long roomId, UUID currentMemberId, String playerId);
 
 	// 방 나가기 — 방장이면 위임 또는 방 해체, 아니면 단순 제거
 	void leaveRoom(Long roomId, UUID memberId);
@@ -41,4 +43,7 @@ public interface RoomService {
 
 	// 게임 시작 — 검증 후 모드별 응답과 브로드캐스트 경로를 묶어 반환
 	GameStartResult startGame(Long roomId, UUID memberId, GameStartRequest request);
+
+	// 방장 위임 — NOT_HOST / PLAYER_NOT_FOUND / SELF_TRANSFER / ROOM_IN_GAME
+	HostTransferredResponse transferHost(Long roomId, UUID currentHostId, UUID nextHostId);
 }
