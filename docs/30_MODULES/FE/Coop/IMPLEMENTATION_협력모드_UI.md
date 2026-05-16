@@ -2,62 +2,53 @@
 
 ## Background / Context
 
-협력 모드는 Phaser Scene과 React overlay가 함께 동작하는 게임 화면이다. 기존 `/coop` 화면은 준비중 페이지이거나 placeholder 중심 구조였고, 최근 UI 초안은 하단 입력 영역이 메인 화면과 분리되어 보여 싱글 모드와 시각적 일관성이 부족했다.
+협력 모드 화면은 Phaser Scene과 React overlay를 함께 사용한다. Phaser는 배경, 카드 이미지, 손 placeholder, tween 연출을 담당하고 React는 HUD, 플레이어 사이드바, REVEAL 카드 공개 UI, 하단 입력창, 경고 오버레이를 담당한다.
 
-이번 작업의 목표는 싱글 모드와 같은 픽셀 아트 톤을 유지하면서 협력 모드 전용 화면 골격을 구성하는 것이다. Phaser는 배경, 카드, 고양이 손 애니메이션을 담당하고 React는 HUD, 사이드바, 터미널 패널, 오버레이를 담당한다.
-
-시각 리뷰 이후에는 목표 형상 썸네일을 제거하고 플레이어 4명을 사이드바 높이에 맞춰 독립 섹션으로 보여주는 방식으로 수정했다. REVEAL 오버레이는 배경 구름이 살짝 비치도록 투명도를 낮추고, 카운트다운 숫자를 안내 문구와 카드 목록 사이에 배치했다.
-
-추가 리뷰에서는 게임 phase별 중심 화면을 분리했다. `assign` 단계에서는 터미널 패널을 숨기고 카드 4장을 중앙에 가로 배치한다. `input`, `wrong`, `reset_wait` 단계에서는 터미널 패널을 표시한다. 실제 입력창은 터미널 내부가 아니라 화면 하단의 `SimpleInputBar` 하나로 통합했다.
+이번 정리에서는 확정된 게임 흐름에 맞춰 `REVEAL -> ASSIGN -> INPUT` 단계별 렌더링 책임을 분리했다. REVEAL 단계에서는 React가 카드 앞면과 명령어 텍스트를 보여주고, ASSIGN 단계에서는 Phaser가 카드 뒷면 이미지와 섞기 tween을 처리한다. INPUT 단계에서는 카드가 사라지고 Git 형상 패널과 `(coop) $` 입력창만 남는다.
 
 ## Decision
 
-- `/coop` route는 `CoopPage`를 렌더링한다.
-- `CoopScene`은 싱글 모드와 같은 하늘색 그라데이션과 파스텔 구름 레이어를 렌더링한다.
-- 상단 HUD는 별도 배경 패널 없이 Phaser canvas 위에 투명하게 떠 있는 구조로 배치한다.
-- 기존 하단 입력 strip 대신 `CoopTerminalPanel`을 중앙 메인 패널로 두고, 명령어 표시와 `(coop) $` 입력을 한 곳에 묶는다.
-- `CoopTerminalPanel`은 명령어 표시 전용 패널로 유지하고, 실제 입력 UI는 하단 고정 `SimpleInputBar`에서 담당한다.
-- `assign` 단계 전용 `CoopCardArea`를 추가해 카드 4장을 중앙 가로 배열로 표시한다.
-- 카드 뒷면은 `/assets/coop/coop_card_back.png`를 우선 사용하고, 이미지가 없으면 dotted border fallback 사각형을 렌더링한다.
-- `COOP_ROUND_ASSIGN` 이후 `coopMyCommandOrderAtom`과 `coopMyCommandAtom` 값이 있으면 내 카드만 앞면으로 전환한다.
-- 사이드바는 목표 형상 영역 없이 플레이어 목록만 표시한다.
-- 사이드바 플레이어 섹션은 전체 높이를 4등분하고, 텍스트 이니셜 대신 `buildCharacterPaths()` 기반 canvas 캐릭터 렌더링을 사용한다.
-- 현재 입력 차례 플레이어는 파란색 `#05AFF2` 좌측 세로 바와 배경 tint로 표시한다.
-- HUD 중앙에는 전체 20개 명령어 기준 진행률을 나타내는 progress bar를 표시한다.
-- REVEAL 오버레이 카드는 `2px dotted #05AFF2` 스타일로 통일한다.
-- 협력 화면에는 싱글 화면의 우측 고양이 장식 sprite를 배치하지 않는다.
-- Phaser와 React 간 통신은 `coopBus`만 사용한다.
-- WebSocket payload schema는 `features/multi/schemas/coop.schema.ts`를 재사용하고, coop feature에서는 re-export만 제공한다.
+- 카드 이미지는 public asset으로 관리한다.
+  - `/assets/coop/coop_card_front.png`
+  - `/assets/coop/coop_card_back_01.png` ~ `/assets/coop/coop_card_back_04.png`
+- `coopCardImages.ts`는 Vite import 대신 public path 문자열만 export한다.
+- REVEAL 단계 카드 앞면은 `CoopCardArea`가 React로 렌더링한다.
+- REVEAL countdown은 `COOP_ROUND_REVEAL`의 `revealStartsAt - serverTime` 기반 duration을 사용한다.
+- REVEAL countdown 종료 시 `phase='assign'`으로 전환하고 `coopBus.emit('coop:reveal-ended')`를 호출한다.
+- ASSIGN 단계 카드는 React가 렌더링하지 않는다. Phaser `CoopScene`이 카드 뒷면 4장을 image object로 표시한다.
+- `CoopScene.preload()`는 public 카드 이미지를 `this.load.image()`로 로드한다.
+- `coop:reveal-ended` 수신 후 손 placeholder가 내려오고, 카드 2장을 랜덤 선택해 10회 위치 swap tween을 실행한다.
+- `COOP_ROUND_ASSIGN` 수신 시 `myCommandText`를 `coopCommandsAtom`과 비교해 `myCommandOrder`를 계산하고 `coop:assign-reveal`을 emit한다.
+- `CoopScene`은 섞기 완료 후 내 카드에 해당하는 물리 위치만 카드 앞면으로 전환하고 손을 올린다.
+- `coop:shuffle-complete` 이후 3초가 지나면 `phase='input'`으로 전환하고 `coop:cards-hide`로 Phaser 카드들을 숨긴다.
+- INPUT, WRONG, RESET_WAIT 단계에서는 카드 컴포넌트가 렌더링되지 않는다.
+- `coopBus`, atom, schema, `useCoopInput`, `socketManager` 사용 규칙은 유지한다.
 
 ## Why
 
-싱글 모드의 Scene, 입력 hook, timer atom을 직접 재사용하면 singleBus, branch 상태, 싱글 전용 검증 로직이 협력 모드로 새어 들어온다. 협력 모드는 입력 순서, reset 대기, 플레이어별 명령어 배정이 핵심 흐름이므로 coop 전용 hook과 atom을 두는 편이 안전하다.
+REVEAL과 ASSIGN을 모두 React 카드로 처리하면 Phaser 손 연출과 카드 위치가 쉽게 어긋난다. 반대로 REVEAL까지 Phaser로 옮기면 명령어 텍스트와 countdown UI 관리가 복잡해진다. 따라서 공개 단계는 React, 섞기 단계는 Phaser로 역할을 나누었다.
 
-반면 WebSocket schema와 room/member character 데이터는 이미 multi feature에 존재한다. 같은 정의를 coop feature에 복사하면 BE 명세 변경 시 두 곳을 동시에 고쳐야 하므로 기존 schema와 roomStore 데이터를 재사용한다.
+서버가 실제 카드 배정을 결정하므로 클라이언트의 shuffle은 시각 연출만 담당한다. 내 카드 공개는 `COOP_ROUND_ASSIGN`으로 받은 `myCommandText`를 기준으로 계산한 `myCommandOrder`에만 반응한다.
 
 ## Caution
 
 - `CoopScene.ts`는 React, Zustand, Jotai를 import하지 않는다.
-- `useCoopInput.ts`는 싱글 모드 `useCommandInput`을 사용하지 않는다.
-- `coopElapsedSecondsAtom`은 협력 전용 timer atom이며 싱글 timer atom을 참조하지 않는다.
-- `COOP_STARTED` payload에는 캐릭터 정보가 없으므로 lobby 단계의 `roomStore.members` 또는 `coopStore.playerSnapshots`를 기준으로 playerId 병합이 필요하다.
-- `RoomMember`에는 `characterBodyColor`가 없어 현재는 기본값 `Body-color_01`을 사용한다. BE/공통 타입에 필드가 추가되면 매핑을 교체해야 한다.
-- 실제 coop game WebSocket destination은 아직 TODO 상태다. 현재 `useCoopGame`, `useCoopInput`의 destination 상수는 BE 명세 확정 후 교체해야 한다.
-- 고양이 손 asset이 없을 때는 Phaser Graphics placeholder로 카드 덮개를 렌더링한다.
+- React와 Phaser 간 통신은 `coopBus`만 사용한다.
+- WebSocket은 `socketManager`만 사용한다.
+- 카드 public path를 사용하므로 파일이 반드시 `FE/public/assets/coop` 아래에 있어야 한다.
+- `CoopTerminalPanel.tsx`, `CoopMyCardPanel.tsx` 파일은 남아 있지만 현재 `CoopPage`에서 렌더링하지 않는다.
+- 실제 coop game WebSocket destination은 아직 TODO 상태다. BE destination 확정 후 `useCoopGame`, `useCoopInput` 상수를 교체해야 한다.
 
 ## Test Plan
 
 - `/coop` 진입 시 CoopPage가 렌더링되는지 확인한다.
-- 배경에 하늘색 그라데이션과 파스텔 구름 레이어가 보이는지 확인한다.
-- HUD가 별도 배경 패널 없이 상단에 떠 있고 `Round`, elapsed time, 완료 수가 표시되는지 확인한다.
-- REVEAL 화면에서 구름 배경이 살짝 비치고, `순서를 암기하세요!` 문구와 카운트다운 위치가 올바른지 확인한다.
-- 목표 형상 섹션이 제거되었는지 확인한다.
-- 사이드바 플레이어 4명이 독립 섹션으로 표시되고 현재 차례가 노란색 좌측 바로 강조되는지 확인한다.
-- 우측 고양이 장식 sprite가 표시되지 않는지 확인한다.
-- `assign` 단계에서 카드 4장이 중앙에 가로 배열되는지 확인한다.
-- `COOP_ROUND_ASSIGN` 이후 내 카드만 앞면으로 전환되는지 확인한다.
-- `input`, `wrong`, `reset_wait` 단계에서 중앙 터미널 패널이 표시되는지 확인한다.
-- 하단 `SimpleInputBar`에 `(coop) $` 입력창이 고정 표시되는지 확인한다.
-- phase에 따라 입력 placeholder와 disabled 상태가 바뀌는지 확인한다.
+- REVEAL 단계에서 카드 앞면 4장, command order, command text, countdown이 보이는지 확인한다.
+- REVEAL 카드 텍스트가 정방향으로 보이는지 확인한다.
+- REVEAL countdown 종료 후 ASSIGN 단계에서 React 카드가 사라지는지 확인한다.
+- ASSIGN 단계에서 Phaser 카드 뒷면 4장이 보이는지 확인한다.
+- 손 placeholder가 내려오고 카드 이미지가 랜덤 swap 되는지 확인한다.
+- `COOP_ROUND_ASSIGN` 수신 후 내 카드만 앞면으로 바뀌는지 확인한다.
+- 내 카드 공개 3초 뒤 카드가 사라지고 INPUT 단계로 전환되는지 확인한다.
+- INPUT 단계에서 Git 형상 패널과 하단 `(coop) $` 입력창만 보이는지 확인한다.
 - `npx tsc -p tsconfig.app.json --noEmit` 통과를 확인한다.
 - `npm run lint` 통과를 확인한다.
