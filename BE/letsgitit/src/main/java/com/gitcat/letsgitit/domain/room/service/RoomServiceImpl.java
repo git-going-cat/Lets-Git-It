@@ -152,13 +152,14 @@ public class RoomServiceImpl implements RoomService {
 			if (hostLeft) {
 				PlayerInfoDto newHost = pickRandomHost(remainMembers);
 				String newHostId = newHost.playerId().toString();
-				roomRedisRepository.updateHostId(roomId, newHostId);
-				roomRedisRepository.updateMemberHostFlags(roomId, newHostId);
 				delegatedHostId = newHost.playerId();
+
+				// Redis 상태 변경 (Lua 원자 처리)
+				roomRedisRepository.delegateHostAtomic(roomId.toString(), newHostId);
+
 				remainMembers = applyHostFlag(remainMembers, delegatedHostId);
-				log.info("[room][leaveRoom] 방장 위임. roomId={}, newHostId={}", roomId, newHostId);
-				roomRedisRepository.updateMemberToHost(roomId.toString(), newHostId);
-				log.info("[room] 방장 위임. roomId={}, newHostId={}", roomId, newHostId);
+				log.info("[room][leaveRoom] 방장 위임. roomId={}, leftHostId={}, newHostId={}", roomId, memberId,
+					newHostId);
 			}
 
 			if (!hostLeft) {
@@ -452,32 +453,10 @@ public class RoomServiceImpl implements RoomService {
 				throw new BusinessException(PLAYER_NOT_FOUND);
 			}
 
-			// 1. 이전 방장 해제 (isHost=false, isReady=false)
-			roomRedisRepository.updateMemberFromHost(roomId.toString(), currentHostIdStr);
+			// Redis 상태 변경 (Lua 원자 처리)
+			roomRedisRepository.transferHostAtomic(roomId.toString(), currentHostIdStr, nextHostIdStr);
 
-			try {
-				// 2. 새 방장 설정 (isHost=true, isReady=true)
-				roomRedisRepository.updateMemberToHost(roomId.toString(), nextHostIdStr);
-			} catch (RuntimeException e) {
-				log.error("[room][transferHost] 새 방장 설정 실패, 이전 방장 복구 시도. roomId={}, prevHostId={}, nextHostId={}",
-					roomId, currentHostId, nextHostId, e);
-				roomRedisRepository.updateMemberToHost(roomId.toString(), currentHostIdStr);
-				throw e;
-			}
-
-			try {
-				// 3. room:info의 hostMemberId 변경
-				roomRedisRepository.updateHostId(roomId, nextHostIdStr);
-			} catch (RuntimeException e) {
-				log.error(
-					"[room][transferHost] hostMemberId 변경 실패, 방장 상태 복구 시도. roomId={}, prevHostId={}, nextHostId={}",
-					roomId, currentHostId, nextHostId, e);
-				roomRedisRepository.updateMemberFromHost(roomId.toString(), nextHostIdStr);
-				roomRedisRepository.updateMemberToHost(roomId.toString(), currentHostIdStr);
-				throw e;
-			}
-
-			// 4. 전체 멤버 조회 후 응답 생성
+			// 전체 멤버 조회 후 응답 생성
 			Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
 			List<PlayerInfoDto> allPlayers = roomMemberMapper.toPlayerInfoDtos(members);
 

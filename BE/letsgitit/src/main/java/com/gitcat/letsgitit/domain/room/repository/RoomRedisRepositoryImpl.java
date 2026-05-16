@@ -57,6 +57,63 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		return 1
 		""", Long.class);
 
+	// transferHost용 Lua 스크립트 (검증 먼저, 변경 나중)
+	// KEYS[1]=infoKey, KEYS[2]=membersKey
+	// ARGV[1]=prevHostId, ARGV[2]=newHostId
+	private static final RedisScript<Long> TRANSFER_HOST_SCRIPT = RedisScript.of("""
+		local infoKey = KEYS[1]
+		local membersKey = KEYS[2]
+		local prevHostId = ARGV[1]
+		local newHostId = ARGV[2]
+
+		local prevHostJson = redis.call('HGET', membersKey, prevHostId)
+		if not prevHostJson then
+			return -1
+		end
+
+		local newHostJson = redis.call('HGET', membersKey, newHostId)
+		if not newHostJson then
+			return -2
+		end
+
+		local prevHost = cjson.decode(prevHostJson)
+		local newHost = cjson.decode(newHostJson)
+
+		prevHost['isHost'] = false
+		prevHost['isReady'] = false
+		newHost['isHost'] = true
+		newHost['isReady'] = true
+
+		redis.call('HSET', membersKey, prevHostId, cjson.encode(prevHost))
+		redis.call('HSET', membersKey, newHostId, cjson.encode(newHost))
+		redis.call('HSET', infoKey, 'hostMemberId', cjson.encode(newHostId))
+
+		return 1
+		""", Long.class);
+
+	// leaveRoom 방장 위임용 Lua 스크립트 (검증 먼저, 변경 나중)
+	// KEYS[1]=infoKey, KEYS[2]=membersKey
+	// ARGV[1]=newHostId
+	private static final RedisScript<Long> DELEGATE_HOST_SCRIPT = RedisScript.of("""
+		local infoKey = KEYS[1]
+		local membersKey = KEYS[2]
+		local newHostId = ARGV[1]
+
+		local newHostJson = redis.call('HGET', membersKey, newHostId)
+		if not newHostJson then
+			return -1
+		end
+
+		local newHost = cjson.decode(newHostJson)
+		newHost['isHost'] = true
+		newHost['isReady'] = true
+
+		redis.call('HSET', membersKey, newHostId, cjson.encode(newHost))
+		redis.call('HSET', infoKey, 'hostMemberId', cjson.encode(newHostId))
+
+		return 1
+		""", Long.class);
+
 	private final RedisTemplate<String, Object> gameRedisTemplate;
 	private final StringRedisTemplate gameStringRedisTemplate;
 	private final StringRedisTemplate authStringRedisTemplate;
@@ -369,46 +426,6 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		}
 	}
 
-	@Override
-	public void updateMemberToHost(String roomId, String memberId) {
-		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		String memberJson = (String)gameStringRedisTemplate.opsForHash().get(membersKey, memberId);
-		if (memberJson == null) {
-			throw new IllegalStateException(
-				"Member not found in room members hash. roomId=" + roomId + ", memberId=" + memberId);
-		}
-		try {
-			Map<String, Object> memberInfo = objectMapper.readValue(memberJson,
-				new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
-			memberInfo.put("isHost", true);
-			memberInfo.put("isReady", true);
-			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, objectMapper.writeValueAsString(memberInfo));
-		} catch (JsonProcessingException e) {
-			throw new IllegalStateException(
-				"Failed to update member to host. roomId=" + roomId + ", memberId=" + memberId, e);
-		}
-	}
-
-	@Override
-	public void updateMemberFromHost(String roomId, String memberId) {
-		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
-		String memberJson = (String)gameStringRedisTemplate.opsForHash().get(membersKey, memberId);
-		if (memberJson == null) {
-			throw new IllegalStateException(
-				"Member not found in room members hash. roomId=" + roomId + ", memberId=" + memberId);
-		}
-		try {
-			Map<String, Object> memberInfo = objectMapper.readValue(memberJson,
-				new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
-			memberInfo.put("isHost", false);
-			memberInfo.put("isReady", false);
-			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, objectMapper.writeValueAsString(memberInfo));
-		} catch (JsonProcessingException e) {
-			throw new IllegalStateException(
-				"Failed to update member from host. roomId=" + roomId + ", memberId=" + memberId, e);
-		}
-	}
-
 	private void dissolveRoomKeys(String infoKey, String membersKey, Object roomCodeObj, Object modeObj,
 		Map<Object, Object> members, String roomIdValue) {
 		String memberMappingsKey = roomMemberMappingsKey(roomIdValue);
@@ -688,5 +705,50 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 			}
 		}
 		throw new IllegalStateException("Unsupported room member info type");
+	}
+
+	@Override
+	public void transferHostAtomic(String roomId, String prevHostId, String newHostId) {
+		String infoKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+
+		Long result = gameStringRedisTemplate.execute(
+			TRANSFER_HOST_SCRIPT,
+			List.of(infoKey, membersKey),
+			prevHostId, newHostId);
+
+		if (result == null) {
+			throw new IllegalStateException("Transfer host script execution failed. roomId=" + roomId);
+		}
+		if (result.equals(-1L)) {
+			throw new IllegalStateException("Prev host not found. roomId=" + roomId + ", prevHostId=" + prevHostId);
+		}
+		if (result.equals(-2L)) {
+			throw new IllegalStateException("New host not found. roomId=" + roomId + ", newHostId=" + newHostId);
+		}
+		if (!result.equals(1L)) {
+			throw new IllegalStateException("Unexpected script result=" + result + ". roomId=" + roomId);
+		}
+	}
+
+	@Override
+	public void delegateHostAtomic(String roomId, String newHostId) {
+		String infoKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+
+		Long result = gameStringRedisTemplate.execute(
+			DELEGATE_HOST_SCRIPT,
+			List.of(infoKey, membersKey),
+			newHostId);
+
+		if (result == null) {
+			throw new IllegalStateException("Delegate host script execution failed. roomId=" + roomId);
+		}
+		if (result.equals(-1L)) {
+			throw new IllegalStateException("New host not found. roomId=" + roomId + ", newHostId=" + newHostId);
+		}
+		if (!result.equals(1L)) {
+			throw new IllegalStateException("Unexpected script result=" + result + ". roomId=" + roomId);
+		}
 	}
 }

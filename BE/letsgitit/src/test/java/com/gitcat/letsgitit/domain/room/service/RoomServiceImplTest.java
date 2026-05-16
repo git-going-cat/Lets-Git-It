@@ -680,8 +680,7 @@ class RoomServiceImplTest {
 
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
-			then(roomRedisRepository).should().updateHostId(ROOM_ID, newHostId);
-			then(roomRedisRepository).should().updateMemberHostFlags(ROOM_ID, newHostId);
+			then(roomRedisRepository).should().delegateHostAtomic(ROOM_ID.toString(), newHostId);
 			then(roomRedisRepository).should(never()).dissolveRoom(any());
 
 			InOrder inOrder = Mockito.inOrder(roomWebSocketEventPublisher, rLock);
@@ -709,8 +708,7 @@ class RoomServiceImplTest {
 
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
-			then(roomRedisRepository).should().updateHostId(ROOM_ID, newHostId);
-			then(roomRedisRepository).should().updateMemberHostFlags(ROOM_ID, newHostId);
+			then(roomRedisRepository).should().delegateHostAtomic(ROOM_ID.toString(), newHostId);
 			then(roomRedisRepository).should(never()).dissolveRoom(any());
 		}
 
@@ -939,7 +937,7 @@ class RoomServiceImplTest {
 		}
 
 		@Test
-		void 정상_위임_시_updateMemberFromHost_updateMemberToHost_updateHostId_순서로_호출된다() {
+		void 정상_위임_시_transferHostAtomic을_호출한다() {
 			Map<Object, Object> roomInfo = buildRoomInfo(RoomState.WAITING, MEMBER_ID);
 			List<PlayerInfoDto> players = List.of(
 				buildPlayer(MEMBER_ID, false),
@@ -954,11 +952,8 @@ class RoomServiceImplTest {
 			HostTransferredResponse result = roomService.transferHost(ROOM_ID, MEMBER_ID, OTHER_ID);
 
 			assertThat(result.newHostId()).isEqualTo(OTHER_ID);
-
-			InOrder inOrder = Mockito.inOrder(roomRedisRepository);
-			inOrder.verify(roomRedisRepository).updateMemberFromHost(ROOM_ID.toString(), MEMBER_ID.toString());
-			inOrder.verify(roomRedisRepository).updateMemberToHost(ROOM_ID.toString(), OTHER_ID.toString());
-			inOrder.verify(roomRedisRepository).updateHostId(ROOM_ID, OTHER_ID.toString());
+			then(roomRedisRepository).should().transferHostAtomic(
+				ROOM_ID.toString(), MEMBER_ID.toString(), OTHER_ID.toString());
 		}
 	}
 }
