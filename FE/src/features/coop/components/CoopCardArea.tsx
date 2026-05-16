@@ -1,67 +1,54 @@
-import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 
-import {
-  coopCommandsAtom,
-  coopMyCommandAtom,
-  coopMyCommandOrderAtom,
-} from '../store/coopCommandsAtom';
+import { coopCommandsAtom } from '../store/coopCommandsAtom';
+import { coopPhaseAtom } from '../store/coopPhaseAtom';
+import { COOP_CARD_FRONT } from '../utils/coopCardImages';
 
-const cardBackModules = import.meta.glob('/src/assets/game/coop/coop_card_back_*.png', {
-  eager: true,
-  import: 'default',
-  query: '?url',
-});
-
-const cardBackImages = Object.entries(cardBackModules)
-  .sort(([leftPath], [rightPath]) => leftPath.localeCompare(rightPath))
-  .map(([, src]) => src as string);
-
-function CardBack({ cardIndex }: { cardIndex: number }) {
-  const [hasImageError, setHasImageError] = useState(false);
-  const cardBackImage = cardBackImages[cardIndex % cardBackImages.length];
-
-  if (!cardBackImage || hasImageError) {
-    return (
-      <div className="h-44 w-28 rounded-sm border-2 border-dotted border-[#05AFF2] bg-[#1a1d3a]" />
-    );
-  }
-
+function CardFront({ commandOrder, commandText }: { commandOrder: number; commandText: string }) {
   return (
-    <img
-      src={cardBackImage}
-      alt="카드 뒷면"
-      className="h-44 w-28 object-contain [image-rendering:pixelated]"
-      onError={() => setHasImageError(true)}
-    />
+    <div className="relative h-44 w-28 flex-shrink-0">
+      <img
+        src={COOP_CARD_FRONT}
+        alt="카드 앞면"
+        className="h-full w-full object-contain [image-rendering:pixelated]"
+      />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3">
+        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#05AFF2] text-xs font-bold text-white">
+          {commandOrder}
+        </div>
+        <code className="break-all text-center font-mono text-xs leading-relaxed text-white drop-shadow-lg">
+          {commandText}
+        </code>
+      </div>
+    </div>
   );
 }
 
 export default function CoopCardArea() {
   const commands = useAtomValue(coopCommandsAtom);
-  const myCommand = useAtomValue(coopMyCommandAtom);
-  const myCommandOrder = useAtomValue(coopMyCommandOrderAtom);
-  const cardOrders =
-    commands.length > 0 ? commands.map((command) => command.commandOrder) : [1, 2, 3, 4];
+  const phase = useAtomValue(coopPhaseAtom);
+  const cardCommands =
+    commands.length > 0
+      ? commands
+      : [
+          { commandOrder: 1, commandText: '' },
+          { commandOrder: 2, commandText: '' },
+          { commandOrder: 3, commandText: '' },
+          { commandOrder: 4, commandText: '' },
+        ];
+
+  if (phase !== 'reveal') return null;
 
   return (
     <section className="pointer-events-none z-20 flex w-full items-center justify-center">
-      <div className="flex items-center justify-center gap-4">
-        {cardOrders.map((commandOrder, cardIndex) => {
-          const isMyCard = myCommandOrder === commandOrder && myCommand;
-
-          return (
-            <div key={commandOrder} className="relative h-44 w-28">
-              {isMyCard ? (
-                <div className="flex h-44 w-28 items-center justify-center rounded-sm border-2 border-dotted border-[#76BF41] bg-[#101827] p-3 font-mono text-xs leading-5 text-white shadow-lg">
-                  {myCommand}
-                </div>
-              ) : (
-                <CardBack cardIndex={cardIndex} />
-              )}
-            </div>
-          );
-        })}
+      <div className="flex flex-row items-center justify-center gap-4">
+        {cardCommands.map((command) => (
+          <CardFront
+            key={command.commandOrder}
+            commandOrder={command.commandOrder}
+            commandText={command.commandText}
+          />
+        ))}
       </div>
     </section>
   );

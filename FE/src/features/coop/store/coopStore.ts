@@ -7,6 +7,7 @@ interface CoopMetaState {
   roomId: number | null;
   mapName: string | null;
   playerSnapshots: CoopPlayer[];
+  revealDurationMs: number;
 }
 
 interface CoopMetaActions {
@@ -22,6 +23,7 @@ const initialState: CoopMetaState = {
   roomId: null,
   mapName: null,
   playerSnapshots: [],
+  revealDurationMs: 3000,
 };
 
 export const useCoopStore = create<CoopMetaState & CoopMetaActions>((set) => ({

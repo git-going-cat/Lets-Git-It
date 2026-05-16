@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useSetAtom } from 'jotai';
 
 import { socketManager } from '@/core/socket/SocketManager';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import {
   CoopGameEndSchema,
   CoopInputCorrectSchema,
@@ -106,6 +107,7 @@ function getMessageType(message: unknown) {
 
 function toCoopPlayers(): CoopPlayer[] {
   const members = useRoomStore.getState().members;
+  const myMemberId = useAuthStore.getState().user?.memberId ?? null;
   if (members.length === 0) {
     return useCoopStore.getState().playerSnapshots.length > 0
       ? useCoopStore.getState().playerSnapshots
@@ -115,7 +117,7 @@ function toCoopPlayers(): CoopPlayer[] {
   return members.slice(0, 4).map((member, index) => ({
     playerId: member.playerId,
     nickname: member.nickname,
-    isMe: member.isMe,
+    isMe: myMemberId !== null && member.playerId === myMemberId,
     commandOrder: index + 1,
     characterHair: member.characterHair,
     characterHairColor: member.characterHairColor,
@@ -128,7 +130,13 @@ function toCoopPlayers(): CoopPlayer[] {
 }
 
 /** 협력 게임 WebSocket 이벤트와 React/Jotai 상태를 연결합니다. */
+function toDurationMs(startAt: number, serverTime: number) {
+  const diff = Math.max(0, startAt - serverTime);
+  return diff > 100 ? diff : diff * 1000;
+}
+
 export function useCoopGame() {
+  const commandsRef = useRef<CoopCommandCard[]>(MOCK_COMMANDS);
   const navigate = useNavigate();
   const setPhase = useSetAtom(coopPhaseAtom);
   const setRound = useSetAtom(coopRoundAtom);
@@ -149,9 +157,10 @@ export function useCoopGame() {
     const players = toCoopPlayers();
     setPlayers(players);
     setPlayerSnapshots(players);
+    commandsRef.current = MOCK_COMMANDS;
     setCommands(MOCK_COMMANDS);
     setMyCommand(null);
-    setMyCommandOrder(1);
+    setMyCommandOrder(null);
     setGraphImageUrl(null);
     setSessionMeta({
       roomId: useRoomStore.getState().roomId,
@@ -176,13 +185,6 @@ export function useCoopGame() {
   }, [setElapsedSeconds]);
 
   useEffect(() => {
-    return coopBus.subscribe('coop:assign-complete', () => {
-      setPhase('input');
-      setInputBlocked(false);
-    });
-  }, [setInputBlocked, setPhase]);
-
-  useEffect(() => {
     if (!sessionId) return;
 
     // TODO: BE와 협력 게임 topic destination 확정 후 실제 경로로 교체.
@@ -203,12 +205,17 @@ export function useCoopGame() {
             setInputBlocked(true);
             setResetTargetPlayerId(null);
             setWrongPlayerNickname(null);
-            setCommands(
-              result.data.commands.map((command) => ({
-                commandOrder: command.commandOrder,
-                commandText: command.commandText,
-              }))
-            );
+            const commands = result.data.commands.map((command) => ({
+              commandOrder: command.commandOrder,
+              commandText: command.commandText,
+            }));
+            commandsRef.current = commands;
+            setCommands(commands);
+            setMyCommand(null);
+            setMyCommandOrder(null);
+            setSessionMeta({
+              revealDurationMs: toDurationMs(result.data.revealStartsAt, result.data.serverTime),
+            });
             setPhase('reveal');
             return;
           }
@@ -221,13 +228,15 @@ export function useCoopGame() {
             }
 
             const order =
-              useRoomStore.getState().members.find((member) => member.isMe)?.isMe === true
-                ? toCoopPlayers().find((player) => player.isMe)?.commandOrder
-                : 1;
+              commandsRef.current.find(
+                (command) => command.commandText === result.data.myCommandText
+              )?.commandOrder ?? null;
 
             setMyCommand(result.data.myCommandText);
-            setMyCommandOrder(order ?? 1);
-            coopBus.emit('coop:assign-reveal', { myCommandOrder: order ?? 1 });
+            setMyCommandOrder(order);
+            if (order !== null) {
+              coopBus.emit('coop:assign-reveal', { myCommandOrder: order });
+            }
             return;
           }
 
@@ -300,6 +309,7 @@ export function useCoopGame() {
     setInputBlocked,
     setMyCommand,
     setMyCommandOrder,
+    setSessionMeta,
     setPhase,
     setResetTargetPlayerId,
     setRound,

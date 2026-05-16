@@ -3,8 +3,10 @@ import { TypedEventBus } from '@/core/bridge/TypedEventBus';
 interface CoopEventMap {
   'coop:reveal-ended': void;
   'coop:assign-start': void;
+  'coop:shuffle-complete': void;
   'coop:assign-reveal': { myCommandOrder: number };
   'coop:assign-complete': void;
+  'coop:cards-hide': void;
   'coop:screen-shake': void;
   'coop:input-wrong-shake': void;
 }
