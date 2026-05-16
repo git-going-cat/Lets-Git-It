@@ -2,6 +2,12 @@ import { useAtomValue } from 'jotai';
 
 import { coopGraphImageUrlAtom } from '../store/coopPhaseAtom';
 
+import CoopGraph from './CoopGraph';
+
+const MOCK_COMPLETED_SEQUENCES = [1, 2, 3, 4, 5];
+const MOCK_ACTIVE_SEQUENCE = 6;
+const MOCK_MAP_ID = 1;
+
 export default function CoopGitShapePanel() {
   const graphImageUrl = useAtomValue(coopGraphImageUrlAtom);
 
@@ -16,7 +22,13 @@ export default function CoopGitShapePanel() {
             className="max-h-full max-w-full object-contain"
           />
         ) : (
-          <div className="font-pixel text-xl text-gray-400">형상 데이터를 기다리는 중...</div>
+          <div className="flex h-full w-full items-center justify-center p-4">
+            <CoopGraph
+              mapId={MOCK_MAP_ID}
+              completedSequences={MOCK_COMPLETED_SEQUENCES}
+              activeSequence={MOCK_ACTIVE_SEQUENCE}
+            />
+          </div>
         )}
       </div>
     </div>
