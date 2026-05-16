@@ -10,6 +10,7 @@ import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 import { totalAttemptsAtom, typoCountAtom } from '@/shared/store/typoAtom';
 
 import { singleBus } from '../bridge/singleBus';
+import { CONFLICT_SEQUENCE_LENGTH } from '../constants/conflict';
 import { DEFAULT_CONFLICT_FILE } from '../constants/conflict';
 import { activeBranchAtom } from '../store/activeBranchAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
@@ -18,9 +19,10 @@ import { tutorialInputBlockedAtom } from '../store/tutorialInputBlockedAtom';
 
 import { useExistingBranches } from './useExistingBranches';
 
+import type { HistoryStatus } from '@/shared/components/CommandInput';
 import type { ArrowKey } from '@/shared/game/conflictArrows';
 
-export type HistoryStatus = 'ok' | 'typo' | 'miss' | 'wrong-branch' | 'switch';
+export type { HistoryStatus } from '@/shared/components/CommandInput';
 
 /**
  * 커맨드 입력 처리 훅.
@@ -99,7 +101,7 @@ export function useCommandInput() {
           // cherry-pick 아이템 경로(SingleScene)에서 같은 이벤트를 emit하면 동일하게 동작.
           singleBus.emit('conflict:start', {
             index: commandIndex,
-            sequence: generateArrowSequence(),
+            sequence: generateArrowSequence(CONFLICT_SEQUENCE_LENGTH),
             headBranch: currentCommand.branchName,
             incomingBranch: parseSwitchTarget(currentCommand.text) ?? 'incoming',
             filePath: parseAddTarget(commandSet[commandIndex + 1]?.text) ?? DEFAULT_CONFLICT_FILE,

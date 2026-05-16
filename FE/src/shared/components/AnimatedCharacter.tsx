@@ -132,6 +132,10 @@ interface AnimatedCharacterProps {
   animation?: CharacterAnimation;
   direction?: CharacterDirection;
   className?: string;
+  /** true면 첫 프레임만 그리고 rAF 루프를 돌리지 않음. 다수 표시 시 CPU 절약. */
+  paused?: boolean;
+  /** 상단에서 잘라낼 비율(0-1). 에셋 자체 상단 여백 제거용. canvas 높이도 함께 줄어듦. */
+  cropTopRatio?: number;
 }
 
 export default function AnimatedCharacter({
@@ -139,7 +143,10 @@ export default function AnimatedCharacter({
   animation = 'idle',
   direction = 'front',
   className,
+  paused = false,
+  cropTopRatio = 0,
 }: AnimatedCharacterProps) {
+  const visibleH = FRAME_H - Math.floor(FRAME_H * cropTopRatio);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef<(HTMLImageElement | null)[]>([]);
   const frameRef = useRef(0);
@@ -156,29 +163,69 @@ export default function AnimatedCharacter({
 
   useEffect(() => {
     let cancelled = false;
+    const cropY = Math.floor(FRAME_H * cropTopRatio);
+    const drawHeight = FRAME_H - cropY;
     Promise.all(buildLayerPaths(asset).map(loadImage)).then((imgs) => {
-      if (!cancelled) imagesRef.current = imgs;
+      if (cancelled) return;
+      imagesRef.current = imgs;
+      // 정적 모드: 이미지 로드 직후 첫 프레임만 그리고 끝
+      if (paused) {
+        const ctx = canvasRef.current?.getContext('2d');
+        if (!ctx) return;
+        ctx.imageSmoothingEnabled = false;
+        const anim = ANIMATIONS[animRef.current];
+        ctx.clearRect(0, 0, FRAME_W, drawHeight);
+        const srcX = getSourceX(anim, dirRef.current, frameRef.current);
+        for (const img of imgs) {
+          if (img)
+            ctx.drawImage(
+              img,
+              srcX,
+              anim.y + cropY,
+              FRAME_W,
+              drawHeight,
+              0,
+              0,
+              FRAME_W,
+              drawHeight
+            );
+        }
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, [asset]);
+  }, [asset, paused, cropTopRatio]);
 
   useEffect(() => {
+    if (paused) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
+    const cropY = Math.floor(FRAME_H * cropTopRatio);
+    const drawHeight = FRAME_H - cropY;
 
     const loop = (timestamp: number) => {
       const anim = ANIMATIONS[animRef.current];
       if (timestamp - lastTimeRef.current >= 1000 / anim.fps) {
         lastTimeRef.current = timestamp;
-        ctx.clearRect(0, 0, FRAME_W, FRAME_H);
+        ctx.clearRect(0, 0, FRAME_W, drawHeight);
         const srcX = getSourceX(anim, dirRef.current, frameRef.current);
         for (const img of imagesRef.current) {
-          if (img) ctx.drawImage(img, srcX, anim.y, FRAME_W, FRAME_H, 0, 0, FRAME_W, FRAME_H);
+          if (img)
+            ctx.drawImage(
+              img,
+              srcX,
+              anim.y + cropY,
+              FRAME_W,
+              drawHeight,
+              0,
+              0,
+              FRAME_W,
+              drawHeight
+            );
         }
         frameRef.current = (frameRef.current + 1) % anim.frames;
       }
@@ -189,13 +236,13 @@ export default function AnimatedCharacter({
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, []);
+  }, [paused, cropTopRatio]);
 
   return (
     <canvas
       ref={canvasRef}
       width={FRAME_W}
-      height={FRAME_H}
+      height={visibleH}
       className={`pixel-art ${className ?? ''}`}
     />
   );

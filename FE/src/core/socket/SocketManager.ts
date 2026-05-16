@@ -30,6 +30,9 @@ class SocketManager {
 
   private isConnecting = false;
 
+  /** Dev 전용 mock 모드. publish를 silent no-op으로 만들어 진짜 WS 없이 동작 가능. */
+  private mockMode = false;
+
   private readonly connectCallbacks = new Set<() => void>();
 
   private readonly connectionListeners = new Set<ConnectionListener>();
@@ -138,6 +141,7 @@ class SocketManager {
   }
 
   publish(destination: string, body: Record<string, unknown>): void {
+    if (this.mockMode) return;
     if (!this.connected || !this.client) {
       console.error('[socket] Cannot publish before socket is connected.', { destination });
       return;
@@ -151,6 +155,35 @@ class SocketManager {
 
   get connected(): boolean {
     return this.isConnected && (this.client?.connected ?? false);
+  }
+
+  /**
+   * Dev 전용: WS 서버 없이 mock 메시지를 구독 callback에 직접 주입한다.
+   * pending/active subscriptions 모두 검사. WS 연동 완료 후 제거 가능.
+   */
+  simulateIncoming(destination: string, message: object): void {
+    for (const sub of this.pendingSubscriptions.values()) {
+      if (sub.destination === destination) sub.callback(message);
+    }
+    for (const sub of this.subscriptions.values()) {
+      if (sub.destination === destination) sub.callback(message);
+    }
+  }
+
+  /**
+   * Dev 전용: publish를 silent no-op으로 만들어 mock 모드 동안 "not connected" 경고를 억제.
+   * WS 연동 완료 후 제거 가능.
+   */
+  enterMockMode(): void {
+    this.mockMode = true;
+  }
+
+  /**
+   * Dev 전용: mock 모드 해제. enterMockMode 호출 컴포넌트의 cleanup에서 반드시 호출해야
+   * 이후 실제 WS publish가 영구 차단되지 않는다.
+   */
+  leaveMockMode(): void {
+    this.mockMode = false;
   }
 
   private addSubscription({ callback, destination, key }: PendingSubscription): void {
