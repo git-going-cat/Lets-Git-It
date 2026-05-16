@@ -14,6 +14,7 @@ import com.gitcat.letsgitit.domain.room.dto.response.ReadyChangedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
 import com.gitcat.letsgitit.global.enums.RoomMode;
+import com.gitcat.letsgitit.global.websocket.dto.BaseWebSocketResponse;
 
 public interface RoomService {
 
@@ -46,4 +47,7 @@ public interface RoomService {
 
 	// 방장 위임 — NOT_HOST / PLAYER_NOT_FOUND / SELF_TRANSFER / ROOM_IN_GAME
 	HostTransferredResponse transferHost(Long roomId, UUID currentHostId, UUID nextHostId);
+
+	// 현재 방 상태 조회 — 재연결 직후 ROOM_STATE 동기화용
+	BaseWebSocketResponse getRoomState(UUID memberId, Long roomId);
 }

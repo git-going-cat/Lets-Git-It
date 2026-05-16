@@ -29,6 +29,8 @@ import com.gitcat.letsgitit.domain.record.service.RecordService;
 import com.gitcat.letsgitit.domain.room.dto.RoomCache;
 import com.gitcat.letsgitit.domain.room.dto.request.GameStartRequest;
 import com.gitcat.letsgitit.domain.room.dto.request.ReadyUpdateRequest;
+import com.gitcat.letsgitit.domain.room.dto.response.ContributionRoomStateResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.CoopRoomStateResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.GameStartResult;
 import com.gitcat.letsgitit.domain.room.dto.response.HostTransferredResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.PlayerInfoDto;
@@ -40,6 +42,7 @@ import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
 import com.gitcat.letsgitit.domain.room.util.RoomMemberMapper;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
+import com.gitcat.letsgitit.global.websocket.dto.BaseWebSocketResponse;
 
 @ExtendWith(MockitoExtension.class)
 class RoomServiceImplTest {
@@ -73,6 +76,9 @@ class RoomServiceImplTest {
 
 	@Mock
 	private RoomWebSocketEventPublisher roomWebSocketEventPublisher;
+
+	@Mock
+	private RoomMemberStateRecoveryService roomMemberStateRecoveryService;
 
 	private static final Long ROOM_ID = 1L;
 	private static final UUID MEMBER_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
@@ -205,6 +211,164 @@ class RoomServiceImplTest {
 				.isInstanceOf(BusinessException.class)
 				.extracting(e -> ((BusinessException)e).getErrorCode())
 				.isEqualTo(ROOM_IN_GAME);
+		}
+	}
+
+	@Nested
+	class GetRoomState {
+
+		@Test
+		void 기여도_방이면_CONTRIBUTION_ROOM_STATE를_반환한다() {
+			Map<Object, Object> roomInfo = Map.of(
+				"roomCode", "ABC123",
+				"title", "기여도 방",
+				"mode", "CONTRIBUTION",
+				"roomState", "WAITING",
+				"hasPassword", false,
+				"maxPlayers", 4);
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> players = List.of(buildPlayer(MEMBER_ID, true));
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberStateRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo, "room-state"))
+				.willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(players);
+
+			BaseWebSocketResponse response = roomService.getRoomState(MEMBER_ID, ROOM_ID);
+
+			assertThat(response).isInstanceOf(ContributionRoomStateResponse.class);
+			ContributionRoomStateResponse state = (ContributionRoomStateResponse)response;
+			assertThat(state.type()).isEqualTo("CONTRIBUTION_ROOM_STATE");
+			assertThat(state.roomId()).isEqualTo(ROOM_ID);
+			assertThat(state.roomCode()).isEqualTo("ABC123");
+			assertThat(state.mode().name()).isEqualTo("CONTRIBUTION");
+			assertThat(state.roomState()).isEqualTo(RoomState.WAITING);
+			assertThat(state.currentPlayers()).isEqualTo(1);
+			assertThat(state.maxPlayers()).isEqualTo(4);
+			assertThat(state.hasPassword()).isFalse();
+			assertThat(state.members()).containsExactlyElementsOf(players);
+		}
+
+		@Test
+		void 협력_방이면_COOP_ROOM_STATE와_selectedMap을_반환한다() {
+			Map<Object, Object> roomInfo = Map.of(
+				"roomCode", "ABC123",
+				"title", "협력 방",
+				"teamName", "팀명",
+				"mode", "COOP",
+				"roomState", "IN_GAME",
+				"hasPassword", true,
+				"maxPlayers", 4,
+				"selectedMapId", "550e8400-e29b-41d4-a716-446655440002",
+				"selectedMapName", "멋깔나는 맵",
+				"selectedMapDifficulty", 3);
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> players = List.of(buildPlayer(MEMBER_ID, true));
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberStateRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo, "room-state"))
+				.willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(players);
+
+			BaseWebSocketResponse response = roomService.getRoomState(MEMBER_ID, ROOM_ID);
+
+			assertThat(response).isInstanceOf(CoopRoomStateResponse.class);
+			CoopRoomStateResponse state = (CoopRoomStateResponse)response;
+			assertThat(state.type()).isEqualTo("COOP_ROOM_STATE");
+			assertThat(state.teamName()).isEqualTo("팀명");
+			assertThat(state.roomState()).isEqualTo(RoomState.IN_GAME);
+			assertThat(state.hasPassword()).isTrue();
+			assertThat(state.selectedMap().mapId().toString()).isEqualTo("550e8400-e29b-41d4-a716-446655440002");
+			assertThat(state.selectedMap().mapName()).isEqualTo("멋깔나는 맵");
+			assertThat(state.selectedMap().difficulty()).isEqualTo(3);
+			assertThat(state.members()).containsExactlyElementsOf(players);
+		}
+
+		@Test
+		void 방이_없으면_ROOM_NOT_FOUND를_던진다() {
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.empty());
+
+			assertThatThrownBy(() -> roomService.getRoomState(MEMBER_ID, ROOM_ID))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(ROOM_NOT_FOUND);
+		}
+
+		@Test
+		void 방에_없는_회원이면_PLAYER_NOT_IN_ROOM을_던진다() {
+			Map<Object, Object> roomInfo = Map.of(
+				"roomCode", "ABC123",
+				"title", "기여도 방",
+				"mode", "CONTRIBUTION",
+				"roomState", "WAITING",
+				"hasPassword", false,
+				"maxPlayers", 4);
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberStateRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo, "room-state"))
+				.willReturn(false);
+
+			assertThatThrownBy(() -> roomService.getRoomState(MEMBER_ID, ROOM_ID))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(PLAYER_NOT_IN_ROOM);
+		}
+
+		@Test
+		void 멤버_hash가_누락되어도_member_room_매핑으로_복구되면_ROOM_STATE를_반환한다() {
+			Map<Object, Object> roomInfo = Map.of(
+				"roomCode", "ABC123",
+				"title", "기여도 방",
+				"mode", "CONTRIBUTION",
+				"roomState", "WAITING",
+				"hasPassword", false,
+				"maxPlayers", 4);
+			Map<Object, Object> recoveredMembers = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> players = List.of(buildPlayer(MEMBER_ID, true));
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberStateRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo, "room-state"))
+				.willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(recoveredMembers);
+			given(roomMemberMapper.toPlayerInfoDtos(recoveredMembers)).willReturn(players);
+
+			BaseWebSocketResponse response = roomService.getRoomState(MEMBER_ID, ROOM_ID);
+
+			assertThat(response).isInstanceOf(ContributionRoomStateResponse.class);
+			ContributionRoomStateResponse state = (ContributionRoomStateResponse)response;
+			assertThat(state.members()).containsExactlyElementsOf(players);
+			then(roomMemberStateRecoveryService).should()
+				.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo, "room-state");
+		}
+
+		@Test
+		void currentPlayers는_변환된_members_목록_크기를_사용한다() {
+			Map<Object, Object> roomInfo = Map.of(
+				"roomCode", "ABC123",
+				"title", "기여도 방",
+				"mode", "CONTRIBUTION",
+				"roomState", "WAITING",
+				"hasPassword", false,
+				"maxPlayers", 4);
+			Map<Object, Object> rawMembers = Map.of(
+				MEMBER_ID.toString(), "member-json",
+				OTHER_ID.toString(), "broken-member-json");
+			List<PlayerInfoDto> players = List.of(buildPlayer(MEMBER_ID, true));
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberStateRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo, "room-state"))
+				.willReturn(true);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(rawMembers);
+			given(roomMemberMapper.toPlayerInfoDtos(rawMembers)).willReturn(players);
+
+			BaseWebSocketResponse response = roomService.getRoomState(MEMBER_ID, ROOM_ID);
+
+			assertThat(response).isInstanceOf(ContributionRoomStateResponse.class);
+			ContributionRoomStateResponse state = (ContributionRoomStateResponse)response;
+			assertThat(state.currentPlayers()).isEqualTo(1);
+			assertThat(state.members()).hasSize(1);
 		}
 	}
 

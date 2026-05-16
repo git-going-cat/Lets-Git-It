@@ -14,6 +14,7 @@ import static com.gitcat.letsgitit.global.exception.ErrorCode.NOT_HOST;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.PLAYER_NOT_FOUND;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.PLAYER_NOT_IN_ROOM;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.ROOM_IN_GAME;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.ROOM_MODE_MISMATCH;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.ROOM_NOT_FOUND;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.SELF_TRANSFER;
 
@@ -42,8 +43,12 @@ import com.gitcat.letsgitit.domain.room.dto.request.GameStartRequest;
 import com.gitcat.letsgitit.domain.room.dto.request.ReadyUpdateRequest;
 import com.gitcat.letsgitit.domain.room.dto.response.ChatResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.ContributionPlayerDto;
+import com.gitcat.letsgitit.domain.room.dto.response.ContributionRoomInfoResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.ContributionRoomStateResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.ContributionStartedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.CoopPlayerDto;
+import com.gitcat.letsgitit.domain.room.dto.response.CoopRoomInfoResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.CoopRoomStateResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.CoopStartedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.GameStartResult;
 import com.gitcat.letsgitit.domain.room.dto.response.HostTransferredResponse;
@@ -53,12 +58,15 @@ import com.gitcat.letsgitit.domain.room.dto.response.ReadyChangedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSummaryDto;
+import com.gitcat.letsgitit.domain.room.dto.response.SelectedMapDto;
 import com.gitcat.letsgitit.domain.room.entity.enums.RoomState;
 import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
 import com.gitcat.letsgitit.domain.room.util.RoomMemberMapper;
 import com.gitcat.letsgitit.domain.room.util.RoomRedisReader;
+import com.gitcat.letsgitit.global.enums.GameMode;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
+import com.gitcat.letsgitit.global.websocket.dto.BaseWebSocketResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -76,6 +84,7 @@ public class RoomServiceImpl implements RoomService {
 	private final RecordService recordService;
 	private final RoomMemberMapper roomMemberMapper;
 	private final RoomWebSocketEventPublisher roomWebSocketEventPublisher;
+	private final RoomMemberStateRecoveryService roomMemberStateRecoveryService;
 
 	@Override
 	public RoomListResponse getRooms(RoomMode mode) {
@@ -483,5 +492,58 @@ public class RoomServiceImpl implements RoomService {
 		} finally {
 			lock.unlock();
 		}
+	}
+
+	@Override
+	public BaseWebSocketResponse getRoomState(UUID memberId, Long roomId) {
+		Map<Object, Object> roomInfo = roomRedisRepository.getRoomInfo(roomId.toString())
+			.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
+
+		if (!roomMemberStateRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "room-state")) {
+			log.warn("[room][getRoomState] 방 상태 조회 거부: 방에 없는 플레이어. roomId={}, memberId={}",
+				roomId, memberId);
+			throw new BusinessException(PLAYER_NOT_IN_ROOM);
+		}
+
+		Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
+		List<PlayerInfoDto> players = roomMemberMapper.toPlayerInfoDtos(members);
+		RoomMode mode = RoomMode.valueOf(RoomRedisReader.readString(roomInfo, "mode"));
+
+		if (mode == RoomMode.CONTRIBUTION) {
+			ContributionRoomInfoResponse response = new ContributionRoomInfoResponse(
+				roomId,
+				RoomRedisReader.readString(roomInfo, "roomCode"),
+				RoomRedisReader.readString(roomInfo, "title"),
+				GameMode.CONTRIBUTION,
+				RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")),
+				players.size(),
+				RoomRedisReader.readBoolean(roomInfo, "hasPassword"),
+				RoomRedisReader.readInt(roomInfo, "maxPlayers"),
+				players);
+			return ContributionRoomStateResponse.from(response);
+		}
+
+		if (mode == RoomMode.COOP) {
+			SelectedMapDto selectedMap = new SelectedMapDto(
+				UUID.fromString(RoomRedisReader.readString(roomInfo, "selectedMapId")),
+				RoomRedisReader.readString(roomInfo, "selectedMapName"),
+				RoomRedisReader.readInt(roomInfo, "selectedMapDifficulty"));
+			CoopRoomInfoResponse response = new CoopRoomInfoResponse(
+				roomId,
+				RoomRedisReader.readString(roomInfo, "roomCode"),
+				RoomRedisReader.readString(roomInfo, "title"),
+				RoomRedisReader.readString(roomInfo, "teamName"),
+				GameMode.COOP,
+				RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")),
+				players.size(),
+				RoomRedisReader.readInt(roomInfo, "maxPlayers"),
+				RoomRedisReader.readBoolean(roomInfo, "hasPassword"),
+				selectedMap,
+				players);
+			return CoopRoomStateResponse.from(response);
+		}
+
+		log.warn("[room][getRoomState] 지원하지 않는 방 모드. roomId={}, memberId={}, mode={}", roomId, memberId, mode);
+		throw new BusinessException(ROOM_MODE_MISMATCH);
 	}
 }

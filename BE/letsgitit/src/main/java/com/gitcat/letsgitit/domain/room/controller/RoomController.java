@@ -35,6 +35,7 @@ import com.gitcat.letsgitit.domain.room.service.RoomService;
 import com.gitcat.letsgitit.domain.room.service.RoomWebSocketEventPublisher;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.response.ApiResponse;
+import com.gitcat.letsgitit.global.websocket.dto.BaseWebSocketResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -192,7 +193,6 @@ public class RoomController implements RoomControllerDocs {
 		return ApiResponse.ok("방 상태 조회 성공", response);
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@GetMapping("/{roomId}/coop/state")
 	public ResponseEntity<?> getCoopRoomState(@AuthenticationPrincipal
@@ -201,6 +201,17 @@ public class RoomController implements RoomControllerDocs {
 		Long roomId) {
 		UUID memberId = userDetails.getMemberId();
 		CoopRoomInfoResponse response = coopRoomService.getCoopRoomInfo(memberId, roomId);
+		return ApiResponse.ok("방 상태 조회 성공", response);
+	}
+
+	@Override
+	@GetMapping("/{roomId}/state")
+	public ResponseEntity<?> getRoomState(@AuthenticationPrincipal
+	CustomUserDetails userDetails,
+		@PathVariable
+		Long roomId) {
+		UUID memberId = userDetails.getMemberId();
+		BaseWebSocketResponse response = roomService.getRoomState(memberId, roomId);
 		return ApiResponse.ok("방 상태 조회 성공", response);
 	}
 }

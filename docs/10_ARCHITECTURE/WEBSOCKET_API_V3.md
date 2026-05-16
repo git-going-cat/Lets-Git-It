@@ -221,12 +221,19 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 ### 4-0. ROOM_STATE
 
 - 서버 자동 전송
-- 구독: `/topic/room/{roomId}` 구독 직후
+- 트리거: `/topic/room/{roomId}` 구독 직후
+- 수신: `/user/queue/private`
 - 설명: 재연결 직후 현재 방 상태를 복원하기 위한 상태 동기화 이벤트다.
 
 **서버 전송 조건** (아래 중 하나를 만족하면 전송):
 1. 클라이언트가 `/topic/room/{roomId}`를 구독한 경우
 2. 클라이언트가 REST API `GET /api/rooms/{roomId}/state`를 호출한 경우
+
+주의:
+- WebSocket ROOM_STATE는 `/topic/room/{roomId}` 구독을 트리거로 삼지만, 방 전체로 브로드캐스트하지 않는다.
+- 서버는 구독한 사용자 본인에게만 `/user/queue/private`로 `CONTRIBUTION_ROOM_STATE` 또는 `COOP_ROOM_STATE`를 유니캐스트한다.
+- ROOM_STATE는 멤버 입장/퇴장 이벤트가 아니라 재연결 클라이언트의 화면 복원용 스냅샷이다.
+- ROOM_STATE 조회 실패 시에도 `/user/queue/private`로 기존 `ERROR` 포맷을 전송한다.
 
 **재연결 시 클라이언트 처리**:
 - `"WAITING"`: 대기실 화면 복원
