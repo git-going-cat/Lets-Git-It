@@ -2,7 +2,20 @@ package com.gitcat.letsgitit.domain.room.service;
 
 import static com.gitcat.letsgitit.domain.room.constants.RoomConstants.ROOM_STATE_IN_GAME;
 import static com.gitcat.letsgitit.domain.room.constants.RoomConstants.ROOM_STATE_WAITING;
-import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.CANNOT_KICK_SELF;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.GAME_ALREADY_STARTED;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.HOST_ALWAYS_READY;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.INVALID_PASSWORD;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.MESSAGE_EMPTY;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.MESSAGE_TOO_LONG;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.NOT_ALL_READY;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.NOT_ENOUGH_PLAYERS;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.NOT_HOST;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.PLAYER_NOT_FOUND;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.PLAYER_NOT_IN_ROOM;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.ROOM_IN_GAME;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.ROOM_NOT_FOUND;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.SELF_TRANSFER;
 
 import java.util.List;
 import java.util.Map;
@@ -32,6 +45,8 @@ import com.gitcat.letsgitit.domain.room.dto.response.ContributionStartedResponse
 import com.gitcat.letsgitit.domain.room.dto.response.CoopPlayerDto;
 import com.gitcat.letsgitit.domain.room.dto.response.CoopStartedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.GameStartResult;
+import com.gitcat.letsgitit.domain.room.dto.response.HostTransferredResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.KickMemberResultResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.PlayerInfoDto;
 import com.gitcat.letsgitit.domain.room.dto.response.ReadyChangedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
@@ -128,14 +143,19 @@ public class RoomServiceImpl implements RoomService {
 	}
 
 	@Override
-	public void kickMember(Long roomId, UUID currentMemberId, String playerId) {
-		if (!roomRedisRepository.existsById(roomId)) {
-			throw new BusinessException(ROOM_NOT_FOUND);
-		}
+	public KickMemberResultResponse kickMember(Long roomId, UUID currentMemberId, String playerId) {
 		RLock lock = redissonClient.getLock("lock:room:" + roomId);
 		lock.lock();
 		try {
-			String hostId = roomRedisRepository.findHostIdById(roomId);
+			Map<Object, Object> roomInfo = roomRedisRepository.getRoomInfo(roomId.toString())
+				.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
+
+			if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
+				log.warn("[room] 강퇴 거부: 게임 중인 방. roomId={}, playerId={}", roomId, playerId);
+				throw new BusinessException(ROOM_IN_GAME);
+			}
+
+			String hostId = RoomRedisReader.readString(roomInfo, "hostMemberId");
 			if (!currentMemberId.toString().equals(hostId)) {
 				throw new BusinessException(NOT_HOST);
 			}
@@ -145,8 +165,24 @@ public class RoomServiceImpl implements RoomService {
 			if (!roomRedisRepository.existsMember(roomId, playerId)) {
 				throw new BusinessException(PLAYER_NOT_FOUND);
 			}
+
+			// 강퇴 전 닉네임 조회
+			Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
+			List<PlayerInfoDto> allPlayers = roomMemberMapper.toPlayerInfoDtos(members);
+			String kickedNickname = allPlayers.stream()
+				.filter(p -> playerId.equals(p.playerId().toString()))
+				.map(PlayerInfoDto::nickname)
+				.findFirst()
+				.orElse("");
+
 			roomRedisRepository.removeMember(roomId, playerId);
+
+			// 강퇴 후 남은 멤버 조회
+			Map<Object, Object> remainingMembers = roomRedisRepository.getMembers(roomId.toString());
+			List<PlayerInfoDto> remainPlayers = roomMemberMapper.toPlayerInfoDtos(remainingMembers);
+
 			log.info("[room][kickMember] roomId={}, playerId={}", roomId, playerId);
+			return new KickMemberResultResponse(UUID.fromString(playerId), kickedNickname, remainPlayers);
 		} finally {
 			lock.unlock();
 		}
@@ -335,5 +371,74 @@ public class RoomServiceImpl implements RoomService {
 		}
 		log.debug("[room][searchByCode] code={}, roomId={}", code, room.roomId());
 		return RoomSearchResponse.from(room);
+	}
+
+	@Override
+	public HostTransferredResponse transferHost(Long roomId, UUID currentHostId, UUID nextHostId) {
+		String currentHostIdStr = currentHostId.toString();
+		String nextHostIdStr = nextHostId.toString();
+
+		RLock lock = redissonClient.getLock("lock:room:" + roomId);
+		lock.lock();
+		try {
+			Map<Object, Object> roomInfo = roomRedisRepository.getRoomInfo(roomId.toString())
+				.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
+
+			if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
+				log.warn("[room] 방장 위임 거부: 게임 중인 방. roomId={}, nextHostId={}", roomId, nextHostId);
+				throw new BusinessException(ROOM_IN_GAME);
+			}
+
+			String hostId = RoomRedisReader.readString(roomInfo, "hostMemberId");
+			if (!currentHostIdStr.equals(hostId)) {
+				throw new BusinessException(NOT_HOST);
+			}
+			if (currentHostIdStr.equals(nextHostIdStr)) {
+				throw new BusinessException(SELF_TRANSFER);
+			}
+			if (!roomRedisRepository.existsMember(roomId, nextHostIdStr)) {
+				throw new BusinessException(PLAYER_NOT_FOUND);
+			}
+
+			// 1. 이전 방장 해제 (isHost=false, isReady=false)
+			roomRedisRepository.updateMemberFromHost(roomId.toString(), currentHostIdStr);
+
+			try {
+				// 2. 새 방장 설정 (isHost=true, isReady=true)
+				roomRedisRepository.updateMemberToHost(roomId.toString(), nextHostIdStr);
+			} catch (RuntimeException e) {
+				log.error("[room][transferHost] 새 방장 설정 실패, 이전 방장 복구 시도. roomId={}, prevHostId={}, nextHostId={}",
+					roomId, currentHostId, nextHostId, e);
+				roomRedisRepository.updateMemberToHost(roomId.toString(), currentHostIdStr);
+				throw e;
+			}
+
+			try {
+				// 3. room:info의 hostMemberId 변경
+				roomRedisRepository.updateHostId(roomId, nextHostIdStr);
+			} catch (RuntimeException e) {
+				log.error(
+					"[room][transferHost] hostMemberId 변경 실패, 방장 상태 복구 시도. roomId={}, prevHostId={}, nextHostId={}",
+					roomId, currentHostId, nextHostId, e);
+				roomRedisRepository.updateMemberFromHost(roomId.toString(), nextHostIdStr);
+				roomRedisRepository.updateMemberToHost(roomId.toString(), currentHostIdStr);
+				throw e;
+			}
+
+			// 4. 전체 멤버 조회 후 응답 생성
+			Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
+			List<PlayerInfoDto> allPlayers = roomMemberMapper.toPlayerInfoDtos(members);
+
+			String newHostNickname = allPlayers.stream()
+				.filter(p -> nextHostId.equals(p.playerId()))
+				.map(PlayerInfoDto::nickname)
+				.findFirst()
+				.orElse("");
+
+			log.info("[room][transferHost] roomId={}, prevHostId={}, newHostId={}", roomId, currentHostId, nextHostId);
+			return HostTransferredResponse.of(nextHostId, newHostNickname, allPlayers);
+		} finally {
+			lock.unlock();
+		}
 	}
 }

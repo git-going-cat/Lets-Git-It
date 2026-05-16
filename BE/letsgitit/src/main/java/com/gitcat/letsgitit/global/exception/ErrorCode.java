@@ -64,6 +64,7 @@ public enum ErrorCode {
 	ALREADY_IN_ROOM(HttpStatus.CONFLICT.value(), "ALREADY_IN_ROOM", "이미 해당 방에 참여 중입니다."),
 	ALREADY_IN_ANOTHER_ROOM(HttpStatus.CONFLICT.value(), "ALREADY_IN_ANOTHER_ROOM", "이미 다른 방에 참여 중입니다."),
 	CANNOT_KICK_SELF(HttpStatus.BAD_REQUEST.value(), "CANNOT_KICK_SELF", "자기 자신을 추방할 수 없습니다."),
+	SELF_TRANSFER(HttpStatus.BAD_REQUEST.value(), "SELF_TRANSFER", "자기 자신에게 위임할 수 없습니다."),
 	PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST.value(), "PASSWORD_REQUIRED", "비밀번호 설정 시 비밀번호는 필수입니다."),
 	PASSWORD_NOT_VERIFIED(HttpStatus.FORBIDDEN.value(), "PASSWORD_NOT_VERIFIED",
 		"비밀방 입장을 위한 비밀번호 검증이 완료되지 않았습니다."),
