@@ -4,7 +4,7 @@ import { parseAddTarget, parseSwitchTarget } from '@/shared/game/branchParser';
 import { generateArrowSequence } from '@/shared/game/conflictArrows';
 
 import { singleBus } from '../bridge/singleBus';
-import { DEFAULT_CONFLICT_FILE } from '../constants/conflict';
+import { CONFLICT_SEQUENCE_LENGTH, DEFAULT_CONFLICT_FILE } from '../constants/conflict';
 import { CHERRY_PICK_ANIM_MS } from '../constants/itemAnimations';
 import { TUTORIAL_FALL_DURATION_MS } from '../constants/tutorialData';
 
@@ -375,7 +375,7 @@ export class SingleScene extends Phaser.Scene {
             if (!this.isUserPaused && this.timerEvent) this.timerEvent.paused = false;
             singleBus.emit('conflict:start', {
               index: indexAtUse,
-              sequence: generateArrowSequence(),
+              sequence: generateArrowSequence(CONFLICT_SEQUENCE_LENGTH),
               headBranch: cmd.branchName,
               incomingBranch: parseSwitchTarget(cmd.text) ?? 'incoming',
               filePath:
