@@ -1377,9 +1377,8 @@ GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={si
 | `top3` | Array | 상위 3팀 고정 노출 |
 | `top3[].rank` | Integer | 순위 |
 | `top3[].teamName` | String | 팀명 |
-| `top3[].mapId` | UUID | 맵 ID |
 | `top3[].mapName` | String | 맵 이름 |
-| `top3[].difficulty` | String | 맵 난이도 |
+| `top3[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
 | `top3[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
 | `top3[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
 | `top3[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
@@ -1389,9 +1388,8 @@ GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={si
 | `myRank` | Object | 내가 속한 팀의 랭킹 정보, 없으면 null |
 | `myRank.rank` | Integer | 내 팀 순위 |
 | `myRank.teamName` | String | 팀명 |
-| `myRank.mapId` | UUID | 맵 ID |
 | `myRank.mapName` | String | 맵 이름 |
-| `myRank.difficulty` | String | 맵 난이도 |
+| `myRank.difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
 | `myRank.elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
 | `myRank.totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
 | `myRank.totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
@@ -1401,9 +1399,8 @@ GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={si
 | `around` | Array | 내 팀 랭킹 근처 팀 목록 |
 | `around[].rank` | Integer | 순위 |
 | `around[].teamName` | String | 팀명 |
-| `around[].mapId` | UUID | 맵 ID |
 | `around[].mapName` | String | 맵 이름 |
-| `around[].difficulty` | String | 맵 난이도 |
+| `around[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
 | `around[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
 | `around[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
 | `around[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
@@ -1429,9 +1426,8 @@ GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={si
       {
         "rank": 1,
         "teamName": "git masters",
-        "mapId": "550e8400-e29b-41d4-a716-446655440000",
         "mapName": "기초 브랜치",
-        "difficulty": "NORMAL",
+        "difficulty": 2,
         "elapsedTime": 61000,
         "totalWrongTypeCount": 2,
         "totalWrongOrderCount": 1,
@@ -1446,9 +1442,8 @@ GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={si
     "myRank": {
       "rank": 5,
       "teamName": "merge crew",
-      "mapId": "770e8400-e29b-41d4-a716-446655440000",
       "mapName": "rebase 실전",
-      "difficulty": "NORMAL",
+      "difficulty": 3,
       "elapsedTime": 83000,
       "totalWrongTypeCount": 5,
       "totalWrongOrderCount": 3,
@@ -1463,9 +1458,8 @@ GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={si
       {
         "rank": 4,
         "teamName": "reset zero",
-        "mapId": "880e8400-e29b-41d4-a716-446655440000",
         "mapName": "브랜치 이동",
-        "difficulty": "NORMAL",
+        "difficulty": 2,
         "elapsedTime": 81000,
         "totalWrongTypeCount": 4,
         "totalWrongOrderCount": 2,
@@ -1504,9 +1498,8 @@ GET /api/v1/rankings/coop?beforeRank=4&size=20
 | `rankings` | Array | 랭킹 목록 |
 | `rankings[].rank` | Integer | 순위 |
 | `rankings[].teamName` | String | 팀명 |
-| `rankings[].mapId` | UUID | 맵 ID |
 | `rankings[].mapName` | String | 맵 이름 |
-| `rankings[].difficulty` | String | 맵 난이도 |
+| `rankings[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
 | `rankings[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
 | `rankings[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
 | `rankings[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
@@ -1529,9 +1522,8 @@ GET /api/v1/rankings/coop?beforeRank=4&size=20
       {
         "rank": 7,
         "teamName": "conflict solvers",
-        "mapId": "550e8400-e29b-41d4-a716-446655440000",
         "mapName": "기초 브랜치",
-        "difficulty": "NORMAL",
+        "difficulty": 1,
         "elapsedTime": 89000,
         "totalWrongTypeCount": 7,
         "totalWrongOrderCount": 4,
@@ -2009,9 +2001,8 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
 | `top3` | Array | 상위 3팀 고정 노출 |
 | `top3[].rank` | Integer | 순위 |
 | `top3[].teamName` | String | 팀명 |
-| `top3[].mapId` | UUID | 맵 ID |
 | `top3[].mapName` | String | 맵 이름 |
-| `top3[].difficulty` | String | 맵 난이도 |
+| `top3[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
 | `top3[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
 | `top3[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
 | `top3[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
@@ -2021,9 +2012,8 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
 | `myRank` | Object | 내가 속한 팀의 랭킹 정보, 없으면 null |
 | `myRank.rank` | Integer | 내 팀 순위 |
 | `myRank.teamName` | String | 팀명 |
-| `myRank.mapId` | UUID | 맵 ID |
 | `myRank.mapName` | String | 맵 이름 |
-| `myRank.difficulty` | String | 맵 난이도 |
+| `myRank.difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
 | `myRank.elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
 | `myRank.totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
 | `myRank.totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
@@ -2033,9 +2023,8 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
 | `around` | Array | 내 팀 랭킹 근처 팀 목록 |
 | `around[].rank` | Integer | 순위 |
 | `around[].teamName` | String | 팀명 |
-| `around[].mapId` | UUID | 맵 ID |
 | `around[].mapName` | String | 맵 이름 |
-| `around[].difficulty` | String | 맵 난이도 |
+| `around[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
 | `around[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
 | `around[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
 | `around[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
@@ -2061,9 +2050,8 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
       {
         "rank": 1,
         "teamName": "git masters",
-        "mapId": "550e8400-e29b-41d4-a716-446655440000",
         "mapName": "기초 브랜치",
-        "difficulty": "NORMAL",
+        "difficulty": 2,
         "elapsedTime": 61000,
         "totalWrongTypeCount": 2,
         "totalWrongOrderCount": 1,
@@ -2078,9 +2066,8 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
     "myRank": {
       "rank": 5,
       "teamName": "merge crew",
-      "mapId": "770e8400-e29b-41d4-a716-446655440000",
       "mapName": "rebase 실전",
-      "difficulty": "NORMAL",
+      "difficulty": 3,
       "elapsedTime": 83000,
       "totalWrongTypeCount": 5,
       "totalWrongOrderCount": 3,
@@ -2095,9 +2082,8 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
       {
         "rank": 4,
         "teamName": "reset zero",
-        "mapId": "880e8400-e29b-41d4-a716-446655440000",
         "mapName": "브랜치 이동",
-        "difficulty": "NORMAL",
+        "difficulty": 2,
         "elapsedTime": 81000,
         "totalWrongTypeCount": 4,
         "totalWrongOrderCount": 2,
@@ -2136,9 +2122,8 @@ GET /api/v1/rankings/coop/history?year=2025&month=4&week=3&beforeRank=4&size=20
 | `rankings` | Array | 랭킹 목록 |
 | `rankings[].rank` | Integer | 순위 |
 | `rankings[].teamName` | String | 팀명 |
-| `rankings[].mapId` | UUID | 맵 ID |
 | `rankings[].mapName` | String | 맵 이름 |
-| `rankings[].difficulty` | String | 맵 난이도 |
+| `rankings[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
 | `rankings[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
 | `rankings[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
 | `rankings[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
@@ -2161,9 +2146,8 @@ GET /api/v1/rankings/coop/history?year=2025&month=4&week=3&beforeRank=4&size=20
       {
         "rank": 7,
         "teamName": "conflict solvers",
-        "mapId": "550e8400-e29b-41d4-a716-446655440000",
         "mapName": "기초 브랜치",
-        "difficulty": "NORMAL",
+        "difficulty": 1,
         "elapsedTime": 89000,
         "totalWrongTypeCount": 7,
         "totalWrongOrderCount": 4,

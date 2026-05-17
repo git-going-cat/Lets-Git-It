@@ -29,10 +29,18 @@ public class CoopResultMember {
 	@Column(name = "member_id", nullable = false, columnDefinition = "BINARY(16)")
 	private UUID memberId;
 
-	public static CoopResultMember of(UUID coopResultId, UUID memberId) {
+	@Column(name = "wrong_type_count", nullable = false)
+	private int wrongTypeCount;
+
+	@Column(name = "wrong_order_count", nullable = false)
+	private int wrongOrderCount;
+
+	public static CoopResultMember of(UUID coopResultId, UUID memberId, int wrongTypeCount, int wrongOrderCount) {
 		CoopResultMember item = new CoopResultMember();
 		item.coopResultId = coopResultId;
 		item.memberId = memberId;
+		item.wrongTypeCount = wrongTypeCount;
+		item.wrongOrderCount = wrongOrderCount;
 		return item;
 	}
 }

@@ -114,7 +114,7 @@ class MemberServiceImplTest {
 			MemberBestRecord.of(memberId, SINGLE_NORMAL, 7200, 45),
 			MemberBestRecord.of(memberId, CONTRIBUTION, 88000, 7),
 			MemberBestRecord.of(memberId, TIME_ATTACK, 10500, 3));
-		MemberCoopBestRecord coopBestRecord = MemberCoopBestRecord.of(memberId, "기초 브랜치", "MAP_1", 61000, 2);
+		MemberCoopBestRecord coopBestRecord = MemberCoopBestRecord.of(memberId, "기초 브랜치", 1, 61000, 2);
 
 		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
 		given(recordService.getBestRecords(memberId)).willReturn(bestRecords);

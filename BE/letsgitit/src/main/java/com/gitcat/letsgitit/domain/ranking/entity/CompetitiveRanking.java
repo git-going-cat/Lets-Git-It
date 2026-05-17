@@ -36,6 +36,9 @@ public class CompetitiveRanking {
 	@Column(name = "score", nullable = false)
 	private int score = 0;
 
+	@Column(name = "play_count", nullable = false)
+	private int playCount = 0;
+
 	@Column(name = "`rank`", nullable = false)
 	private int rank;
 
@@ -46,11 +49,12 @@ public class CompetitiveRanking {
 	private LocalDateTime recordedAt;
 
 	public static CompetitiveRanking of(UUID memberId, CompetitiveMode mode,
-		int score, int rank, String week) {
+		int score, int playCount, int rank, String week) {
 		CompetitiveRanking ranking = new CompetitiveRanking();
 		ranking.memberId = memberId;
 		ranking.mode = mode;
 		ranking.score = score;
+		ranking.playCount = playCount;
 		ranking.rank = rank;
 		ranking.week = week;
 		ranking.recordedAt = LocalDateTime.now();
