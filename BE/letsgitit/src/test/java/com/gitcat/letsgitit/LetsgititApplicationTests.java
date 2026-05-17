@@ -34,6 +34,9 @@ class LetsgititApplicationTests {
 	@MockitoBean(name = "rankingStringRedisTemplate")
 	StringRedisTemplate rankingStringRedisTemplate;
 
+	@MockitoBean(name = "gameStringRedisTemplate")
+	StringRedisTemplate gameStringRedisTemplate;
+
 	@Test
 	void contextLoads() {}
 

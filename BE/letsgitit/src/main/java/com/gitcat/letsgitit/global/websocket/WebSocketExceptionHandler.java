@@ -3,7 +3,9 @@ package com.gitcat.letsgitit.global.websocket;
 import java.security.Principal;
 
 import org.slf4j.MDC;
+import org.springframework.messaging.converter.MessageConversionException;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
+import org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 
@@ -38,6 +40,26 @@ public class WebSocketExceptionHandler {
 			WebSocketErrorResponse.of(
 				e.getErrorCode().getCode(),
 				e.getErrorCode().getMessage()));
+	}
+
+	@MessageExceptionHandler({MethodArgumentNotValidException.class, MessageConversionException.class})
+	public void handleInvalidRequest(Exception e, Principal principal, SimpMessageHeaderAccessor accessor) {
+		if (principal == null) {
+			return;
+		}
+
+		MDC.put("requestId", "ws-" + (accessor.getSessionId() != null ? accessor.getSessionId() : "unknown"));
+		try {
+			log.warn("WebSocket 요청 검증 실패. memberId={}, errorCode={}", principal.getName(),
+				ErrorCode.INVALID_REQUEST.getCode());
+		} finally {
+			MDC.clear();
+		}
+		messageSender.sendToUser(
+			principal.getName(),
+			WebSocketErrorResponse.of(
+				ErrorCode.INVALID_REQUEST.getCode(),
+				ErrorCode.INVALID_REQUEST.getMessage()));
 	}
 
 	@MessageExceptionHandler(Exception.class)

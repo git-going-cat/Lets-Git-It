@@ -23,6 +23,7 @@ import org.redisson.api.RedissonClient;
 
 import com.gitcat.letsgitit.domain.command.dto.response.CommandSetResponse;
 import com.gitcat.letsgitit.domain.command.service.CommandService;
+import com.gitcat.letsgitit.domain.competitive.service.ContributionGameService;
 import com.gitcat.letsgitit.domain.coop.service.CoopService;
 import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.domain.record.service.RecordService;
@@ -79,6 +80,9 @@ class RoomServiceImplTest {
 
 	@Mock
 	private RoomMemberStateRecoveryService roomMemberStateRecoveryService;
+
+	@Mock
+	private ContributionGameService contributionGameService;
 
 	private static final Long ROOM_ID = 1L;
 	private static final UUID MEMBER_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
@@ -613,6 +617,7 @@ class RoomServiceImplTest {
 			// 선점으로 IN_GAME 변경 후 실패 시 WAITING으로 롤백되어야 한다
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.IN_GAME.name());
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.WAITING.name());
+			then(contributionGameService).should().deleteSession(any(UUID.class));
 		}
 
 		@Test
@@ -633,6 +638,7 @@ class RoomServiceImplTest {
 
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.IN_GAME.name());
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.WAITING.name());
+			then(contributionGameService).should().deleteSession(any(UUID.class));
 		}
 	}
 
