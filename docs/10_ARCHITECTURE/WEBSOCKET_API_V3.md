@@ -396,6 +396,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 - 발행: `/app/room/{roomId}/start`
 - 설명: 방장만 전송 가능. 서버가 Redis에서 `gameMode`를 확인하고 모드별 브로드캐스트를 전송한다.
+- 기여도 뺏기 모드는 현재 방 인원수와 일치하는 `competitive_command_set.player_count` 데이터만 사용한다. 해당 인원수의 명령어 셋이 없으면 게임 시작은 실패한다.
 
 #### Request
 
@@ -411,6 +412,19 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 }
 ```
 
+#### 에러
+
+- 응답 경로: `/user/queue/private`
+
+| 코드 | 설명 |
+| --- | --- |
+| `ROOM_NOT_FOUND` | 존재하지 않는 방 |
+| `GAME_ALREADY_STARTED` | 이미 게임 중인 방 |
+| `NOT_HOST` | 방장이 아닌 사용자가 시작 요청 |
+| `NOT_ENOUGH_PLAYERS` | 최소 인원 미달 |
+| `NOT_ALL_READY` | 준비하지 않은 참가자 존재 |
+| `COMMAND_SET_NOT_FOUND` | 기여도 뺏기에서 현재 방 인원수와 일치하는 명령어 셋 없음 |
+
 #### Response: 기여도 뺏기
 
 - 브로드캐스트: `/topic/room/{roomId}/contribution`
@@ -422,11 +436,12 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `startAt` | Long | 게임 시작 타임스탬프 |
 | `gameSessionId` | UUID | 현재 게임 세션 ID |
 | `commandSetId` | Integer | 데이터셋 번호 |
-| `initialBranch` | String | 게임 시작 브랜치 |
+| `initialBranch` | String | 게임 시작 시 모든 플레이어의 초기 브랜치 |
 | `commandSet` | Array | 명령어 세트 목록 |
 | `commandSet[].commandSequence` | Integer | 명령어 식별자 (commandSet 내부에서만 unique) |
 | `commandSet[].text` | String | 명령어 전체 텍스트 |
-| `commandSet[].branchName` | String | 브랜치 이름 |
+| `commandSet[].branchName` | String | 명령어 노드가 표시될 브랜치 lane |
+| `commandSet[].fallDurationMs` | Long | 프론트 낙하 애니메이션 렌더링 힌트. 서버 검증 기준은 아님 |
 | `players` | Array | 참여 플레이어 목록 및 개인 최고 기록 |
 | `players[].playerId` | UUID | 플레이어 ID |
 | `players[].nickname` | String | 플레이어 닉네임 |
@@ -444,12 +459,14 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
     {
       "commandSequence": 0,
       "text": "git commit -m 'fix'",
-      "branchName": "main"
+      "branchName": "main",
+      "fallDurationMs": 20000
     },
     {
       "commandSequence": 1,
       "text": "git push origin main",
-      "branchName": "main"
+      "branchName": "main",
+      "fallDurationMs": 20000
     }
   ],
   "players": [
@@ -1205,12 +1222,32 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 ---
 
-### 5-2. COMMAND_EXPIRED
+### 5-2. COMMAND_EXPIRE_REQUEST / COMMAND_EXPIRED
 
-> V3 변경: 클라이언트 발행 없이 서버 자동 브로드캐스트만. `gameSessionId`, `serverTime` 추가. `progress`가 Object로 변경.
+> 기여도 게임 진행 개편: 서버 자동 만료 스케줄이 아니라, 프론트가 명령어 노드 바닥 도달 시 만료 요청을 발행한다.
 
-- 서버 자동 브로드캐스트 (게임 시작 시 각 명령어 만료 타이머 스케줄링)
+- 발행: `/app/room/{roomId}/contribution/commands/expire`
 - 구독: `/topic/room/{roomId}/contribution`
+
+#### Request
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `type` | String | Y | `"COMMAND_EXPIRE_REQUEST"` 고정 |
+| `requestId` | UUID | Y | 요청-응답 매칭용 클라이언트 요청 ID |
+| `gameSessionId` | UUID | Y | 현재 게임 세션 ID |
+| `commandSequence` | Integer | Y | 바닥에 도달한 명령어 seq |
+
+```json
+{
+  "type": "COMMAND_EXPIRE_REQUEST",
+  "requestId": "75e9a6c8-5954-4c18-9e42-8465df8cae6d",
+  "gameSessionId": "7b25b5a8-df79-4b45-a0ee-76f6b9f7e9a1",
+  "commandSequence": 3
+}
+```
+
+서버는 요청자 Principal이 현재 게임 참가자인지 검증하고, 해당 명령어가 아직 `READY` 상태일 때만 만료 처리한다. 이미 성공/이동/만료 처리된 명령어의 중복 만료 요청은 CAT 점수를 증가시키지 않고 브로드캐스트하지 않는다.
 
 마지막 명령어가 아니면 `COMMAND_EXPIRED`를 브로드캐스트한다.
 마지막 명령어라면 `CONTRIBUTION_GAME_END`를 브로드캐스트한다.
@@ -1746,7 +1783,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 4-7 (신규) | `ROOM_INFO_UPDATED` 방 정보 수정 브로드캐스트 이벤트 추가 |
 | 4-9 CHAT | Request에서 `playerId` 제거. 에러에 `MESSAGE_TOO_LONG`, `MESSAGE_EMPTY` 추가 |
 | 5-1 CONTRIBUTION_INPUT | 발행 경로 `/input`→`/commands`. Request 구조 변경 (`requestId`, `gameSessionId`, `commandSequence` 추가, `playerId` 제거). `BRANCH_MOVE`→`POSITION_UPDATE`. `CONTRIBUTION_INPUT_RESULT`→`CONTRIBUTION_INPUT_FAILED`. `progress` Integer→Object. 에러코드 정비 |
-| 5-2 COMMAND_EXPIRED | 클라이언트 발행 없이 서버 자동 전송으로 변경. `gameSessionId`, `serverTime` 추가. `progress` Integer→Object |
+| 5-2 COMMAND_EXPIRED | 프론트 바닥 도달 기반 `COMMAND_EXPIRE_REQUEST` 추가. 서버 자동 만료 스케줄 제거. `gameSessionId`, `serverTime` 추가. `progress` Integer→Object |
 | 5-3 CONTRIBUTION_GAME_END | `gameSessionId`, `serverTime`, `isSuccess`, `reason` 추가. 이탈 종료 케이스 추가 |
 | 7-1 COOP_ROUND_REVEAL | `revealEndsAt`→`revealStartsAt`. `gameSessionId`, `serverTime` 추가. commands 항목 필드명 변경 |
 | 7-2 COOP_ROUND_ASSIGN | `wrongPlayerNickname`, `gameSessionId`, `serverTime` 추가 |
