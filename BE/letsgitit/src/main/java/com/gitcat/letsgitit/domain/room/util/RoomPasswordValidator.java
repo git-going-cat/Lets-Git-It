@@ -18,4 +18,11 @@ public final class RoomPasswordValidator {
 			throw new BusinessException(ROOM_PASSWORD_INVALID_FORMAT);
 		}
 	}
+
+	public static void validateForUpdate(Boolean hasPassword, String password) {
+		if (Boolean.TRUE.equals(hasPassword) && password != null && !password.isBlank()
+			&& !password.matches(ROOM_PASSWORD_REGEX)) {
+			throw new BusinessException(ROOM_PASSWORD_INVALID_FORMAT);
+		}
+	}
 }

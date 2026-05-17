@@ -256,7 +256,8 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			SelectedMapDto selectedMap = coopService.getSelectedMap(request.selectedMapId());
 
 			// 2. 수정 가능한 필드를 room info Hash 에 반영한다.
-			roomRedisRepository.updateRoomInfo(roomId.toString(), buildCoopRoomUpdateInfo(request, selectedMap));
+			roomRedisRepository.updateRoomInfo(roomId.toString(),
+				buildCoopRoomUpdateInfo(roomInfo, request, selectedMap));
 			log.info("[room] coop room updated. roomId={}, memberId={}, hasPassword={}, selectedMapId={}",
 				roomId, memberId, request.hasPassword(), request.selectedMapId());
 
@@ -364,15 +365,27 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 		return roomInfo;
 	}
 
-	private Map<String, Object> buildCoopRoomUpdateInfo(UpdateCoopRoomInfoRequest request, SelectedMapDto selectedMap) {
+	private Map<String, Object> buildCoopRoomUpdateInfo(Map<Object, Object> currentRoomInfo,
+		UpdateCoopRoomInfoRequest request, SelectedMapDto selectedMap) {
 		Map<String, Object> roomInfo = new LinkedHashMap<>();
 
 		roomInfo.put("title", request.title());
 		roomInfo.put("teamName", request.teamName());
-		roomInfo.put("hasPassword", request.hasPassword());
+		boolean currentlySecret = RoomRedisReader.readBoolean(currentRoomInfo, "hasPassword");
+
 		if (request.hasPassword()) {
-			roomInfo.put("password", request.password());
+			if (request.password() == null || request.password().isBlank()) {
+				if (!currentlySecret) {
+					throw new BusinessException(PASSWORD_REQUIRED);
+				}
+				roomInfo.put("hasPassword", true);
+				roomInfo.put("password", currentRoomInfo.get("password"));
+			} else {
+				roomInfo.put("hasPassword", true);
+				roomInfo.put("password", request.password());
+			}
 		} else {
+			roomInfo.put("hasPassword", false);
 			roomInfo.put("password", null);
 		}
 		applySelectedMapInfo(roomInfo, selectedMap);

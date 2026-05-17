@@ -2856,6 +2856,14 @@ PATCH /api/v1/rooms/{roomId}/contribution
 | `password` | String | N | 비밀번호 |
 | `maxPlayers` | Integer | Y | 최대 인원 수 |
 
+비밀번호 정책:
+
+- 이미 비밀방이고 비밀번호를 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+- 이미 비밀방이고 비밀번호를 유지하려면 `hasPassword: true`, `password: null`
+- 비밀방을 공개방으로 바꾸려면 `hasPassword: false`, `password: null`
+- 공개방을 비밀방으로 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+- 공개방에서 `hasPassword: true`, `password: null` 을 보내면 예외가 발생한다
+
 ```json
 {
   "title": "변경된 방 제목",
@@ -2898,6 +2906,14 @@ PATCH /api/v1/rooms/{roomId}/coop
 | `hasPassword` | Boolean | Y | 비밀번호 설정 여부 |
 | `password` | String | N | 비밀번호 |
 | `selectedMapId` | UUID | Y | 선택한 맵 ID |
+
+비밀번호 정책:
+
+- 이미 비밀방이고 비밀번호를 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+- 이미 비밀방이고 비밀번호를 유지하려면 `hasPassword: true`, `password: null`
+- 비밀방을 공개방으로 바꾸려면 `hasPassword: false`, `password: null`
+- 공개방을 비밀방으로 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+- 공개방에서 `hasPassword: true`, `password: null` 을 보내면 예외가 발생한다
 
 ```json
 {

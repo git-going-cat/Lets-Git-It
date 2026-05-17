@@ -238,7 +238,7 @@ class CoopRoomServiceImplTest {
 			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
 			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
 			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
-			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "é‡‰ëš®ì˜–ç§»?æ¹²ê³—í¹", 1);
+			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "브랜치 기초", 1);
 			Long previousRoomId = 99L;
 
 			given(redissonClient.getLock("room:" + ROOM_ID + ":join-lock")).willReturn(rLock);
@@ -376,6 +376,88 @@ class CoopRoomServiceImplTest {
 			then(messageSender).should().send(eq("/topic/room/" + ROOM_ID), responseCaptor.capture());
 			assertThat(responseCaptor.getValue().type()).isEqualTo("COOP_ROOM_INFO_UPDATED");
 			assertThat(responseCaptor.getValue().hasPassword()).isFalse();
+		}
+
+		@Test
+		void 기존_비밀방에서_hasPassword가_false면_공개방으로_전환한다() {
+			UpdateCoopRoomInfoRequest request = new UpdateCoopRoomInfoRequest("새 협력 방", "new-team", false, null,
+				MAP_ID);
+			Map<Object, Object> roomInfo = waitingCoopRoomInfo();
+			roomInfo.put("hasPassword", true);
+			roomInfo.put("password", "1234");
+			Map<Object, Object> updatedRoomInfo = new LinkedHashMap<>(roomInfo);
+			updatedRoomInfo.put("hasPassword", false);
+			updatedRoomInfo.put("password", null);
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "브랜치 기초", 1);
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(roomInfo), Optional.of(updatedRoomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), any(), eq("coop"))).willReturn(true);
+			given(coopService.getSelectedMap(MAP_ID)).willReturn(selectedMap);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+
+			coopRoomService.updateCoopRoomInfo(MEMBER_ID, ROOM_ID, request);
+
+			ArgumentCaptor<Map<String, Object>> roomInfoCaptor = ArgumentCaptor.forClass(Map.class);
+			then(roomRedisRepository).should().updateRoomInfo(eq(ROOM_ID.toString()), roomInfoCaptor.capture());
+			assertThat(roomInfoCaptor.getValue())
+				.containsEntry("hasPassword", false)
+				.containsEntry("password", null);
+
+			ArgumentCaptor<CoopRoomInfoUpdatedResponse> responseCaptor = ArgumentCaptor
+				.forClass(CoopRoomInfoUpdatedResponse.class);
+			then(messageSender).should().send(eq("/topic/room/" + ROOM_ID), responseCaptor.capture());
+			assertThat(responseCaptor.getValue().hasPassword()).isFalse();
+		}
+
+		@Test
+		void 기존_비밀방에서_hasPassword가_true이고_password가_null이면_비밀번호를_유지한다() {
+			UpdateCoopRoomInfoRequest request = new UpdateCoopRoomInfoRequest("새 협력 방", "new-team", true, null,
+				MAP_ID);
+			Map<Object, Object> roomInfo = waitingCoopRoomInfo();
+			roomInfo.put("hasPassword", true);
+			roomInfo.put("password", "1234");
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "브랜치 기초", 1);
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(roomInfo), Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), any(), eq("coop"))).willReturn(true);
+			given(coopService.getSelectedMap(MAP_ID)).willReturn(selectedMap);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+
+			coopRoomService.updateCoopRoomInfo(MEMBER_ID, ROOM_ID, request);
+
+			ArgumentCaptor<Map<String, Object>> roomInfoCaptor = ArgumentCaptor.forClass(Map.class);
+			then(roomRedisRepository).should().updateRoomInfo(eq(ROOM_ID.toString()), roomInfoCaptor.capture());
+			assertThat(roomInfoCaptor.getValue())
+				.containsEntry("hasPassword", true)
+				.containsEntry("password", "1234");
+		}
+
+		@Test
+		void 기존_공개방에서_hasPassword가_true이고_password가_null이면_PASSWORD_REQUIRED를_던진다() {
+			UpdateCoopRoomInfoRequest request = new UpdateCoopRoomInfoRequest("새 협력 방", "new-team", true, null,
+				MAP_ID);
+			Map<Object, Object> roomInfo = waitingCoopRoomInfo();
+			SelectedMapDto selectedMap = new SelectedMapDto(MAP_ID, "브랜치 기초", 1);
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("coop"))).willReturn(true);
+			given(coopService.getSelectedMap(MAP_ID)).willReturn(selectedMap);
+
+			assertThatThrownBy(() -> coopRoomService.updateCoopRoomInfo(MEMBER_ID, ROOM_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(PASSWORD_REQUIRED);
 		}
 	}
 
