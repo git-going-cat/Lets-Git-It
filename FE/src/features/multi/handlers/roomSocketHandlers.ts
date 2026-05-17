@@ -18,7 +18,8 @@
  *   - /user/queue/private       → 개인 메시지 (게임 시작 이후 단계에서 사용)
  *
  * ## PUBLISH
- *   - /app/room/{roomId}/ready  → 준비 상태 토글 (파라미터 없음)
+ *   - /app/room/{roomId}/ready  → READY_UPDATE
+ *   - /app/room/{roomId}/start  → GAME_START
  */
 
 import { roomTopicMessageSchema } from '../schemas/room.schema';
@@ -101,10 +102,15 @@ export function handlePlayerJoined(msg: PlayerJoinedMessage, store: RoomStoreSta
  * READY_CHANGED 처리
  *
  * 누군가 준비 상태를 변경했을 때 수신.
- * allMembers로 전체 멤버 목록을 덮어씁니다.
+ * 변경된 플레이어의 준비 상태만 갱신하고 allReady는 서버 값을 따릅니다.
  */
 export function handleReadyChanged(msg: ReadyChangedMessage, store: RoomStoreState): void {
-  store.setMembers(msg.allMembers);
+  store.updateReady({
+    playerId: msg.playerId,
+    nickname: msg.nickname,
+    isReady: msg.isReady,
+    allReady: msg.allReady,
+  });
 }
 
 /**

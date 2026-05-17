@@ -51,11 +51,14 @@ export interface PlayerJoinedMessage {
 
 /**
  * 플레이어 준비 상태가 바뀌었을 때 수신
- * allMembers로 멤버 목록 전체를 덮어씀
+ * 변경된 플레이어만 patch하고 allReady는 서버 값을 따른다.
  */
 export interface ReadyChangedMessage {
   type: 'READY_CHANGED';
-  allMembers: RoomMember[];
+  playerId: string;
+  nickname: string;
+  isReady: boolean;
+  allReady: boolean;
 }
 
 /**

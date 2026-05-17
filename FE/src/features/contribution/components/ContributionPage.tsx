@@ -1,6 +1,8 @@
 import { useLayoutEffect } from 'react';
 import { Provider } from 'jotai';
 
+import { useRoomExitGuard } from '@/features/multi/hooks/useRoomExitGuard';
+
 // TODO: WS 연동 완료 시 아래 두 import와 useLayoutEffect 블록 제거 후 sessionId 가드 복원
 import { MOCK_CONTRIBUTION_STARTED, MOCK_MY_PLAYER_ID } from '../dev/mockSession';
 import { useContributionStore } from '../store/contributionStore';
@@ -13,6 +15,9 @@ import ResultModal from './ResultModal';
  * WaitingRoom에서 게임 시작 신호를 받아 store가 세팅된 후 진입한다.
  */
 export default function ContributionPage() {
+  const roomId = useContributionStore((s) => s.roomId);
+  const clearSession = useContributionStore((s) => s.clearSession);
+
   // TODO: WS 연동 완료 시 이 블록 제거
   useLayoutEffect(() => {
     const { sessionId, setSession } = useContributionStore.getState();
@@ -35,6 +40,8 @@ export default function ContributionPage() {
       })),
     });
   }, []);
+
+  useRoomExitGuard({ roomId, reset: clearSession });
 
   return (
     <Provider>

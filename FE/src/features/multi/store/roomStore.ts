@@ -27,6 +27,7 @@ interface RoomStateSlice {
   currentPlayers: number;
   maxPlayers: number;
   members: RoomMember[];
+  allReady: boolean;
   /** 협력 모드 전용 */
   teamName: string | null;
   selectedMap: SelectedMap | null;
@@ -46,8 +47,15 @@ interface RoomActions {
   initFromContributionRoomState: (data: ContributionRoomStateResponse) => void;
   /** 재연결 시 협력 방 상태로 전체 복원 */
   initFromCoopRoomState: (data: CoopRoomStateResponse) => void;
-  /** WebSocket ROOM_STATE / PLAYER_JOINED / READY_CHANGED 공통 멤버 갱신 */
+  /** WebSocket ROOM_STATE / PLAYER_JOINED / PLAYER_LEFT 공통 멤버 갱신 */
   setMembers: (members: RoomMember[]) => void;
+  /** WebSocket READY_CHANGED 단일 플레이어 준비 상태 갱신 */
+  updateReady: (data: {
+    playerId: string;
+    nickname: string;
+    isReady: boolean;
+    allReady: boolean;
+  }) => void;
   /** WebSocket ROOM_STATE 방 상태 갱신 */
   setRoomState: (state: RoomState) => void;
   /** 409 재접속 시 최소 정보만 세팅 — 대기실에서 ROOM_STATE로 복원 */
@@ -69,6 +77,7 @@ const initialState: RoomStateSlice = {
   currentPlayers: 0,
   maxPlayers: 0,
   members: [],
+  allReady: false,
   teamName: null,
   selectedMap: null,
   mapList: [],
@@ -77,6 +86,11 @@ const initialState: RoomStateSlice = {
 // ────────────────────────────────────────────────────────────
 // Store
 // ────────────────────────────────────────────────────────────
+
+const computeAllReady = (members: RoomMember[]) => {
+  const nonHostMembers = members.filter((member) => !member.isHost);
+  return nonHostMembers.length > 0 && nonHostMembers.every((member) => member.isReady);
+};
 
 export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
   ...initialState,
@@ -91,6 +105,7 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       currentPlayers: 1,
       maxPlayers: data.maxPlayers,
       members: [],
+      allReady: false,
       teamName: null,
       selectedMap: null,
       mapList: [],
@@ -106,6 +121,7 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       currentPlayers: 1,
       maxPlayers: data.maxPlayers,
       members: [],
+      allReady: false,
       teamName: data.teamName,
       selectedMap: data.selectedMap,
       mapList: [],
@@ -121,6 +137,7 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       currentPlayers: data.currentPlayers,
       maxPlayers: data.maxPlayers,
       members: data.members,
+      allReady: computeAllReady(data.members),
       teamName: null,
       selectedMap: null,
       mapList: [],
@@ -136,6 +153,7 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       currentPlayers: data.currentPlayers,
       maxPlayers: data.maxPlayers,
       members: data.members,
+      allReady: computeAllReady(data.members),
       teamName: data.teamName,
       selectedMap: data.selectedMap,
       mapList: data.mapList,
@@ -151,6 +169,7 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       currentPlayers: data.currentPlayers,
       maxPlayers: data.maxPlayers,
       members: data.members,
+      allReady: computeAllReady(data.members),
       teamName: null,
       selectedMap: null,
       mapList: [],
@@ -166,12 +185,24 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       currentPlayers: data.currentPlayers,
       maxPlayers: data.maxPlayers,
       members: data.members,
+      allReady: computeAllReady(data.members),
       teamName: data.teamName,
       selectedMap: data.selectedMap,
       mapList: [],
     }),
 
-  setMembers: (members) => set({ members, currentPlayers: members.length }),
+  setMembers: (members) =>
+    set({ members, currentPlayers: members.length, allReady: computeAllReady(members) }),
+
+  updateReady: ({ playerId, nickname, isReady, allReady }) =>
+    set((s) => ({
+      members: s.members.map((member) =>
+        member.playerId === playerId || member.nickname === nickname
+          ? { ...member, isReady }
+          : member
+      ),
+      allReady,
+    })),
 
   setRoomState: (roomState) => set({ roomState }),
 
