@@ -576,12 +576,13 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.isAllMembersReady(ROOM_ID)).willReturn(true);
 			given(memberService.getNicknamesByIds(anyList())).willReturn(
 				Map.of(MEMBER_ID, "방장", OTHER_ID, "플레이어"));
-			given(commandService.getRandomContributionCommandSet()).willReturn(commandSet);
+			given(commandService.getRandomContributionCommandSet(2)).willReturn(commandSet);
 			given(recordService.getBestRecords(any())).willReturn(List.of());
 
 			GameStartResult result = roomService.startGame(ROOM_ID, MEMBER_ID, request);
 
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.IN_GAME.name());
+			then(commandService).should().getRandomContributionCommandSet(2);
 			assertThat(result.destination()).isEqualTo("/topic/room/" + ROOM_ID + "/contribution");
 		}
 
@@ -623,7 +624,7 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
 			given(roomRedisRepository.isAllMembersReady(ROOM_ID)).willReturn(true);
 			given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
-			given(commandService.getRandomContributionCommandSet())
+			given(commandService.getRandomContributionCommandSet(2))
 				.willThrow(new BusinessException(COMMAND_SET_NOT_FOUND));
 
 			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))

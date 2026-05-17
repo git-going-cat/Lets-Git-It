@@ -25,7 +25,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import org.springframework.scheduling.TaskScheduler;
 
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionCommandCache;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionGameSessionCache;
@@ -33,13 +32,13 @@ import com.gitcat.letsgitit.domain.competitive.dto.ContributionInputResult;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionPlayerCache;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.CommandExpiredMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionGameEndMessage;
+import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionExpireRequestMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionInputFailedMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionInputMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.PositionUpdateMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ScoreUpdateMessage;
 import com.gitcat.letsgitit.domain.competitive.repository.ContributionGameRedisRepository;
 import com.gitcat.letsgitit.global.exception.BusinessException;
-import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
 
 class ContributionGameServiceImplTest {
 
@@ -59,12 +58,6 @@ class ContributionGameServiceImplTest {
 	private RLock lock;
 
 	@Mock
-	private TaskScheduler taskScheduler;
-
-	@Mock
-	private WebSocketMessageSender messageSender;
-
-	@Mock
 	private ContributionResultSaveService contributionResultSaveService;
 
 	private ContributionGameServiceImpl service;
@@ -75,8 +68,6 @@ class ContributionGameServiceImplTest {
 		service = new ContributionGameServiceImpl(
 			repository,
 			redissonClient,
-			taskScheduler,
-			messageSender,
 			contributionResultSaveService);
 		when(redissonClient.getLock(anyString())).thenReturn(lock);
 		try {
@@ -253,6 +244,7 @@ class ContributionGameServiceImplTest {
 		// given
 		ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main");
 		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 		when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
 		when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(0);
 		when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(1);
@@ -263,9 +255,11 @@ class ContributionGameServiceImplTest {
 		when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
 
 		// when
-		Object payload = service.expireCommand(ROOM_ID, GAME_SESSION_ID, 1);
+		ContributionInputResult result = service.processExpireRequest(ROOM_ID, PLAYER_ID, expireRequest(1));
 
 		// then
+		assertThat(result.broadcast()).isTrue();
+		Object payload = result.payload();
 		assertThat(payload).isInstanceOf(CommandExpiredMessage.class);
 		CommandExpiredMessage expired = (CommandExpiredMessage)payload;
 		assertThat(expired.scores()).anySatisfy(score -> {
@@ -284,14 +278,33 @@ class ContributionGameServiceImplTest {
 		ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main")
 			.cleared(PLAYER_ID);
 		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 		when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
 
 		// when
-		Object payload = service.expireCommand(ROOM_ID, GAME_SESSION_ID, 1);
+		ContributionInputResult result = service.processExpireRequest(ROOM_ID, PLAYER_ID, expireRequest(1));
 
 		// then
-		assertThat(payload).isNull();
+		assertThat(result).isNull();
 		verify(repository, never()).incrementCatExpiredCount(GAME_SESSION_ID);
+	}
+
+	@Test
+	void 같은_명령어_만료_요청이_중복되면_CAT은_한번만_증가한다() {
+		// given
+		ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main")
+			.expired();
+		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+		when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+
+		// when
+		ContributionInputResult result = service.processExpireRequest(ROOM_ID, PLAYER_ID, expireRequest(1));
+
+		// then
+		assertThat(result).isNull();
+		verify(repository, never()).incrementCatExpiredCount(GAME_SESSION_ID);
+		verify(repository, never()).saveCommand(any(), any());
 	}
 
 	@Test
@@ -330,6 +343,7 @@ class ContributionGameServiceImplTest {
 		// given
 		ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main");
 		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(singleCommandSession()));
+		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 		when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
 		when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(0);
 		when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(1);
@@ -338,9 +352,11 @@ class ContributionGameServiceImplTest {
 		when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(0);
 
 		// when
-		Object payload = service.expireCommand(ROOM_ID, GAME_SESSION_ID, 1);
+		ContributionInputResult result = service.processExpireRequest(ROOM_ID, PLAYER_ID, expireRequest(1));
 
 		// then
+		assertThat(result.broadcast()).isTrue();
+		Object payload = result.payload();
 		assertThat(payload).isInstanceOf(ContributionGameEndMessage.class);
 		ContributionGameEndMessage end = (ContributionGameEndMessage)payload;
 		assertThat(end.isSuccess()).isTrue();
@@ -435,6 +451,7 @@ class ContributionGameServiceImplTest {
 		// given
 		ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main");
 		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(singleCommandSession()));
+		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 		when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
 		when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(0);
 		when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(1);
@@ -443,7 +460,8 @@ class ContributionGameServiceImplTest {
 		when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(0);
 
 		// when
-		ContributionGameEndMessage end = (ContributionGameEndMessage)service.expireCommand(ROOM_ID, GAME_SESSION_ID, 1);
+		ContributionInputResult result = service.processExpireRequest(ROOM_ID, PLAYER_ID, expireRequest(1));
+		ContributionGameEndMessage end = (ContributionGameEndMessage)result.payload();
 
 		// then
 		assertThat(end.winnerVideoTarget()).isNull();
@@ -482,6 +500,14 @@ class ContributionGameServiceImplTest {
 			GAME_SESSION_ID,
 			commandSequence,
 			inputText);
+	}
+
+	private ContributionExpireRequestMessage expireRequest(int commandSequence) {
+		return new ContributionExpireRequestMessage(
+			"COMMAND_EXPIRE_REQUEST",
+			REQUEST_ID,
+			GAME_SESSION_ID,
+			commandSequence);
 	}
 
 	private ContributionGameSessionCache session() {
