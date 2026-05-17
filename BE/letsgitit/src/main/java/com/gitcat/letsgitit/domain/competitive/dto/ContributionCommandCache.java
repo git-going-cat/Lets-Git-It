@@ -20,4 +20,8 @@ public record ContributionCommandCache(
 	public ContributionCommandCache switched(UUID winnerId) {
 		return new ContributionCommandCache(commandSequence, text, branchName, "SWITCHED", winnerId);
 	}
+
+	public ContributionCommandCache expired() {
+		return new ContributionCommandCache(commandSequence, text, branchName, "EXPIRED", winnerId);
+	}
 }

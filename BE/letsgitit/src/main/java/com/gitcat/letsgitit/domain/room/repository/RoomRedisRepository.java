@@ -104,6 +104,8 @@ public interface RoomRedisRepository {
 	// room:{roomId}:info Hash에 gameSessionId 필드 저장
 	void saveGameSessionId(Long roomId, String gameSessionId);
 
+	String findGameSessionId(Long roomId);
+
 	// room:{roomId}:info Hash의 selectedMapId 필드 단건 조회 — 협력 모드 맵 식별용
 	String findSelectedMapId(Long roomId);
 

@@ -1,7 +1,5 @@
 package com.gitcat.letsgitit.global.websocket;
 
-import static com.gitcat.letsgitit.domain.room.constants.RoomConstants.ROOM_STATE_IN_GAME;
-
 import java.security.Principal;
 
 import org.slf4j.MDC;
@@ -11,9 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
-import com.gitcat.letsgitit.domain.coop.service.CoopGameService;
-import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
-import com.gitcat.letsgitit.global.enums.RoomMode;
+import com.gitcat.letsgitit.domain.room.service.RoomService;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,8 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 public class WebSocketEventListener {
 
 	private final WebSocketSessionRegistry webSocketSessionRegistry;
-	private final RoomRedisRepository roomRedisRepository;
-	private final CoopGameService coopGameService;
+	private final RoomService roomService;
 
 	@EventListener
 	public void handleSessionSubscribe(SessionSubscribeEvent event) {
@@ -46,28 +41,29 @@ public class WebSocketEventListener {
 
 		Principal principal = accessor.getUser();
 		String sessionId = accessor.getSessionId();
-		String memberId = principal != null ? principal.getName() : null;
-		webSocketSessionRegistry.unregisterBySessionId(sessionId);
+		String removedMemberId = webSocketSessionRegistry.unregisterBySessionId(sessionId);
 
 		MDC.put("requestId", "ws-" + sessionId);
 		try {
+			String memberId = principal != null ? principal.getName() : removedMemberId;
 			if (memberId == null) {
-				log.debug("WebSocket Disconnected without authenticated principal. sessionId={}, closeStatus={}",
-					sessionId, event.getCloseStatus());
+				log.debug(
+					"WebSocket Disconnected without authenticated principal. sessionId={}, removedMemberId={}, closeStatus={}",
+					sessionId,
+					removedMemberId,
+					event.getCloseStatus());
 				return;
 			}
 
-			log.info("WebSocket Disconnected. memberId={}, sessionId={}, closeStatus={}",
-				memberId, sessionId, event.getCloseStatus());
+			log.info(
+				"WebSocket Disconnected. memberId={}, sessionId={}, closeStatus={}",
+				memberId,
+				sessionId,
+				event.getCloseStatus());
 
-			// Comment 5: COOP 게임 중 disconnect → handlePlayerDisconnect 호출
-			roomRedisRepository.findJoinedRoomId(memberId).ifPresent(roomId -> {
-				String mode = roomRedisRepository.findModeById(roomId);
-				String roomState = roomRedisRepository.findRoomStateById(roomId);
-				if (RoomMode.COOP.name().equals(mode) && ROOM_STATE_IN_GAME.equals(roomState)) {
-					coopGameService.handlePlayerDisconnect(roomId);
-				}
-			});
+			if (!webSocketSessionRegistry.hasActiveSessions(memberId)) {
+				roomService.leaveGameIfDisconnected(memberId);
+			}
 		} finally {
 			MDC.clear();
 		}

@@ -6,6 +6,7 @@ import java.util.UUID;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionInputResult;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionCommand;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionPlayer;
+import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionGameEndMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionInputMessage;
 
 public interface ContributionGameService {
@@ -22,4 +23,8 @@ public interface ContributionGameService {
 	void deleteSession(UUID gameSessionId);
 
 	ContributionInputResult processInput(Long roomId, UUID memberId, ContributionInputMessage request);
+
+	Object expireCommand(Long roomId, UUID gameSessionId, int commandSequence);
+
+	ContributionGameEndMessage endByPlayerDisconnected(Long roomId, UUID gameSessionId);
 }

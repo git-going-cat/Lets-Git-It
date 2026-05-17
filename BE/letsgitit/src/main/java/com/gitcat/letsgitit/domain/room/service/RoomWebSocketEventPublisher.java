@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
+import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionGameEndMessage;
 import com.gitcat.letsgitit.domain.room.dto.response.HostTransferredResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.KickMemberResultResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.KickedResponse;
@@ -137,6 +138,18 @@ public class RoomWebSocketEventPublisher {
 			log.warn(
 				"[room][publishReadyChanged] READY_CHANGED publish failed. roomId={}, playerId={}, reason={}",
 				roomId, response.playerId(), e.getClass().getSimpleName(), e);
+		}
+	}
+
+	public void publishContributionGameEnd(Long roomId, ContributionGameEndMessage response) {
+		try {
+			webSocketMessageSender.send(ROOM_TOPIC_PREFIX + roomId + "/contribution", response);
+			log.info("[room][publishContributionGameEnd] CONTRIBUTION_GAME_END published. roomId={}, reason={}",
+				roomId, response.reason());
+		} catch (RuntimeException e) {
+			log.warn(
+				"[room][publishContributionGameEnd] CONTRIBUTION_GAME_END publish failed. roomId={}, reason={}",
+				roomId, response.reason(), e);
 		}
 	}
 }
