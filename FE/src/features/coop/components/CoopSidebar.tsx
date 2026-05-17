@@ -1,7 +1,6 @@
-import { useEffect, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 
-import { buildCharacterPaths, loadImage } from '@/features/auth/utils/characterAssets';
+import PlayerCharacterPreview from '@/shared/components/PlayerCharacterPreview';
 
 import {
   coopCurrentOrderAtom,
@@ -11,64 +10,17 @@ import {
 import { coopPlayersAtom } from '../store/coopPlayersAtom';
 
 import type { CoopPlayer } from '../types/coop.types';
+import type { CharacterAsset } from '@/shared/types/user.types';
 
-function CoopCharacterSprite({ player }: { player: CoopPlayer }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.imageSmoothingEnabled = false;
-    const paths = buildCharacterPaths(player);
-    const layerPaths = [paths.body, paths.eyes, paths.outfit, paths.hair];
-    const frameWidth = 48;
-    const frameHeight = 96;
-    const cropTop = 10;
-    const srcX = 18 * frameWidth;
-    const srcY = frameHeight;
-    let cancelled = false;
-
-    async function render(context: CanvasRenderingContext2D) {
-      context.clearRect(0, 0, frameWidth, frameHeight);
-      for (const src of layerPaths) {
-        if (cancelled) return;
-        const image = await loadImage(src);
-        if (image && !cancelled) {
-          context.drawImage(
-            image,
-            srcX,
-            srcY + cropTop,
-            frameWidth,
-            frameHeight - cropTop,
-            0,
-            0,
-            frameWidth,
-            frameHeight
-          );
-        }
-      }
-    }
-
-    void render(ctx);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [player]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={48}
-      height={96}
-      className="h-32 w-16 [image-rendering:pixelated]"
-      aria-label={`${player.nickname} 캐릭터`}
-    />
-  );
+function toCharacterAsset(player: CoopPlayer): CharacterAsset {
+  return {
+    characterHair: player.characterHair,
+    characterHairColor: player.characterHairColor,
+    characterBody: player.characterBody,
+    characterEye: player.characterEye,
+    characterOutfit: player.characterOutfit,
+    characterOutfitColor: player.characterOutfitColor,
+  };
 }
 
 export default function CoopSidebar() {
@@ -78,47 +30,67 @@ export default function CoopSidebar() {
   const resetTargetPlayerId = useAtomValue(coopResetTargetPlayerIdAtom);
 
   return (
-    <aside className="z-20 flex h-full w-48 shrink-0 flex-col overflow-hidden bg-[rgba(20,30,60,0.85)] font-pixel text-white backdrop-blur">
-      {players.map((player) => {
-        const isCurrentTurn = player.commandOrder === currentOrder;
-        const isWrongPlayer = player.playerId === resetTargetPlayerId;
+    <aside className="relative flex w-game-sidebar flex-col border-l border-gray-700 bg-[rgba(20,30,60,0.85)] backdrop-blur">
+      <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
+        <div className="nes-container is-rounded !bg-white !p-2">
+          <p className="font-pixel text-center text-base text-gray-900">플레이어</p>
+        </div>
+        <ol className="flex flex-col gap-3">
+          {players.map((player) => {
+            const isCurrentTurn = player.commandOrder === currentOrder;
+            const isWrongPlayer = player.playerId === resetTargetPlayerId;
 
-        return (
-          <section
-            key={player.playerId}
-            className={`relative flex min-h-0 flex-1 flex-col items-center justify-center border-b border-dotted border-white/20 px-4 py-3 ${
-              isCurrentTurn ? 'bg-[rgba(5,175,242,0.12)]' : 'bg-[rgba(200,220,255,0.06)]'
-            } ${isWrongPlayer ? 'border-red-500' : ''}`}
-          >
-            {isCurrentTurn && (
-              <>
-                <div className="absolute top-0 bottom-0 left-0 w-1 bg-[#05AFF2]" />
-                <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-[#05AFF2]">
-                  ▶
-                </span>
-              </>
-            )}
-            {isInputBlocked && (
-              <div className="pointer-events-none absolute inset-0 bg-[rgba(180,20,20,0.12)]" />
-            )}
-            <div className="flex min-h-0 flex-1 items-center justify-center">
-              <div className="flex h-32 w-20 items-center justify-center border-2 border-dotted border-white/20 bg-[rgba(200,220,255,0.15)]">
-                <CoopCharacterSprite player={player} />
-              </div>
-            </div>
-            <div className="mt-1 flex w-full min-w-0 flex-col items-center gap-1">
-              <span className="block w-full truncate text-center text-[10px] leading-4">
-                {player.nickname}
-              </span>
-              {player.isMe && (
-                <span className="border border-[#76BF41] bg-[#0d1117]/90 px-2 py-0.5 text-[9px] text-[#76BF41]">
-                  나
-                </span>
-              )}
-            </div>
-          </section>
-        );
-      })}
+            const cardBg = isCurrentTurn ? '!bg-yellow-100' : '!bg-white';
+
+            return (
+              <li key={player.playerId}>
+                <section
+                  className={`nes-container with-title is-rounded !mt-3 !p-3 ${cardBg} ${isWrongPlayer ? 'animate-pulse' : ''}`}
+                >
+                  <p
+                    className={`title font-pixel !text-sm ${cardBg} ${isCurrentTurn ? '!text-amber-600' : '!text-gray-900'}`}
+                  >
+                    순서 {player.commandOrder}
+                  </p>
+
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex h-16 items-center justify-center relative">
+                      {isInputBlocked && !isWrongPlayer && (
+                        <div className="pointer-events-none absolute inset-0 bg-[rgba(180,20,20,0.12)] z-10" />
+                      )}
+                      <PlayerCharacterPreview
+                        asset={toCharacterAsset(player)}
+                        className="flex h-16 items-center justify-center"
+                        characterClassName="w-9"
+                      />
+                    </div>
+
+                    <span className="font-pixel w-full truncate text-center text-sm text-gray-900">
+                      {player.nickname}
+                      {player.isMe && <span className="ml-1 text-xs text-cyan-700">(나)</span>}
+                    </span>
+
+                    {isCurrentTurn && (
+                      <div className="mt-1 w-full text-center">
+                        <span className="text-[10px] text-amber-600 animate-pulse font-pixel">
+                          ▶ 현재 순서
+                        </span>
+                      </div>
+                    )}
+                    {isWrongPlayer && (
+                      <div className="mt-1 w-full text-center">
+                        <span className="text-[10px] text-red-600 font-bold animate-pulse font-pixel">
+                          🚨 오류!
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
     </aside>
   );
 }
