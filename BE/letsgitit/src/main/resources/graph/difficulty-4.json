@@ -1,0 +1,17 @@
+{
+  "viewBox": "0 0 600 300",
+  "nodes": [
+    { "sequence": 1, "x": 80,  "y": 150, "label": "pull",   "branch": "main" },
+    { "sequence": 2, "x": 200, "y": 60,  "label": "hotfix", "branch": "hotfix" },
+    { "sequence": 3, "x": 200, "y": 240, "label": "feat",   "branch": "feature/payment" },
+    { "sequence": 4, "x": 380, "y": 150, "label": "cherry", "branch": "main" },
+    { "sequence": 5, "x": 540, "y": 150, "label": "merge",  "branch": "main" }
+  ],
+  "edges": [
+    { "from": 1, "to": 2, "type": "curve" },
+    { "from": 1, "to": 3, "type": "curve" },
+    { "from": 2, "to": 4, "type": "dashed" },
+    { "from": 3, "to": 5, "type": "curve" },
+    { "from": 4, "to": 5, "type": "solid" }
+  ]
+}
