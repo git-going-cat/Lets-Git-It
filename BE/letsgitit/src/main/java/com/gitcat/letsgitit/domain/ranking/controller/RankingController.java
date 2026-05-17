@@ -5,12 +5,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
+import com.gitcat.letsgitit.domain.ranking.service.ContributionRankingService;
 import com.gitcat.letsgitit.domain.ranking.service.SingleRankingService;
 import com.gitcat.letsgitit.global.enums.Difficulty;
 import com.gitcat.letsgitit.global.response.ApiResponse;
@@ -24,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 public class RankingController implements RankingControllerDocs {
 
 	private final SingleRankingService singleRankingService;
+	private final ContributionRankingService contributionRankingService;
 
 	@Override
 	@GetMapping("/single")
@@ -52,7 +57,6 @@ public class RankingController implements RankingControllerDocs {
 			singleRankingService.getSingleRankingScrollAfter(difficulty, afterRank, size, memberId));
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@GetMapping("/contribution")
 	public ResponseEntity<?> getContributionRanking(
@@ -62,61 +66,21 @@ public class RankingController implements RankingControllerDocs {
 		Integer afterRank,
 		@RequestParam(required = false)
 		Integer beforeRank,
-		@RequestParam(required = false, defaultValue = "20")
+		@RequestParam(required = false, defaultValue = "20") @Min(1) @Max(100)
 		Integer size) {
 
-		if (afterRank == null && beforeRank == null) {
-			Map<String, Object> data = new LinkedHashMap<>();
-			data.put("year", 2026);
-			data.put("month", 4);
-			data.put("week", 18);
-			data.put("top3", List.of(
-				Map.of("rank", 1, "playerId", "550e8400-e29b-41d4-a716-446655440000", "nickname", "dobby",
-					"contribution", 12000, "playCount", 10),
-				Map.of("rank", 2, "playerId", "661f9511-f30c-52e5-b827-557766551111", "nickname", "alice",
-					"contribution", 11500, "playCount", 9),
-				Map.of("rank", 3, "playerId", "772g0622-g41d-63f6-c938-668877662222", "nickname", "bob",
-					"contribution", 10900, "playCount", 11)));
-			data.put("myRank", Map.of("rank", 15, "contribution", 8800, "playCount", 10));
-			data.put("around", List.of(
-				Map.of("rank", 13, "playerId", "11111111-e29b-41d4-a716-446655440000", "nickname", "user1",
-					"contribution", 9100, "playCount", 10),
-				Map.of("rank", 14, "playerId", "22222222-e29b-41d4-a716-446655440000", "nickname", "user2",
-					"contribution", 8900, "playCount", 9),
-				Map.of("rank", 15, "playerId", "33333333-e29b-41d4-a716-446655440000", "nickname", "dobby",
-					"contribution", 8800, "playCount", 10),
-				Map.of("rank", 16, "playerId", "44444444-e29b-41d4-a716-446655440000", "nickname", "user3",
-					"contribution", 8600, "playCount", 12),
-				Map.of("rank", 17, "playerId", "55555555-e29b-41d4-a716-446655440000", "nickname", "user4",
-					"contribution", 8400, "playCount", 8)));
-			data.put("prevCursor", 13);
-			data.put("hasPrev", true);
-			data.put("nextCursor", 17);
-			data.put("hasNext", true);
-			return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
-		}
+		UUID memberId = userDetails.getMemberId();
 
 		if (beforeRank != null) {
-			Map<String, Object> data = new LinkedHashMap<>();
-			data.put("rankings", List.of(
-				Map.of("rank", 10, "playerId", "77777777-e29b-41d4-a716-446655440000", "nickname", "user0",
-					"contribution", 9500, "playCount", 6)));
-			data.put("prevCursor", 10);
-			data.put("hasPrev", true);
-			data.put("nextCursor", 12);
-			data.put("hasNext", true);
-			return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
+			return ApiResponse.ok("기여도 뺏기 랭킹 조회 성공",
+				contributionRankingService.getContributionRankingScrollBefore(beforeRank, size, memberId));
 		}
-
-		Map<String, Object> data = new LinkedHashMap<>();
-		data.put("rankings", List.of(
-			Map.of("rank", afterRank + 1, "playerId", "66666666-e29b-41d4-a716-446655440000", "nickname", "user5",
-				"contribution", 8200, "playCount", 7)));
-		data.put("prevCursor", afterRank + 1);
-		data.put("hasPrev", true);
-		data.put("nextCursor", afterRank + 20);
-		data.put("hasNext", true);
-		return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
+		if (afterRank != null) {
+			return ApiResponse.ok("기여도 뺏기 랭킹 조회 성공",
+				contributionRankingService.getContributionRankingScrollAfter(afterRank, size, memberId));
+		}
+		return ApiResponse.ok("기여도 뺏기 랭킹 조회 성공",
+			contributionRankingService.getContributionRanking(size, memberId));
 	}
 
 	// TODO: 서비스 로직 연동 후 제거
