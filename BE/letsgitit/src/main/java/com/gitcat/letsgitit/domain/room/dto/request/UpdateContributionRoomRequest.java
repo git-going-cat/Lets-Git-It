@@ -19,6 +19,6 @@ public record UpdateContributionRoomRequest(
 
 	String password) {
 	public UpdateContributionRoomRequest {
-		RoomPasswordValidator.validate(hasPassword, password);
+		RoomPasswordValidator.validateForUpdate(hasPassword, password);
 	}
 }

@@ -88,6 +88,7 @@ public enum ErrorCode {
 	COMMAND_SET_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "COMMAND_SET_NOT_FOUND", "명령어 세트를 찾을 수 없습니다."),
 
 	// contribution game
+	INVALID_CONTRIBUTION(HttpStatus.BAD_REQUEST.value(), "INVALID_CONTRIBUTION", "기여도 값이 유효하지 않습니다."),
 	GAME_NOT_STARTED(HttpStatus.BAD_REQUEST.value(), "GAME_NOT_STARTED", "게임이 시작되지 않았습니다."),
 	INVALID_COMMAND(HttpStatus.BAD_REQUEST.value(), "INVALID_COMMAND", "존재하지 않는 명령어입니다."),
 	COMMAND_ALREADY_CLEARED(HttpStatus.CONFLICT.value(), "COMMAND_ALREADY_CLEARED", "이미 완료된 명령어입니다."),
