@@ -10,4 +10,6 @@ import com.gitcat.letsgitit.global.enums.CompetitiveMode;
 
 public interface CompetitiveCommandSetJpaRepository extends JpaRepository<CompetitiveCommandSet, UUID> {
 	List<CompetitiveCommandSet> findAllByMode(CompetitiveMode mode);
+
+	List<CompetitiveCommandSet> findAllByModeAndPlayerCount(CompetitiveMode mode, Integer playerCount);
 }

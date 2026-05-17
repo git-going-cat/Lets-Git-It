@@ -450,7 +450,7 @@ public class RoomServiceImpl implements RoomService {
 
 			if (RoomMode.CONTRIBUTION.name().equals(mode)) {
 				// ── 5a. 기여도 모드: 랜덤 커맨드셋 + 플레이어 최고 기록 조회 ──────────
-				CommandSetResponse commandSet = commandService.getRandomContributionCommandSet();
+				CommandSetResponse commandSet = commandService.getRandomContributionCommandSet(memberIds.size());
 				List<ContributionPlayerDto> players = memberIds.stream()
 					.map(id -> {
 						int best = recordService.getBestRecords(id).stream()
