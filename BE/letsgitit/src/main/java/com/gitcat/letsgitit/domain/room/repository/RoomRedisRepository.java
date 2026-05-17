@@ -77,6 +77,9 @@ public interface RoomRedisRepository {
 	// room:{roomId}:info의 hostId 갱신 — 방장 위임 시 호출
 	void updateHostId(Long roomId, String newHostId);
 
+	// room:{roomId}:members Hash의 isHost 값을 새 방장 기준으로 갱신
+	void updateMemberHostFlags(Long roomId, String newHostId);
+
 	// 방 해체 — room:info, room:members, room:code:{code}, room:list 일괄 삭제
 	void dissolveRoom(Long roomId);
 
@@ -85,4 +88,33 @@ public interface RoomRedisRepository {
 
 	// room:{roomId}:password:verified:{memberId} String 존재 여부 조회 — 비밀방 입장 가능 여부 확인
 	boolean isPasswordVerified(String memberId, Long roomId);
+
+	// room:{roomId}:info Hash의 roomState 필드 단건 조회
+	String findRoomStateById(Long roomId);
+
+	// room:{roomId}:info Hash의 mode 필드 단건 조회
+	String findModeById(Long roomId);
+
+	// room:{roomId}:members Hash에서 hostId를 제외한 isReady=true 멤버 수 반환
+	long countReadyNonHostMembers(Long roomId, String hostId);
+
+	// room:{roomId}:info Hash의 roomState 필드 갱신
+	void updateRoomState(Long roomId, String state);
+
+	// room:{roomId}:info Hash에 gameSessionId 필드 저장
+	void saveGameSessionId(Long roomId, String gameSessionId);
+
+	// room:{roomId}:info Hash의 selectedMapId 필드 단건 조회 — 협력 모드 맵 식별용
+	String findSelectedMapId(Long roomId);
+
+	// room:{roomId}:members Hash의 특정 playerId 의 isReady 필드를 갱신
+	void updateMemberIsReady(String roomId, String memberId, boolean isReady);
+
+	// 방장 위임 원자 처리 (transferHost용)
+	// prevHost: isHost=false, isReady=false / newHost: isHost=true, isReady=true / hostMemberId 변경
+	void transferHostAtomic(String roomId, String prevHostId, String newHostId);
+
+	// 방장 위임 원자 처리 (leaveRoom용 - 이전 방장은 이미 나간 상태)
+	// hostMemberId 변경 + newHost: isHost=true, isReady=true
+	void delegateHostAtomic(String roomId, String newHostId);
 }

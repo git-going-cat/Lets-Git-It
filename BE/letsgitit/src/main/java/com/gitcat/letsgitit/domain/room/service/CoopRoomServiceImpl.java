@@ -19,6 +19,7 @@ import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.domain.room.dto.request.CreateCoopRoomRequest;
 import com.gitcat.letsgitit.domain.room.dto.request.UpdateCoopRoomInfoRequest;
 import com.gitcat.letsgitit.domain.room.dto.response.CoopRoomInfoResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.CoopRoomInfoUpdatedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.CreateCoopRoomResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.JoinCoopRoomResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.SelectedMapDto;
@@ -28,6 +29,7 @@ import com.gitcat.letsgitit.domain.room.util.RoomMemberMapper;
 import com.gitcat.letsgitit.domain.room.util.RoomRedisReader;
 import com.gitcat.letsgitit.global.enums.GameMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
+import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,8 +48,10 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 	private final RoomRedisRepository roomRedisRepository;
 	private final RoomCodeGenerator roomCodeGenerator;
 	private final RoomMemberMapper roomMemberMapper;
+	private final RoomWebSocketEventPublisher roomWebSocketEventPublisher;
 	private final RoomMemberRecoveryService roomMemberRecoveryService;
 	private final RedissonClient redissonClient;
+	private final WebSocketMessageSender messageSender;
 
 	@Override
 	public CreateCoopRoomResponse createCoopRoom(UUID memberId, CreateCoopRoomRequest request) {
@@ -196,7 +200,13 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 				log.info("[room] coop room joined. roomId={}, memberId={}, currentPlayers={}", roomId, memberId,
 					members.size());
 
-				return buildJoinCoopRoomResponse(roomId, roomInfo, selectedMap, members);
+				JoinCoopRoomResponse response = buildJoinCoopRoomResponse(roomId, roomInfo, selectedMap, members);
+				roomWebSocketEventPublisher.publishPlayerJoined(
+					roomId,
+					response.roomState(),
+					memberId,
+					response.members());
+				return response;
 			} catch (IllegalStateException e) {
 				log.error("[room] invalid coop room redis state during join. roomId={}, memberId={}", roomId,
 					memberId, e);
@@ -222,6 +232,12 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 		try {
 			validateCoopRoomMode(roomInfo, roomId, memberId, "update");
 
+			if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
+				log.warn("[room] coop room update rejected: game in progress. roomId={}, memberId={}", roomId,
+					memberId);
+				throw new BusinessException(ROOM_IN_GAME);
+			}
+
 			if (!roomMemberRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "coop")) {
 				log.warn("[room] coop room update rejected: member not in room. roomId={}, memberId={}", roomId,
 					memberId);
@@ -243,6 +259,8 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			roomRedisRepository.updateRoomInfo(roomId.toString(), buildCoopRoomUpdateInfo(request, selectedMap));
 			log.info("[room] coop room updated. roomId={}, memberId={}, hasPassword={}, selectedMapId={}",
 				roomId, memberId, request.hasPassword(), request.selectedMapId());
+
+			broadcastRoomInfoUpdated(roomId);
 		} catch (IllegalStateException e) {
 			log.error("[room] invalid coop room redis state during update. roomId={}, memberId={}", roomId,
 				memberId, e);
@@ -278,6 +296,30 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			log.error("[room] invalid coop room redis state during info fetch. roomId={}, memberId={}", roomId,
 				memberId, e);
 			throw e;
+		}
+	}
+
+	private void broadcastRoomInfoUpdated(Long roomId) {
+		try {
+			var roomInfoOpt = roomRedisRepository.getRoomInfo(roomId.toString());
+
+			if (roomInfoOpt.isEmpty()) {
+				log.warn("[room] ROOM_INFO_UPDATED skipped: room not found. roomId={}", roomId);
+				return;
+			}
+
+			Map<Object, Object> roomInfo = roomInfoOpt.get();
+
+			Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
+			SelectedMapDto selectedMap = coopService.getSelectedMap(
+				UUID.fromString(RoomRedisReader.readString(roomInfo, "selectedMapId")));
+			CoopRoomInfoUpdatedResponse response = CoopRoomInfoUpdatedResponse.from(
+				buildCoopRoomInfoResponse(roomId, roomInfo, selectedMap, members));
+			messageSender.send("/topic/room/" + roomId, response);
+			log.info("[room] coop room info broadcast. roomId={}", roomId);
+		} catch (RuntimeException e) {
+			log.warn("[room] ROOM_INFO_UPDATED publish failed. roomId={}, reason={}",
+				roomId, e.getClass().getSimpleName(), e);
 		}
 	}
 
@@ -355,6 +397,7 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")),
 			members.size(),
 			RoomRedisReader.readInt(roomInfo, "maxPlayers"),
+			RoomRedisReader.readBoolean(roomInfo, "hasPassword"),
 			selectedMap,
 			roomMemberMapper.toPlayerInfoDtos(members));
 	}
@@ -370,6 +413,7 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")),
 			members.size(),
 			RoomRedisReader.readInt(roomInfo, "maxPlayers"),
+			RoomRedisReader.readBoolean(roomInfo, "hasPassword"),
 			selectedMap,
 			roomMemberMapper.toPlayerInfoDtos(members));
 	}

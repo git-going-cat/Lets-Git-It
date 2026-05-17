@@ -14,6 +14,7 @@ public record JoinCoopRoomResponse(
 	RoomState roomState,
 	Integer currentPlayers,
 	Integer maxPlayers,
+	Boolean hasPassword,
 	SelectedMapDto selectedMap,
 	List<PlayerInfoDto> members) {
 }

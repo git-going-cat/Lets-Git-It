@@ -4,6 +4,7 @@ import static com.gitcat.letsgitit.global.exception.ErrorCode.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.inOrder;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,6 +29,7 @@ import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.domain.room.dto.request.CreateContributionRoomRequest;
 import com.gitcat.letsgitit.domain.room.dto.request.UpdateContributionRoomRequest;
 import com.gitcat.letsgitit.domain.room.dto.response.ContributionRoomInfoResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.ContributionRoomInfoUpdatedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.CreateContributionRoomResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.JoinContributionRoomResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.PlayerInfoDto;
@@ -35,6 +38,7 @@ import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
 import com.gitcat.letsgitit.domain.room.util.RoomMemberMapper;
 import com.gitcat.letsgitit.global.enums.GameMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
+import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
 
 @ExtendWith(MockitoExtension.class)
 class ContributionRoomServiceImplTest {
@@ -58,6 +62,9 @@ class ContributionRoomServiceImplTest {
 	private RoomMemberMapper roomMemberMapper;
 
 	@Mock
+	private RoomWebSocketEventPublisher roomWebSocketEventPublisher;
+
+	@Mock
 	private RoomMemberRecoveryService roomMemberRecoveryService;
 
 	@Mock
@@ -65,6 +72,9 @@ class ContributionRoomServiceImplTest {
 
 	@Mock
 	private RLock rLock;
+
+	@Mock
+	private WebSocketMessageSender messageSender;
 
 	@Nested
 	class CreateContributionRoom {
@@ -75,6 +85,7 @@ class ContributionRoomServiceImplTest {
 
 			Member member = createMember(MEMBER_ID, "dobby");
 			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+
 			given(memberService.findById(MEMBER_ID)).willReturn(member);
 			given(roomCodeGenerator.generate()).willReturn("ABC123");
 			given(roomRedisRepository.reserveRoomCode("ABC123")).willReturn(true);
@@ -217,7 +228,11 @@ class ContributionRoomServiceImplTest {
 			assertThat(response.roomState()).isEqualTo(RoomState.WAITING);
 			assertThat(response.currentPlayers()).isEqualTo(1);
 			assertThat(response.members()).containsExactlyElementsOf(playerInfos);
-			then(rLock).should().unlock();
+
+			InOrder inOrder = inOrder(roomWebSocketEventPublisher, rLock);
+			inOrder.verify(roomWebSocketEventPublisher)
+				.publishPlayerJoined(ROOM_ID, RoomState.WAITING, MEMBER_ID, playerInfos);
+			inOrder.verify(rLock).unlock();
 		}
 	}
 
@@ -261,6 +276,19 @@ class ContributionRoomServiceImplTest {
 	class UpdateContributionRoomInfo {
 
 		@Test
+		void 게임_중인_방은_수정할_수_없다() {
+			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, false, null);
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			roomInfo.put("roomState", RoomState.IN_GAME.name());
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+
+			assertThatThrownBy(() -> contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(ROOM_IN_GAME);
+		}
+
+		@Test
 		void 방_회원이_아니면_PLAYER_NOT_IN_ROOM을_던진다() {
 			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, false, null);
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
@@ -275,22 +303,76 @@ class ContributionRoomServiceImplTest {
 		}
 
 		@Test
-		void restores_members_hash_from_member_room_mapping_on_contribution_update() {
-			Member member = createMember(MEMBER_ID, "dobby");
+		void memberRoom_매핑_기반으로_members_hash를_복구한_후_방_정보를_수정한다() {
 			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, false, null);
 			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
-			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "nickname", "dobby");
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
 
 			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
 			given(roomMemberRecoveryService.ensureMemberInRoom(
 				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("contribution"))).willReturn(true);
 			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
 
 			contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request);
 
 			then(roomMemberRecoveryService).should()
 				.ensureMemberInRoom(eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("contribution"));
 			then(roomRedisRepository).should().updateRoomInfo(eq(ROOM_ID.toString()), anyMap());
+		}
+
+		@Test
+		void 방장이_아니면_NOT_HOST를_던진다() {
+			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, false, null);
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			roomInfo.put("hostMemberId", UUID.randomUUID().toString());
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("contribution"))).willReturn(true);
+
+			assertThatThrownBy(() -> contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(NOT_HOST);
+		}
+
+		@Test
+		void maxPlayers가_현재_인원수보다_작으면_CANNOT_REDUCE_MAX_PLAYERS_BELOW_CURRENT를_던진다() {
+			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 2, false, null);
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("contribution"))).willReturn(true);
+			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(3L);
+
+			assertThatThrownBy(() -> contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(CANNOT_REDUCE_MAX_PLAYERS_BELOW_CURRENT);
+		}
+
+		@Test
+		void 방_정보_수정_후_ROOM_INFO_UPDATED를_브로드캐스트한다() {
+			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, false, null);
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), any(), eq("contribution"))).willReturn(true);
+			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+
+			contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request);
+
+			then(messageSender).should().send(eq("/topic/room/" + ROOM_ID),
+				any(ContributionRoomInfoUpdatedResponse.class));
 		}
 	}
 
@@ -318,7 +400,7 @@ class ContributionRoomServiceImplTest {
 		}
 
 		@Test
-		void restores_members_hash_from_member_room_mapping_on_contribution_info_fetch() {
+		void 기여도_방_상세_조회_시_member_room_매핑으로_members_hash를_복구한다() {
 			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
 			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
 			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));

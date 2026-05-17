@@ -142,6 +142,23 @@ public interface RoomControllerDocs {
 		@Parameter(name = "mode", description = "게임 모드 (ALL / CONTRIBUTION / COOP). 기본값 ALL")
 		RoomMode mode);
 
+	@Operation(summary = "방 상태 조회", description = """
+		재연결 직후 현재 방 상태 복원용 API.
+
+		방 모드에 따라 `type`은 `CONTRIBUTION_ROOM_STATE` 또는 `COOP_ROOM_STATE`로 반환된다.
+		`roomState`가 `WAITING`이면 대기실 복원, `IN_GAME`이면 클라이언트에서 reconnect 미지원 안내를 처리한다.
+		""")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "방 상태 조회 성공"),
+		@ApiResponse(responseCode = "404", description = "존재하지 않는 방"),
+		@ApiResponse(responseCode = "403", description = "해당 방 참여자가 아님")
+	})
+	ResponseEntity<?> getRoomState(
+		@Parameter(hidden = true) @AuthenticationPrincipal
+		CustomUserDetails userDetails,
+		@Parameter(name = "roomId", description = "방 ID", required = true)
+		Long roomId);
+
 	@Operation(summary = "방 코드로 검색", description = """
 		6자리 방 코드로 단건 검색.
 
@@ -453,8 +470,11 @@ public interface RoomControllerDocs {
 		@AuthenticationPrincipal
 		CustomUserDetails userDetails);
 
-	@Operation(summary = "기여도 뺏기 방 상태 조회 (Reconnect fallback)", description = """
-		WebSocket 재연결 후 ROOM_STATE 자동 수신이 3초 내 없을 때 REST fallback으로 호출.
+	@Operation(summary = "기여도 뺏기 방 상태 조회 (Deprecated)", deprecated = true, description = """
+		Deprecated: 기존 기여도 방 상태 조회 API.
+
+		재연결 ROOM_STATE 복원용 REST fallback은 `GET /api/v1/rooms/{roomId}/state`를 사용한다.
+		이 API 응답에는 `type` 필드가 포함되지 않는다.
 
 		**Mock 에러 트리거 (테스트용)**
 		| 요청값 | 발생 에러 |
@@ -517,8 +537,11 @@ public interface RoomControllerDocs {
 		@Parameter(name = "roomId", description = "방 ID", required = true)
 		Long roomId);
 
-	@Operation(summary = "협력 방 상태 조회 (Reconnect fallback)", description = """
-		WebSocket 재연결 후 ROOM_STATE 자동 수신이 3초 내 없을 때 REST fallback으로 호출.
+	@Operation(summary = "협력 방 상태 조회 (Deprecated)", deprecated = true, description = """
+		Deprecated: 기존 협력 방 상태 조회 API.
+
+		재연결 ROOM_STATE 복원용 REST fallback은 `GET /api/v1/rooms/{roomId}/state`를 사용한다.
+		이 API 응답에는 `type` 필드가 포함되지 않는다.
 
 		**Mock 에러 트리거 (테스트용)**
 		| 요청값 | 발생 에러 |
