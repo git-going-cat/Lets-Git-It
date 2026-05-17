@@ -30,6 +30,9 @@ import org.springframework.stereotype.Service;
 
 import com.gitcat.letsgitit.domain.command.dto.response.CommandSetResponse;
 import com.gitcat.letsgitit.domain.command.service.CommandService;
+import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionCommand;
+import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionPlayer;
+import com.gitcat.letsgitit.domain.competitive.service.ContributionGameService;
 import com.gitcat.letsgitit.domain.coop.dto.response.CoopMapListResponse;
 import com.gitcat.letsgitit.domain.coop.service.CoopService;
 import com.gitcat.letsgitit.domain.member.service.MemberService;
@@ -85,6 +88,7 @@ public class RoomServiceImpl implements RoomService {
 	private final RoomMemberMapper roomMemberMapper;
 	private final RoomWebSocketEventPublisher roomWebSocketEventPublisher;
 	private final RoomMemberStateRecoveryService roomMemberStateRecoveryService;
+	private final ContributionGameService contributionGameService;
 
 	@Override
 	public RoomListResponse getRooms(RoomMode mode) {
@@ -393,11 +397,32 @@ public class RoomServiceImpl implements RoomService {
 					})
 					.toList();
 				long now = System.currentTimeMillis();
+				ContributionStartedResponse response = ContributionStartedResponse.of(gameSessionId, now,
+					commandSet.commandSetId(), commandSet.initialBranch(),
+					commandSet.commandSet(), players);
+				List<ContributionSessionCommand> sessionCommands = commandSet.commandSet().stream()
+					.map(command -> new ContributionSessionCommand(
+						command.commandSequence(),
+						command.text(),
+						command.branchName()))
+					.toList();
+				List<ContributionSessionPlayer> sessionPlayers = players.stream()
+					.map(player -> new ContributionSessionPlayer(
+						player.playerId(),
+						player.nickname(),
+						player.bestContribution()))
+					.toList();
+				contributionGameService.initializeSession(
+					roomId,
+					gameSessionId,
+					response.startAt(),
+					commandSet.commandSetId(),
+					commandSet.initialBranch(),
+					sessionCommands,
+					sessionPlayers);
 				result = new GameStartResult(
 					"/topic/room/" + roomId + "/contribution",
-					ContributionStartedResponse.of(gameSessionId, now,
-						commandSet.commandSetId(), commandSet.initialBranch(),
-						commandSet.commandSet(), players));
+					response);
 			} else {
 				String selectedMapId = roomRedisRepository.findSelectedMapId(roomId);
 				String graphPicture = coopService.getGraphPictureByMapId(UUID.fromString(selectedMapId));
@@ -419,6 +444,9 @@ public class RoomServiceImpl implements RoomService {
 			return result;
 		} catch (Exception e) {
 			roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
+			if (RoomMode.CONTRIBUTION.name().equals(mode)) {
+				contributionGameService.deleteSession(gameSessionId);
+			}
 			log.error("[room][startGame] 데이터 조회 실패 — roomState 롤백. roomId={}, mode={}", roomId, mode, e);
 			throw e;
 		}

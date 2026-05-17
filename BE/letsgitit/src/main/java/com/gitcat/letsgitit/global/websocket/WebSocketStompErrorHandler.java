@@ -35,8 +35,8 @@ public class WebSocketStompErrorHandler extends StompSubProtocolErrorHandler {
 		ErrorCode errorCode;
 		if (businessException != null) {
 			errorCode = businessException.getErrorCode();
-		} else if (isValidationException(ex)) {
-			errorCode = ErrorCode.INVALID_INPUT_VALUE;
+		} else if (isInvalidRequestException(ex)) {
+			errorCode = ErrorCode.INVALID_REQUEST;
 		} else {
 			errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
 		}
@@ -80,11 +80,12 @@ public class WebSocketStompErrorHandler extends StompSubProtocolErrorHandler {
 		return null;
 	}
 
-	private boolean isValidationException(Throwable ex) {
+	private boolean isInvalidRequestException(Throwable ex) {
 		Throwable current = ex;
 		while (current != null) {
 			if (current instanceof org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException
-				|| current instanceof org.springframework.web.bind.MethodArgumentNotValidException) {
+				|| current instanceof org.springframework.web.bind.MethodArgumentNotValidException
+				|| current instanceof org.springframework.messaging.converter.MessageConversionException) {
 				return true;
 			}
 			current = current.getCause();
