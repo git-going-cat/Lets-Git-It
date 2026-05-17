@@ -6,17 +6,17 @@ import { COOP_CARD_FRONT } from '../utils/coopCardImages';
 
 function CardFront({ commandOrder, commandText }: { commandOrder: number; commandText: string }) {
   return (
-    <div className="relative h-44 w-28 flex-shrink-0">
+    <div className="relative h-64 w-40 flex-shrink-0">
       <img
         src={COOP_CARD_FRONT}
         alt="카드 앞면"
         className="h-full w-full object-contain [image-rendering:pixelated]"
       />
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3">
-        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#05AFF2] text-xs font-bold text-white">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/85 p-4">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#05AFF2] text-sm font-bold text-white">
           {commandOrder}
         </div>
-        <code className="break-all text-center font-mono text-xs leading-relaxed text-white drop-shadow-lg">
+        <code className="break-all text-center font-mono text-sm leading-relaxed text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">
           {commandText}
         </code>
       </div>
@@ -41,7 +41,7 @@ export default function CoopCardArea() {
 
   return (
     <section className="pointer-events-none z-20 flex w-full items-center justify-center">
-      <div className="flex flex-row items-center justify-center gap-4">
+      <div className="flex flex-row items-center justify-center gap-6">
         {cardCommands.map((command) => (
           <CardFront
             key={command.commandOrder}

@@ -2,10 +2,10 @@ import Phaser from 'phaser';
 
 import { coopBus } from '../bridge/coopBus';
 
-const CARD_WIDTH = 112;
-const CARD_HEIGHT = 176;
-const CARD_GAP = 130;
-const CARD_START_OFFSET = 195;
+const CARD_WIDTH = 160;
+const CARD_HEIGHT = 256;
+const CARD_GAP = 184;
+const CARD_START_OFFSET = 276;
 const SHUFFLE_DURATIONS = [300, 280, 250, 220, 180, 150, 120, 100, 80, 70];
 
 export class CoopScene extends Phaser.Scene {
@@ -219,6 +219,8 @@ export class CoopScene extends Phaser.Scene {
 
   private handleCardsHide = () => {
     this.cards.forEach((card) => card.setVisible(false));
+    this.handLeft?.setVisible(false);
+    this.handRight?.setVisible(false);
     this.myCardPhysicalIndex = null;
     this.pendingAssignReveal = false;
     this.isShuffling = false;

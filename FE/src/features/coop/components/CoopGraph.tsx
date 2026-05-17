@@ -34,6 +34,15 @@ export default function CoopGraph({ mapId, completedSequences, activeSequence }:
       aria-label="협력 모드 Git 형상 그래프"
       className="h-full w-full overflow-visible"
     >
+      <style>{`
+        @keyframes coop-ping {
+          75%, 100% {
+            transform: scale(2);
+            opacity: 0;
+          }
+        }
+      `}</style>
+
       <g>
         {mapData.edges.map((edge) => {
           const fromNode = nodeMap.get(edge.from);
@@ -71,7 +80,11 @@ export default function CoopGraph({ mapId, completedSequences, activeSequence }:
                   r="15"
                   fill={GRAPH_COLORS.active}
                   opacity="0.35"
-                  className="animate-ping"
+                  style={{
+                    transformBox: 'fill-box',
+                    transformOrigin: `${node.x}px ${node.y}px`,
+                    animation: 'coop-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite',
+                  }}
                 />
               )}
               <circle
