@@ -25,7 +25,7 @@ public class MemberCoopBestRecordDslRepository {
 			.where(record.memberId.eq(memberId))
 			.orderBy(
 				record.bestTime.asc(), // 1. 시간 짧은 순
-				record.mapDifficulty.desc(), // 2. 난이도 높은 순
+				record.difficulty.desc(), // 2. 난이도 높은 순
 				record.updatedAt.desc() // 3. 최신 순
 			)
 			.limit(1)

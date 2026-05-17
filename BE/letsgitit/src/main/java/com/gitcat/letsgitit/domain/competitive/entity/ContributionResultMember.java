@@ -32,16 +32,11 @@ public class ContributionResultMember {
 	@Column(name = "contribution", nullable = false)
 	private int contribution;
 
-	@Column(name = "`rank`", nullable = false)
-	private int rank;
-
-	public static ContributionResultMember of(UUID contributionResultId, UUID memberId,
-		int contribution, int rank) {
+	public static ContributionResultMember of(UUID contributionResultId, UUID memberId, int contribution) {
 		ContributionResultMember item = new ContributionResultMember();
 		item.contributionResultId = contributionResultId;
 		item.memberId = memberId;
 		item.contribution = contribution;
-		item.rank = rank;
 		return item;
 	}
 }
