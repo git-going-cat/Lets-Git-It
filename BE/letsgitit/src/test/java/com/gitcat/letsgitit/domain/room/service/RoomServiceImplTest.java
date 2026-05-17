@@ -20,9 +20,14 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.scheduling.TaskScheduler;
 
 import com.gitcat.letsgitit.domain.command.dto.response.CommandSetResponse;
 import com.gitcat.letsgitit.domain.command.service.CommandService;
+import com.gitcat.letsgitit.domain.competitive.service.ContributionGameService;
+import com.gitcat.letsgitit.domain.coop.dto.response.GraphDataDto;
+import com.gitcat.letsgitit.domain.coop.service.CoopGameService;
+import com.gitcat.letsgitit.domain.coop.service.CoopGraphDataStore;
 import com.gitcat.letsgitit.domain.coop.service.CoopService;
 import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.domain.record.service.RecordService;
@@ -37,6 +42,7 @@ import com.gitcat.letsgitit.domain.room.dto.response.PlayerInfoDto;
 import com.gitcat.letsgitit.domain.room.dto.response.ReadyChangedResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomListResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.RoomSearchResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.SelectedMapDto;
 import com.gitcat.letsgitit.domain.room.entity.enums.RoomState;
 import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
 import com.gitcat.letsgitit.domain.room.util.RoomMemberMapper;
@@ -79,6 +85,18 @@ class RoomServiceImplTest {
 
 	@Mock
 	private RoomMemberStateRecoveryService roomMemberStateRecoveryService;
+
+	@Mock
+	private CoopGraphDataStore coopGraphDataStore;
+
+	@Mock
+	private CoopGameService coopGameService;
+
+	@Mock
+	private TaskScheduler taskScheduler;
+
+	@Mock
+	private ContributionGameService contributionGameService;
 
 	private static final Long ROOM_ID = 1L;
 	private static final UUID MEMBER_ID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
@@ -529,7 +547,7 @@ class RoomServiceImplTest {
 		}
 
 		@Test
-		void 비호스트_멤버가_준비_안되면_NOT_ALL_READY를_던진다() {
+		void 모든_멤버가_준비되지_않으면_NOT_ALL_READY를_던진다() {
 			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
 			given(redissonClient.getLock(anyString())).willReturn(rLock);
 			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn(RoomState.WAITING.name());
@@ -537,7 +555,7 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
 				Set.of(MEMBER_ID.toString(), OTHER_ID.toString()));
 			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
-			given(roomRedisRepository.countReadyNonHostMembers(ROOM_ID, MEMBER_ID.toString())).willReturn(0L);
+			given(roomRedisRepository.isAllMembersReady(ROOM_ID)).willReturn(false);
 
 			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))
 				.isInstanceOf(BusinessException.class)
@@ -555,7 +573,7 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
 				Set.of(MEMBER_ID.toString(), OTHER_ID.toString()));
 			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
-			given(roomRedisRepository.countReadyNonHostMembers(ROOM_ID, MEMBER_ID.toString())).willReturn(1L);
+			given(roomRedisRepository.isAllMembersReady(ROOM_ID)).willReturn(true);
 			given(memberService.getNicknamesByIds(anyList())).willReturn(
 				Map.of(MEMBER_ID, "방장", OTHER_ID, "플레이어"));
 			given(commandService.getRandomContributionCommandSet()).willReturn(commandSet);
@@ -579,11 +597,14 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
 				Set.of(MEMBER_ID.toString(), OTHER_ID.toString(), p3.toString(), p4.toString()));
 			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("COOP");
-			given(roomRedisRepository.countReadyNonHostMembers(ROOM_ID, MEMBER_ID.toString())).willReturn(3L);
+			given(roomRedisRepository.isAllMembersReady(ROOM_ID)).willReturn(true);
 			given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
 			given(roomRedisRepository.findSelectedMapId(ROOM_ID)).willReturn(mapId);
-			given(coopService.getGraphPictureByMapId(any())).willReturn("graphData");
+			given(coopGraphDataStore.getByMapId(any())).willReturn(Mockito.mock(GraphDataDto.class));
 			given(recordService.getBestCoopRecord(any())).willReturn(null);
+			given(coopService.getSelectedMap(any()))
+				.willReturn(new SelectedMapDto(UUID.fromString(mapId), "테스트 맵", 1));
+			given(roomRedisRepository.findTeamNameById(ROOM_ID)).willReturn("테스트 팀");
 
 			GameStartResult result = roomService.startGame(ROOM_ID, MEMBER_ID, request);
 
@@ -600,7 +621,7 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
 				Set.of(MEMBER_ID.toString(), OTHER_ID.toString()));
 			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
-			given(roomRedisRepository.countReadyNonHostMembers(ROOM_ID, MEMBER_ID.toString())).willReturn(1L);
+			given(roomRedisRepository.isAllMembersReady(ROOM_ID)).willReturn(true);
 			given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
 			given(commandService.getRandomContributionCommandSet())
 				.willThrow(new BusinessException(COMMAND_SET_NOT_FOUND));
@@ -613,6 +634,7 @@ class RoomServiceImplTest {
 			// 선점으로 IN_GAME 변경 후 실패 시 WAITING으로 롤백되어야 한다
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.IN_GAME.name());
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.WAITING.name());
+			then(contributionGameService).should().deleteSession(any(UUID.class));
 		}
 
 		@Test
@@ -624,7 +646,7 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
 				Set.of(MEMBER_ID.toString(), OTHER_ID.toString()));
 			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
-			given(roomRedisRepository.countReadyNonHostMembers(ROOM_ID, MEMBER_ID.toString())).willReturn(1L);
+			given(roomRedisRepository.isAllMembersReady(ROOM_ID)).willReturn(true);
 			given(memberService.getNicknamesByIds(anyList()))
 				.willThrow(new RuntimeException("DB connection failed"));
 
@@ -633,6 +655,7 @@ class RoomServiceImplTest {
 
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.IN_GAME.name());
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.WAITING.name());
+			then(contributionGameService).should().deleteSession(any(UUID.class));
 		}
 	}
 

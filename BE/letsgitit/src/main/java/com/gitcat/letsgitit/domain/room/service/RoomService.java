@@ -50,4 +50,7 @@ public interface RoomService {
 
 	// 현재 방 상태 조회 — 재연결 직후 ROOM_STATE 동기화용
 	BaseWebSocketResponse getRoomState(UUID memberId, Long roomId);
+
+	// 협력 게임 종료 후 방 상태를 WAITING으로 복구 — CoopGameService에서 호출
+	void resetRoomAfterGame(Long roomId);
 }

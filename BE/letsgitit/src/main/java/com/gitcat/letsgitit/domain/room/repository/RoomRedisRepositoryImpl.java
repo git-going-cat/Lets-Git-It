@@ -561,19 +561,17 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 	}
 
 	@Override
-	public long countReadyNonHostMembers(Long roomId, String hostId) {
+	public boolean isAllMembersReady(Long roomId) {
 		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
 		return gameStringRedisTemplate.opsForHash().entries(key).entrySet().stream()
-			.filter(e -> !hostId.equals(String.valueOf(e.getKey())))
-			.filter(e -> {
+			.allMatch(e -> {
 				try {
 					return objectMapper.readTree((String)e.getValue()).path("isReady").asBoolean(false);
 				} catch (Exception ex) {
-					log.warn("[room] countReadyNonHostMembers parse error. memberId={}", e.getKey(), ex);
+					log.warn("[room] isAllMembersReady parse error. memberId={}", e.getKey(), ex);
 					return false;
 				}
-			})
-			.count();
+			});
 	}
 
 	@Override
@@ -593,6 +591,13 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
 		Object value = gameRedisTemplate.opsForHash().get(key, "selectedMapId");
 		return value == null ? null : String.valueOf(value);
+	}
+
+	@Override
+	public String findTeamNameById(Long roomId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		Object value = gameRedisTemplate.opsForHash().get(key, "teamName");
+		return value == null ? "" : String.valueOf(value);
 	}
 
 	private RoomCache toCache(String roomId, Map<Object, Object> fields) {
