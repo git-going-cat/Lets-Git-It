@@ -3,6 +3,7 @@ package com.gitcat.letsgitit.domain.ranking.constants;
 public class RankingKeyUtil {
 	private RankingKeyUtil() {}
 
+	// Single 랭킹 상수
 	public static final int MAX_SINGLE_SCORE = 20_000;
 	public static final long SCORE_UNIT = 30_000_000_000_000L;
 	public static final long PLAY_TIME_UNIT = 7_000_000L;
@@ -10,10 +11,20 @@ public class RankingKeyUtil {
 	public static final long DECISECONDS_IN_WEEK = 6_048_000L;
 	// MAX_SINGLE_SCORE 기준 최대 composite는 약 6.000552e17로 Long.MAX_VALUE보다 작다.
 
+	// Contribution 랭킹 상수
+	public static final int MAX_CONTRIBUTION = 1_000_000;
+	public static final int MAX_PLAY_COUNT = 10_000;
+	public static final long CONTRIBUTION_UNIT = 20_000_000L;
+	public static final long PLAY_COUNT_UNIT = 1_000L;
+	// MAX_CONTRIBUTION 기준 최대 composite는 약 2e13으로 Redis double 정밀도(9e15) 범위 내.
+
 	private static final String SINGLE = "ranking:SINGLE:%s:%s";
 	private static final String SINGLE_GRADE = "ranking:SINGLE:%s:%s:grade";
 	private static final String SINGLE_PLAY_TIME = "ranking:SINGLE:%s:%s:playtime";
 	private static final String CONTRIBUTION = "ranking:CONTRIBUTION:%s";
+	private static final String CONTRIBUTION_CONTRIBUTION = "ranking:CONTRIBUTION:%s:contribution";
+	private static final String CONTRIBUTION_PLAY_COUNT = "ranking:CONTRIBUTION:%s:playcount";
+	private static final String CONTRIBUTION_REGISTERED_AT = "ranking:CONTRIBUTION:%s:registeredAt";
 	private static final String TIME_ATTACK = "ranking:TIME_ATTACK:%s";
 	private static final String COOP = "ranking:COOP:%s:%s";
 
@@ -31,6 +42,18 @@ public class RankingKeyUtil {
 
 	public static String contributionKey(String week) {
 		return String.format(CONTRIBUTION, week);
+	}
+
+	public static String contributionContributionKey(String week) {
+		return String.format(CONTRIBUTION_CONTRIBUTION, week);
+	}
+
+	public static String contributionPlayCountKey(String week) {
+		return String.format(CONTRIBUTION_PLAY_COUNT, week);
+	}
+
+	public static String contributionRegisteredAtKey(String week) {
+		return String.format(CONTRIBUTION_REGISTERED_AT, week);
 	}
 
 	public static String timeAttackKey(String week) {
