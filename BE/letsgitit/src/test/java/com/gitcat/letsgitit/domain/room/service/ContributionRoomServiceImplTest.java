@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -373,6 +374,82 @@ class ContributionRoomServiceImplTest {
 
 			then(messageSender).should().send(eq("/topic/room/" + ROOM_ID),
 				any(ContributionRoomInfoUpdatedResponse.class));
+		}
+
+		@Test
+		void 기존_비밀방에서_hasPassword가_false면_공개방으로_전환한다() {
+			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, false, null);
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			roomInfo.put("hasPassword", true);
+			roomInfo.put("password", "1234");
+			Map<Object, Object> updatedRoomInfo = new LinkedHashMap<>(roomInfo);
+			updatedRoomInfo.put("hasPassword", false);
+			updatedRoomInfo.put("password", null);
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(roomInfo), Optional.of(updatedRoomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), any(), eq("contribution"))).willReturn(true);
+			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+
+			contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request);
+
+			ArgumentCaptor<Map<String, Object>> roomInfoCaptor = ArgumentCaptor.forClass(Map.class);
+			then(roomRedisRepository).should().updateRoomInfo(eq(ROOM_ID.toString()), roomInfoCaptor.capture());
+			assertThat(roomInfoCaptor.getValue())
+				.containsEntry("hasPassword", false)
+				.containsEntry("password", null);
+
+			ArgumentCaptor<ContributionRoomInfoUpdatedResponse> responseCaptor = ArgumentCaptor
+				.forClass(ContributionRoomInfoUpdatedResponse.class);
+			then(messageSender).should().send(eq("/topic/room/" + ROOM_ID), responseCaptor.capture());
+			assertThat(responseCaptor.getValue().hasPassword()).isFalse();
+		}
+
+		@Test
+		void 기존_비밀방에서_hasPassword가_true이고_password가_null이면_비밀번호를_유지한다() {
+			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, true, null);
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+			roomInfo.put("hasPassword", true);
+			roomInfo.put("password", "1234");
+			Map<Object, Object> members = Map.of(MEMBER_ID.toString(), "member-json");
+			List<PlayerInfoDto> playerInfos = List.of(playerInfo(MEMBER_ID, true));
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString()))
+				.willReturn(Optional.of(roomInfo), Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), any(), eq("contribution"))).willReturn(true);
+			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(members);
+			given(roomMemberMapper.toPlayerInfoDtos(members)).willReturn(playerInfos);
+
+			contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request);
+
+			ArgumentCaptor<Map<String, Object>> roomInfoCaptor = ArgumentCaptor.forClass(Map.class);
+			then(roomRedisRepository).should().updateRoomInfo(eq(ROOM_ID.toString()), roomInfoCaptor.capture());
+			assertThat(roomInfoCaptor.getValue())
+				.containsEntry("hasPassword", true)
+				.containsEntry("password", "1234");
+		}
+
+		@Test
+		void 기존_공개방에서_hasPassword가_true이고_password가_null이면_PASSWORD_REQUIRED를_던진다() {
+			UpdateContributionRoomRequest request = new UpdateContributionRoomRequest("새 제목", 4, true, null);
+			Map<Object, Object> roomInfo = waitingContributionRoomInfo();
+
+			given(roomRedisRepository.getRoomInfo(ROOM_ID.toString())).willReturn(Optional.of(roomInfo));
+			given(roomMemberRecoveryService.ensureMemberInRoom(
+				eq(ROOM_ID), eq(MEMBER_ID), same(roomInfo), eq("contribution"))).willReturn(true);
+			given(roomRedisRepository.getMembersCount(ROOM_ID.toString())).willReturn(1L);
+
+			assertThatThrownBy(() -> contributionRoomService.updateContributionRoomInfo(MEMBER_ID, ROOM_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode())
+				.isEqualTo(PASSWORD_REQUIRED);
 		}
 	}
 

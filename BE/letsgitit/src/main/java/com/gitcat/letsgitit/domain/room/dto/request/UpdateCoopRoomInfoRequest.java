@@ -22,6 +22,6 @@ public record UpdateCoopRoomInfoRequest(
 	@NotNull(message = "선택한 맵 ID는 필수입니다")
 	UUID selectedMapId) {
 	public UpdateCoopRoomInfoRequest {
-		RoomPasswordValidator.validate(hasPassword, password);
+		RoomPasswordValidator.validateForUpdate(hasPassword, password);
 	}
 }
