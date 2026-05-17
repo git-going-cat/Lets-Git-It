@@ -104,6 +104,9 @@ public enum ErrorCode {
 
 	// coop
 	COOP_MAP_NOT_ACTIVE(HttpStatus.BAD_REQUEST.value(), "COOP_MAP_NOT_ACTIVE", "협력 모드 맵이 활성화 되어 있지 않습니다."),
+	INPUT_BLOCKED(HttpStatus.BAD_REQUEST.value(), "INPUT_BLOCKED", "현재 입력이 차단된 상태입니다."),
+	NOT_RESET_PLAYER(HttpStatus.FORBIDDEN.value(), "NOT_RESET_PLAYER", "git reset을 입력해야 하는 플레이어가 아닙니다."),
+	RESET_NOT_REQUIRED(HttpStatus.BAD_REQUEST.value(), "RESET_NOT_REQUIRED", "현재 리셋 대기 상태가 아닙니다."),
 
 	// system
 	INVALID_REQUEST(HttpStatus.BAD_REQUEST.value(), "INVALID_REQUEST", "잘못된 요청입니다."),

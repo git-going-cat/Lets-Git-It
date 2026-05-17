@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "coop_command_set_item", uniqueConstraints = {
-	@UniqueConstraint(name = "uq_coop_command_set_item", columnNames = {"coop_command_set_id", "round", "sequence"})
+	@UniqueConstraint(name = "uq_coop_command_set_item", columnNames = {"coop_map_id", "round", "sequence"})
 })
 public class CoopCommandSetItem {
 
