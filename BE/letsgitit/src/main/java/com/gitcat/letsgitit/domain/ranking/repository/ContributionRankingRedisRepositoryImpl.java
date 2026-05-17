@@ -197,10 +197,8 @@ public class ContributionRankingRedisRepositoryImpl implements ContributionRanki
 
 	@Override
 	public void deleteKeys(String... keys) {
-		for (String key : keys) {
-			Boolean deleted = rankingStringRedisTemplate.delete(key);
-			log.info("[ranking][contribution][delete] key={}, deleted={}", key, deleted);
-		}
+		Long deleted = rankingStringRedisTemplate.delete(List.of(keys));
+		log.info("[ranking][contribution][delete] keyCount={}, deletedCount={}", keys.length, deleted);
 	}
 
 	private static byte[] bytes(String value) {

@@ -313,7 +313,7 @@ public class RankingController implements RankingControllerDocs {
 			data.put("hasPrev", true);
 			data.put("nextCursor", 17);
 			data.put("hasNext", true);
-			return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
+			return ApiResponse.ok("기여도 뺏기 랭킹 조회 성공", data);
 		}
 
 		if (beforeRank != null) {
@@ -325,7 +325,7 @@ public class RankingController implements RankingControllerDocs {
 			data.put("hasPrev", true);
 			data.put("nextCursor", 12);
 			data.put("hasNext", true);
-			return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
+			return ApiResponse.ok("기여도 뺏기 랭킹 조회 성공", data);
 		}
 
 		Map<String, Object> data = new LinkedHashMap<>();
@@ -336,7 +336,7 @@ public class RankingController implements RankingControllerDocs {
 		data.put("hasPrev", true);
 		data.put("nextCursor", afterRank + 20);
 		data.put("hasNext", true);
-		return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
+		return ApiResponse.ok("기여도 뺏기 랭킹 조회 성공", data);
 	}
 
 	// TODO: 서비스 로직 연동 후 제거
