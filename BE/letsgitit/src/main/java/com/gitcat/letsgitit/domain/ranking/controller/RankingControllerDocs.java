@@ -192,7 +192,7 @@ public interface RankingControllerDocs {
 			    "top3": [
 			      {
 			        "rank": 1, "teamName": "git masters",
-			        "mapId": "550e8400-e29b-41d4-a716-446655440000", "mapName": "기초 브랜치", "difficulty": "NORMAL",
+			        "mapName": "기초 브랜치", "difficulty": 1,
 			        "elapsedTime": 61000, "totalWrongTypeCount": 2, "totalWrongOrderCount": 1,
 			        "members": [
 			          {"playerId": "22222222-e29b-41d4-a716-446655440000", "nickname": "alice"},
@@ -204,7 +204,7 @@ public interface RankingControllerDocs {
 			    ],
 			    "myRank": {
 			      "rank": 5, "teamName": "merge crew",
-			      "mapId": "770e8400-e29b-41d4-a716-446655440000", "mapName": "rebase 실전", "difficulty": "NORMAL",
+			      "mapName": "rebase 실전", "difficulty": 3,
 			      "elapsedTime": 83000, "totalWrongTypeCount": 5, "totalWrongOrderCount": 3,
 			      "members": [
 			        {"playerId": "aaaaaaaa-e29b-41d4-a716-446655440000", "nickname": "alice"},
@@ -216,7 +216,7 @@ public interface RankingControllerDocs {
 			    "around": [
 			      {
 			        "rank": 4, "teamName": "reset zero",
-			        "mapId": "880e8400-e29b-41d4-a716-446655440000", "mapName": "브랜치 이동", "difficulty": "NORMAL",
+			        "mapName": "브랜치 이동", "difficulty": 2,
 			        "elapsedTime": 81000, "totalWrongTypeCount": 4, "totalWrongOrderCount": 2,
 			        "members": [
 			          {"playerId": "dddddddd-e29b-41d4-a716-446655440000", "nickname": "user5"},
@@ -239,7 +239,7 @@ public interface RankingControllerDocs {
 			    "rankings": [
 			      {
 			        "rank": 7, "teamName": "conflict solvers",
-			        "mapId": "550e8400-e29b-41d4-a716-446655440000", "mapName": "기초 브랜치", "difficulty": "NORMAL",
+			        "mapName": "기초 브랜치", "difficulty": 1,
 			        "elapsedTime": 89000, "totalWrongTypeCount": 7, "totalWrongOrderCount": 4,
 			        "members": [
 			          {"playerId": "17171717-e29b-41d4-a716-446655440000", "nickname": "user13"},
@@ -389,7 +389,7 @@ public interface RankingControllerDocs {
 			    "top3": [
 			      {
 			        "rank": 1, "teamName": "git masters",
-			        "mapId": "550e8400-e29b-41d4-a716-446655440000", "mapName": "기초 브랜치", "difficulty": "NORMAL",
+			        "mapName": "기초 브랜치", "difficulty": 1,
 			        "elapsedTime": 61000, "totalWrongTypeCount": 2, "totalWrongOrderCount": 1,
 			        "members": [
 			          {"playerId": "22222222-e29b-41d4-a716-446655440000", "nickname": "alice"},
@@ -401,7 +401,7 @@ public interface RankingControllerDocs {
 			    ],
 			    "myRank": {
 			      "rank": 5, "teamName": "merge crew",
-			      "mapId": "770e8400-e29b-41d4-a716-446655440000", "mapName": "rebase 실전", "difficulty": "NORMAL",
+			      "mapName": "rebase 실전", "difficulty": 3,
 			      "elapsedTime": 83000, "totalWrongTypeCount": 5, "totalWrongOrderCount": 3,
 			      "members": [
 			        {"playerId": "aaaaaaaa-e29b-41d4-a716-446655440000", "nickname": "alice"},
@@ -413,7 +413,7 @@ public interface RankingControllerDocs {
 			    "around": [
 			      {
 			        "rank": 4, "teamName": "reset zero",
-			        "mapId": "880e8400-e29b-41d4-a716-446655440000", "mapName": "브랜치 이동", "difficulty": "NORMAL",
+			        "mapName": "브랜치 이동", "difficulty": 2,
 			        "elapsedTime": 81000, "totalWrongTypeCount": 4, "totalWrongOrderCount": 2,
 			        "members": [
 			          {"playerId": "dddddddd-e29b-41d4-a716-446655440000", "nickname": "user5"},
@@ -436,7 +436,7 @@ public interface RankingControllerDocs {
 			    "rankings": [
 			      {
 			        "rank": 7, "teamName": "conflict solvers",
-			        "mapId": "550e8400-e29b-41d4-a716-446655440000", "mapName": "기초 브랜치", "difficulty": "NORMAL",
+			        "mapName": "기초 브랜치", "difficulty": 1,
 			        "elapsedTime": 89000, "totalWrongTypeCount": 7, "totalWrongOrderCount": 4,
 			        "members": [
 			          {"playerId": "17171717-e29b-41d4-a716-446655440000", "nickname": "user13"},
