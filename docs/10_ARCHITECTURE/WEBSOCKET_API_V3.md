@@ -221,12 +221,19 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 ### 4-0. ROOM_STATE
 
 - 서버 자동 전송
-- 구독: `/topic/room/{roomId}` 구독 직후
+- 트리거: `/topic/room/{roomId}` 구독 직후
+- 수신: `/user/queue/private`
 - 설명: 재연결 직후 현재 방 상태를 복원하기 위한 상태 동기화 이벤트다.
 
 **서버 전송 조건** (아래 중 하나를 만족하면 전송):
 1. 클라이언트가 `/topic/room/{roomId}`를 구독한 경우
 2. 클라이언트가 REST API `GET /api/rooms/{roomId}/state`를 호출한 경우
+
+주의:
+- WebSocket ROOM_STATE는 `/topic/room/{roomId}` 구독을 트리거로 삼지만, 방 전체로 브로드캐스트하지 않는다.
+- 서버는 구독한 사용자 본인에게만 `/user/queue/private`로 `CONTRIBUTION_ROOM_STATE` 또는 `COOP_ROOM_STATE`를 유니캐스트한다.
+- ROOM_STATE는 멤버 입장/퇴장 이벤트가 아니라 재연결 클라이언트의 화면 복원용 스냅샷이다.
+- ROOM_STATE 조회 실패 시에도 `/user/queue/private`로 기존 `ERROR` 포맷을 전송한다.
 
 **재연결 시 클라이언트 처리**:
 - `"WAITING"`: 대기실 화면 복원
@@ -343,13 +350,11 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | `type` | String | Y | `"READY_UPDATE"` 고정 |
-| `nickname` | String | Y | 플레이어 닉네임 |
 | `isReady` | Boolean | Y | 준비 여부 |
 
 ```json
 {
   "type": "READY_UPDATE",
-  "nickname": "dobby",
   "isReady": true
 }
 ```
@@ -381,8 +386,9 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 코드 | 설명 |
 | --- | --- |
 | `ROOM_NOT_FOUND` | 방이 존재하지 않음 |
-| `GAME_ALREADY_STARTED` | 이미 게임이 시작됨 |
+| `ROOM_IN_GAME` | 이미 게임이 시작됨 |
 | `PLAYER_NOT_IN_ROOM` | 방에 속하지 않은 플레이어의 요청 |
+| `HOST_ALWAYS_READY` | 방장은 항상 준비 완료 상태 |
 
 ---
 
@@ -568,7 +574,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `NOT_HOST` | 방장이 아님 |
 | `NOT_ALL_READY` | 전원 준비 미완료 |
 | `NOT_ENOUGH_PLAYERS` | 협력 모드 필수 인원(4명) 미충족 |
-| `GAME_ALREADY_STARTED` | 이미 게임이 진행 중 |
+| `ROOM_IN_GAME` | 이미 게임이 진행 중 |
 
 ---
 
@@ -635,7 +641,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | --- | --- |
 | `NOT_HOST` | 요청자가 방장이 아님 |
 | `PLAYER_NOT_FOUND` | 대상 플레이어가 방에 없음 |
-| `SELF_KICK` | 자기 자신을 강퇴 시도 |
+| `CANNOT_KICK_SELF` | 자기 자신을 추방할 수 없습니다. |
+| `ROOM_IN_GAME` | 게임 중인 방에서는 강퇴할 수 없습니다. |
 
 ---
 
@@ -829,7 +836,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `NOT_HOST` | 요청자가 방장이 아님 |
 | `PLAYER_NOT_FOUND` | 위임 대상 플레이어가 방에 없음 |
 | `SELF_TRANSFER` | 자기 자신에게 위임 시도 |
-| `GAME_ALREADY_STARTED` | 게임이 이미 시작되어 위임 불가 |
+| `ROOM_IN_GAME` | 게임이 이미 시작되어 위임 불가 |
 
 ---
 
@@ -1029,12 +1036,24 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 코드 | 설명 |
 | --- | --- |
 | `ROOM_NOT_FOUND` | 방이 존재하지 않음 |
+| `PLAYER_NOT_IN_ROOM` | 방에 속하지 않은 플레이어의 요청 |
 | `MESSAGE_TOO_LONG` | 메시지 길이 초과 (150자 제한) |
 | `MESSAGE_EMPTY` | 메시지가 비어있음 (공백만 있는 경우 포함) |
 
 ---
 
 ## 5. 기여도 뺏기 모드
+
+### 고양이(CAT) 기여도 규칙
+
+제한 시간 내 아무도 입력하지 못해 만료(miss)된 명령어의 기여도는 고양이(`[CAT]`)에게 귀속된다.
+
+- `SCORE_UPDATE` / `COMMAND_EXPIRED` / `CONTRIBUTION_GAME_END`의 `scores` 및 `rankings` 배열에 고양이가 항상 포함된다.
+- 고양이 항목: `playerId: null`, `nickname: "[CAT]"`
+- **기여도 계산 기준**: 분모는 "성공 여부와 무관하게 지금까지 등장한 전체 명령어 수"
+  - 플레이어 기여도(%) = 해당 플레이어 성공 명령어 수 / 전체 등장 명령어 수 × 100
+  - 고양이 기여도(%) = 만료된 명령어 수 / 전체 등장 명령어 수 × 100
+  - 모든 플레이어 + 고양이의 기여도 합계는 100%
 
 ### 5-1. CONTRIBUTION_INPUT
 
@@ -1096,23 +1115,23 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 - 경로: `/topic/room/{roomId}/contribution` (브로드캐스트)
 
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| `type` | String | `"SCORE_UPDATE"` 고정 |
-| `gameSessionId` | UUID | 현재 게임 세션 ID |
-| `requestId` | UUID | 요청-응답 매칭용 클라이언트 요청 ID |
-| `serverTime` | Long | 서버 응답 생성 시각 |
-| `commandSequence` | Integer | 완료된 명령어 seq |
-| `winnerId` | UUID | 정답 플레이어 ID |
-| `scores` | Array | 전체 플레이어 현황 |
-| `scores[].playerId` | UUID | 플레이어 ID |
-| `scores[].nickname` | String | 플레이어 닉네임 |
-| `scores[].contribution` | Integer | 현재 기여도 (%) |
-| `scores[].rank` | Integer | 현재 순위 |
-| `progress` | Object | 전체 진행도 |
-| `progress.current` | Integer | 완료된 명령어 수 |
-| `progress.total` | Integer | 전체 명령어 수 |
-| `progress.percent` | Integer | 진행률 퍼센트 |
+| 필드 | 타입 | 설명                           |
+| --- | --- |------------------------------|
+| `type` | String | `"SCORE_UPDATE"` 고정          |
+| `gameSessionId` | UUID | 현재 게임 세션 ID                  |
+| `requestId` | UUID | 요청-응답 매칭용 클라이언트 요청 ID        |
+| `serverTime` | Long | 서버 응답 생성 시각                  |
+| `commandSequence` | Integer | 완료된 명령어 seq                  |
+| `winnerId` | UUID | 정답 플레이어 ID                   |
+| `scores` | Array | 전체 플레이어 현황                   |
+| `scores[].playerId` | UUID | 플레이어 ID. 고양이라면 null.         |
+| `scores[].nickname` | String | 플레이어 닉네임. 고양이라면 [CAT] 으로 고정. |
+| `scores[].contribution` | Integer | 현재 기여도 (%)                   |
+| `scores[].rank` | Integer | 현재 순위                        |
+| `progress` | Object | 전체 진행도                       |
+| `progress.current` | Integer | 완료된 명령어 수                    |
+| `progress.total` | Integer | 전체 명령어 수                     |
+| `progress.percent` | Integer | 진행률 퍼센트                      |
 
 ```json
 {
@@ -1126,7 +1145,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
     { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "contribution": 40, "rank": 1 },
     { "playerId": "550e8400-e29b-41d4-a716-446655440001", "nickname": "alice", "contribution": 35, "rank": 2 },
     { "playerId": "550e8400-e29b-41d4-a716-446655440002", "nickname": "bob",   "contribution": 25, "rank": 3 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440003", "nickname": "carol", "contribution": 0,  "rank": 4 }
+    { "playerId": "550e8400-e29b-41d4-a716-446655440003", "nickname": "carol", "contribution": 10,  "rank": 4 },
+    { "playerId": null, "nickname": "[CAT]", "contribution": 0, "rank": 5 }
   ],
   "progress": {
     "current": 6,
@@ -1197,21 +1217,21 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 #### Response
 
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| `type` | String | `"COMMAND_EXPIRED"` 고정 |
-| `gameSessionId` | UUID | 현재 게임 세션 ID |
-| `serverTime` | Long | 서버 응답 생성 시각 |
-| `commandSequence` | Integer | 만료된 명령어 seq |
-| `scores` | Array | 전체 기여도 목록 |
-| `scores[].playerId` | UUID | 플레이어 ID |
-| `scores[].nickname` | String | 닉네임 |
-| `scores[].contribution` | Integer | 현재 기여도 |
+| 필드 | 타입 | 설명                             |
+| --- | --- |--------------------------------|
+| `type` | String | `"COMMAND_EXPIRED"` 고정         |
+| `gameSessionId` | UUID | 현재 게임 세션 ID                    |
+| `serverTime` | Long | 서버 응답 생성 시각                    |
+| `commandSequence` | Integer | 만료된 명령어 seq                    |
+| `scores` | Array | 전체 기여도 목록                      |
+| `scores[].playerId` | UUID | 플레이어 ID. 고양이라면 null.           |
+| `scores[].nickname` | String | 닉네임. 고양이는 [CAT] 으로 고정.         |
+| `scores[].contribution` | Integer | 현재 기여도                         |
 | `scores[].rank` | Integer | 현재 순위 (동점이면 동일 순위, 다음 순위는 건너뜀) |
-| `progress` | Object | 진행도 |
-| `progress.current` | Integer | 완료된 명령어 수 |
-| `progress.total` | Integer | 전체 명령어 수 |
-| `progress.percent` | Integer | 진행률 퍼센트 |
+| `progress` | Object | 진행도                            |
+| `progress.current` | Integer | 완료된 명령어 수                      |
+| `progress.total` | Integer | 전체 명령어 수                       |
+| `progress.percent` | Integer | 진행률 퍼센트                        |
 
 ```json
 {
@@ -1220,7 +1240,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "serverTime": 1714567894000,
   "commandSequence": 3,
   "scores": [
-    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "contribution": 40, "rank": 1 }
+    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "contribution": 40, "rank": 1 },
+    { "playerId": null, "nickname": "[CAT]", "contribution": 25, "rank": 2 }
   ],
   "progress": {
     "current": 10,
@@ -1246,22 +1267,23 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 1. `contribution` 내림차순
 2. 플레이 횟수 오름차순
 - 동점이면 동일 순위를 부여하고 다음 순위는 건너뛴다.
+- 고양이(`[CAT]`)도 순위에 포함된다. 고양이가 1등이면 `winnerVideoTarget`은 `null`.
 
 #### Response: 정상 종료
 
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| `type` | String | `"CONTRIBUTION_GAME_END"` 고정 |
-| `gameSessionId` | UUID | 현재 게임 세션 ID |
-| `serverTime` | Long | 서버 응답 생성 시각 |
-| `isSuccess` | Boolean | 정상 종료 여부 |
-| `reason` | String | 종료 사유 (`GAME_COMPLETED`) |
-| `rankings` | Array | 최종 순위 목록 |
-| `rankings[].rank` | Integer | 최종 순위 |
-| `rankings[].playerId` | UUID | 플레이어 ID |
-| `rankings[].nickname` | String | 플레이어 닉네임 |
-| `rankings[].contribution` | Integer | 최종 기여도 (%) |
-| `winnerVideoTarget` | UUID | 탈출 영상 대상 플레이어 ID (1등) |
+| 필드 | 타입 | 설명                                      |
+| --- | --- |-----------------------------------------|
+| `type` | String | `"CONTRIBUTION_GAME_END"` 고정            |
+| `gameSessionId` | UUID | 현재 게임 세션 ID                             |
+| `serverTime` | Long | 서버 응답 생성 시각                             |
+| `isSuccess` | Boolean | 정상 종료 여부                                |
+| `reason` | String | 종료 사유 (`GAME_COMPLETED`)                |
+| `rankings` | Array | 최종 순위 목록                                |
+| `rankings[].rank` | Integer | 최종 순위                                   |
+| `rankings[].playerId` | UUID | 플레이어 ID. 고양이라면 null                               |
+| `rankings[].nickname` | String | 플레이어 닉네임. 고양이는 [CAT] 으로 고정.             |
+| `rankings[].contribution` | Integer | 최종 기여도 (%)                              |
+| `winnerVideoTarget` | UUID | 탈출 영상 대상 플레이어 ID (1등). 고양이가 1등이라면 null. |
 
 ```json
 {
@@ -1274,7 +1296,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
     { "rank": 1, "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby",  "contribution": 40 },
     { "rank": 2, "playerId": "661f9511-f30c-52e5-b827-557766551111", "nickname": "alice",  "contribution": 35 },
     { "rank": 3, "playerId": "772g0622-g41d-63f6-c938-668877662222", "nickname": "bob",    "contribution": 25 },
-    { "rank": 4, "playerId": "883h1733-h52e-74g7-d049-779988773333", "nickname": "carol",  "contribution": 0  }
+    { "rank": 4, "playerId": "883h1733-h52e-74g7-d049-779988773333", "nickname": "carol",  "contribution": 10  },
+    { "rank": 5, "playerId": null, "nickname": "[CAT]", "contribution": 5 }
   ],
   "winnerVideoTarget": "550e8400-e29b-41d4-a716-446655440000"
 }
@@ -1714,7 +1737,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | --- | --- |
 | 공통 에러코드 | `UNAUTHORIZED`, `INVALID_REQUEST` 추가 |
 | 4-0 (신규) | `ROOM_STATE` 재연결 상태 동기화 이벤트 추가 |
-| 4-1 READY_UPDATE | Request에서 `playerId` 제거. 에러에 `PLAYER_NOT_IN_ROOM` 추가 |
+| 4-1 READY_UPDATE | Request에서 `playerId` 제거. Request에서 `nickname` 제거. 에러에 `ROOM_IN_GAME`, `PLAYER_NOT_IN_ROOM`, `HOST_ALWAYS_READY` 추가 |
 | 4-2 GAME_START | Request에서 `playerId` 제거. 각 모드 시작 응답에 `serverTime`, `gameSessionId`, `players` 추가. 기여도에 `initialBranch`, 협력에 `startGraphPicture` 추가 |
 | 4-3 KICK | 발행(Request) 없음 — REST API 처리로 이전. `KICKED.roomId` 타입 UUID→Long |
 | 4-4 LEAVE | 발행(Request) 없음 — REST API 처리로 이전. `playerId`→`leftPlayerId`, `nickname`→`leftPlayerNickname` |

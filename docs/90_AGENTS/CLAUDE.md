@@ -97,8 +97,8 @@ Task: "방 생성 API 추가"
 
 1. Follow Critical Rules in CODING_STANDARD.md
 2. Follow package structure: `com.gitcat.letsgitit.domain.{domain}/...`
-3. Use `ApiResponse` for all responses
-4. Use `CustomException` + `ErrorCode` for exceptions
+3. Use `Response` for all responses
+4. Use `BusinessException` + `ErrorCode` for exceptions
 5. Use static factory method (`of`, `from`) instead of `@Builder`
 </step>
 
@@ -112,7 +112,7 @@ Task: "방 생성 API 추가"
 - ✅ Service: interface + impl 분리
 - ✅ Repository: 4-file DIP 패턴 (interface / impl / Jpa / Dsl)
 - ✅ DTO: Java record
-- ✅ Exception: CustomException 상속, ErrorCode static import
+- ✅ Exception: BusinessException + ErrorCode static import
 - ✅ Korean test names
 </step>
 

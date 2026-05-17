@@ -54,38 +54,67 @@ public class RankingController implements RankingControllerDocs {
 
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
-	@GetMapping("/speed")
-	public ResponseEntity<?> getSpeedRanking(
+	@GetMapping("/contribution")
+	public ResponseEntity<?> getContributionRanking(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@RequestParam(required = false)
-		Integer cursor,
+		Integer afterRank,
+		@RequestParam(required = false)
+		Integer beforeRank,
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 
-		if (cursor == null) {
+		if (afterRank == null && beforeRank == null) {
 			Map<String, Object> data = new LinkedHashMap<>();
 			data.put("year", 2026);
 			data.put("month", 4);
 			data.put("week", 18);
 			data.put("top3", List.of(
-				Map.of("rank", 1, "nickname", "speedking", "contribution", 12000),
-				Map.of("rank", 2, "nickname", "fastuser", "contribution", 11500),
-				Map.of("rank", 3, "nickname", "quickdraw", "contribution", 10900)));
-			data.put("myRank", Map.of("rank", 15, "contribution", 8800));
+				Map.of("rank", 1, "playerId", "550e8400-e29b-41d4-a716-446655440000", "nickname", "dobby",
+					"contribution", 12000, "playCount", 10),
+				Map.of("rank", 2, "playerId", "661f9511-f30c-52e5-b827-557766551111", "nickname", "alice",
+					"contribution", 11500, "playCount", 9),
+				Map.of("rank", 3, "playerId", "772g0622-g41d-63f6-c938-668877662222", "nickname", "bob",
+					"contribution", 10900, "playCount", 11)));
+			data.put("myRank", Map.of("rank", 15, "contribution", 8800, "playCount", 10));
 			data.put("around", List.of(
-				Map.of("rank", 13, "nickname", "user1", "contribution", 9100),
-				Map.of("rank", 14, "nickname", "user2", "contribution", 8900),
-				Map.of("rank", 15, "nickname", "dobby", "contribution", 8800),
-				Map.of("rank", 16, "nickname", "user3", "contribution", 8600),
-				Map.of("rank", 17, "nickname", "user4", "contribution", 8400)));
+				Map.of("rank", 13, "playerId", "11111111-e29b-41d4-a716-446655440000", "nickname", "user1",
+					"contribution", 9100, "playCount", 10),
+				Map.of("rank", 14, "playerId", "22222222-e29b-41d4-a716-446655440000", "nickname", "user2",
+					"contribution", 8900, "playCount", 9),
+				Map.of("rank", 15, "playerId", "33333333-e29b-41d4-a716-446655440000", "nickname", "dobby",
+					"contribution", 8800, "playCount", 10),
+				Map.of("rank", 16, "playerId", "44444444-e29b-41d4-a716-446655440000", "nickname", "user3",
+					"contribution", 8600, "playCount", 12),
+				Map.of("rank", 17, "playerId", "55555555-e29b-41d4-a716-446655440000", "nickname", "user4",
+					"contribution", 8400, "playCount", 8)));
+			data.put("prevCursor", 13);
+			data.put("hasPrev", true);
 			data.put("nextCursor", 17);
+			data.put("hasNext", true);
+			return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
+		}
+
+		if (beforeRank != null) {
+			Map<String, Object> data = new LinkedHashMap<>();
+			data.put("rankings", List.of(
+				Map.of("rank", 10, "playerId", "77777777-e29b-41d4-a716-446655440000", "nickname", "user0",
+					"contribution", 9500, "playCount", 6)));
+			data.put("prevCursor", 10);
+			data.put("hasPrev", true);
+			data.put("nextCursor", 12);
 			data.put("hasNext", true);
 			return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
 		}
 
 		Map<String, Object> data = new LinkedHashMap<>();
 		data.put("rankings", List.of(
-			Map.of("rank", cursor + 1, "nickname", "user5", "contribution", 8200)));
-		data.put("nextCursor", cursor + 20);
+			Map.of("rank", afterRank + 1, "playerId", "66666666-e29b-41d4-a716-446655440000", "nickname", "user5",
+				"contribution", 8200, "playCount", 7)));
+		data.put("prevCursor", afterRank + 1);
+		data.put("hasPrev", true);
+		data.put("nextCursor", afterRank + 20);
 		data.put("hasNext", true);
 		return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
 	}
@@ -132,42 +161,114 @@ public class RankingController implements RankingControllerDocs {
 	@Override
 	@GetMapping("/coop")
 	public ResponseEntity<?> getCoopRanking(
-		@RequestParam
-		String mapName,
-		@RequestParam
-		String difficulty,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@RequestParam(required = false)
-		Integer cursor,
+		Integer afterRank,
+		@RequestParam(required = false)
+		Integer beforeRank,
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 
-		if (cursor == null) {
+		if (afterRank == null && beforeRank == null) {
 			Map<String, Object> data = new LinkedHashMap<>();
-			data.put("mapId", 1);
-			data.put("mapName", mapName);
 			data.put("year", 2026);
 			data.put("month", 4);
 			data.put("week", 18);
 			data.put("top3", List.of(
-				Map.of("rank", 1, "nickname", "coopmaster", "clearTime", 61000),
-				Map.of("rank", 2, "nickname", "teamwork", "clearTime", 65000),
-				Map.of("rank", 3, "nickname", "syncpro", "clearTime", 70000)));
-			data.put("myRank", Map.of("rank", 5, "clearTime", 83000));
+				Map.of(
+					"rank", 1,
+					"teamName", "git masters",
+					"mapId", "550e8400-e29b-41d4-a716-446655440000",
+					"mapName", "기초 브랜치",
+					"difficulty", "NORMAL",
+					"elapsedTime", 61000,
+					"totalWrongTypeCount", 2,
+					"totalWrongOrderCount", 1,
+					"members", List.of(
+						Map.of("playerId", "22222222-e29b-41d4-a716-446655440000", "nickname", "alice"),
+						Map.of("playerId", "33333333-e29b-41d4-a716-446655440000", "nickname", "bob"),
+						Map.of("playerId", "44444444-e29b-41d4-a716-446655440000", "nickname", "charlie"),
+						Map.of("playerId", "11111111-e29b-41d4-a716-446655440000", "nickname", "dobby")))));
+			data.put("myRank", Map.of(
+				"rank", 5,
+				"teamName", "merge crew",
+				"mapId", "770e8400-e29b-41d4-a716-446655440000",
+				"mapName", "rebase 실전",
+				"difficulty", "NORMAL",
+				"elapsedTime", 83000,
+				"totalWrongTypeCount", 5,
+				"totalWrongOrderCount", 3,
+				"members", List.of(
+					Map.of("playerId", "aaaaaaaa-e29b-41d4-a716-446655440000", "nickname", "alice"),
+					Map.of("playerId", "bbbbbbbb-e29b-41d4-a716-446655440000", "nickname", "bob"),
+					Map.of("playerId", "cccccccc-e29b-41d4-a716-446655440000", "nickname", "charlie"),
+					Map.of("playerId", "99999999-e29b-41d4-a716-446655440000", "nickname", "dobby"))));
 			data.put("around", List.of(
-				Map.of("rank", 3, "nickname", "user1", "clearTime", 79000),
-				Map.of("rank", 4, "nickname", "user2", "clearTime", 81000),
-				Map.of("rank", 5, "nickname", "dobby", "clearTime", 83000),
-				Map.of("rank", 6, "nickname", "user3", "clearTime", 85000),
-				Map.of("rank", 7, "nickname", "user4", "clearTime", 87000)));
-			data.put("nextCursor", 7);
+				Map.of(
+					"rank", 4,
+					"teamName", "reset zero",
+					"mapId", "880e8400-e29b-41d4-a716-446655440000",
+					"mapName", "브랜치 이동",
+					"difficulty", "NORMAL",
+					"elapsedTime", 81000,
+					"totalWrongTypeCount", 4,
+					"totalWrongOrderCount", 2,
+					"members", List.of(
+						Map.of("playerId", "dddddddd-e29b-41d4-a716-446655440000", "nickname", "user5"),
+						Map.of("playerId", "eeeeeeee-e29b-41d4-a716-446655440000", "nickname", "user6"),
+						Map.of("playerId", "ffffffff-e29b-41d4-a716-446655440000", "nickname", "user7"),
+						Map.of("playerId", "12121212-e29b-41d4-a716-446655440000", "nickname", "user8")))));
+			data.put("prevCursor", 4);
+			data.put("hasPrev", true);
+			data.put("nextCursor", 6);
+			data.put("hasNext", true);
+			return ApiResponse.ok("협력 랭킹 조회 성공", data);
+		}
+
+		if (beforeRank != null) {
+			Map<String, Object> data = new LinkedHashMap<>();
+			data.put("rankings", List.of(
+				Map.of(
+					"rank", 2,
+					"teamName", "branch squad",
+					"mapId", "330e8400-e29b-41d4-a716-446655440000",
+					"mapName", "merge 충돌",
+					"difficulty", "NORMAL",
+					"elapsedTime", 72000,
+					"totalWrongTypeCount", 3,
+					"totalWrongOrderCount", 1,
+					"members", List.of(
+						Map.of("playerId", "23232323-e29b-41d4-a716-446655440000", "nickname", "anna"),
+						Map.of("playerId", "24242424-e29b-41d4-a716-446655440000", "nickname", "bella"),
+						Map.of("playerId", "25252525-e29b-41d4-a716-446655440000", "nickname", "cody"),
+						Map.of("playerId", "26262626-e29b-41d4-a716-446655440000", "nickname", "dane")))));
+			data.put("prevCursor", 2);
+			data.put("hasPrev", true);
+			data.put("nextCursor", 3);
 			data.put("hasNext", true);
 			return ApiResponse.ok("협력 랭킹 조회 성공", data);
 		}
 
 		Map<String, Object> data = new LinkedHashMap<>();
 		data.put("rankings", List.of(
-			Map.of("rank", cursor + 1, "nickname", "user5", "clearTime", 89000)));
-		data.put("nextCursor", cursor + 20);
+			Map.of(
+				"rank", afterRank + 1,
+				"teamName", "conflict solvers",
+				"mapId", "550e8400-e29b-41d4-a716-446655440000",
+				"mapName", "기초 브랜치",
+				"difficulty", "NORMAL",
+				"elapsedTime", 89000,
+				"totalWrongTypeCount", 7,
+				"totalWrongOrderCount", 4,
+				"members", List.of(
+					Map.of("playerId", "17171717-e29b-41d4-a716-446655440000", "nickname", "user13"),
+					Map.of("playerId", "18181818-e29b-41d4-a716-446655440000", "nickname", "user14"),
+					Map.of("playerId", "19191919-e29b-41d4-a716-446655440000", "nickname", "user15"),
+					Map.of("playerId", "20202020-e29b-41d4-a716-446655440000", "nickname", "user16")))));
+		data.put("prevCursor", afterRank + 1);
+		data.put("hasPrev", true);
+		data.put("nextCursor", afterRank + 20);
 		data.put("hasNext", true);
 		return ApiResponse.ok("협력 랭킹 조회 성공", data);
 	}
@@ -211,8 +312,10 @@ public class RankingController implements RankingControllerDocs {
 
 	// TODO: 서비스 로직 연동 후 제거
 	@Override
-	@GetMapping("/speed/history")
-	public ResponseEntity<?> getSpeedRankingHistory(
+	@GetMapping("/contribution/history")
+	public ResponseEntity<?> getContributionRankingHistory(
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@RequestParam
 		Integer year,
 		@RequestParam
@@ -220,35 +323,62 @@ public class RankingController implements RankingControllerDocs {
 		@RequestParam
 		Integer week,
 		@RequestParam(required = false)
-		Integer cursor,
+		Integer afterRank,
+		@RequestParam(required = false)
+		Integer beforeRank,
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 
-		if (cursor == null) {
+		if (afterRank == null && beforeRank == null) {
 			Map<String, Object> data = new LinkedHashMap<>();
 			data.put("year", year);
 			data.put("month", month);
 			data.put("week", week);
 			data.put("top3", List.of(
-				Map.of("rank", 1, "nickname", "speedking", "contribution", 12000),
-				Map.of("rank", 2, "nickname", "fastuser", "contribution", 11500),
-				Map.of("rank", 3, "nickname", "quickdraw", "contribution", 10900)));
-			data.put("myRank", Map.of("rank", 15, "contribution", 8800));
+				Map.of("rank", 1, "playerId", "550e8400-e29b-41d4-a716-446655440000", "nickname", "dobby",
+					"contribution", 12000, "playCount", 10),
+				Map.of("rank", 2, "playerId", "661f9511-f30c-52e5-b827-557766551111", "nickname", "alice",
+					"contribution", 11500, "playCount", 9),
+				Map.of("rank", 3, "playerId", "772g0622-g41d-63f6-c938-668877662222", "nickname", "bob",
+					"contribution", 10900, "playCount", 11)));
+			data.put("myRank", Map.of("rank", 15, "contribution", 8800, "playCount", 10));
 			data.put("around", List.of(
-				Map.of("rank", 13, "nickname", "user1", "contribution", 9100),
-				Map.of("rank", 14, "nickname", "user2", "contribution", 8900),
-				Map.of("rank", 15, "nickname", "dobby", "contribution", 8800),
-				Map.of("rank", 16, "nickname", "user3", "contribution", 8600),
-				Map.of("rank", 17, "nickname", "user4", "contribution", 8400)));
+				Map.of("rank", 13, "playerId", "11111111-e29b-41d4-a716-446655440000", "nickname", "user1",
+					"contribution", 9100, "playCount", 10),
+				Map.of("rank", 14, "playerId", "22222222-e29b-41d4-a716-446655440000", "nickname", "user2",
+					"contribution", 8900, "playCount", 9),
+				Map.of("rank", 15, "playerId", "33333333-e29b-41d4-a716-446655440000", "nickname", "dobby",
+					"contribution", 8800, "playCount", 10),
+				Map.of("rank", 16, "playerId", "44444444-e29b-41d4-a716-446655440000", "nickname", "user3",
+					"contribution", 8600, "playCount", 12),
+				Map.of("rank", 17, "playerId", "55555555-e29b-41d4-a716-446655440000", "nickname", "user4",
+					"contribution", 8400, "playCount", 8)));
+			data.put("prevCursor", 13);
+			data.put("hasPrev", true);
 			data.put("nextCursor", 17);
+			data.put("hasNext", true);
+			return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
+		}
+
+		if (beforeRank != null) {
+			Map<String, Object> data = new LinkedHashMap<>();
+			data.put("rankings", List.of(
+				Map.of("rank", 10, "playerId", "77777777-e29b-41d4-a716-446655440000", "nickname", "user0",
+					"contribution", 9500, "playCount", 6)));
+			data.put("prevCursor", 10);
+			data.put("hasPrev", true);
+			data.put("nextCursor", 12);
 			data.put("hasNext", true);
 			return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
 		}
 
 		Map<String, Object> data = new LinkedHashMap<>();
 		data.put("rankings", List.of(
-			Map.of("rank", cursor + 1, "nickname", "user5", "contribution", 8200)));
-		data.put("nextCursor", cursor + 20);
+			Map.of("rank", afterRank + 1, "playerId", "66666666-e29b-41d4-a716-446655440000", "nickname", "user5",
+				"contribution", 8200, "playCount", 7)));
+		data.put("prevCursor", afterRank + 1);
+		data.put("hasPrev", true);
+		data.put("nextCursor", afterRank + 20);
 		data.put("hasNext", true);
 		return ApiResponse.ok("스피드런 랭킹 조회 성공", data);
 	}
@@ -301,8 +431,8 @@ public class RankingController implements RankingControllerDocs {
 	@Override
 	@GetMapping("/coop/history")
 	public ResponseEntity<?> getCoopRankingHistory(
-		@RequestParam
-		Integer mapId,
+		@AuthenticationPrincipal
+		CustomUserDetails userDetails,
 		@RequestParam
 		Integer year,
 		@RequestParam
@@ -310,37 +440,111 @@ public class RankingController implements RankingControllerDocs {
 		@RequestParam
 		Integer week,
 		@RequestParam(required = false)
-		Integer cursor,
+		Integer afterRank,
+		@RequestParam(required = false)
+		Integer beforeRank,
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 
-		if (cursor == null) {
+		if (afterRank == null && beforeRank == null) {
 			Map<String, Object> data = new LinkedHashMap<>();
-			data.put("mapId", mapId);
-			data.put("mapName", "기초 브랜치");
 			data.put("year", year);
 			data.put("month", month);
 			data.put("week", week);
 			data.put("top3", List.of(
-				Map.of("rank", 1, "nickname", "coopmaster", "clearTime", 61000),
-				Map.of("rank", 2, "nickname", "teamwork", "clearTime", 65000),
-				Map.of("rank", 3, "nickname", "syncpro", "clearTime", 70000)));
-			data.put("myRank", Map.of("rank", 5, "clearTime", 83000));
+				Map.of(
+					"rank", 1,
+					"teamName", "git masters",
+					"mapId", "550e8400-e29b-41d4-a716-446655440000",
+					"mapName", "기초 브랜치",
+					"difficulty", "NORMAL",
+					"elapsedTime", 61000,
+					"totalWrongTypeCount", 2,
+					"totalWrongOrderCount", 1,
+					"members", List.of(
+						Map.of("playerId", "22222222-e29b-41d4-a716-446655440000", "nickname", "alice"),
+						Map.of("playerId", "33333333-e29b-41d4-a716-446655440000", "nickname", "bob"),
+						Map.of("playerId", "44444444-e29b-41d4-a716-446655440000", "nickname", "charlie"),
+						Map.of("playerId", "11111111-e29b-41d4-a716-446655440000", "nickname", "dobby")))));
+			data.put("myRank", Map.of(
+				"rank", 5,
+				"teamName", "merge crew",
+				"mapId", "770e8400-e29b-41d4-a716-446655440000",
+				"mapName", "rebase 실전",
+				"difficulty", "NORMAL",
+				"elapsedTime", 83000,
+				"totalWrongTypeCount", 5,
+				"totalWrongOrderCount", 3,
+				"members", List.of(
+					Map.of("playerId", "aaaaaaaa-e29b-41d4-a716-446655440000", "nickname", "alice"),
+					Map.of("playerId", "bbbbbbbb-e29b-41d4-a716-446655440000", "nickname", "bob"),
+					Map.of("playerId", "cccccccc-e29b-41d4-a716-446655440000", "nickname", "charlie"),
+					Map.of("playerId", "99999999-e29b-41d4-a716-446655440000", "nickname", "dobby"))));
 			data.put("around", List.of(
-				Map.of("rank", 3, "nickname", "user1", "clearTime", 79000),
-				Map.of("rank", 4, "nickname", "user2", "clearTime", 81000),
-				Map.of("rank", 5, "nickname", "dobby", "clearTime", 83000),
-				Map.of("rank", 6, "nickname", "user3", "clearTime", 85000),
-				Map.of("rank", 7, "nickname", "user4", "clearTime", 87000)));
-			data.put("nextCursor", 7);
+				Map.of(
+					"rank", 4,
+					"teamName", "reset zero",
+					"mapId", "880e8400-e29b-41d4-a716-446655440000",
+					"mapName", "브랜치 이동",
+					"difficulty", "NORMAL",
+					"elapsedTime", 81000,
+					"totalWrongTypeCount", 4,
+					"totalWrongOrderCount", 2,
+					"members", List.of(
+						Map.of("playerId", "dddddddd-e29b-41d4-a716-446655440000", "nickname", "user5"),
+						Map.of("playerId", "eeeeeeee-e29b-41d4-a716-446655440000", "nickname", "user6"),
+						Map.of("playerId", "ffffffff-e29b-41d4-a716-446655440000", "nickname", "user7"),
+						Map.of("playerId", "12121212-e29b-41d4-a716-446655440000", "nickname", "user8")))));
+			data.put("prevCursor", 4);
+			data.put("hasPrev", true);
+			data.put("nextCursor", 6);
+			data.put("hasNext", true);
+			return ApiResponse.ok("협력 랭킹 조회 성공", data);
+		}
+
+		if (beforeRank != null) {
+			Map<String, Object> data = new LinkedHashMap<>();
+			data.put("rankings", List.of(
+				Map.of(
+					"rank", 2,
+					"teamName", "branch squad",
+					"mapId", "330e8400-e29b-41d4-a716-446655440000",
+					"mapName", "merge 충돌",
+					"difficulty", "NORMAL",
+					"elapsedTime", 72000,
+					"totalWrongTypeCount", 3,
+					"totalWrongOrderCount", 1,
+					"members", List.of(
+						Map.of("playerId", "23232323-e29b-41d4-a716-446655440000", "nickname", "anna"),
+						Map.of("playerId", "24242424-e29b-41d4-a716-446655440000", "nickname", "bella"),
+						Map.of("playerId", "25252525-e29b-41d4-a716-446655440000", "nickname", "cody"),
+						Map.of("playerId", "26262626-e29b-41d4-a716-446655440000", "nickname", "dane")))));
+			data.put("prevCursor", 2);
+			data.put("hasPrev", true);
+			data.put("nextCursor", 3);
 			data.put("hasNext", true);
 			return ApiResponse.ok("협력 랭킹 조회 성공", data);
 		}
 
 		Map<String, Object> data = new LinkedHashMap<>();
 		data.put("rankings", List.of(
-			Map.of("rank", cursor + 1, "nickname", "user5", "clearTime", 89000)));
-		data.put("nextCursor", cursor + 20);
+			Map.of(
+				"rank", afterRank + 1,
+				"teamName", "conflict solvers",
+				"mapId", "550e8400-e29b-41d4-a716-446655440000",
+				"mapName", "기초 브랜치",
+				"difficulty", "NORMAL",
+				"elapsedTime", 89000,
+				"totalWrongTypeCount", 7,
+				"totalWrongOrderCount", 4,
+				"members", List.of(
+					Map.of("playerId", "17171717-e29b-41d4-a716-446655440000", "nickname", "user13"),
+					Map.of("playerId", "18181818-e29b-41d4-a716-446655440000", "nickname", "user14"),
+					Map.of("playerId", "19191919-e29b-41d4-a716-446655440000", "nickname", "user15"),
+					Map.of("playerId", "20202020-e29b-41d4-a716-446655440000", "nickname", "user16")))));
+		data.put("prevCursor", afterRank + 1);
+		data.put("hasPrev", true);
+		data.put("nextCursor", afterRank + 20);
 		data.put("hasNext", true);
 		return ApiResponse.ok("협력 랭킹 조회 성공", data);
 	}

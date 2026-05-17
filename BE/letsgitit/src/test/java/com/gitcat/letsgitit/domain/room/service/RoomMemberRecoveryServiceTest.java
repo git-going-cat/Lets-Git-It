@@ -16,12 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
-import com.gitcat.letsgitit.domain.member.entity.Member;
-import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
-import com.gitcat.letsgitit.domain.room.util.RoomMemberMapper;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,13 +32,10 @@ class RoomMemberRecoveryServiceTest {
 	private RoomMemberRecoveryService roomMemberRecoveryService;
 
 	@Mock
-	private MemberService memberService;
+	private RoomMemberStateRecoveryService roomMemberStateRecoveryService;
 
 	@Mock
 	private RoomRedisRepository roomRedisRepository;
-
-	@Mock
-	private RoomMemberMapper roomMemberMapper;
 
 	@Mock
 	private RoomService roomService;
@@ -51,67 +44,15 @@ class RoomMemberRecoveryServiceTest {
 	class EnsureMemberInRoom {
 
 		@Test
-		void existsMember가_true면_복구_없이_true를_반환한다() {
-			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+		void 멤버_상태_복구_서비스에_위임한다() {
+			Map<Object, Object> roomInfo = roomInfo();
+			given(roomMemberStateRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo, "coop"))
+				.willReturn(true);
 
-			boolean result = roomMemberRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo(), "coop");
-
-			assertThat(result).isTrue();
-			then(roomRedisRepository).should(never()).findJoinedRoomId(any());
-			then(memberService).should(never()).findById(any());
-		}
-
-		@Test
-		void findJoinedRoomId가_empty면_false를_반환한다() {
-			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
-			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.empty());
-
-			boolean result = roomMemberRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo(), "coop");
-
-			assertThat(result).isFalse();
-			then(memberService).should(never()).findById(any());
-		}
-
-		@Test
-		void findJoinedRoomId가_다른_roomId면_false를_반환한다() {
-			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
-			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.of(PREVIOUS_ROOM_ID));
-
-			boolean result = roomMemberRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo(), "coop");
-
-			assertThat(result).isFalse();
-			then(memberService).should(never()).findById(any());
-		}
-
-		@Test
-		void 정상_복구_성공_경로에서_멤버를_저장하고_true를_반환한다() {
-			Member member = createMember(MEMBER_ID, "dobby");
-			Map<String, Object> memberInfo = Map.of("playerId", MEMBER_ID.toString(), "isHost", false);
-			Map<Object, Object> info = roomInfo();
-
-			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
-			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.of(ROOM_ID));
-			given(memberService.findById(MEMBER_ID)).willReturn(member);
-			given(roomMemberMapper.toMemberInfo(member, false)).willReturn(memberInfo);
-
-			boolean result = roomMemberRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, info, "coop");
+			boolean result = roomMemberRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo, "coop");
 
 			assertThat(result).isTrue();
-			then(roomRedisRepository).should().saveMember(ROOM_ID.toString(), MEMBER_ID.toString(), memberInfo);
-		}
-
-		@Test
-		void roomInfo에_hostMemberId가_없으면_IllegalStateException을_던진다() {
-			Map<Object, Object> infoWithoutHost = new LinkedHashMap<>();
-			infoWithoutHost.put("roomCode", "ABC123");
-
-			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(false);
-			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.of(ROOM_ID));
-			given(memberService.findById(MEMBER_ID)).willReturn(createMember(MEMBER_ID, "dobby"));
-
-			assertThatThrownBy(
-				() -> roomMemberRecoveryService.ensureMemberInRoom(ROOM_ID, MEMBER_ID, infoWithoutHost, "coop"))
-				.isInstanceOf(IllegalStateException.class);
+			then(roomMemberStateRecoveryService).should().ensureMemberInRoom(ROOM_ID, MEMBER_ID, roomInfo, "coop");
 		}
 	}
 
@@ -179,10 +120,4 @@ class RoomMemberRecoveryServiceTest {
 		return info;
 	}
 
-	private Member createMember(UUID memberId, String nickname) {
-		Member member = Member.of("user@example.com", "encodedPassword");
-		member.updateNickname(nickname);
-		ReflectionTestUtils.setField(member, "id", memberId);
-		return member;
-	}
 }

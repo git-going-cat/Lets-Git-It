@@ -14,6 +14,7 @@ public record CoopRoomInfoResponse(
 	RoomState roomState,
 	Integer currentPlayers,
 	Integer maxPlayers,
+	Boolean hasPassword,
 	SelectedMapDto selectedMap,
 	List<PlayerInfoDto> members) {
 }

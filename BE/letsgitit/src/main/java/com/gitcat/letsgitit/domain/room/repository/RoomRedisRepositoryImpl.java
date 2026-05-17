@@ -29,6 +29,7 @@ import org.springframework.data.redis.serializer.SerializationException;
 import org.springframework.stereotype.Repository;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gitcat.letsgitit.domain.room.constants.RoomConstants;
@@ -53,6 +54,63 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		redis.call('SET', KEYS[1], ARGV[1])
 		redis.call('HSET', KEYS[2], ARGV[2], ARGV[3])
 		redis.call('SADD', KEYS[3], ARGV[2])
+		return 1
+		""", Long.class);
+
+	// transferHost용 Lua 스크립트 (검증 먼저, 변경 나중)
+	// KEYS[1]=infoKey, KEYS[2]=membersKey
+	// ARGV[1]=prevHostId, ARGV[2]=newHostId
+	private static final RedisScript<Long> TRANSFER_HOST_SCRIPT = RedisScript.of("""
+		local infoKey = KEYS[1]
+		local membersKey = KEYS[2]
+		local prevHostId = ARGV[1]
+		local newHostId = ARGV[2]
+
+		local prevHostJson = redis.call('HGET', membersKey, prevHostId)
+		if not prevHostJson then
+			return -1
+		end
+
+		local newHostJson = redis.call('HGET', membersKey, newHostId)
+		if not newHostJson then
+			return -2
+		end
+
+		local prevHost = cjson.decode(prevHostJson)
+		local newHost = cjson.decode(newHostJson)
+
+		prevHost['isHost'] = false
+		prevHost['isReady'] = false
+		newHost['isHost'] = true
+		newHost['isReady'] = true
+
+		redis.call('HSET', membersKey, prevHostId, cjson.encode(prevHost))
+		redis.call('HSET', membersKey, newHostId, cjson.encode(newHost))
+		redis.call('HSET', infoKey, 'hostMemberId', cjson.encode(newHostId))
+
+		return 1
+		""", Long.class);
+
+	// leaveRoom 방장 위임용 Lua 스크립트 (검증 먼저, 변경 나중)
+	// KEYS[1]=infoKey, KEYS[2]=membersKey
+	// ARGV[1]=newHostId
+	private static final RedisScript<Long> DELEGATE_HOST_SCRIPT = RedisScript.of("""
+		local infoKey = KEYS[1]
+		local membersKey = KEYS[2]
+		local newHostId = ARGV[1]
+
+		local newHostJson = redis.call('HGET', membersKey, newHostId)
+		if not newHostJson then
+			return -1
+		end
+
+		local newHost = cjson.decode(newHostJson)
+		newHost['isHost'] = true
+		newHost['isReady'] = true
+
+		redis.call('HSET', membersKey, newHostId, cjson.encode(newHost))
+		redis.call('HSET', infoKey, 'hostMemberId', cjson.encode(newHostId))
+
 		return 1
 		""", Long.class);
 
@@ -313,6 +371,18 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 	}
 
 	@Override
+	public void updateMemberHostFlags(Long roomId, String newHostId) {
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		Map<Object, Object> members = gameStringRedisTemplate.opsForHash().entries(membersKey);
+		for (Map.Entry<Object, Object> entry : members.entrySet()) {
+			String memberId = String.valueOf(entry.getKey());
+			Map<String, Object> memberInfo = readMemberInfo(entry.getValue());
+			memberInfo.put("isHost", memberId.equals(newHostId));
+			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, toJson(memberInfo));
+		}
+	}
+
+	@Override
 	public void dissolveRoom(Long roomId) {
 		String roomIdValue = roomId.toString();
 		String infoKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomIdValue + RoomConstants.ROOM_INFO_KEY_SUFFIX;
@@ -335,6 +405,25 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 	public boolean isPasswordVerified(String memberId, Long roomId) {
 		String key = "room:" + roomId + ":password:verified:" + memberId;
 		return Boolean.TRUE.equals(authStringRedisTemplate.hasKey(key));
+	}
+
+	@Override
+	public void updateMemberIsReady(String roomId, String memberId, boolean isReady) {
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		String memberJson = (String)gameStringRedisTemplate.opsForHash().get(membersKey, memberId);
+		if (memberJson == null) {
+			throw new IllegalStateException(
+				"Member not found in room members hash. roomId=" + roomId + ", memberId=" + memberId);
+		}
+		try {
+			Map<String, Object> memberInfo = objectMapper.readValue(memberJson,
+				new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+			memberInfo.put("isReady", isReady);
+			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, objectMapper.writeValueAsString(memberInfo));
+		} catch (JsonProcessingException e) {
+			throw new IllegalStateException(
+				"Failed to update member isReady. roomId=" + roomId + ", memberId=" + memberId, e);
+		}
 	}
 
 	private void dissolveRoomKeys(String infoKey, String membersKey, Object roomCodeObj, Object modeObj,
@@ -457,6 +546,55 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		return Optional.empty();
 	}
 
+	@Override
+	public String findRoomStateById(Long roomId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		Object value = gameRedisTemplate.opsForHash().get(key, "roomState");
+		return value == null ? null : String.valueOf(value);
+	}
+
+	@Override
+	public String findModeById(Long roomId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		Object value = gameRedisTemplate.opsForHash().get(key, "mode");
+		return value == null ? null : String.valueOf(value);
+	}
+
+	@Override
+	public long countReadyNonHostMembers(Long roomId, String hostId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		return gameStringRedisTemplate.opsForHash().entries(key).entrySet().stream()
+			.filter(e -> !hostId.equals(String.valueOf(e.getKey())))
+			.filter(e -> {
+				try {
+					return objectMapper.readTree((String)e.getValue()).path("isReady").asBoolean(false);
+				} catch (Exception ex) {
+					log.warn("[room] countReadyNonHostMembers parse error. memberId={}", e.getKey(), ex);
+					return false;
+				}
+			})
+			.count();
+	}
+
+	@Override
+	public void updateRoomState(Long roomId, String state) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		gameRedisTemplate.opsForHash().put(key, "roomState", state);
+	}
+
+	@Override
+	public void saveGameSessionId(Long roomId, String gameSessionId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		gameRedisTemplate.opsForHash().put(key, "gameSessionId", gameSessionId);
+	}
+
+	@Override
+	public String findSelectedMapId(Long roomId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		Object value = gameRedisTemplate.opsForHash().get(key, "selectedMapId");
+		return value == null ? null : String.valueOf(value);
+	}
+
 	private RoomCache toCache(String roomId, Map<Object, Object> fields) {
 		if (fields.isEmpty()) {
 			return null;
@@ -548,6 +686,69 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 			return objectMapper.writeValueAsString(memberInfo);
 		} catch (JsonProcessingException e) {
 			throw new IllegalStateException("Failed to serialize memberInfo", e);
+		}
+	}
+
+	private Map<String, Object> readMemberInfo(Object memberValue) {
+		if (memberValue instanceof Map<?, ?> memberMap) {
+			return memberMap.entrySet().stream()
+				.collect(java.util.stream.Collectors.toMap(
+					entry -> String.valueOf(entry.getKey()),
+					Map.Entry::getValue,
+					(left, right) -> right));
+		}
+		if (memberValue instanceof String memberJson) {
+			try {
+				return objectMapper.readValue(memberJson, new TypeReference<Map<String, Object>>() {});
+			} catch (Exception e) {
+				throw new IllegalStateException("Failed to deserialize room member info", e);
+			}
+		}
+		throw new IllegalStateException("Unsupported room member info type");
+	}
+
+	@Override
+	public void transferHostAtomic(String roomId, String prevHostId, String newHostId) {
+		String infoKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+
+		Long result = gameStringRedisTemplate.execute(
+			TRANSFER_HOST_SCRIPT,
+			List.of(infoKey, membersKey),
+			prevHostId, newHostId);
+
+		if (result == null) {
+			throw new IllegalStateException("Transfer host script execution failed. roomId=" + roomId);
+		}
+		if (result.equals(-1L)) {
+			throw new IllegalStateException("Prev host not found. roomId=" + roomId + ", prevHostId=" + prevHostId);
+		}
+		if (result.equals(-2L)) {
+			throw new IllegalStateException("New host not found. roomId=" + roomId + ", newHostId=" + newHostId);
+		}
+		if (!result.equals(1L)) {
+			throw new IllegalStateException("Unexpected script result=" + result + ". roomId=" + roomId);
+		}
+	}
+
+	@Override
+	public void delegateHostAtomic(String roomId, String newHostId) {
+		String infoKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+
+		Long result = gameStringRedisTemplate.execute(
+			DELEGATE_HOST_SCRIPT,
+			List.of(infoKey, membersKey),
+			newHostId);
+
+		if (result == null) {
+			throw new IllegalStateException("Delegate host script execution failed. roomId=" + roomId);
+		}
+		if (result.equals(-1L)) {
+			throw new IllegalStateException("New host not found. roomId=" + roomId + ", newHostId=" + newHostId);
+		}
+		if (!result.equals(1L)) {
+			throw new IllegalStateException("Unexpected script result=" + result + ". roomId=" + roomId);
 		}
 	}
 }

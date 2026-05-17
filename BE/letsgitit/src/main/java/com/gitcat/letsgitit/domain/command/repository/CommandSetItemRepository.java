@@ -1,3 +1,10 @@
 package com.gitcat.letsgitit.domain.command.repository;
 
-public interface CommandSetItemRepository {}
+import java.util.List;
+import java.util.UUID;
+
+import com.gitcat.letsgitit.domain.command.entity.CompetitiveCommandSetItem;
+
+public interface CommandSetItemRepository {
+	List<CompetitiveCommandSetItem> findAllByCommandSetId(UUID commandSetId);
+}

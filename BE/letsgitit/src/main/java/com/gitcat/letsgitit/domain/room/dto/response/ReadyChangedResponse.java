@@ -1,4 +1,4 @@
-package com.gitcat.letsgitit.domain.room.dto.websocket.response;
+package com.gitcat.letsgitit.domain.room.dto.response;
 
 import java.util.UUID;
 
@@ -11,7 +11,6 @@ public record ReadyChangedResponse(
 	String nickname,
 	@JsonProperty("isReady")
 	Boolean isReady,
-	@JsonProperty("allReady")
 	Boolean allReady) implements BaseWebSocketResponse {
 
 	public static ReadyChangedResponse of(

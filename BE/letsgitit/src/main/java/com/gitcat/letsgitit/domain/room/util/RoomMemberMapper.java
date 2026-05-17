@@ -32,7 +32,7 @@ public class RoomMemberMapper {
 		memberInfo.put("characterEye", member.getCharacterEye());
 		memberInfo.put("characterOutfit", member.getCharacterOutfit());
 		memberInfo.put("characterOutfitColor", member.getCharacterOutfitColor());
-		memberInfo.put("isReady", false);
+		memberInfo.put("isReady", isHost);
 		memberInfo.put("isHost", isHost);
 		return memberInfo;
 	}

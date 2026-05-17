@@ -47,4 +47,12 @@ public class CoopServiceImpl implements CoopService {
 		CoopMap coopMap = getActiveCoopMap(mapId);
 		return new SelectedMapDto(coopMap.getId(), coopMap.getName(), coopMap.getDifficulty());
 	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public String getGraphPictureByMapId(UUID mapId) {
+		return coopMapRepository.findById(mapId)
+			.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND))
+			.getGraphPicture();
+	}
 }

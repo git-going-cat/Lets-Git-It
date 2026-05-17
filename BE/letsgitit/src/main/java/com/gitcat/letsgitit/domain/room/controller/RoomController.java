@@ -28,11 +28,14 @@ import com.gitcat.letsgitit.domain.room.dto.response.CreateContributionRoomRespo
 import com.gitcat.letsgitit.domain.room.dto.response.CreateCoopRoomResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.JoinContributionRoomResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.JoinCoopRoomResponse;
+import com.gitcat.letsgitit.domain.room.dto.response.KickMemberResultResponse;
 import com.gitcat.letsgitit.domain.room.service.ContributionRoomService;
 import com.gitcat.letsgitit.domain.room.service.CoopRoomService;
 import com.gitcat.letsgitit.domain.room.service.RoomService;
+import com.gitcat.letsgitit.domain.room.service.RoomWebSocketEventPublisher;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.response.ApiResponse;
+import com.gitcat.letsgitit.global.websocket.dto.BaseWebSocketResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -44,6 +47,7 @@ public class RoomController implements RoomControllerDocs {
 	private final RoomService roomService;
 	private final ContributionRoomService contributionRoomService;
 	private final CoopRoomService coopRoomService;
+	private final RoomWebSocketEventPublisher roomWebSocketEventPublisher;
 
 	@Override
 	@PostMapping("/contribution")
@@ -119,7 +123,7 @@ public class RoomController implements RoomControllerDocs {
 	Long roomId) {
 		UUID memberId = userDetails.getMemberId();
 		JoinCoopRoomResponse response = coopRoomService.joinCoopRoom(memberId, roomId);
-		return ApiResponse.ok("방 입장 성공", response);
+		return ApiResponse.ok("협력 모드 방 입장 성공", response);
 	}
 
 	@Override
@@ -170,7 +174,11 @@ public class RoomController implements RoomControllerDocs {
 		String playerId,
 		@AuthenticationPrincipal
 		CustomUserDetails userDetails) {
-		roomService.kickMember(roomId, userDetails.getMemberId(), playerId);
+		KickMemberResultResponse result = roomService.kickMember(roomId, userDetails.getMemberId(), playerId);
+
+		// WebSocket 이벤트 발행 (강퇴 대상 + 나머지 전체)
+		roomWebSocketEventPublisher.publishPlayerKicked(roomId, playerId, result);
+
 		return ApiResponse.ok("추방 성공");
 	}
 
@@ -185,7 +193,6 @@ public class RoomController implements RoomControllerDocs {
 		return ApiResponse.ok("방 상태 조회 성공", response);
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@GetMapping("/{roomId}/coop/state")
 	public ResponseEntity<?> getCoopRoomState(@AuthenticationPrincipal
@@ -194,6 +201,17 @@ public class RoomController implements RoomControllerDocs {
 		Long roomId) {
 		UUID memberId = userDetails.getMemberId();
 		CoopRoomInfoResponse response = coopRoomService.getCoopRoomInfo(memberId, roomId);
+		return ApiResponse.ok("방 상태 조회 성공", response);
+	}
+
+	@Override
+	@GetMapping("/{roomId}/state")
+	public ResponseEntity<?> getRoomState(@AuthenticationPrincipal
+	CustomUserDetails userDetails,
+		@PathVariable
+		Long roomId) {
+		UUID memberId = userDetails.getMemberId();
+		BaseWebSocketResponse response = roomService.getRoomState(memberId, roomId);
 		return ApiResponse.ok("방 상태 조회 성공", response);
 	}
 }
