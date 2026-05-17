@@ -29,6 +29,10 @@ public final class ContributionRedisKeys {
 		return SESSION_PREFIX + gameSessionId + ":positions";
 	}
 
+	public static String rankings(UUID gameSessionId) {
+		return SESSION_PREFIX + gameSessionId + ":rankings";
+	}
+
 	public static String commandLock(UUID gameSessionId, int commandSequence) {
 		return COMMAND_LOCK_PREFIX + gameSessionId + ":command:" + commandSequence;
 	}

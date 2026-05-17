@@ -33,6 +33,7 @@ import com.gitcat.letsgitit.domain.command.dto.response.CommandSetResponse;
 import com.gitcat.letsgitit.domain.command.service.CommandService;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionCommand;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionPlayer;
+import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionGameEndMessage;
 import com.gitcat.letsgitit.domain.competitive.service.ContributionGameService;
 import com.gitcat.letsgitit.domain.coop.dto.response.CoopGameEndResponse;
 import com.gitcat.letsgitit.domain.coop.dto.response.CoopMapListResponse;
@@ -152,10 +153,23 @@ public class RoomServiceImpl implements RoomService {
 				.orElseGet(() -> memberService.getNicknameById(memberId));
 			String hostId = roomRedisRepository.findHostIdById(roomId);
 			boolean hostLeft = memberIdStr.equals(hostId);
+			boolean contributionGameInProgress = ROOM_STATE_IN_GAME
+				.equals(roomRedisRepository.findRoomStateById(roomId))
+				&& RoomMode.CONTRIBUTION.name().equals(roomRedisRepository.findModeById(roomId));
+			String gameSessionId = contributionGameInProgress ? roomRedisRepository.findGameSessionId(roomId) : null;
 
 			roomRedisRepository.removeMember(roomId, memberIdStr);
 			List<PlayerInfoDto> remainMembers = roomMemberMapper
 				.toPlayerInfoDtos(roomRedisRepository.getMembers(roomId.toString()));
+			if (contributionGameInProgress && remainMembers.size() <= 1 && gameSessionId != null) {
+				ContributionGameEndMessage gameEnd = contributionGameService.endByPlayerDisconnected(
+					roomId,
+					UUID.fromString(gameSessionId));
+				if (gameEnd != null) {
+					roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
+					roomWebSocketEventPublisher.publishContributionGameEnd(roomId, gameEnd);
+				}
+			}
 			if (remainMembers.isEmpty()) {
 				roomRedisRepository.dissolveRoom(roomId);
 				log.info("[room][leaveRoom] 방 해산. roomId={}", roomId);
@@ -186,6 +200,37 @@ public class RoomServiceImpl implements RoomService {
 		} finally {
 			lock.unlock();
 		}
+	}
+
+	@Override
+	public void leaveContributionGameIfDisconnected(String memberId) {
+		roomRedisRepository.findJoinedRoomId(memberId)
+			.ifPresent(roomId -> {
+				if (!ROOM_STATE_IN_GAME.equals(roomRedisRepository.findRoomStateById(roomId))
+					|| !RoomMode.CONTRIBUTION.name().equals(roomRedisRepository.findModeById(roomId))) {
+					return;
+				}
+				leaveRoom(roomId, UUID.fromString(memberId));
+			});
+	}
+
+	@Override
+	public void leaveGameIfDisconnected(String memberId) {
+		roomRedisRepository.findJoinedRoomId(memberId)
+			.ifPresent(roomId -> {
+				if (!ROOM_STATE_IN_GAME.equals(roomRedisRepository.findRoomStateById(roomId))) {
+					return;
+				}
+
+				String mode = roomRedisRepository.findModeById(roomId);
+				if (RoomMode.CONTRIBUTION.name().equals(mode)) {
+					leaveRoom(roomId, UUID.fromString(memberId));
+					return;
+				}
+				if (RoomMode.COOP.name().equals(mode)) {
+					coopGameService.handlePlayerDisconnect(roomId);
+				}
+			});
 	}
 
 	private PlayerInfoDto pickRandomHost(List<PlayerInfoDto> remainMembers) {
