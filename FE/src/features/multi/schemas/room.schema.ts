@@ -105,18 +105,11 @@ export const joinCoopRoomResponseSchema = z.object({
 });
 
 // ── WebSocket 로비 메시지 스키마 ────────────────────────────────
-// REST API의 roomStateSchema(WAITING|IN_GAME)와 달리 게임 진행 중 상태도 포함
-const wsRoomStateSchema = z.enum(['WAITING', 'COUNTDOWN', 'IN_GAME', 'RESULT']);
-
-export const roomStateMessageSchema = z.object({
-  type: z.literal('ROOM_STATE'),
-  roomState: wsRoomStateSchema,
-  currentPlayers: z.number(),
-  members: z.array(roomMemberSchema),
-});
 
 export const playerJoinedMessageSchema = z.object({
   type: z.literal('PLAYER_JOINED'),
+  roomState: roomStateSchema,
+  joinedPlayer: roomMemberSchema,
   allMembers: z.array(roomMemberSchema),
 });
 
@@ -146,7 +139,7 @@ export const contributionRoomStateMessageSchema = z.object({
   roomCode: z.string(),
   title: z.string(),
   mode: z.literal('CONTRIBUTION'),
-  roomState: wsRoomStateSchema,
+  roomState: roomStateSchema,
   currentPlayers: z.number(),
   maxPlayers: z.number(),
   hasPassword: z.boolean(),
@@ -160,7 +153,7 @@ export const coopRoomStateMessageSchema = z.object({
   title: z.string(),
   teamName: z.string(),
   mode: z.literal('COOP'),
-  roomState: wsRoomStateSchema,
+  roomState: roomStateSchema,
   currentPlayers: z.number(),
   maxPlayers: z.number(),
   hasPassword: z.boolean(),
@@ -168,40 +161,23 @@ export const coopRoomStateMessageSchema = z.object({
   members: z.array(roomMemberSchema),
 });
 
-// ── REST fallback 스키마 ────────────────────────────────
-export const contributionRoomStateResponseSchema = z.object({
-  roomId: z.number(),
-  roomCode: z.string(),
-  title: z.string(),
-  mode: z.literal('CONTRIBUTION'),
-  roomState: roomStateSchema,
-  currentPlayers: z.number(),
-  maxPlayers: z.number(),
-  members: z.array(roomMemberSchema),
-});
-
-export const coopRoomStateResponseSchema = z.object({
-  roomId: z.number(),
-  roomCode: z.string(),
-  title: z.string(),
-  teamName: z.string(),
-  mode: z.literal('COOP'),
-  roomState: roomStateSchema,
-  currentPlayers: z.number(),
-  maxPlayers: z.number(),
-  selectedMap: selectedMapSchema,
-  members: z.array(roomMemberSchema),
-});
-
+// /topic/room/{roomId} 에서 수신되는 메시지 (브로드캐스트 이벤트만)
 export const roomTopicMessageSchema = z.discriminatedUnion('type', [
-  roomStateMessageSchema,
-  contributionRoomStateMessageSchema,
-  coopRoomStateMessageSchema,
   playerJoinedMessageSchema,
   readyChangedMessageSchema,
   playerLeftMessageSchema,
   hostDelegatedMessageSchema,
 ]);
+
+// /user/queue/private 에서 수신되는 방 상태 스냅샷 메시지
+export const roomPrivateMessageSchema = z.discriminatedUnion('type', [
+  contributionRoomStateMessageSchema,
+  coopRoomStateMessageSchema,
+]);
+
+// ── REST fallback 스키마 ────────────────────────────────
+// GET /api/v1/rooms/{roomId}/state 응답 data는 WebSocket ROOM_STATE payload와 동일
+export const roomStateResponseSchema = roomPrivateMessageSchema;
 
 // ── WebSocket 게임 내 스키마 (공통 채널 + 게임 시작 패킷) ────────────────────────────────
 

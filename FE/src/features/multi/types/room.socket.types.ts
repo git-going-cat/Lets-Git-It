@@ -44,6 +44,8 @@ export interface RoomStateMessage {
  */
 export interface PlayerJoinedMessage {
   type: 'PLAYER_JOINED';
+  roomState: 'WAITING' | 'IN_GAME';
+  joinedPlayer: RoomMember;
   allMembers: RoomMember[];
 }
 
@@ -114,12 +116,16 @@ export interface CoopRoomStateMessage {
   members: RoomMember[];
 }
 
-/** /topic/room/{roomId} 에서 수신 가능한 모든 메시지 union */
+/**
+ * /topic/room/{roomId} 에서 수신 가능한 모든 메시지 union (브로드캐스트 이벤트만)
+ */
 export type RoomTopicMessage =
-  | RoomStateMessage
-  | ContributionRoomStateMessage
-  | CoopRoomStateMessage
   | PlayerJoinedMessage
   | ReadyChangedMessage
   | PlayerLeftMessage
   | HostDelegatedMessage;
+
+/**
+ * /user/queue/private 에서 수신 가능한 방 상태 스냅샷 메시지 union
+ */
+export type RoomPrivateMessage = ContributionRoomStateMessage | CoopRoomStateMessage;

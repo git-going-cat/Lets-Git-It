@@ -8,6 +8,14 @@ import {
   KickedSchema,
 } from '@/features/multi/schemas/room.schema';
 
+/**
+ * 현재 미사용.
+ *
+ * 대기실에서는 useRoomSocket이 /user/queue/private 구독을 소유하며,
+ * ROOM_STATE snapshot과 FORCE_DISCONNECT/KICKED/ERROR를 한 콜백에서 함께 라우팅한다.
+ * 이 훅을 다시 사용할 때는 같은 private queue를 중복 구독하지 않도록
+ * 구독 책임을 useRoomSocket에서 분리한 뒤 적용해야 한다.
+ */
 const PRIVATE_CHANNEL_DESTINATION = '/user/queue/private';
 const PRIVATE_CHANNEL_SUBSCRIPTION_KEY = 'multi:private-channel';
 

@@ -1,6 +1,5 @@
 ﻿export type GameMode = 'CONTRIBUTION' | 'COOP';
-export type RoomStatus = 'WAITING' | 'IN_GAME';
-export type RoomState = 'WAITING' | 'COUNTDOWN' | 'IN_GAME' | 'RESULT';
+export type RoomState = 'WAITING' | 'IN_GAME';
 
 export interface RoomSummary {
   roomId: number;
@@ -9,7 +8,7 @@ export interface RoomSummary {
   currentPlayers: number;
   maxPlayers: number;
   hasPassword: boolean;
-  roomState: RoomStatus;
+  roomState: RoomState;
 }
 
 export interface RoomListResponse {
@@ -115,28 +114,34 @@ export interface JoinCoopRoomResponse {
   mapList: MapInfo[];
 }
 
-/** REST fallback: GET /api/v1/rooms/{roomId}/contribution/state */
+/** ROOM_STATE snapshot: WebSocket private queue or REST GET /api/v1/rooms/{roomId}/state */
 export interface ContributionRoomStateResponse {
+  type: 'CONTRIBUTION_ROOM_STATE';
   roomId: number;
   roomCode: string;
   title: string;
   mode: 'CONTRIBUTION';
-  roomState: RoomStatus;
+  roomState: RoomState;
   currentPlayers: number;
   maxPlayers: number;
+  hasPassword: boolean;
   members: RoomMember[];
 }
 
-/** REST fallback: GET /api/v1/rooms/{roomId}/coop/state */
+/** ROOM_STATE snapshot: WebSocket private queue or REST GET /api/v1/rooms/{roomId}/state */
 export interface CoopRoomStateResponse {
+  type: 'COOP_ROOM_STATE';
   roomId: number;
   roomCode: string;
   title: string;
   teamName: string;
   mode: 'COOP';
-  roomState: RoomStatus;
+  roomState: RoomState;
   currentPlayers: number;
   maxPlayers: number;
+  hasPassword: boolean;
   selectedMap: SelectedMap;
   members: RoomMember[];
 }
+
+export type RoomStateResponse = ContributionRoomStateResponse | CoopRoomStateResponse;

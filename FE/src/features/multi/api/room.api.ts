@@ -1,22 +1,19 @@
 import { http } from '@/core/http';
 
 import {
-  contributionRoomStateResponseSchema,
   coopMapListResponseSchema,
-  coopRoomStateResponseSchema,
   createContributionRoomResponseSchema,
   createCoopRoomResponseSchema,
   joinContributionRoomResponseSchema,
   joinCoopRoomResponseSchema,
   roomListResponseSchema,
+  roomStateResponseSchema,
   roomSummarySchema,
   verifyPasswordResponseSchema,
 } from '../schemas/room.schema';
 
 import type {
-  ContributionRoomStateResponse,
   CoopMapListResponse,
-  CoopRoomStateResponse,
   CreateContributionRoomRequest,
   CreateContributionRoomResponse,
   CreateCoopRoomRequest,
@@ -24,6 +21,7 @@ import type {
   JoinContributionRoomResponse,
   JoinCoopRoomResponse,
   RoomListResponse,
+  RoomStateResponse,
   RoomSummary,
 } from '../types/room.types';
 
@@ -79,16 +77,8 @@ export async function leaveRoom(roomId: number): Promise<void> {
   await http.delete(`/api/v1/rooms/${roomId}/leave`);
 }
 
-/** 재연결 REST fallback: GET /api/v1/rooms/{roomId}/contribution/state */
-export async function getContributionRoomState(
-  roomId: number
-): Promise<ContributionRoomStateResponse> {
-  const { data } = await http.get<{ data: unknown }>(`/api/v1/rooms/${roomId}/contribution/state`);
-  return contributionRoomStateResponseSchema.parse(data.data);
-}
-
-/** 재연결 REST fallback: GET /api/v1/rooms/{roomId}/coop/state */
-export async function getCoopRoomState(roomId: number): Promise<CoopRoomStateResponse> {
-  const { data } = await http.get<{ data: unknown }>(`/api/v1/rooms/${roomId}/coop/state`);
-  return coopRoomStateResponseSchema.parse(data.data);
+/** 재연결 REST fallback: GET /api/v1/rooms/{roomId}/state */
+export async function getRoomState(roomId: number): Promise<RoomStateResponse> {
+  const { data } = await http.get<{ data: unknown }>(`/api/v1/rooms/${roomId}/state`);
+  return roomStateResponseSchema.parse(data.data);
 }

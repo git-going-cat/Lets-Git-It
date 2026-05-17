@@ -1,10 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { socketManager } from '@/core/socket/SocketManager';
 import { useAuthStore } from '@/features/auth/store/authStore';
 
-import { getContributionRoomState, getCoopRoomState } from '../api/room.api';
-import { handleRoomTopicMessage } from '../handlers/roomSocketHandlers';
+import { getRoomState } from '../api/room.api';
+import { handleRoomPrivateMessage, handleRoomTopicMessage } from '../handlers/roomSocketHandlers';
+import {
+  BaseMessageSchema,
+  ErrorSchema,
+  ForceDisconnectSchema,
+  KickedSchema,
+} from '../schemas/room.schema';
 import { useRoomStore } from '../store/roomStore';
 
 const topicKey = (roomId: number) => `room-topic-${roomId}`;
@@ -22,6 +28,12 @@ const BLOCKING_ESCALATION_MS = 10_000;
  * - `blocking`     — 복원 필요 오버레이 (페이지 새로고침 또는 10초+ 단절)
  */
 export type RoomConnectionStatus = 'idle' | 'disconnected' | 'reconnected' | 'blocking';
+
+type PrivateQueueHandlers = {
+  onForceDisconnect?: () => void;
+  onKicked?: (roomId: string) => void;
+  onPrivateError?: (code: string, message: string) => void;
+};
 
 /**
  * 방 대기실 WebSocket 연결 · 구독을 관리한다.
@@ -41,25 +53,70 @@ export type RoomConnectionStatus = 'idle' | 'disconnected' | 'reconnected' | 'bl
  */
 export function useRoomSocket(
   roomId: number,
-  onReconnectComplete?: (roomState: string | null) => void
+  onReconnectComplete?: (roomState: string | null) => void,
+  privateQueueHandlers: PrivateQueueHandlers = {}
 ) {
-  const isInitialReconnect = !useRoomStore.getState().title;
+  const initialRoomState = useRoomStore.getState();
+  const isPreviewReconnect =
+    initialRoomState.roomId === roomId &&
+    Boolean(initialRoomState.title) &&
+    initialRoomState.roomCode === null &&
+    initialRoomState.maxPlayers === 0;
+  const needsInitialRestore = !initialRoomState.title || isPreviewReconnect;
 
   const [connectionStatus, setConnectionStatus] = useState<RoomConnectionStatus>(() =>
-    isInitialReconnect ? 'blocking' : 'idle'
+    needsInitialRestore ? 'blocking' : 'idle'
   );
 
   const onReconnectCompleteRef = useRef(onReconnectComplete);
+  const privateQueueHandlersRef = useRef(privateQueueHandlers);
   useEffect(() => {
     onReconnectCompleteRef.current = onReconnectComplete;
   }, [onReconnectComplete]);
+  useEffect(() => {
+    privateQueueHandlersRef.current = privateQueueHandlers;
+  }, [privateQueueHandlers]);
 
   // ROOM_STATE 복원이 필요한 상태인지 추적
-  const needsRestoreRef = useRef(isInitialReconnect);
+  const needsRestoreRef = useRef(needsInitialRestore);
   const escalationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectedBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 최초 연결 완료 여부 (초기 connect 이전 disconnect 이벤트 무시용)
   const hasEverConnectedRef = useRef(false);
+
+  const clearFallbackTimer = useCallback(() => {
+    if (!fallbackTimerRef.current) return;
+    clearTimeout(fallbackTimerRef.current);
+    fallbackTimerRef.current = null;
+  }, []);
+
+  const scheduleRestFallback = useCallback(() => {
+    clearFallbackTimer();
+    fallbackTimerRef.current = setTimeout(() => {
+      if (!needsRestoreRef.current) return;
+
+      void (async () => {
+        let restoredRoomState: string | null = null;
+        try {
+          const state = await getRoomState(roomId);
+          if (!needsRestoreRef.current) return; // WS가 먼저 도착한 경우 race guard
+          if (state.type === 'CONTRIBUTION_ROOM_STATE') {
+            useRoomStore.getState().initFromContributionRoomState(state);
+          } else {
+            useRoomStore.getState().initFromCoopRoomState(state);
+          }
+          restoredRoomState = state.roomState;
+        } catch {
+          // 실패 — null로 onReconnectComplete 호출
+        }
+        needsRestoreRef.current = false;
+        fallbackTimerRef.current = null;
+        setConnectionStatus('idle');
+        onReconnectCompleteRef.current?.(restoredRoomState); // null = 복원 실패
+      })();
+    }, REST_FALLBACK_DELAY_MS);
+  }, [clearFallbackTimer, roomId]);
 
   // ── Effect 1: WS 구독 + 페이지 새로고침 REST fallback ──────────
   useEffect(() => {
@@ -68,63 +125,94 @@ export function useRoomSocket(
 
     socketManager.connect(token);
 
+    // 1. 개인 큐를 먼저 구독 (ROOM_STATE 유니캐스트 수신)
+    socketManager.subscribe(
+      '/user/queue/private',
+      (raw) => {
+        const baseMessage = BaseMessageSchema.safeParse(raw);
+        if (!baseMessage.success) {
+          console.error('[WS] 개인 큐 메시지 파싱 실패:', baseMessage.error);
+          return;
+        }
+
+        switch (baseMessage.data.type) {
+          case 'CONTRIBUTION_ROOM_STATE':
+          case 'COOP_ROOM_STATE': {
+            const msg = handleRoomPrivateMessage(raw, useRoomStore.getState());
+            if (needsRestoreRef.current && msg !== null) {
+              needsRestoreRef.current = false;
+              clearFallbackTimer();
+              setConnectionStatus('idle');
+              const restoredRoomState = useRoomStore.getState().roomState ?? '';
+              onReconnectCompleteRef.current?.(restoredRoomState);
+            }
+            return;
+          }
+
+          case 'FORCE_DISCONNECT': {
+            const result = ForceDisconnectSchema.safeParse(raw);
+            if (!result.success) {
+              console.error('[socket] Invalid FORCE_DISCONNECT packet dropped.', result.error);
+              return;
+            }
+            socketManager.disconnect();
+            privateQueueHandlersRef.current.onForceDisconnect?.();
+            return;
+          }
+
+          case 'KICKED': {
+            const result = KickedSchema.safeParse(raw);
+            if (!result.success) {
+              console.error('[socket] Invalid KICKED packet dropped.', result.error);
+              return;
+            }
+            socketManager.disconnect();
+            privateQueueHandlersRef.current.onKicked?.(result.data.roomId);
+            return;
+          }
+
+          case 'ERROR': {
+            const result = ErrorSchema.safeParse(raw);
+            if (!result.success) {
+              console.error('[socket] Invalid ERROR packet dropped.', result.error);
+              return;
+            }
+            console.error('[socket] Private channel error.', {
+              code: result.data.code,
+              message: result.data.message,
+            });
+            privateQueueHandlersRef.current.onPrivateError?.(result.data.code, result.data.message);
+            return;
+          }
+
+          default:
+            return;
+        }
+      },
+      PRIVATE_KEY
+    );
+
+    // 2. 방 전체 topic은 트리거용으로 구독 (브로드캐스트 이벤트만)
     socketManager.subscribe(
       `/topic/room/${roomId}`,
       (raw) => {
-        // handleRoomTopicMessage가 safeParse 검증 후 반환 — null이면 파싱 실패(§3)
-        const msg = handleRoomTopicMessage(raw, useRoomStore.getState());
-
-        if (needsRestoreRef.current && msg !== null) {
-          if (msg.type === 'CONTRIBUTION_ROOM_STATE' || msg.type === 'COOP_ROOM_STATE') {
-            needsRestoreRef.current = false;
-            setConnectionStatus('idle');
-            const restoredRoomState = useRoomStore.getState().roomState ?? '';
-            onReconnectCompleteRef.current?.(restoredRoomState);
-          }
-        }
+        handleRoomTopicMessage(raw, useRoomStore.getState());
       },
       topicKey(roomId)
     );
 
-    socketManager.subscribe('/user/queue/private', () => {}, PRIVATE_KEY);
-
     // REST fallback — 3초 내 WS ROOM_STATE 미수신 시
-    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     if (needsRestoreRef.current) {
-      fallbackTimer = setTimeout(() => {
-        if (!needsRestoreRef.current) return;
-
-        void (async () => {
-          let restoredRoomState: string | null = null;
-          try {
-            const state = await getContributionRoomState(roomId);
-            if (!needsRestoreRef.current) return; // WS가 먼저 도착한 경우 race guard
-            useRoomStore.getState().initFromContributionRoomState(state);
-            restoredRoomState = state.roomState;
-          } catch {
-            try {
-              const state = await getCoopRoomState(roomId);
-              if (!needsRestoreRef.current) return; // WS가 먼저 도착한 경우 race guard
-              useRoomStore.getState().initFromCoopRoomState(state);
-              restoredRoomState = state.roomState;
-            } catch {
-              // 둘 다 실패 — null로 onReconnectComplete 호출
-            }
-          }
-          needsRestoreRef.current = false;
-          setConnectionStatus('idle');
-          onReconnectCompleteRef.current?.(restoredRoomState); // null = 복원 실패
-        })();
-      }, REST_FALLBACK_DELAY_MS);
+      scheduleRestFallback();
     }
 
     return () => {
       socketManager.unsubscribe(topicKey(roomId));
       socketManager.unsubscribe(PRIVATE_KEY);
-      if (fallbackTimer) clearTimeout(fallbackTimer);
+      clearFallbackTimer();
       socketManager.disconnect(); // 컨벤션 §13: 방 완전 이탈 시 disconnect
     };
-  }, [roomId]);
+  }, [clearFallbackTimer, roomId, scheduleRestFallback]);
 
   // ── Effect 2: 네트워크 단절 / 재연결 감지 ──────────────────────
   useEffect(() => {
@@ -162,6 +250,7 @@ export function useRoomSocket(
         escalationTimerRef.current = setTimeout(() => {
           needsRestoreRef.current = true;
           setConnectionStatus('blocking');
+          scheduleRestFallback();
         }, BLOCKING_ESCALATION_MS);
       }
     });
@@ -169,9 +258,10 @@ export function useRoomSocket(
     return () => {
       removeListener();
       if (escalationTimerRef.current) clearTimeout(escalationTimerRef.current);
+      clearFallbackTimer();
       if (reconnectedBannerTimerRef.current) clearTimeout(reconnectedBannerTimerRef.current);
     };
-  }, []);
+  }, [clearFallbackTimer, scheduleRestFallback]);
 
   const publishReady = () => socketManager.publish(`/app/room/${roomId}/ready`, {});
 
