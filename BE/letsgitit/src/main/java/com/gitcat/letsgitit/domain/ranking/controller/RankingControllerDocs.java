@@ -85,11 +85,11 @@ public interface RankingControllerDocs {
 		Integer size);
 
 	@Operation(summary = "이번주 기여도 뺏기 랭킹 조회", description = "afterRank/beforeRank 모두 생략 시 초기 응답(top3 + myRank + around + prevCursor + nextCursor). afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤.")
-	@ApiResponse(responseCode = "200", description = "스피드런 랭킹 조회 성공", content = @Content(mediaType = "application/json", examples = {
+	@ApiResponse(responseCode = "200", description = "기여도 뺏기 랭킹 조회 성공", content = @Content(mediaType = "application/json", examples = {
 		@ExampleObject(name = "초기 진입", value = """
 			{
 			  "status": 200,
-			  "message": "스피드런 랭킹 조회 성공",
+			  "message": "기여도 뺏기 랭킹 조회 성공",
 			  "data": {
 			    "year": 2026, "month": 4, "week": 18,
 			    "top3": [
@@ -111,7 +111,7 @@ public interface RankingControllerDocs {
 		@ExampleObject(name = "아래 방향 스크롤 (afterRank=17)", value = """
 			{
 			  "status": 200,
-			  "message": "스피드런 랭킹 조회 성공",
+			  "message": "기여도 뺏기 랭킹 조회 성공",
 			  "data": {
 			    "rankings": [{"rank": 18, "playerId": "66666666-e29b-41d4-a716-446655440000", "nickname": "user5", "contribution": 8200, "playCount": 7}],
 			    "prevCursor": 18, "hasPrev": true,
@@ -122,7 +122,7 @@ public interface RankingControllerDocs {
 		@ExampleObject(name = "위 방향 스크롤 (beforeRank=13)", value = """
 			{
 			  "status": 200,
-			  "message": "스피드런 랭킹 조회 성공",
+			  "message": "기여도 뺏기 랭킹 조회 성공",
 			  "data": {
 			    "rankings": [{"rank": 10, "playerId": "77777777-e29b-41d4-a716-446655440000", "nickname": "user0", "contribution": 9500, "playCount": 6}],
 			    "prevCursor": 10, "hasPrev": true,
@@ -303,11 +303,11 @@ public interface RankingControllerDocs {
 		Integer size);
 
 	@Operation(summary = "과거주 기여도 뺏기 랭킹 조회", description = "RDB에서 조회. afterRank/beforeRank 모두 생략 시 초기 응답, afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤.")
-	@ApiResponse(responseCode = "200", description = "스피드런 랭킹 조회 성공", content = @Content(mediaType = "application/json", examples = {
+	@ApiResponse(responseCode = "200", description = "기여도 뺏기 랭킹 조회 성공", content = @Content(mediaType = "application/json", examples = {
 		@ExampleObject(name = "초기 진입", value = """
 			{
 			  "status": 200,
-			  "message": "스피드런 랭킹 조회 성공",
+			  "message": "기여도 뺏기 랭킹 조회 성공",
 			  "data": {
 			    "year": 2025, "month": 4, "week": 3,
 			    "top3": [
@@ -325,7 +325,7 @@ public interface RankingControllerDocs {
 		@ExampleObject(name = "스크롤", value = """
 			{
 			  "status": 200,
-			  "message": "스피드런 랭킹 조회 성공",
+			  "message": "기여도 뺏기 랭킹 조회 성공",
 			  "data": {
 			    "rankings": [
 			      {"rank": 18, "playerId": "66666666-e29b-41d4-a716-446655440000", "nickname": "user5", "contribution": 8200, "playCount": 7}
