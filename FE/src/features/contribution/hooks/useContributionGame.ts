@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useSetAtom } from 'jotai';
 
 import { socketManager } from '@/core/socket/SocketManager';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import { BaseMessageSchema } from '@/features/multi/schemas/room.schema';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
@@ -77,8 +78,13 @@ export function useContributionGame() {
   useEffect(() => {
     if (roomId == null || !sessionId) return;
 
+    const token = useAuthStore.getState().accessToken;
+    if (!token) return;
+
     const GAME_KEY = `contribution:game:${roomId}`;
     const PRIVATE_KEY = 'contribution:private';
+
+    socketManager.connect(token);
 
     socketManager.subscribe(
       `/topic/room/${roomId}/contribution`,
@@ -175,6 +181,7 @@ export function useContributionGame() {
     return () => {
       socketManager.unsubscribe(GAME_KEY);
       socketManager.unsubscribe(PRIVATE_KEY);
+      socketManager.disconnect();
     };
   }, [
     roomId,

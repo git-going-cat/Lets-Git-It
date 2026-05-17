@@ -1,8 +1,10 @@
 ﻿import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { Check, Copy, Gamepad2, LockKeyhole, LogOut, Play, Settings, Users } from 'lucide-react';
+import { Check, Copy, Gamepad2, LockKeyhole, LogOut, Settings, Users } from 'lucide-react';
 
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { useContributionStore } from '@/features/contribution/store/contributionStore';
+import { useCoopStore } from '@/features/coop/store/coopStore';
 import AnimatedCharacter from '@/shared/components/AnimatedCharacter';
 import { useModal } from '@/shared/hooks/useModal';
 
@@ -13,6 +15,7 @@ import { useRoomStore } from '../store/roomStore';
 
 import { EditRoomModal } from './modals/EditRoomModal';
 
+import type { ContributionStartedMessage } from '../schemas/room.schema';
 import type { RoomMember } from '../types/room.types';
 import type { CharacterAsset } from '@/shared/components/AnimatedCharacter';
 
@@ -133,13 +136,17 @@ function MembersSpreadsheet({ slots, myNickname }: MembersSpreadsheetProps) {
               3
             </td>
             {slots.map((member, i) => (
-              <td key={i} className="border border-[#c8dfd0] p-0" style={!member ? HATCHED : {}}>
+              <td
+                key={i}
+                className="border border-[#c8dfd0] p-0 h-px"
+                style={!member ? HATCHED : {}}
+              >
                 {member && (
                   <div className="flex h-full divide-x divide-[#c8dfd0]">
                     <span className="flex w-9 shrink-0 items-center justify-center bg-[#e8f5ee] font-mono text-md text-[#3b7a57]">
                       nick
                     </span>
-                    <span className="flex flex-1 items-center overflow-hidden px-1.5 text-md font-medium text-gray-800">
+                    <span className="flex flex-1 items-center overflow-hidden px-1.5 py-1 break-all text-md font-medium text-gray-800">
                       {member.nickname}
                     </span>
                   </div>
@@ -163,6 +170,7 @@ export default function WaitingRoom() {
   const mode = useRoomStore((s) => s.mode);
   const members = useRoomStore((s) => s.members);
   const maxPlayers = useRoomStore((s) => s.maxPlayers);
+  const allReady = useRoomStore((s) => s.allReady);
   const teamName = useRoomStore((s) => s.teamName);
   const selectedMap = useRoomStore((s) => s.selectedMap);
   const reset = useRoomStore((s) => s.reset);
@@ -171,6 +179,7 @@ export default function WaitingRoom() {
   const [isMaximized, setIsMaximized] = useState(true);
   const [restoreError, setRestoreError] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [privateError, setPrivateError] = useState<string | null>(null);
 
   const handleReconnectComplete = useCallback(
     (restoredRoomState: string | null) => {
@@ -200,12 +209,70 @@ export default function WaitingRoom() {
     void navigate({ to: '/home', search: { lobby: currentMode ?? 'CONTRIBUTION' } });
   }, [navigate, reset]);
 
+  const handlePrivateError = useCallback((_code: string, message: string) => {
+    setPrivateError(message);
+  }, []);
+
+  const handleContributionStarted = useCallback(
+    (message: ContributionStartedMessage) => {
+      const currentMembers = useRoomStore.getState().members;
+      const { user } = useAuthStore.getState();
+      const myMemberId = user?.memberId;
+      const myNickname = user?.nickname;
+      const myPlayerId =
+        (myMemberId &&
+          message.players.find((player) => player.playerId === myMemberId)?.playerId) ||
+        (myMemberId && currentMembers.find((member) => member.playerId === myMemberId)?.playerId) ||
+        currentMembers.find((member) => member.nickname === myNickname)?.playerId ||
+        null;
+
+      if (!myPlayerId) {
+        console.error('[WaitingRoom] CONTRIBUTION_STARTED 처리 실패: 플레이어 ID를 찾을 수 없음');
+        return;
+      }
+
+      const branches = [
+        ...new Set([
+          message.initialBranch,
+          ...message.commandSet.map((command) => command.branchName),
+        ]),
+      ];
+      useContributionStore.getState().setSession({
+        sessionId: message.gameSessionId,
+        roomId: numericRoomId,
+        myPlayerId,
+        commandSet: message.commandSet,
+        branches,
+        players: message.players.map((player) => ({
+          playerId: player.playerId,
+          nickname: player.nickname,
+          currentBranch: message.initialBranch,
+        })),
+      });
+
+      reset();
+      void navigate({ to: '/contribution' });
+    },
+    [navigate, numericRoomId, reset]
+  );
+
+  const handleCoopStarted = useCallback(() => {
+    useCoopStore.getState().setRoomId(numericRoomId);
+    reset();
+    void navigate({ to: '/coop' });
+  }, [navigate, numericRoomId, reset]);
+
   const { publishReady, publishStart, connectionStatus } = useRoomSocket(
     numericRoomId,
     handleReconnectComplete,
     {
       onForceDisconnect: handleForceDisconnect,
       onKicked: handleKicked,
+      onPrivateError: handlePrivateError,
+    },
+    {
+      onContributionStarted: handleContributionStarted,
+      onCoopStarted: handleCoopStarted,
     }
   );
 
@@ -215,7 +282,6 @@ export default function WaitingRoom() {
 
   const nonHostMembers = members.filter((m) => !m.isHost);
   const readyCount = nonHostMembers.filter((m) => m.isReady).length;
-  const allReady = nonHostMembers.length > 0 && readyCount === nonHostMembers.length;
 
   const { copied, handleCopyCode } = useCopyRoomCode(roomCode);
 
@@ -318,6 +384,20 @@ export default function WaitingRoom() {
                 연결이 끊겼습니다. 재연결 중...
               </>
             )}
+          </div>
+        )}
+
+        {privateError && (
+          <div className="flex items-center justify-between gap-3 bg-red-50 px-4 py-1.5 text-sm font-medium text-red-700">
+            <span>{privateError}</span>
+            <button
+              type="button"
+              onClick={() => setPrivateError(null)}
+              className="rounded px-1.5 text-red-500 hover:bg-red-100 hover:text-red-700"
+              aria-label="에러 메시지 닫기"
+            >
+              ✕
+            </button>
           </div>
         )}
 
@@ -590,16 +670,22 @@ export default function WaitingRoom() {
               {isHost ? (
                 <button
                   type="button"
-                  onClick={publishStart}
+                  onClick={() => {
+                    setPrivateError(null);
+                    publishStart();
+                  }}
                   disabled={!allReady}
                   className="flex w-full items-center justify-center gap-1 rounded border border-[#175c35] bg-[#217346] py-2 text-sm font-medium text-white transition-colors hover:bg-[#175c35] disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-400"
                 >
-                  {allReady ? <Play className="h-4 w-4 text-white" /> : '대기 중...'}
+                  {allReady ? '게임 시작' : '대기 중...'}
                 </button>
               ) : (
                 <button
                   type="button"
-                  onClick={publishReady}
+                  onClick={() => {
+                    setPrivateError(null);
+                    publishReady(!(me?.isReady ?? false));
+                  }}
                   className={`flex w-full items-center justify-center gap-1 rounded border py-2 text-sm font-medium transition-colors ${
                     me?.isReady
                       ? 'border-gray-300 bg-gray-200 text-gray-700 hover:bg-gray-300'

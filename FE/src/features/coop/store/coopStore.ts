@@ -1,3 +1,22 @@
-﻿// TODO: 구현 필요
-// Zustand store (유저 정보 등 변동성 낮은 전역 상태)
-// Jotai atom (점수/콤보 등 인게임 잦은 업데이트 상태)
+import { create } from 'zustand';
+
+interface CoopSessionState {
+  roomId: number | null;
+}
+
+interface CoopSessionActions {
+  setRoomId: (roomId: number) => void;
+  clearSession: () => void;
+}
+
+const initialState: CoopSessionState = {
+  roomId: null,
+};
+
+export const useCoopStore = create<CoopSessionState & CoopSessionActions>((set) => ({
+  ...initialState,
+
+  setRoomId: (roomId) => set({ roomId }),
+
+  clearSession: () => set(initialState),
+}));

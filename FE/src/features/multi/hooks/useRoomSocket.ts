@@ -7,13 +7,19 @@ import { getRoomState } from '../api/room.api';
 import { handleRoomPrivateMessage, handleRoomTopicMessage } from '../handlers/roomSocketHandlers';
 import {
   BaseMessageSchema,
+  ContributionStartedSchema,
+  CoopStartedSchema,
   ErrorSchema,
   ForceDisconnectSchema,
   KickedSchema,
 } from '../schemas/room.schema';
 import { useRoomStore } from '../store/roomStore';
 
+import type { ContributionStartedMessage, CoopStartedMessage } from '../schemas/room.schema';
+
 const topicKey = (roomId: number) => `room-topic-${roomId}`;
+const contributionGameKey = (roomId: number) => `room-contribution-start-${roomId}`;
+const coopGameKey = (roomId: number) => `room-coop-start-${roomId}`;
 const PRIVATE_KEY = 'room-private';
 
 const REST_FALLBACK_DELAY_MS = 3_000;
@@ -35,6 +41,11 @@ type PrivateQueueHandlers = {
   onPrivateError?: (code: string, message: string) => void;
 };
 
+type GameStartHandlers = {
+  onContributionStarted?: (message: ContributionStartedMessage) => void;
+  onCoopStarted?: (message: CoopStartedMessage) => void;
+};
+
 /**
  * 방 대기실 WebSocket 연결 · 구독을 관리한다.
  *
@@ -54,7 +65,8 @@ type PrivateQueueHandlers = {
 export function useRoomSocket(
   roomId: number,
   onReconnectComplete?: (roomState: string | null) => void,
-  privateQueueHandlers: PrivateQueueHandlers = {}
+  privateQueueHandlers: PrivateQueueHandlers = {},
+  gameStartHandlers: GameStartHandlers = {}
 ) {
   const initialRoomState = useRoomStore.getState();
   const isPreviewReconnect =
@@ -70,12 +82,16 @@ export function useRoomSocket(
 
   const onReconnectCompleteRef = useRef(onReconnectComplete);
   const privateQueueHandlersRef = useRef(privateQueueHandlers);
+  const gameStartHandlersRef = useRef(gameStartHandlers);
   useEffect(() => {
     onReconnectCompleteRef.current = onReconnectComplete;
   }, [onReconnectComplete]);
   useEffect(() => {
     privateQueueHandlersRef.current = privateQueueHandlers;
   }, [privateQueueHandlers]);
+  useEffect(() => {
+    gameStartHandlersRef.current = gameStartHandlers;
+  }, [gameStartHandlers]);
 
   // ROOM_STATE 복원이 필요한 상태인지 추적
   const needsRestoreRef = useRef(needsInitialRestore);
@@ -201,6 +217,32 @@ export function useRoomSocket(
       topicKey(roomId)
     );
 
+    socketManager.subscribe(
+      `/topic/room/${roomId}/contribution`,
+      (raw) => {
+        const result = ContributionStartedSchema.safeParse(raw);
+        if (!result.success) {
+          console.error('[WS] CONTRIBUTION_STARTED 파싱 실패:', result.error);
+          return;
+        }
+        gameStartHandlersRef.current.onContributionStarted?.(result.data);
+      },
+      contributionGameKey(roomId)
+    );
+
+    socketManager.subscribe(
+      `/topic/room/${roomId}/coop`,
+      (raw) => {
+        const result = CoopStartedSchema.safeParse(raw);
+        if (!result.success) {
+          console.error('[WS] COOP_STARTED 파싱 실패:', result.error);
+          return;
+        }
+        gameStartHandlersRef.current.onCoopStarted?.(result.data);
+      },
+      coopGameKey(roomId)
+    );
+
     // REST fallback — 3초 내 WS ROOM_STATE 미수신 시
     if (needsRestoreRef.current) {
       scheduleRestFallback();
@@ -208,6 +250,8 @@ export function useRoomSocket(
 
     return () => {
       socketManager.unsubscribe(topicKey(roomId));
+      socketManager.unsubscribe(contributionGameKey(roomId));
+      socketManager.unsubscribe(coopGameKey(roomId));
       socketManager.unsubscribe(PRIVATE_KEY);
       clearFallbackTimer();
       socketManager.disconnect(); // 컨벤션 §13: 방 완전 이탈 시 disconnect
@@ -263,9 +307,16 @@ export function useRoomSocket(
     };
   }, [clearFallbackTimer, scheduleRestFallback]);
 
-  const publishReady = () => socketManager.publish(`/app/room/${roomId}/ready`, {});
+  const publishReady = (isReady: boolean) =>
+    socketManager.publish(`/app/room/${roomId}/ready`, {
+      type: 'READY_UPDATE',
+      isReady,
+    });
 
-  const publishStart = () => socketManager.publish(`/app/room/${roomId}/start`, {});
+  const publishStart = () =>
+    socketManager.publish(`/app/room/${roomId}/start`, {
+      type: 'GAME_START',
+    });
 
   return { publishReady, publishStart, connectionStatus };
 }

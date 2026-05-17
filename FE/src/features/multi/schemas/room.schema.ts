@@ -115,7 +115,10 @@ export const playerJoinedMessageSchema = z.object({
 
 export const readyChangedMessageSchema = z.object({
   type: z.literal('READY_CHANGED'),
-  allMembers: z.array(roomMemberSchema),
+  playerId: z.string().uuid(),
+  nickname: z.string(),
+  isReady: z.boolean(),
+  allReady: z.boolean(),
 });
 
 export const playerLeftMessageSchema = z.object({
@@ -328,6 +331,25 @@ export const CoopStartedSchema = z.object({
   startAt: z.number(),
   gameSessionId: z.string(),
   totalRounds: z.number(),
+  graphData: z.object({
+    viewBox: z.string(),
+    nodes: z.array(
+      z.object({
+        sequence: z.number(),
+        x: z.number(),
+        y: z.number(),
+        label: z.string(),
+        branch: z.string(),
+      })
+    ),
+    edges: z.array(
+      z.object({
+        from: z.number(),
+        to: z.number(),
+        type: z.enum(['solid', 'dashed', 'curve']),
+      })
+    ),
+  }),
   players: z.array(
     GameStartPlayerSchema.extend({
       bestTime: z.number(),
@@ -339,3 +361,5 @@ export type BaseMessage = z.infer<typeof BaseMessageSchema>;
 export type ForceDisconnectMessage = z.infer<typeof ForceDisconnectSchema>;
 export type KickedMessage = z.infer<typeof KickedSchema>;
 export type SocketErrorMessage = z.infer<typeof ErrorSchema>;
+export type ContributionStartedMessage = z.infer<typeof ContributionStartedSchema>;
+export type CoopStartedMessage = z.infer<typeof CoopStartedSchema>;
