@@ -78,17 +78,17 @@ function MembersSpreadsheet({ slots, myNickname }: MembersSpreadsheetProps) {
                 {member && (
                   <div className="flex flex-wrap gap-0.5">
                     {member.isHost && (
-                      <span className="rounded-sm bg-amber-400 px-1 text-md font-bold leading-4 text-amber-900">
+                      <span className="inline-flex items-center justify-center rounded-sm bg-amber-400 px-1 py-0.5 text-md font-bold leading-none text-amber-900">
                         HOST
                       </span>
                     )}
                     {member.nickname === myNickname && (
-                      <span className="rounded-sm bg-[#217346] px-1 text-md font-bold leading-4 text-white">
+                      <span className="inline-flex items-center justify-center rounded-sm bg-[#217346] px-1 py-0.5 text-md font-bold leading-none text-white">
                         ME
                       </span>
                     )}
                     <span
-                      className={`rounded-sm px-1 text-md font-bold leading-4 ${
+                      className={`inline-flex items-center justify-center rounded-sm px-1 py-0.5 text-md font-bold leading-none ${
                         member.isHost || member.isReady
                           ? 'bg-[#e8f5e9] text-[#1b5e20]'
                           : 'bg-[#fce4ec] text-[#880e4f]'
@@ -179,16 +179,34 @@ export default function WaitingRoom() {
         reset();
         void navigate({ to: '/home', search: { lobby: currentMode ?? 'CONTRIBUTION' } });
       } else if (restoredRoomState === null) {
-        // REST fallback 실패 — 에러 첨 표시 후 로비로 안내
+        // REST fallback 실패 — 에러 표시 후 로비로 안내
         setRestoreError(true);
       }
     },
     [navigate, reset]
   );
 
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  const handleForceDisconnect = useCallback(() => {
+    reset();
+    clearAuth();
+    void navigate({ to: '/login' });
+  }, [clearAuth, navigate, reset]);
+
+  const handleKicked = useCallback(() => {
+    const currentMode = useRoomStore.getState().mode;
+    reset();
+    void navigate({ to: '/home', search: { lobby: currentMode ?? 'CONTRIBUTION' } });
+  }, [navigate, reset]);
+
   const { publishReady, publishStart, connectionStatus } = useRoomSocket(
     numericRoomId,
-    handleReconnectComplete
+    handleReconnectComplete,
+    {
+      onForceDisconnect: handleForceDisconnect,
+      onKicked: handleKicked,
+    }
   );
 
   const myNickname = useAuthStore((s) => s.user?.nickname);
@@ -576,7 +594,7 @@ export default function WaitingRoom() {
                   disabled={!allReady}
                   className="flex w-full items-center justify-center gap-1 rounded border border-[#175c35] bg-[#217346] py-2 text-sm font-medium text-white transition-colors hover:bg-[#175c35] disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-400"
                 >
-                  {allReady ? <Play className="h-4 w-4 text-white" /> : '⏳ 대기 중...'}
+                  {allReady ? <Play className="h-4 w-4 text-white" /> : '대기 중...'}
                 </button>
               ) : (
                 <button

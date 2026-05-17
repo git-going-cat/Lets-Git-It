@@ -50,7 +50,7 @@ interface RoomActions {
   setMembers: (members: RoomMember[]) => void;
   /** WebSocket ROOM_STATE 방 상태 갱신 */
   setRoomState: (state: RoomState) => void;
-  /** 409 재접속 시 최소 정보만 세팅 — REST fallback 방지 */
+  /** 409 재접속 시 최소 정보만 세팅 — 대기실에서 ROOM_STATE로 복원 */
   setPreviewForReconnect: (data: { roomId: number; title: string; mode: GameMode }) => void;
   /** 방 퇴장 / 언마운트 시 초기화 */
   reset: () => void;
@@ -171,8 +171,7 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       mapList: [],
     }),
 
-  setMembers: (members) =>
-    set((s) => ({ members, currentPlayers: members.length || s.currentPlayers })),
+  setMembers: (members) => set({ members, currentPlayers: members.length }),
 
   setRoomState: (roomState) => set({ roomState }),
 

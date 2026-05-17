@@ -31,7 +31,7 @@ import type {
   PlayerJoinedMessage,
   PlayerLeftMessage,
   ReadyChangedMessage,
-  RoomStateMessage,
+  RoomPrivateMessage,
   RoomTopicMessage,
 } from '../types/room.socket.types';
 
@@ -41,15 +41,28 @@ type RoomStoreState = ReturnType<typeof useRoomStore.getState>;
 // 핸들러
 // ────────────────────────────────────────────────────────────
 
-/**
- * ROOM_STATE 처리
- *
- * SUBSCRIBE /topic/room/{roomId} 직후 자동 수신.
- * 방의 현재 상태를 스냅샷으로 덮어씁니다.
- */
-export function handleRoomState(msg: RoomStateMessage, store: RoomStoreState): void {
-  store.setRoomState(msg.roomState);
-  store.setMembers(msg.members);
+import { roomPrivateMessageSchema } from '../schemas/room.schema';
+
+// /user/queue/private에서 수신되는 방 상태 스냅샷 메시지 핸들러
+export function handleRoomPrivateMessage(
+  raw: unknown,
+  store: RoomStoreState
+): RoomPrivateMessage | null {
+  const result = roomPrivateMessageSchema.safeParse(raw);
+  if (!result.success) {
+    console.error('[WS] 개인 큐 방 상태 파싱 실패:', result.error);
+    return null;
+  }
+  const msg = result.data;
+  switch (msg.type) {
+    case 'CONTRIBUTION_ROOM_STATE':
+      handleContributionRoomState(msg, store);
+      break;
+    case 'COOP_ROOM_STATE':
+      handleCoopRoomState(msg, store);
+      break;
+  }
+  return msg;
 }
 
 /**
@@ -62,16 +75,7 @@ export function handleContributionRoomState(
   msg: ContributionRoomStateMessage,
   store: RoomStoreState
 ): void {
-  store.initFromContributionRoomState({
-    roomId: msg.roomId,
-    roomCode: msg.roomCode,
-    title: msg.title,
-    mode: msg.mode,
-    roomState: msg.roomState as 'WAITING' | 'IN_GAME',
-    currentPlayers: msg.currentPlayers,
-    maxPlayers: msg.maxPlayers,
-    members: msg.members,
-  });
+  store.initFromContributionRoomState(msg);
 }
 
 /**
@@ -81,18 +85,7 @@ export function handleContributionRoomState(
  * 방의 전체 상태를 스토어에 복원합니다.
  */
 export function handleCoopRoomState(msg: CoopRoomStateMessage, store: RoomStoreState): void {
-  store.initFromCoopRoomState({
-    roomId: msg.roomId,
-    roomCode: msg.roomCode,
-    title: msg.title,
-    teamName: msg.teamName,
-    mode: msg.mode,
-    roomState: msg.roomState as 'WAITING' | 'IN_GAME',
-    currentPlayers: msg.currentPlayers,
-    maxPlayers: msg.maxPlayers,
-    selectedMap: msg.selectedMap,
-    members: msg.members,
-  });
+  store.initFromCoopRoomState(msg);
 }
 
 /**
@@ -151,15 +144,6 @@ export function handleRoomTopicMessage(
   }
   const msg = result.data;
   switch (msg.type) {
-    case 'ROOM_STATE':
-      handleRoomState(msg, store);
-      break;
-    case 'CONTRIBUTION_ROOM_STATE':
-      handleContributionRoomState(msg, store);
-      break;
-    case 'COOP_ROOM_STATE':
-      handleCoopRoomState(msg, store);
-      break;
     case 'PLAYER_JOINED':
       handlePlayerJoined(msg, store);
       break;
