@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.CreationTimestamp;
+
 import com.gitcat.letsgitit.global.enums.CompetitiveMode;
 
 import lombok.AccessLevel;
@@ -17,7 +19,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "competitive_ranking", uniqueConstraints = {
 	@UniqueConstraint(name = "uq_competitive_ranking", columnNames = {"member_id", "mode", "week"})
 }, indexes = {
-	@Index(name = "idx_competitive_ranking_mode_week", columnList = "mode, week")
+	@Index(name = "idx_competitive_ranking_mode_week_rank", columnList = "mode, week, `rank`")
 })
 public class CompetitiveRanking {
 
@@ -45,7 +47,8 @@ public class CompetitiveRanking {
 	@Column(name = "week", nullable = false, length = 10)
 	private String week;
 
-	@Column(name = "recorded_at", nullable = false)
+	@CreationTimestamp
+	@Column(name = "recorded_at", nullable = false, updatable = false)
 	private LocalDateTime recordedAt;
 
 	public static CompetitiveRanking of(UUID memberId, CompetitiveMode mode,
@@ -57,7 +60,6 @@ public class CompetitiveRanking {
 		ranking.playCount = playCount;
 		ranking.rank = rank;
 		ranking.week = week;
-		ranking.recordedAt = LocalDateTime.now();
 		return ranking;
 	}
 }

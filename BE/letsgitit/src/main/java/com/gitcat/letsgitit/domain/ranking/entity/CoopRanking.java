@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.CreationTimestamp;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,8 +18,8 @@ import lombok.NoArgsConstructor;
 @Table(name = "coop_ranking", uniqueConstraints = {
 	@UniqueConstraint(name = "uq_coop_ranking", columnNames = {"coop_result_id"})
 }, indexes = {
-	@Index(name = "idx_coop_ranking_map_difficulty_week", columnList = "map_difficulty, week"),
-	@Index(name = "idx_coop_ranking_map_name_week", columnList = "map_name, week")
+	@Index(name = "idx_coop_ranking_difficulty_week_rank", columnList = "difficulty, week, `rank`"),
+	@Index(name = "idx_coop_ranking_map_name_week_rank", columnList = "map_name, week, `rank`")
 })
 public class CoopRanking {
 
@@ -53,7 +55,8 @@ public class CoopRanking {
 	@Column(name = "week", nullable = false, length = 10)
 	private String week;
 
-	@Column(name = "recorded_at", nullable = false)
+	@CreationTimestamp
+	@Column(name = "recorded_at", nullable = false, updatable = false)
 	private LocalDateTime recordedAt;
 
 	public static CoopRanking of(UUID coopResultId, String mapName, int difficulty,
@@ -68,7 +71,6 @@ public class CoopRanking {
 		ranking.totalWrongTypeCount = totalWrongTypeCount;
 		ranking.totalWrongOrderCount = totalWrongOrderCount;
 		ranking.week = week;
-		ranking.recordedAt = LocalDateTime.now();
 		return ranking;
 	}
 }
