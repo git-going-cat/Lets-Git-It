@@ -71,8 +71,8 @@ public enum ErrorCode {
 	ROOM_PASSWORD_INVALID_FORMAT(HttpStatus.BAD_REQUEST.value(), "ROOM_PASSWORD_INVALID_FORMAT",
 		"방 비밀번호는 숫자 4자리여야 합니다."),
 	LOCK_ACQUISITION_FAILED(HttpStatus.CONFLICT.value(), "LOCK_ACQUISITION_FAILED",
-		"다른 사용자의 방 입장 처리가 진행 중입니다. 잠시 후 다시 시도해주세요."),
-	LOCK_INTERRUPTED(HttpStatus.INTERNAL_SERVER_ERROR.value(), "LOCK_INTERRUPTED", "방 입장 처리가 중단되었습니다."),
+		"다른 요청이 처리 중입니다. 잠시 후 다시 시도해주세요."),
+	LOCK_INTERRUPTED(HttpStatus.INTERNAL_SERVER_ERROR.value(), "LOCK_INTERRUPTED", "요청 처리가 중단되었습니다."),
 	CANNOT_REDUCE_MAX_PLAYERS_BELOW_CURRENT(HttpStatus.BAD_REQUEST.value(), "CANNOT_REDUCE_MAX_PLAYERS_BELOW_CURRENT",
 		"현재 인원보다 최대 인원을 줄일 수 없습니다."),
 	COOP_MODE_MAX_PLAYERS_FIXED(HttpStatus.BAD_REQUEST.value(), "COOP_MODE_MAX_PLAYERS_FIXED",
@@ -87,6 +87,15 @@ public enum ErrorCode {
 	GAME_ALREADY_STARTED(HttpStatus.CONFLICT.value(), "GAME_ALREADY_STARTED", "이미 게임이 시작되었습니다."),
 	COMMAND_SET_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "COMMAND_SET_NOT_FOUND", "명령어 세트를 찾을 수 없습니다."),
 
+	// contribution game
+	GAME_NOT_STARTED(HttpStatus.BAD_REQUEST.value(), "GAME_NOT_STARTED", "게임이 시작되지 않았습니다."),
+	INVALID_COMMAND(HttpStatus.BAD_REQUEST.value(), "INVALID_COMMAND", "존재하지 않는 명령어입니다."),
+	COMMAND_ALREADY_CLEARED(HttpStatus.CONFLICT.value(), "COMMAND_ALREADY_CLEARED", "이미 완료된 명령어입니다."),
+	COMMAND_EXPIRED(HttpStatus.GONE.value(), "COMMAND_EXPIRED", "현재 활성 명령어가 아닙니다."),
+	GAME_ALREADY_ENDED(HttpStatus.CONFLICT.value(), "GAME_ALREADY_ENDED", "이미 종료된 게임입니다."),
+	SESSION_MISMATCH(HttpStatus.BAD_REQUEST.value(), "SESSION_MISMATCH", "요청한 게임 세션이 현재 게임과 일치하지 않습니다."),
+	PLAYER_NOT_IN_GAME(HttpStatus.FORBIDDEN.value(), "PLAYER_NOT_IN_GAME", "현재 게임에 참여하지 않은 플레이어입니다."),
+
 	// single game session
 	SESSION_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다."),
 	SESSION_EXPIRED(HttpStatus.GONE.value(), "SESSION_EXPIRED", "세션이 만료되었습니다."),
@@ -94,8 +103,12 @@ public enum ErrorCode {
 
 	// coop
 	COOP_MAP_NOT_ACTIVE(HttpStatus.BAD_REQUEST.value(), "COOP_MAP_NOT_ACTIVE", "협력 모드 맵이 활성화 되어 있지 않습니다."),
+	INPUT_BLOCKED(HttpStatus.BAD_REQUEST.value(), "INPUT_BLOCKED", "현재 입력이 차단된 상태입니다."),
+	NOT_RESET_PLAYER(HttpStatus.FORBIDDEN.value(), "NOT_RESET_PLAYER", "git reset을 입력해야 하는 플레이어가 아닙니다."),
+	RESET_NOT_REQUIRED(HttpStatus.BAD_REQUEST.value(), "RESET_NOT_REQUIRED", "현재 리셋 대기 상태가 아닙니다."),
 
 	// system
+	INVALID_REQUEST(HttpStatus.BAD_REQUEST.value(), "INVALID_REQUEST", "잘못된 요청입니다."),
 	INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST.value(), "INVALID_INPUT_VALUE", "잘못된 값의 파라미터입니다."),
 	INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST.value(), "INVALID_TYPE_VALUE", "잘못된 타입의 파라미터 값이 전달되었습니다."),
 	MISSING_PARAMETER(HttpStatus.BAD_REQUEST.value(), "MISSING_PARAMETER", "요청 파라미터가 누락되었습니다."),

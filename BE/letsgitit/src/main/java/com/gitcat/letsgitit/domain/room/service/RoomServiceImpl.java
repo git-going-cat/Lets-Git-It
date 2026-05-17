@@ -26,11 +26,19 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
 import com.gitcat.letsgitit.domain.command.dto.response.CommandSetResponse;
 import com.gitcat.letsgitit.domain.command.service.CommandService;
+import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionCommand;
+import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionPlayer;
+import com.gitcat.letsgitit.domain.competitive.service.ContributionGameService;
+import com.gitcat.letsgitit.domain.coop.dto.response.CoopGameEndResponse;
 import com.gitcat.letsgitit.domain.coop.dto.response.CoopMapListResponse;
+import com.gitcat.letsgitit.domain.coop.dto.response.GraphDataDto;
+import com.gitcat.letsgitit.domain.coop.service.CoopGameService;
+import com.gitcat.letsgitit.domain.coop.service.CoopGraphDataStore;
 import com.gitcat.letsgitit.domain.coop.service.CoopService;
 import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.domain.record.entity.BestRecordMode;
@@ -66,6 +74,7 @@ import com.gitcat.letsgitit.domain.room.util.RoomRedisReader;
 import com.gitcat.letsgitit.global.enums.GameMode;
 import com.gitcat.letsgitit.global.enums.RoomMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
+import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
 import com.gitcat.letsgitit.global.websocket.dto.BaseWebSocketResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -85,6 +94,11 @@ public class RoomServiceImpl implements RoomService {
 	private final RoomMemberMapper roomMemberMapper;
 	private final RoomWebSocketEventPublisher roomWebSocketEventPublisher;
 	private final RoomMemberStateRecoveryService roomMemberStateRecoveryService;
+	private final CoopGraphDataStore coopGraphDataStore;
+	private final CoopGameService coopGameService;
+	private final TaskScheduler taskScheduler;
+	private final WebSocketMessageSender messageSender;
+	private final ContributionGameService contributionGameService;
 
 	@Override
 	public RoomListResponse getRooms(RoomMode mode) {
@@ -330,12 +344,15 @@ public class RoomServiceImpl implements RoomService {
 
 	@Override
 	public GameStartResult startGame(Long roomId, UUID memberId, GameStartRequest request) {
-		// 1. 방 존재 확인
+
+		// ── 1. 방 존재 여부 확인 ──────────────────────────────────────────────────
 		if (!roomRedisRepository.existsById(roomId)) {
 			throw new BusinessException(ROOM_NOT_FOUND);
 		}
 
-		// 2~6. 검증 + 상태 선점을 락 안에서 원자적으로 처리 (중복 시작 방지)
+		// ── 2. 분산 락 + 원자적 검증 (중복 게임 시작 방지) ─────────────────────────
+		// 락 범위 안에서 검증 → 상태 선점까지 한 번에 처리
+		// (락 밖에서 검증하면 동시 요청 시 두 요청 모두 통과할 수 있음)
 		UUID gameSessionId = UUID.randomUUID();
 		String mode;
 		String hostId;
@@ -344,10 +361,12 @@ public class RoomServiceImpl implements RoomService {
 		RLock lock = redissonClient.getLock("lock:room:" + roomId);
 		lock.lock();
 		try {
+			// 이미 게임 중이면 중복 시작 차단
 			if (ROOM_STATE_IN_GAME.equals(roomRedisRepository.findRoomStateById(roomId))) {
 				throw new BusinessException(GAME_ALREADY_STARTED);
 			}
 
+			// 요청자가 방장인지 확인
 			hostId = roomRedisRepository.findHostIdById(roomId);
 			if (!memberId.toString().equals(hostId)) {
 				throw new BusinessException(NOT_HOST);
@@ -356,6 +375,7 @@ public class RoomServiceImpl implements RoomService {
 			memberIdStrs = roomRedisRepository.findAllMemberIds(roomId);
 			mode = roomRedisRepository.findModeById(roomId);
 
+			// 게임 모드별 최소 인원 검증
 			if (RoomMode.CONTRIBUTION.name().equals(mode) && memberIdStrs.size() < 2) {
 				throw new BusinessException(NOT_ENOUGH_PLAYERS);
 			}
@@ -363,24 +383,28 @@ public class RoomServiceImpl implements RoomService {
 				throw new BusinessException(NOT_ENOUGH_PLAYERS);
 			}
 
-			long readyCount = roomRedisRepository.countReadyNonHostMembers(roomId, hostId);
-			if (readyCount < memberIdStrs.size() - 1) {
+			// 방의 모든 멤버가 준비 완료인지 확인 (방장은 기본값 true)
+			if (!roomRedisRepository.isAllMembersReady(roomId)) {
 				throw new BusinessException(NOT_ALL_READY);
 			}
 
-			// 선점: 즉시 IN_GAME으로 변경하여 동시 요청 차단
+			// ── 3. 상태 선점: 검증 통과 즉시 IN_GAME으로 변경 ────────────────────
+			// 이 시점부터 다른 요청은 위의 GAME_ALREADY_STARTED로 튕겨냄
 			roomRedisRepository.updateRoomState(roomId, ROOM_STATE_IN_GAME);
 		} finally {
 			lock.unlock();
 		}
 
-		// 7. 락 해제 후 무거운 데이터 조회 — 실패 시 WAITING으로 롤백
-		// IN_GAME 선점 이후 발생 가능한 모든 예외를 catch 범위 안에서 처리해야 롤백 보장됨
+		// ── 4. 락 해제 후 무거운 데이터 조회 (실패 시 WAITING으로 롤백) ────────────
+		// DB/외부 서비스 조회는 락 밖에서 처리해 락 점유 시간을 최소화
+		// 단, 이 구간에서 예외 발생 시 반드시 룸 상태를 WAITING으로 되돌려야 함
 		List<UUID> memberIds = memberIdStrs.stream().map(UUID::fromString).toList();
 		try {
 			Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberIds);
 			GameStartResult result;
+
 			if (RoomMode.CONTRIBUTION.name().equals(mode)) {
+				// ── 5a. 기여도 모드: 랜덤 커맨드셋 + 플레이어 최고 기록 조회 ──────────
 				CommandSetResponse commandSet = commandService.getRandomContributionCommandSet();
 				List<ContributionPlayerDto> players = memberIds.stream()
 					.map(id -> {
@@ -393,14 +417,38 @@ public class RoomServiceImpl implements RoomService {
 					})
 					.toList();
 				long now = System.currentTimeMillis();
+				ContributionStartedResponse response = ContributionStartedResponse.of(gameSessionId, now,
+					commandSet.commandSetId(), commandSet.initialBranch(),
+					commandSet.commandSet(), players);
+				List<ContributionSessionCommand> sessionCommands = commandSet.commandSet().stream()
+					.map(command -> new ContributionSessionCommand(
+						command.commandSequence(),
+						command.text(),
+						command.branchName()))
+					.toList();
+				List<ContributionSessionPlayer> sessionPlayers = players.stream()
+					.map(player -> new ContributionSessionPlayer(
+						player.playerId(),
+						player.nickname(),
+						player.bestContribution()))
+					.toList();
+				contributionGameService.initializeSession(
+					roomId,
+					gameSessionId,
+					response.startAt(),
+					commandSet.commandSetId(),
+					commandSet.initialBranch(),
+					sessionCommands,
+					sessionPlayers);
 				result = new GameStartResult(
 					"/topic/room/" + roomId + "/contribution",
 					ContributionStartedResponse.of(gameSessionId, now,
 						commandSet.commandSetId(), commandSet.initialBranch(),
 						commandSet.commandSet(), players));
 			} else {
+				// ── 5b. 협력 모드: 맵 그래프 데이터 + 플레이어 최고 기록 조회 ─────────
 				String selectedMapId = roomRedisRepository.findSelectedMapId(roomId);
-				String graphPicture = coopService.getGraphPictureByMapId(UUID.fromString(selectedMapId));
+				GraphDataDto graphData = coopGraphDataStore.getByMapId(UUID.fromString(selectedMapId));
 				List<CoopPlayerDto> players = memberIds.stream()
 					.map(id -> {
 						MemberCoopBestRecord coopRecord = recordService.getBestCoopRecord(id);
@@ -411,14 +459,49 @@ public class RoomServiceImpl implements RoomService {
 				long now = System.currentTimeMillis();
 				result = new GameStartResult(
 					"/topic/room/" + roomId + "/coop",
-					CoopStartedResponse.of(gameSessionId, now, graphPicture, players));
+					CoopStartedResponse.of(gameSessionId, now, graphData, players));
+
+				// 협력 모드는 별도 게임 세션 초기화 필요 (기여도 모드는 클라이언트 주도)
+				// ✅ 수정: COOP_STARTED가 먼저 브로드캐스트된 후 REVEAL이 나가도록 100ms 지연
+				// initAndStartGame 내부에서 COOP_ROUND_REVEAL을 즉시 전송하므로
+				// 호출자가 result를 브로드캐스트하기 전에 REVEAL이 먼저 나가는 문제 방지
+				final UUID finalGameSessionId = gameSessionId;
+				final UUID finalMapId = UUID.fromString(selectedMapId);
+				final List<UUID> finalMemberIds = memberIds;
+				final SelectedMapDto selectedMap = coopService.getSelectedMap(finalMapId);
+				final String finalMapName = selectedMap.mapName();
+				final String finalMapDifficulty = String.valueOf(selectedMap.difficulty());
+				final String finalTeamName = roomRedisRepository.findTeamNameById(roomId);
+				taskScheduler.schedule(() -> {
+					// SEMI-3: 100ms 사이에 disconnect가 와서 방 상태가 WAITING으로 돌아갔으면 초기화 생략
+					if (!ROOM_STATE_IN_GAME.equals(roomRedisRepository.findRoomStateById(roomId))) {
+						log.warn("[room][startGame] room no longer in game before init, skipping. roomId={}", roomId);
+						return;
+					}
+					try {
+						coopGameService.initAndStartGame(roomId, finalGameSessionId, finalMapId, finalMemberIds,
+							finalMapName, finalMapDifficulty, finalTeamName);
+					} catch (Exception e) {
+						// Comment 2: lambda 내부 예외는 바깥 catch에 전파되지 않으므로 여기서 직접 롤백
+						log.error("[room][startGame] initAndStartGame 실패, 방 상태 롤백. roomId={}", roomId, e);
+						roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
+						messageSender.send("/topic/room/" + roomId + "/coop",
+							CoopGameEndResponse.disconnected(finalGameSessionId));
+					}
+				}, java.time.Instant.now().plusMillis(100));
 			}
 
+			// ── 6. 게임 세션 ID 저장 및 결과 반환 ─────────────────────────────────
 			roomRedisRepository.saveGameSessionId(roomId, gameSessionId.toString());
 			log.info("[room][startGame] roomId={}, mode={}, gameSessionId={}", roomId, mode, gameSessionId);
 			return result;
+
 		} catch (Exception e) {
+			// ── 7. 롤백: 데이터 조회 실패 시 룸 상태를 WAITING으로 복구 ────────────
 			roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
+			if (RoomMode.CONTRIBUTION.name().equals(mode)) {
+				contributionGameService.deleteSession(gameSessionId);
+			}
 			log.error("[room][startGame] 데이터 조회 실패 — roomState 롤백. roomId={}, mode={}", roomId, mode, e);
 			throw e;
 		}
@@ -533,5 +616,11 @@ public class RoomServiceImpl implements RoomService {
 
 		log.warn("[room][getRoomState] 지원하지 않는 방 모드. roomId={}, memberId={}, mode={}", roomId, memberId, mode);
 		throw new BusinessException(ROOM_MODE_MISMATCH);
+	}
+
+	@Override
+	public void resetRoomAfterGame(Long roomId) {
+		roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
+		log.info("[room] room state reset to WAITING after game. roomId={}", roomId);
 	}
 }
