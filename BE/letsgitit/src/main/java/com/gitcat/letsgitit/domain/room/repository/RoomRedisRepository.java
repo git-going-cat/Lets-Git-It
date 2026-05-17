@@ -95,8 +95,8 @@ public interface RoomRedisRepository {
 	// room:{roomId}:info Hash의 mode 필드 단건 조회
 	String findModeById(Long roomId);
 
-	// room:{roomId}:members Hash에서 hostId를 제외한 isReady=true 멤버 수 반환
-	long countReadyNonHostMembers(Long roomId, String hostId);
+	// room:{roomId}:members Hash의 모든 멤버 isReady 필드가 true인지 확인
+	boolean isAllMembersReady(Long roomId);
 
 	// room:{roomId}:info Hash의 roomState 필드 갱신
 	void updateRoomState(Long roomId, String state);
@@ -106,6 +106,9 @@ public interface RoomRedisRepository {
 
 	// room:{roomId}:info Hash의 selectedMapId 필드 단건 조회 — 협력 모드 맵 식별용
 	String findSelectedMapId(Long roomId);
+
+	// room:{roomId}:info Hash의 teamName 필드 단건 조회 — 협력 게임 결과 저장용
+	String findTeamNameById(Long roomId);
 
 	// room:{roomId}:members Hash의 특정 playerId 의 isReady 필드를 갱신
 	void updateMemberIsReady(String roomId, String memberId, boolean isReady);
