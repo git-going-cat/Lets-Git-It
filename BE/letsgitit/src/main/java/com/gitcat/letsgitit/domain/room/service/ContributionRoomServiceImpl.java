@@ -247,7 +247,7 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 				throw new BusinessException(CANNOT_REDUCE_MAX_PLAYERS_BELOW_CURRENT);
 			}
 
-			roomRedisRepository.updateRoomInfo(roomId.toString(), buildContributionRoomUpdateInfo(request));
+			roomRedisRepository.updateRoomInfo(roomId.toString(), buildContributionRoomUpdateInfo(roomInfo, request));
 			log.info("[room] contribution room updated. roomId={}, memberId={}, hasPassword={}, maxPlayers={}",
 				roomId, memberId, request.hasPassword(), request.maxPlayers());
 
@@ -345,14 +345,26 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 		return roomInfo;
 	}
 
-	private Map<String, Object> buildContributionRoomUpdateInfo(UpdateContributionRoomRequest request) {
+	private Map<String, Object> buildContributionRoomUpdateInfo(Map<Object, Object> currentRoomInfo,
+		UpdateContributionRoomRequest request) {
 		Map<String, Object> roomInfo = new LinkedHashMap<>();
 		roomInfo.put("title", request.title());
 		roomInfo.put("maxPlayers", request.maxPlayers());
-		roomInfo.put("hasPassword", request.hasPassword());
+		boolean currentlySecret = RoomRedisReader.readBoolean(currentRoomInfo, "hasPassword");
+
 		if (request.hasPassword()) {
-			roomInfo.put("password", request.password());
+			if (request.password() == null || request.password().isBlank()) {
+				if (!currentlySecret) {
+					throw new BusinessException(PASSWORD_REQUIRED);
+				}
+				roomInfo.put("hasPassword", true);
+				roomInfo.put("password", currentRoomInfo.get("password"));
+			} else {
+				roomInfo.put("hasPassword", true);
+				roomInfo.put("password", request.password());
+			}
 		} else {
+			roomInfo.put("hasPassword", false);
 			roomInfo.put("password", null);
 		}
 		return roomInfo;

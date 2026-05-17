@@ -385,6 +385,13 @@ public interface RoomControllerDocs {
 		CustomUserDetails userDetails);
 
 	@Operation(summary = "기여도 뺏기 방 정보 수정 (방장만)", description = """
+		비밀번호 정책:
+		- 이미 비밀방이고 비밀번호를 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+		- 이미 비밀방이고 비밀번호를 유지하려면 `hasPassword: true`, `password: null`
+		- 비밀방을 공개방으로 바꾸려면 `hasPassword: false`, `password: null`
+		- 공개방을 비밀방으로 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+		- 공개방에서 `hasPassword: true`, `password: null` 을 보내면 예외가 발생한다
+
 		**Mock 에러 트리거 (테스트용)**
 		| 요청값 | 발생 에러 |
 		|---|---|
@@ -410,6 +417,13 @@ public interface RoomControllerDocs {
 		UpdateContributionRoomRequest request);
 
 	@Operation(summary = "협력 방 정보 수정 (방장만)", description = """
+		비밀번호 정책:
+		- 이미 비밀방이고 비밀번호를 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+		- 이미 비밀방이고 비밀번호를 유지하려면 `hasPassword: true`, `password: null`
+		- 비밀방을 공개방으로 바꾸려면 `hasPassword: false`, `password: null`
+		- 공개방을 비밀방으로 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+		- 공개방에서 `hasPassword: true`, `password: null` 을 보내면 예외가 발생한다
+
 		**Mock 에러 트리거 (테스트용)**
 		| 요청값 | 발생 에러 |
 		|---|---|
