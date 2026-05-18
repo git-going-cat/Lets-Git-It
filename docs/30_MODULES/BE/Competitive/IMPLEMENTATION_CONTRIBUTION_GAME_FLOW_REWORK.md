@@ -51,7 +51,7 @@ command lock은 기존 `lock:contribution:session:{gameSessionId}:command:{comma
 
 `READY` 상태의 점수 대상 명령어만 `EXPIRED`로 바꾸고 CAT 점수를 증가시킨다.
 이미 `CLEARED`, `SWITCHED`, `EXPIRED` 상태면 중복 요청으로 보고 아무 이벤트도 보내지 않는다.
-`switch` 명령어는 위치 이동 전용이므로 만료와 점수 대상에서 제외한다. `checkout`은 현재 합의한 규칙에 따라 기여도 게임의 이동 명령으로 허용하지 않는다.
+`switch` 명령어는 위치 이동 전용이므로 만료와 점수 대상에서 제외한다.
 
 ### 응답 계약
 
@@ -124,7 +124,7 @@ switch는 점수, progress, CAT 만료 대상에서 제외된다.
 - 마지막 명령어 만료 요청 시 `CONTRIBUTION_GAME_END`가 반환되는지 확인
 - 종료 이후 만료 요청/입력은 `GAME_ALREADY_ENDED` 정책을 따르는지 확인
 - `switch`는 `POSITION_UPDATE` 처리되고 점수/만료 대상에서 제외되는지 확인
-- `checkout`은 이동 명령으로 허용되지 않는지 확인
+- 브랜치 이동은 `git switch {branch}`만 허용되는지 확인
 - `RoomServiceImpl`이 playerCount를 `CommandService`에 전달하는지 확인
 - 정상 종료 시 실제 플레이어는 주간 Redis 랭킹에 누적되고 CAT은 제외되는지 확인
 - 기여도 0점 플레이어도 총 플레이 수 갱신 대상인지 확인

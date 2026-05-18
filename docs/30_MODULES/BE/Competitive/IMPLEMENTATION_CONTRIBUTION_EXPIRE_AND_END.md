@@ -74,7 +74,7 @@ REST `leaveRoom`과 WebSocket disconnect를 연결했다.
 ## Caution
 
 - 명령어 만료 간격은 서버 상수 20초다. 현재 `CONTRIBUTION_STARTED.commandSet`에는 명령어별 제한 시간이 없으므로, 클라이언트 낙하 속도와 별도 합의가 생기면 DTO/Redis 세션에 제한 시간 필드를 추가해야 한다.
-- `checkout`은 기여도 게임의 브랜치 이동 명령으로 허용하지 않는다. `git switch {branch}`만 `POSITION_UPDATE` 전용으로 취급되어 점수와 progress에서 제외된다.
+- `git switch {branch}`만 `POSITION_UPDATE` 전용으로 취급되어 점수와 progress에서 제외된다.
 - 이탈 마킹된 플레이어는 contribution 세션의 players hash에 남아 있어도 이후 입력에서 `PLAYER_NOT_IN_GAME`으로 거절된다.
 - 정상 종료 시 세션 키를 삭제하지 않는다. 다음 결과 저장 브랜치가 final rankings를 읽을 수 있도록 TTL 기반 Redis 보관을 유지한다.
 - 조기 종료 payload는 명세의 플레이어 이탈 종료 구조에 맞춰 rankings와 winnerVideoTarget을 채우지 않는다.
@@ -90,7 +90,7 @@ REST `leaveRoom`과 WebSocket disconnect를 연결했다.
 - CAT 1등 시 `winnerVideoTarget=null`
 - 종료 이후 입력 시 `GAME_ALREADY_ENDED`
 - Redis 세션 TTL 적용 키에 final rankings 키 포함
-- `git checkout {branch}`는 이동 명령으로 처리되지 않음
+- 브랜치 이동은 `git switch {branch}`만 처리됨
 - 이탈자 마킹 후 `CONTRIBUTION_PLAYER_DISCONNECTED`에 `disconnected=true` 반영
 
 검증 명령:
