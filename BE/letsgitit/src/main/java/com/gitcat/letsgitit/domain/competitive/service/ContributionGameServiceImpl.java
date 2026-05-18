@@ -36,6 +36,7 @@ import com.gitcat.letsgitit.domain.competitive.message.contribution.Contribution
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionGameEndMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionInputFailedMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionInputMessage;
+import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionPlayerDisconnectedMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionProgressMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionRankingMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.PositionUpdateMessage;
@@ -108,30 +109,38 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 
 	@Override
 	public ContributionInputResult processInput(Long roomId, UUID memberId, ContributionInputMessage request) {
-		ContributionGameSessionCache session = contributionGameRedisRepository.findSession(request.gameSessionId())
-			.orElseThrow(() -> new BusinessException(GAME_NOT_STARTED));
-		validateSession(roomId, memberId, request.gameSessionId(), session);
-
-		if (isSwitchCommand(request.inputText())) {
-			return processSwitchInput(memberId, request);
-		}
-		if (request.commandSequence() == null) {
-			throw new BusinessException(INVALID_COMMAND);
-		}
-
-		RLock lock = redissonClient.getLock(
-			ContributionRedisKeys.commandLock(request.gameSessionId(), request.commandSequence()));
-		boolean locked = tryLock(lock);
+		RLock sessionLock = redissonClient.getLock(ContributionRedisKeys.sessionLock(request.gameSessionId()));
+		boolean sessionLocked = tryLock(sessionLock);
 		try {
-			ContributionCommandCache command = contributionGameRedisRepository
-				.findCommand(request.gameSessionId(), request.commandSequence())
-				.orElseThrow(() -> new BusinessException(INVALID_COMMAND));
-			validateCommandStatus(command);
+			ContributionGameSessionCache session = contributionGameRedisRepository.findSession(request.gameSessionId())
+				.orElseThrow(() -> new BusinessException(GAME_NOT_STARTED));
+			validateSession(roomId, memberId, request.gameSessionId(), session);
 
-			return processCommandInput(memberId, request, command, session);
+			if (isSwitchCommand(request.inputText())) {
+				return processSwitchInput(memberId, request);
+			}
+			if (request.commandSequence() == null) {
+				throw new BusinessException(INVALID_COMMAND);
+			}
+
+			RLock commandLock = redissonClient.getLock(
+				ContributionRedisKeys.commandLock(request.gameSessionId(), request.commandSequence()));
+			boolean commandLocked = tryLock(commandLock);
+			try {
+				ContributionCommandCache command = contributionGameRedisRepository
+					.findCommand(request.gameSessionId(), request.commandSequence())
+					.orElseThrow(() -> new BusinessException(INVALID_COMMAND));
+				validateCommandStatus(command);
+
+				return processCommandInput(memberId, request, command, session);
+			} finally {
+				if (commandLocked) {
+					commandLock.unlock();
+				}
+			}
 		} finally {
-			if (locked) {
-				lock.unlock();
+			if (sessionLocked) {
+				sessionLock.unlock();
 			}
 		}
 	}
@@ -141,26 +150,34 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		Long roomId,
 		UUID memberId,
 		ContributionExpireRequestMessage request) {
-		ContributionGameSessionCache session = contributionGameRedisRepository.findSession(request.gameSessionId())
-			.orElseThrow(() -> new BusinessException(GAME_NOT_STARTED));
-		validateSession(roomId, memberId, request.gameSessionId(), session);
-
-		RLock lock = redissonClient.getLock(
-			ContributionRedisKeys.commandLock(request.gameSessionId(), request.commandSequence()));
-		boolean locked = tryLock(lock);
+		RLock sessionLock = redissonClient.getLock(ContributionRedisKeys.sessionLock(request.gameSessionId()));
+		boolean sessionLocked = tryLock(sessionLock);
 		try {
-			ContributionCommandCache command = contributionGameRedisRepository
-				.findCommand(request.gameSessionId(), request.commandSequence())
-				.orElseThrow(() -> new BusinessException(INVALID_COMMAND));
-			if (!COMMAND_STATUS_READY.equals(command.status()) || isSwitchCommand(command.text())) {
-				return null;
+			ContributionGameSessionCache session = contributionGameRedisRepository.findSession(request.gameSessionId())
+				.orElseThrow(() -> new BusinessException(GAME_NOT_STARTED));
+			validateSession(roomId, memberId, request.gameSessionId(), session);
+
+			RLock commandLock = redissonClient.getLock(
+				ContributionRedisKeys.commandLock(request.gameSessionId(), request.commandSequence()));
+			boolean commandLocked = tryLock(commandLock);
+			try {
+				ContributionCommandCache command = contributionGameRedisRepository
+					.findCommand(request.gameSessionId(), request.commandSequence())
+					.orElseThrow(() -> new BusinessException(INVALID_COMMAND));
+				if (!COMMAND_STATUS_READY.equals(command.status()) || isSwitchCommand(command.text())) {
+					return null;
+				}
+				Object payload = expireReadyCommand(roomId, request.gameSessionId(), request.commandSequence(), command,
+					session);
+				return payload == null ? null : ContributionInputResult.broadcast(payload);
+			} finally {
+				if (commandLocked) {
+					commandLock.unlock();
+				}
 			}
-			Object payload = expireReadyCommand(roomId, request.gameSessionId(), request.commandSequence(), command,
-				session);
-			return payload == null ? null : ContributionInputResult.broadcast(payload);
 		} finally {
-			if (locked) {
-				lock.unlock();
+			if (sessionLocked) {
+				sessionLock.unlock();
 			}
 		}
 	}
@@ -191,20 +208,28 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 
 	@Override
 	public ContributionGameEndMessage endByPlayerDisconnected(Long roomId, UUID gameSessionId) {
-		Optional<ContributionGameSessionCache> sessionOptional = contributionGameRedisRepository.findSession(
-			gameSessionId);
-		if (sessionOptional.isEmpty()) {
+		RLock sessionLock = redissonClient.getLock(ContributionRedisKeys.sessionLock(gameSessionId));
+		boolean sessionLocked = tryLock(sessionLock);
+		try {
+			Optional<ContributionGameSessionCache> sessionOptional = contributionGameRedisRepository.findSession(
+				gameSessionId);
+			if (sessionOptional.isEmpty()) {
+				return ContributionGameEndMessage.playerDisconnected(gameSessionId);
+			}
+			ContributionGameSessionCache session = sessionOptional.get();
+			if (!session.roomId().equals(roomId)) {
+				throw new BusinessException(SESSION_MISMATCH);
+			}
+			if (!contributionGameRedisRepository.markSessionEndedIfInProgress(gameSessionId)) {
+				return null;
+			}
+			log.info("[contribution][endByPlayerDisconnected] roomId={}, gameSessionId={}", roomId, gameSessionId);
 			return ContributionGameEndMessage.playerDisconnected(gameSessionId);
+		} finally {
+			if (sessionLocked) {
+				sessionLock.unlock();
+			}
 		}
-		ContributionGameSessionCache session = sessionOptional.get();
-		if (!session.roomId().equals(roomId)) {
-			throw new BusinessException(SESSION_MISMATCH);
-		}
-		if (!contributionGameRedisRepository.markSessionEndedIfInProgress(gameSessionId)) {
-			return null;
-		}
-		log.info("[contribution][endByPlayerDisconnected] roomId={}, gameSessionId={}", roomId, gameSessionId);
-		return ContributionGameEndMessage.playerDisconnected(gameSessionId);
 	}
 
 	private boolean tryLock(RLock lock) {
@@ -235,6 +260,9 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			throw new BusinessException(GAME_NOT_STARTED);
 		}
 		if (!contributionGameRedisRepository.existsPlayer(gameSessionId, memberId)) {
+			throw new BusinessException(PLAYER_NOT_IN_GAME);
+		}
+		if (contributionGameRedisRepository.isPlayerDisconnected(gameSessionId, memberId)) {
 			throw new BusinessException(PLAYER_NOT_IN_GAME);
 		}
 	}
@@ -430,10 +458,34 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	}
 
 	@Override
-	public void handlePlayerDisconnected(UUID gameSessionId, UUID disconnectedPlayerId) {
-		contributionGameRedisRepository.markPlayerDisconnected(gameSessionId, disconnectedPlayerId);
-		log.info("[contribution][handlePlayerDisconnected] gameSessionId={}, disconnectedPlayerId={}",
-			gameSessionId, disconnectedPlayerId);
+	public ContributionInputResult handlePlayerDisconnected(UUID gameSessionId, UUID disconnectedPlayerId) {
+		RLock sessionLock = redissonClient.getLock(ContributionRedisKeys.sessionLock(gameSessionId));
+		boolean sessionLocked = tryLock(sessionLock);
+		try {
+			ContributionGameSessionCache session = contributionGameRedisRepository.findSession(gameSessionId)
+				.orElse(null);
+			if (session == null || !SESSION_STATUS_IN_PROGRESS.equals(session.status())) {
+				return null;
+			}
+			contributionGameRedisRepository.markPlayerDisconnected(gameSessionId, disconnectedPlayerId);
+			int clearedCommandCount = contributionGameRedisRepository.countScoredClearedCommands(gameSessionId);
+			int catExpiredCount = contributionGameRedisRepository.findCatExpiredCount(gameSessionId);
+			int processedCommandCount = clearedCommandCount + catExpiredCount;
+			int totalCommands = countScorableCommands(session);
+			List<ScoreEntryMessage> scores = buildScores(gameSessionId, clearedCommandCount, catExpiredCount);
+			ContributionProgressMessage progress = buildProgress(processedCommandCount, totalCommands);
+			log.info("[contribution][handlePlayerDisconnected] gameSessionId={}, disconnectedPlayerId={}",
+				gameSessionId, disconnectedPlayerId);
+			return ContributionInputResult.broadcast(ContributionPlayerDisconnectedMessage.of(
+				gameSessionId,
+				disconnectedPlayerId,
+				scores,
+				progress));
+		} finally {
+			if (sessionLocked) {
+				sessionLock.unlock();
+			}
+		}
 	}
 
 	private List<ContributionRankingCache> toRankingCaches(List<ContributionRankingMessage> rankings) {
@@ -469,7 +521,7 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		if (!matcher.matches()) {
 			throw new BusinessException(ErrorCode.INVALID_COMMAND);
 		}
-		return matcher.group(2).trim();
+		return matcher.group(1).trim();
 	}
 
 	private record ScoreSeed(

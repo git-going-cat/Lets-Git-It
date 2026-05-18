@@ -2,6 +2,7 @@ package com.gitcat.letsgitit.domain.competitive.service;
 
 import static com.gitcat.letsgitit.global.exception.ErrorCode.COMMAND_ALREADY_CLEARED;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.GAME_ALREADY_ENDED;
+import static com.gitcat.letsgitit.global.exception.ErrorCode.INVALID_COMMAND;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.LOCK_ACQUISITION_FAILED;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.PLAYER_NOT_IN_GAME;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,6 +39,7 @@ import com.gitcat.letsgitit.domain.competitive.message.contribution.Contribution
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionGameEndMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionInputFailedMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionInputMessage;
+import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionPlayerDisconnectedMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.PositionUpdateMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ScoreUpdateMessage;
 import com.gitcat.letsgitit.domain.competitive.repository.ContributionGameRedisRepository;
@@ -193,22 +195,18 @@ class ContributionGameServiceImplTest {
 		}
 
 		@Test
-		void checkout_명령어도_유효_브랜치이면_위치를_갱신한다() {
+		void checkout_명령어는_브랜치_이동으로_허용하지_않는다() {
 			// given
 			ContributionInputMessage request = switchInput("git checkout feature/payment");
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
-			when(repository.existsBranch(GAME_SESSION_ID, "feature/payment")).thenReturn(true);
 
-			// when
-			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
-
-			// then
-			assertThat(result.broadcast()).isTrue();
-			assertThat(result.payload()).isInstanceOf(PositionUpdateMessage.class);
-			PositionUpdateMessage payload = (PositionUpdateMessage)result.payload();
-			assertThat(payload.branch()).isEqualTo("feature/payment");
-			verify(repository).updatePosition(GAME_SESSION_ID, PLAYER_ID, "feature/payment");
+			// when & then
+			assertThatThrownBy(() -> service.processInput(ROOM_ID, PLAYER_ID, request))
+				.isInstanceOf(BusinessException.class)
+				.extracting("errorCode")
+				.isEqualTo(INVALID_COMMAND);
+			verify(repository, never()).updatePosition(any(), any(), anyString());
 		}
 
 		@Test
@@ -216,6 +214,20 @@ class ContributionGameServiceImplTest {
 			// given
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(false);
+
+			// when & then
+			assertThatThrownBy(() -> service.processInput(ROOM_ID, PLAYER_ID, input(1, "git commit -m 'fix'")))
+				.isInstanceOf(BusinessException.class)
+				.extracting("errorCode")
+				.isEqualTo(PLAYER_NOT_IN_GAME);
+		}
+
+		@Test
+		void 이탈_마킹된_플레이어는_PLAYER_NOT_IN_GAME_예외가_발생한다() {
+			// given
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.isPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 
 			// when & then
 			assertThatThrownBy(() -> service.processInput(ROOM_ID, PLAYER_ID, input(1, "git commit -m 'fix'")))
@@ -546,6 +558,39 @@ class ContributionGameServiceImplTest {
 			// then
 			assertThat(result).isNull();
 			verify(repository, never()).markSessionEnded(GAME_SESSION_ID);
+		}
+	}
+
+	@Nested
+	class HandlePlayerDisconnected {
+
+		@Test
+		void 이탈자를_마킹하고_disconnected_true_상태를_브로드캐스트한다() {
+			// given
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+			when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(1);
+			when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(0);
+			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
+				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
+				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
+			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
+			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
+			when(repository.isPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+
+			// when
+			ContributionInputResult result = service.handlePlayerDisconnected(GAME_SESSION_ID, PLAYER_ID);
+
+			// then
+			assertThat(result.broadcast()).isTrue();
+			assertThat(result.payload()).isInstanceOf(ContributionPlayerDisconnectedMessage.class);
+			ContributionPlayerDisconnectedMessage payload = (ContributionPlayerDisconnectedMessage)result.payload();
+			assertThat(payload.type()).isEqualTo("CONTRIBUTION_PLAYER_DISCONNECTED");
+			assertThat(payload.disconnectedPlayerId()).isEqualTo(PLAYER_ID);
+			assertThat(payload.scores())
+				.filteredOn(score -> PLAYER_ID.equals(score.playerId()))
+				.singleElement()
+				.satisfies(score -> assertThat(score.disconnected()).isTrue());
+			verify(repository).markPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID);
 		}
 	}
 

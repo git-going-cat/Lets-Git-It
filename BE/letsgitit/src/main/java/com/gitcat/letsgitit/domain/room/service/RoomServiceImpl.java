@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 
 import com.gitcat.letsgitit.domain.command.dto.response.CommandSetResponse;
 import com.gitcat.letsgitit.domain.command.service.CommandService;
+import com.gitcat.letsgitit.domain.competitive.dto.ContributionInputResult;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionCommand;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionPlayer;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionGameEndMessage;
@@ -163,6 +164,11 @@ public class RoomServiceImpl implements RoomService {
 				.toPlayerInfoDtos(roomRedisRepository.getMembers(roomId.toString()));
 			if (contributionGameInProgress && gameSessionId != null) {
 				UUID parsedSessionId = UUID.fromString(gameSessionId);
+				ContributionInputResult disconnectedResult = contributionGameService.handlePlayerDisconnected(
+					parsedSessionId, memberId);
+				if (disconnectedResult != null && disconnectedResult.payload() != null) {
+					roomWebSocketEventPublisher.publishContributionEvent(roomId, disconnectedResult.payload());
+				}
 				if (remainMembers.size() < 2) {
 					ContributionGameEndMessage gameEnd = contributionGameService.endByPlayerDisconnected(
 						roomId, parsedSessionId);
@@ -170,8 +176,6 @@ public class RoomServiceImpl implements RoomService {
 						roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
 						roomWebSocketEventPublisher.publishContributionGameEnd(roomId, gameEnd);
 					}
-				} else {
-					contributionGameService.handlePlayerDisconnected(parsedSessionId, memberId);
 				}
 			}
 			if (remainMembers.isEmpty()) {

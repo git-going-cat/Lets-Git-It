@@ -152,4 +152,16 @@ public class RoomWebSocketEventPublisher {
 				roomId, response.reason(), e);
 		}
 	}
+
+	public void publishContributionEvent(Long roomId, Object response) {
+		try {
+			webSocketMessageSender.send(ROOM_TOPIC_PREFIX + roomId + "/contribution", response);
+			log.info("[room][publishContributionEvent] contribution event published. roomId={}, payloadType={}",
+				roomId, response.getClass().getSimpleName());
+		} catch (RuntimeException e) {
+			log.warn(
+				"[room][publishContributionEvent] contribution event publish failed. roomId={}, payloadType={}, reason={}",
+				roomId, response.getClass().getSimpleName(), e.getClass().getSimpleName(), e);
+		}
+	}
 }

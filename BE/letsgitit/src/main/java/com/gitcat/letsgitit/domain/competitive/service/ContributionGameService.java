@@ -29,5 +29,5 @@ public interface ContributionGameService {
 
 	ContributionGameEndMessage endByPlayerDisconnected(Long roomId, UUID gameSessionId);
 
-	void handlePlayerDisconnected(UUID gameSessionId, UUID disconnectedPlayerId);
+	ContributionInputResult handlePlayerDisconnected(UUID gameSessionId, UUID disconnectedPlayerId);
 }

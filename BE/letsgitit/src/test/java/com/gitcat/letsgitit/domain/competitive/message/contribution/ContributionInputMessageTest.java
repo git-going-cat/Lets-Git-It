@@ -91,6 +91,25 @@ class ContributionInputMessageTest {
 		}
 
 		@Test
+		void checkout_명령어는_commandSequence_없는_이동_명령으로_허용하지_않는다() {
+			// given
+			ContributionInputMessage request = new ContributionInputMessage(
+				"CONTRIBUTION_INPUT",
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				null,
+				"git checkout develop");
+
+			// when
+			Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
+
+			// then
+			assertThat(violations)
+				.extracting(violation -> violation.getPropertyPath().toString())
+				.contains("commandSequenceRequiredForScorableCommand");
+		}
+
+		@Test
 		void 일반_명령어는_commandSequence가_없으면_검증에_실패한다() {
 			// given
 			ContributionInputMessage request = new ContributionInputMessage(
