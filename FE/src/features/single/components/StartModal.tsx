@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
 import { useModal } from '@/shared/hooks/useModal';
 import { gameStatusAtom, prePauseStatusAtom } from '@/shared/store/gameStatusAtom';
 
+import { singleBus } from '../bridge/singleBus';
 import { useSingleStore } from '../store/singleStore';
 
 /**
@@ -55,7 +55,7 @@ export default function StartModal() {
     if (inputValue.trim() === expectedCommand) {
       analytics.gameStarted(isTutorial ? 'tutorial' : 'single', difficulty ?? undefined);
       setGameStatus('playing');
-      EventBus.emit('game:start');
+      singleBus.emit('game:start');
     } else {
       setIsError(true);
       setInputValue('');
@@ -73,26 +73,48 @@ export default function StartModal() {
         className="nes-container is-dark with-title w-full max-w-xl"
       >
         <p id={titleId} className="title text-xl">
-          {isTutorial ? 'TUTORIAL' : 'MISSION START'}
+          {isTutorial ? `STEP 1 / ${tutorialSteps.length}` : 'MISSION START'}
         </p>
+
+        {isTutorial && tutorialSteps.length > 0 && (
+          <div className="flex gap-0.5 mb-1">
+            {Array.from({ length: tutorialSteps.length }, (_, i) => (
+              <div
+                key={i}
+                className={`h-1 flex-1 rounded-full ${i === 0 ? 'bg-yellow-400' : 'bg-white/10'}`}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-col gap-5 p-2">
           {isTutorial && tutorialSteps[0] && (
             <>
               <p className="text-2xl font-bold text-yellow-400">{tutorialSteps[0].title}</p>
               <div className="nes-container is-dark px-4 py-3">
-                <p className="text-2xl leading-relaxed text-white">
-                  {tutorialSteps[0].description}
-                </p>
+                <p className="text-xl leading-relaxed text-white">{tutorialSteps[0].description}</p>
               </div>
               <p className="text-xl text-gray-400">{cloneCommand?.explanation}</p>
             </>
           )}
 
           {!isTutorial && (
-            <p className="text-2xl leading-relaxed text-yellow-400">
-              Repository를 클론해서 게임을 시작하세요!
-            </p>
+            <>
+              <p className="text-2xl leading-relaxed text-yellow-400">
+                Repository를 클론해서 게임을 시작하세요!
+              </p>
+              {(difficulty === 'NORMAL' || difficulty === 'HARD') && (
+                <p className="text-xl text-orange-400">
+                  브랜치 전환 명령어가 떨어지지 않습니다. 직접 git switch로 브랜치를 이동해야
+                  합니다.
+                </p>
+              )}
+              {difficulty === 'HARD' && (
+                <p className="text-xl text-orange-400">
+                  명령어가 시간차로 떨어집니다. 같은 레인에 두 개가 동시에 보일 수 있습니다.
+                </p>
+              )}
+            </>
           )}
 
           <div>

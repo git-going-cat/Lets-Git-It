@@ -40,8 +40,8 @@ const SIDEBAR_DATA: SidebarFolder[] = [
     icon: multiFolderImg,
     children: [
       { label: '기여도 뺏기', icon: multiContributionImg, mode: 'speed' },
-      { label: '타임어택', icon: multiTimeattackImg, mode: 'timeattack' },
       { label: '협력', icon: multiCoopImg, mode: 'coop' },
+      { label: '타임어택', icon: multiTimeattackImg, mode: 'timeattack' },
     ],
   },
 ];

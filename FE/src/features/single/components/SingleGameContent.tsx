@@ -3,20 +3,24 @@ import { useAtomValue } from 'jotai';
 import Phaser from 'phaser';
 
 import screenBg from '@/assets/bg/screen.png';
-import { EventBus } from '@/core/bridge/EventBus';
-import { singleGameConfig } from '@/game/config';
+import { createGameConfig } from '@/game/config';
+import ConflictMiniGameOverlay from '@/shared/components/ConflictMiniGameOverlay';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
+import { singleBus } from '../bridge/singleBus';
 import { useSingleGame } from '../hooks/useSingleGame';
 import { useTutorialMode } from '../hooks/useTutorialMode';
 import { SingleScene } from '../scenes/SingleScene';
 import { useSingleStore } from '../store/singleStore';
+import { tutorialHighlightAtom } from '../store/tutorialHighlightAtom';
 
 import CatSprite from './CatSprite';
 import CherryPickOverlay from './CherryPickOverlay';
 import ChuruStack from './ChuruStack';
 import CommandInput from './CommandInput';
+import GameEndScreen from './GameEndScreen';
 import GameProgress from './GameProgress';
+import HighlightRing from './HighlightRing';
 import PlayerCharacter from './PlayerCharacter';
 import RestoreOverlay from './RestoreOverlay';
 import SingleHUD from './SingleHUD';
@@ -24,6 +28,7 @@ import StashOverlay from './StashOverlay';
 import TutorialCompleteModal from './TutorialCompleteModal';
 import TutorialOverlay from './TutorialOverlay';
 import TutorialPauseModal from './TutorialPauseModal';
+import TutorialSpotlight from './TutorialSpotlight';
 
 interface SingleGameContentProps {
   onTutorialComplete?: () => void;
@@ -36,6 +41,7 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
 
   const { sessionId, difficulty, commandSet, isTutorial } = useSingleStore();
   const gameStatus = useAtomValue(gameStatusAtom);
+  const tutorialHighlight = useAtomValue(tutorialHighlightAtom);
   const totalCommands = useMemo(
     () => commandSet.filter((c) => c.type !== 'SWITCH').length,
     [commandSet]
@@ -49,16 +55,35 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
   }, []);
 
   useEffect(() => {
-    EventBus.on('command:wrong', triggerShake);
-    return () => {
-      EventBus.off('command:wrong', triggerShake);
-    };
+    return singleBus.subscribe('command:wrong', triggerShake);
   }, [triggerShake]);
 
-  const { overlayState, modalPhase, handleNext, handleResume, handleSkip } =
-    useTutorialMode(isTutorial);
+  // CONFLICT 미니게임은 shared 컴포넌트라 도메인 버스 의존이 없다 — wiring을 여기서 주입한다.
+  const handleConflictResolve = useCallback((index: number) => {
+    singleBus.emit('conflict:resolve', { index });
+  }, []);
+  const handleConflictTypo = useCallback((index: number) => {
+    singleBus.emit('conflict:typo', { index });
+  }, []);
 
-  // 다시하기는 EventBus 'game:restart' 이벤트로 처리하므로,
+  const {
+    overlayState,
+    modalPhase,
+    showEndScreen,
+    showCompletedModal,
+    showSkippedModal,
+    handleNext,
+    handleResume,
+    handleSkip,
+    handleSkipFall,
+    handleEndScreenDone,
+  } = useTutorialMode(isTutorial);
+
+  const handleTutorialHome = useCallback(() => {
+    onTutorialComplete?.();
+  }, [onTutorialComplete]);
+
+  // 다시하기는 singleBus 'game:restart' 이벤트로 처리하므로,
   // sessionId/commandSet 변경마다 Phaser 인스턴스를 재생성하지 않는다.
   // hasSession boolean 트랜지션(false→true / true→false)에서만 effect가 발화하도록 deps를 단순화.
   // isTutorial은 게임 모드 자체가 달라지므로 계속 deps에 포함.
@@ -70,9 +95,8 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
     const initialSession = useSingleStore.getState();
 
     const game = new Phaser.Game({
-      ...singleGameConfig,
+      ...createGameConfig(),
       parent: containerRef.current,
-      scene: [],
     });
 
     gameRef.current = game;
@@ -103,14 +127,21 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
         aria-hidden="true"
         draggable={false}
       />
+
+      {/* 튜토리얼 하이라이트 스포트라이트 — z-10으로 배경을 어둡게, 강조 요소는 z-20으로 올라옴 */}
+      {isTutorial && <TutorialSpotlight />}
+
       <div className="relative flex w-game-sidebar flex-col">
         <SingleHUD />
       </div>
       <div className="relative grid h-full w-game-center grid-rows-single-game">
         <GameProgress />
+        {/* lanes wrapper: Phaser canvas + overflow-hidden + ref 특수성으로 HighlightRing(absolute) 대신 wrapper ring 유지 */}
         <div
           ref={containerRef}
-          className={`relative overflow-hidden ${shaking ? 'animate-screen-shake' : ''}`}
+          className={`relative overflow-hidden ${shaking ? 'animate-screen-shake' : ''} ${
+            tutorialHighlight.includes('lanes') ? 'z-20 ring-2 ring-yellow-400' : ''
+          }`}
           onAnimationEnd={() => setShaking(false)}
         >
           <PlayerCharacter />
@@ -118,9 +149,11 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
           <CherryPickOverlay />
           <RestoreOverlay />
         </div>
-        <CommandInput />
+        <HighlightRing target="history">
+          <CommandInput />
+        </HighlightRing>
       </div>
-      <div className="relative flex w-game-sidebar flex-col">
+      <HighlightRing target="cat-churu" className="flex w-game-sidebar flex-col">
         <div className="flex h-48 flex-col">
           <div className="flex justify-end p-2">
             {gameStatus !== 'idle' && (
@@ -128,7 +161,7 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
                 type="button"
                 className="nes-btn text-2xl"
                 onClick={() =>
-                  isTutorial ? EventBus.emit('tutorial:pause') : EventBus.emit('game:pause')
+                  isTutorial ? singleBus.emit('tutorial:pause') : singleBus.emit('game:pause')
                 }
                 aria-label="일시정지"
               >
@@ -141,20 +174,26 @@ export default function SingleGameContent({ onTutorialComplete }: SingleGameCont
           </div>
         </div>
         <ChuruStack totalCommands={totalCommands} />
-      </div>
+      </HighlightRing>
 
-      {/* 튜토리얼 전용 오버레이 및 모달 */}
+      {/* CONFLICT 미니게임 — viewport 기준 fixed로 떠 좁은 화면에서도 잘리지 않도록 게임 컨테이너 밖에 배치 */}
+      <ConflictMiniGameOverlay onResolve={handleConflictResolve} onTypo={handleConflictTypo} />
+
+      {/* 튜토리얼 전용 오버레이 및 모달 — phase 관리/전이 책임은 useTutorialMode가 갖고, 본 컴포넌트는 분기만 담당 */}
       {isTutorial && (
         <>
-          {overlayState && <TutorialOverlay state={overlayState} onNext={handleNext} />}
+          {overlayState && (
+            <TutorialOverlay state={overlayState} onNext={handleNext} onSkipFall={handleSkipFall} />
+          )}
           {modalPhase === 'paused' && (
             <TutorialPauseModal onResume={handleResume} onSkip={handleSkip} />
           )}
-          {modalPhase === 'completed' && (
-            <TutorialCompleteModal isSkipped={false} onHome={onTutorialComplete ?? (() => {})} />
+          {showEndScreen && <GameEndScreen status="SUCCESS" onVideoEnd={handleEndScreenDone} />}
+          {showCompletedModal && (
+            <TutorialCompleteModal isSkipped={false} onHome={handleTutorialHome} />
           )}
-          {modalPhase === 'skipped' && (
-            <TutorialCompleteModal isSkipped={true} onHome={onTutorialComplete ?? (() => {})} />
+          {showSkippedModal && (
+            <TutorialCompleteModal isSkipped={true} onHome={handleTutorialHome} />
           )}
         </>
       )}

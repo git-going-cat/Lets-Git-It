@@ -1,5 +1,5 @@
 import { http } from '@/core/http';
-import { apiResponseSchema } from '@/features/auth/schemas/response.schema';
+import { apiResponseSchema } from '@/shared/schemas/response.schema';
 
 import { saveResultDataSchema, startSessionDataSchema } from '../schemas/single.schema';
 

@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import PreparingPage from '@/shared/components/PreparingPage';
+import CoopPage from '@/features/coop/components/CoopPage';
 
 export const Route = createFileRoute('/coop')({
-  component: () => <PreparingPage title="협동 모드 준비 중" />,
+  component: CoopPage,
 });

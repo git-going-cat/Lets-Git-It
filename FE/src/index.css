@@ -40,6 +40,7 @@
   --animate-paw-fade: paw-fade 250ms ease-out forwards;
   --animate-item-pop: item-pop 0.55s ease-out;
   --animate-screen-shake: screen-shake 350ms ease-out;
+  --z-index-60: 60;
   --z-index-80: 80;
   --z-index-100: 100;
   --spacing-game-sidebar: 15%;
@@ -164,22 +165,6 @@
   50% {
     opacity: 0;
   }
-}
-
-/* 튜토리얼 말풍선 슬라이드인 */
-@keyframes tutorial-bubble-in {
-  from {
-    opacity: 0;
-    transform: translateY(-16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.tutorial-bubble-wrap {
-  animation: tutorial-bubble-in 0.28s ease-out both;
 }
 
 @keyframes combo-pop {

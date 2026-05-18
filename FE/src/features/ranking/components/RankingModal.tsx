@@ -1,9 +1,11 @@
 import { useId, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { useCoopMaps } from '@/features/multi/hooks/useRoom';
 import { useModal } from '@/shared/hooks/useModal';
 
 import { useRanking } from '../hooks/useRanking';
+import { formatCoopDifficulty } from '../utils/coopDifficulty';
 import { isInitialRankingPage } from '../utils/rankingEntries';
 import {
   getCurrentWeek,
@@ -18,7 +20,8 @@ import RankingList from './RankingList';
 import RankingPodium from './RankingPodium';
 import RankingSidebar from './RankingSidebar';
 
-import type { RankingMode, WeekParam } from '../types/ranking.types';
+import type { CoopRankingQuery, RankingMode, WeekParam } from '../types/ranking.types';
+import type { CoopMap } from '@/features/multi/types/room.types';
 
 // ── 타입 ──────────────────────────────────────────────────
 
@@ -41,8 +44,37 @@ export default function RankingModal({ onClose }: RankingModalProps) {
 
   const [activeMode, setActiveMode] = useState<RankingMode>('single-easy');
   const [selectedWeek, setSelectedWeek] = useState<WeekParam | null>(null);
+  const [selectedCoopQuery, setSelectedCoopQuery] = useState<CoopRankingQuery | undefined>();
   const rankingScrollRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const isCoopMode = activeMode === 'coop';
+  const {
+    data: coopMapData,
+    isLoading: isCoopMapLoading,
+    isError: isCoopMapError,
+  } = useCoopMaps(isCoopMode);
+  const coopMaps = useMemo(() => coopMapData?.maps ?? [], [coopMapData]);
+  const activeCoopQuery = useMemo<CoopRankingQuery | undefined>(() => {
+    if (!isCoopMode) return undefined;
+
+    const selectedMap = coopMaps.find((map) => map.mapId === selectedCoopQuery?.mapId);
+    if (selectedMap) {
+      return {
+        mapId: selectedMap.mapId,
+        mapName: selectedMap.mapName,
+        difficulty: selectedMap.difficulty,
+      };
+    }
+
+    const firstMap = coopMaps[0];
+    if (!firstMap) return undefined;
+
+    return {
+      mapId: firstMap.mapId,
+      mapName: firstMap.mapName,
+      difficulty: firstMap.difficulty,
+    };
+  }, [coopMaps, isCoopMode, selectedCoopQuery?.mapId]);
 
   const {
     data,
@@ -54,11 +86,10 @@ export default function RankingModal({ onClose }: RankingModalProps) {
     isFetching,
     isFetchingNextPage,
     isFetchingPreviousPage,
-  } = useRanking(activeMode, selectedWeek);
+  } = useRanking(activeMode, selectedWeek, activeCoopQuery);
 
   const isCurrentWeek = selectedWeek === null;
-  const shouldShowPreparingGuide =
-    activeMode === 'single-hard' || !activeMode.startsWith('single-');
+  const shouldShowPreparingGuide = activeMode === 'timeattack';
 
   // 이번 주 API 응답에서 파생 — history 조회 중에는 null (displayWeek는 selectedWeek 우선)
   const currentWeekInfo = useMemo<WeekParam | null>(() => {
@@ -71,14 +102,18 @@ export default function RankingModal({ onClose }: RankingModalProps) {
   }, [data, isCurrentWeek, shouldShowPreparingGuide]);
 
   const initialData = data?.pages.find(isInitialRankingPage) ?? null;
-  const cachedSingleWeekInfo = useMemo(() => getCachedSingleWeekInfo(queryClient), [queryClient]);
+  const cachedSingleWeekInfo = useMemo(() => {
+    // activeMode/data 변경 시 싱글 랭킹 캐시를 다시 훑어 최신 주차 fallback을 유지합니다.
+    void activeMode;
+    void data;
+    return getCachedSingleWeekInfo(queryClient);
+  }, [queryClient, activeMode, data]);
   const fallbackCurrentWeek = useMemo(() => getCurrentWeek(), []);
   const displayWeek =
-    selectedWeek ??
-    (shouldShowPreparingGuide ? (cachedSingleWeekInfo ?? fallbackCurrentWeek) : currentWeekInfo);
-  const rankingListKey = `${activeMode}:${selectedWeek?.year ?? 'current'}:${selectedWeek?.month ?? ''}:${
-    selectedWeek?.week ?? ''
-  }`;
+    selectedWeek ?? currentWeekInfo ?? cachedSingleWeekInfo ?? fallbackCurrentWeek;
+  const rankingListKey = `${activeMode}:${activeCoopQuery?.mapId ?? ''}:${selectedWeek?.year ?? 'current'}:${
+    selectedWeek?.month ?? ''
+  }:${selectedWeek?.week ?? ''}`;
 
   const handleModeChange = (mode: RankingMode) => {
     if (mode === activeMode) return;
@@ -88,6 +123,15 @@ export default function RankingModal({ onClose }: RankingModalProps) {
       exact: true,
     });
     setActiveMode(mode);
+    setSelectedWeek(null);
+  };
+
+  const handleSelectCoopMap = (map: CoopMap) => {
+    setSelectedCoopQuery({
+      mapId: map.mapId,
+      mapName: map.mapName,
+      difficulty: map.difficulty,
+    });
     setSelectedWeek(null);
   };
 
@@ -168,9 +212,50 @@ export default function RankingModal({ onClose }: RankingModalProps) {
           {/* 콘텐츠 카드 */}
           {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
           <div className="mx-4 mb-4 flex flex-1 flex-col overflow-hidden rounded-xl bg-[rgba(255,255,255,0.72)] shadow-lg backdrop-blur-md">
+            {isCoopMode && (
+              /* Tailwind 기본 색상 토큰으로 표현하기 어려운 랭킹 모달 반투명 경계선 */
+              <div className="border-b border-b-[rgba(100,140,200,0.12)] px-4 py-3">
+                {isCoopMapLoading ? (
+                  <p className="text-sm text-gray-500">협력 맵을 불러오는 중...</p>
+                ) : isCoopMapError ? (
+                  <p className="text-sm text-red-500">협력 맵 목록을 불러오지 못했습니다.</p>
+                ) : coopMaps.length === 0 ? (
+                  <p className="text-sm text-gray-500">선택 가능한 협력 맵이 없습니다.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {coopMaps.map((map) => {
+                      const isSelected = activeCoopQuery?.mapId === map.mapId;
+
+                      return (
+                        /* Tailwind 기본 색상 토큰으로 표현하기 어려운 랭킹 모달 선택/hover 색상 */
+                        <button
+                          key={map.mapId}
+                          type="button"
+                          onClick={() => handleSelectCoopMap(map)}
+                          className={`rounded-md border px-3 py-2 text-left text-sm transition-colors ${
+                            isSelected
+                              ? 'border-[#3a5a9a] bg-white font-semibold text-[#3a5a9a]'
+                              : 'border-white/60 bg-white/45 text-gray-600 hover:bg-white/70'
+                          }`}
+                        >
+                          <span className="block">{map.mapName}</span>
+                          <span className="text-xs text-yellow-600">
+                            {formatCoopDifficulty(map.difficulty)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             {shouldShowPreparingGuide ? (
               <div className="flex flex-1 items-center justify-center text-sm text-gray-500">
                 {getModeLabel(activeMode)} 랭킹은 준비 중입니다.
+              </div>
+            ) : isCoopMode && !activeCoopQuery ? (
+              <div className="flex flex-1 items-center justify-center text-sm text-gray-500">
+                협력 맵을 선택해 주세요.
               </div>
             ) : isLoading && !data ? (
               <div className="flex flex-1 items-center justify-center">
