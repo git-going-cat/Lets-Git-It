@@ -2,10 +2,10 @@ import { useEffect } from 'react';
 
 import { socketManager } from '@/core/socket/SocketManager';
 import {
-  BaseMessageSchema,
-  ErrorSchema,
-  ForceDisconnectSchema,
-  KickedSchema,
+  baseMessageSchema,
+  errorSchema,
+  forceDisconnectSchema,
+  kickedSchema,
 } from '@/features/multi/schemas/room.schema';
 
 /**
@@ -21,7 +21,7 @@ const PRIVATE_CHANNEL_SUBSCRIPTION_KEY = 'multi:private-channel';
 
 type UseSocketPrivateChannelOptions = {
   onForceDisconnect: () => void;
-  onKicked: (roomId: string) => void;
+  onKicked: (roomId: number) => void;
   onError?: (code: string, message: string) => void;
 };
 
@@ -40,7 +40,7 @@ export function useSocketPrivateChannel({
     socketManager.subscribe(
       PRIVATE_CHANNEL_DESTINATION,
       (message) => {
-        const baseMessage = BaseMessageSchema.safeParse(message);
+        const baseMessage = baseMessageSchema.safeParse(message);
 
         if (!baseMessage.success) {
           console.error('[socket] Invalid private channel packet dropped.', baseMessage.error);
@@ -49,7 +49,7 @@ export function useSocketPrivateChannel({
 
         switch (baseMessage.data.type) {
           case 'FORCE_DISCONNECT': {
-            const result = ForceDisconnectSchema.safeParse(message);
+            const result = forceDisconnectSchema.safeParse(message);
 
             if (!result.success) {
               console.error('[socket] Invalid FORCE_DISCONNECT packet dropped.', result.error);
@@ -62,7 +62,7 @@ export function useSocketPrivateChannel({
           }
 
           case 'KICKED': {
-            const result = KickedSchema.safeParse(message);
+            const result = kickedSchema.safeParse(message);
 
             if (!result.success) {
               console.error('[socket] Invalid KICKED packet dropped.', result.error);
@@ -75,7 +75,7 @@ export function useSocketPrivateChannel({
           }
 
           case 'ERROR': {
-            const result = ErrorSchema.safeParse(message);
+            const result = errorSchema.safeParse(message);
 
             if (!result.success) {
               console.error('[socket] Invalid ERROR packet dropped.', result.error);

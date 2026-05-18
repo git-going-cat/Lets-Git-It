@@ -8,11 +8,19 @@ import {
   getRooms,
   joinContributionRoom,
   joinCoopRoom,
+  kickRoomMember,
+  updateContributionRoom,
+  updateCoopRoom,
   verifyRoomPassword,
 } from '../api/room.api';
 import { useRoomStore } from '../store/roomStore';
 
-import type { CreateContributionRoomRequest, CreateCoopRoomRequest } from '../types/room.types';
+import type {
+  CreateContributionRoomRequest,
+  CreateCoopRoomRequest,
+  UpdateContributionRoomRequest,
+  UpdateCoopRoomRequest,
+} from '../types/room.types';
 
 /**
  * 모드별 방 목록을 5초마다 폴링하여 조회한다.
@@ -70,6 +78,42 @@ export function useCreateCoopRoom() {
   return useMutation({
     mutationFn: (body: CreateCoopRoomRequest) => createCoopRoom(body),
     onSuccess: (data) => initFromCoopCreate(data),
+  });
+}
+
+/**
+ * 기여도 뺏기 방 정보를 수정한다. PATCH /api/v1/rooms/{roomId}/contribution
+ *
+ * 성공 후 최신 방 정보는 /topic/room/{roomId} 의 CONTRIBUTION_ROOM_INFO_UPDATED로 반영된다.
+ */
+export function useUpdateContributionRoom() {
+  return useMutation({
+    mutationFn: ({ roomId, body }: { roomId: number; body: UpdateContributionRoomRequest }) =>
+      updateContributionRoom(roomId, body),
+  });
+}
+
+/**
+ * 협력 방 정보를 수정한다. PATCH /api/v1/rooms/{roomId}/coop
+ *
+ * 성공 후 최신 방 정보는 /topic/room/{roomId} 의 COOP_ROOM_INFO_UPDATED로 반영된다.
+ */
+export function useUpdateCoopRoom() {
+  return useMutation({
+    mutationFn: ({ roomId, body }: { roomId: number; body: UpdateCoopRoomRequest }) =>
+      updateCoopRoom(roomId, body),
+  });
+}
+
+/**
+ * 방장이 특정 멤버를 추방한다. DELETE /api/v1/rooms/{roomId}/members/{playerId}
+ *
+ * 성공 후 멤버 목록 변경은 서버의 PLAYER_KICKED 이벤트로 반영된다.
+ */
+export function useKickRoomMember() {
+  return useMutation({
+    mutationFn: ({ roomId, playerId }: { roomId: number; playerId: string }) =>
+      kickRoomMember(roomId, playerId),
   });
 }
 

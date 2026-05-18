@@ -26,10 +26,14 @@ import { roomTopicMessageSchema } from '../schemas/room.schema';
 
 import type { useRoomStore } from '../store/roomStore';
 import type {
+  ContributionRoomInfoUpdatedMessage,
   ContributionRoomStateMessage,
+  CoopRoomInfoUpdatedMessage,
   CoopRoomStateMessage,
   HostDelegatedMessage,
+  HostTransferredMessage,
   PlayerJoinedMessage,
+  PlayerKickedMessage,
   PlayerLeftMessage,
   ReadyChangedMessage,
   RoomPrivateMessage,
@@ -124,6 +128,16 @@ export function handlePlayerLeft(msg: PlayerLeftMessage, store: RoomStoreState):
 }
 
 /**
+ * PLAYER_KICKED 처리
+ *
+ * 방장이 다른 플레이어를 추방했을 때 수신.
+ * remainMembers로 전체 멤버 목록을 덮어씁니다.
+ */
+export function handlePlayerKicked(msg: PlayerKickedMessage, store: RoomStoreState): void {
+  store.setMembers(msg.remainMembers);
+}
+
+/**
  * HOST_DELEGATED 처리
  *
  * 방장이 나가서 새 방장이 자동 위임되었을 때 수신.
@@ -131,6 +145,40 @@ export function handlePlayerLeft(msg: PlayerLeftMessage, store: RoomStoreState):
  */
 export function handleHostDelegated(msg: HostDelegatedMessage, store: RoomStoreState): void {
   store.setMembers(msg.remainMembers);
+}
+
+/**
+ * HOST_TRANSFERRED 처리
+ *
+ * 방장이 자발적으로 위임했을 때 수신.
+ * allMembers로 전체 멤버 목록을 덮어씁니다.
+ */
+export function handleHostTransferred(msg: HostTransferredMessage, store: RoomStoreState): void {
+  store.setMembers(msg.allMembers);
+}
+
+/**
+ * CONTRIBUTION_ROOM_INFO_UPDATED 처리
+ *
+ * 방장이 REST 수정 API를 성공하면 서버가 최신 방 정보를 브로드캐스트합니다.
+ */
+export function handleContributionRoomInfoUpdated(
+  msg: ContributionRoomInfoUpdatedMessage,
+  store: RoomStoreState
+): void {
+  store.applyContributionRoomInfoUpdated(msg);
+}
+
+/**
+ * COOP_ROOM_INFO_UPDATED 처리
+ *
+ * 방장이 REST 수정 API를 성공하면 서버가 최신 방 정보를 브로드캐스트합니다.
+ */
+export function handleCoopRoomInfoUpdated(
+  msg: CoopRoomInfoUpdatedMessage,
+  store: RoomStoreState
+): void {
+  store.applyCoopRoomInfoUpdated(msg);
 }
 
 /**
@@ -159,8 +207,20 @@ export function handleRoomTopicMessage(
     case 'PLAYER_LEFT':
       handlePlayerLeft(msg, store);
       break;
+    case 'PLAYER_KICKED':
+      handlePlayerKicked(msg, store);
+      break;
     case 'HOST_DELEGATED':
       handleHostDelegated(msg, store);
+      break;
+    case 'HOST_TRANSFERRED':
+      handleHostTransferred(msg, store);
+      break;
+    case 'CONTRIBUTION_ROOM_INFO_UPDATED':
+      handleContributionRoomInfoUpdated(msg, store);
+      break;
+    case 'COOP_ROOM_INFO_UPDATED':
+      handleCoopRoomInfoUpdated(msg, store);
       break;
   }
   return msg;

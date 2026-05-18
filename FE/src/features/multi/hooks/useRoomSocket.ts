@@ -6,12 +6,12 @@ import { useAuthStore } from '@/features/auth/store/authStore';
 import { getRoomState } from '../api/room.api';
 import { handleRoomPrivateMessage, handleRoomTopicMessage } from '../handlers/roomSocketHandlers';
 import {
-  BaseMessageSchema,
-  ContributionStartedSchema,
-  CoopStartedSchema,
-  ErrorSchema,
-  ForceDisconnectSchema,
-  KickedSchema,
+  baseMessageSchema,
+  contributionStartedSchema,
+  coopStartedSchema,
+  errorSchema,
+  forceDisconnectSchema,
+  kickedSchema,
 } from '../schemas/room.schema';
 import { useRoomStore } from '../store/roomStore';
 
@@ -37,7 +37,7 @@ export type RoomConnectionStatus = 'idle' | 'disconnected' | 'reconnected' | 'bl
 
 type PrivateQueueHandlers = {
   onForceDisconnect?: () => void;
-  onKicked?: (roomId: string) => void;
+  onKicked?: (roomId: number) => void;
   onPrivateError?: (code: string, message: string) => void;
 };
 
@@ -145,7 +145,7 @@ export function useRoomSocket(
     socketManager.subscribe(
       '/user/queue/private',
       (raw) => {
-        const baseMessage = BaseMessageSchema.safeParse(raw);
+        const baseMessage = baseMessageSchema.safeParse(raw);
         if (!baseMessage.success) {
           console.error('[WS] 개인 큐 메시지 파싱 실패:', baseMessage.error);
           return;
@@ -166,7 +166,7 @@ export function useRoomSocket(
           }
 
           case 'FORCE_DISCONNECT': {
-            const result = ForceDisconnectSchema.safeParse(raw);
+            const result = forceDisconnectSchema.safeParse(raw);
             if (!result.success) {
               console.error('[socket] Invalid FORCE_DISCONNECT packet dropped.', result.error);
               return;
@@ -177,7 +177,7 @@ export function useRoomSocket(
           }
 
           case 'KICKED': {
-            const result = KickedSchema.safeParse(raw);
+            const result = kickedSchema.safeParse(raw);
             if (!result.success) {
               console.error('[socket] Invalid KICKED packet dropped.', result.error);
               return;
@@ -188,7 +188,7 @@ export function useRoomSocket(
           }
 
           case 'ERROR': {
-            const result = ErrorSchema.safeParse(raw);
+            const result = errorSchema.safeParse(raw);
             if (!result.success) {
               console.error('[socket] Invalid ERROR packet dropped.', result.error);
               return;
@@ -220,7 +220,7 @@ export function useRoomSocket(
     socketManager.subscribe(
       `/topic/room/${roomId}/contribution`,
       (raw) => {
-        const result = ContributionStartedSchema.safeParse(raw);
+        const result = contributionStartedSchema.safeParse(raw);
         if (!result.success) {
           console.error('[WS] CONTRIBUTION_STARTED 파싱 실패:', result.error);
           return;
@@ -233,7 +233,7 @@ export function useRoomSocket(
     socketManager.subscribe(
       `/topic/room/${roomId}/coop`,
       (raw) => {
-        const result = CoopStartedSchema.safeParse(raw);
+        const result = coopStartedSchema.safeParse(raw);
         if (!result.success) {
           console.error('[WS] COOP_STARTED 파싱 실패:', result.error);
           return;
@@ -318,5 +318,11 @@ export function useRoomSocket(
       type: 'GAME_START',
     });
 
-  return { publishReady, publishStart, connectionStatus };
+  const publishHostTransfer = (nextHostId: string) =>
+    socketManager.publish(`/app/room/${roomId}/transfer-host`, {
+      type: 'HOST_TRANSFER_REQUEST',
+      nextHostId,
+    });
+
+  return { publishReady, publishStart, publishHostTransfer, connectionStatus };
 }

@@ -21,7 +21,11 @@ export type RoomSocketMessageType =
   | 'PLAYER_JOINED'
   | 'READY_CHANGED'
   | 'PLAYER_LEFT'
-  | 'HOST_DELEGATED';
+  | 'PLAYER_KICKED'
+  | 'HOST_DELEGATED'
+  | 'HOST_TRANSFERRED'
+  | 'CONTRIBUTION_ROOM_INFO_UPDATED'
+  | 'COOP_ROOM_INFO_UPDATED';
 
 // ────────────────────────────────────────────────────────────
 // 각 메시지 payload
@@ -73,6 +77,17 @@ export interface PlayerLeftMessage {
 }
 
 /**
+ * 플레이어가 방장에 의해 추방되었을 때 수신
+ * remainMembers로 멤버 목록을 덮어씀
+ */
+export interface PlayerKickedMessage {
+  type: 'PLAYER_KICKED';
+  playerId: string;
+  nickname: string;
+  remainMembers: RoomMember[];
+}
+
+/**
  * 방장이 나가서 새 방장이 위임되었을 때 수신
  * remainMembers로 멤버 목록을 덮어씀
  */
@@ -81,6 +96,17 @@ export interface HostDelegatedMessage {
   newHostId: string;
   newHostNickname: string;
   remainMembers: RoomMember[];
+}
+
+/**
+ * 방장이 자발적으로 다른 플레이어에게 방장 권한을 넘겼을 때 수신
+ * allMembers로 멤버 목록을 덮어씀
+ */
+export interface HostTransferredMessage {
+  type: 'HOST_TRANSFERRED';
+  newHostId: string;
+  newHostNickname: string;
+  allMembers: RoomMember[];
 }
 
 /**
@@ -119,6 +145,34 @@ export interface CoopRoomStateMessage {
   members: RoomMember[];
 }
 
+export interface ContributionRoomInfoUpdatedMessage {
+  type: 'CONTRIBUTION_ROOM_INFO_UPDATED';
+  roomId: number;
+  roomCode: string;
+  title: string;
+  mode: 'CONTRIBUTION';
+  roomState: RoomState;
+  currentPlayers: number;
+  maxPlayers: number;
+  hasPassword: boolean;
+  members: RoomMember[];
+}
+
+export interface CoopRoomInfoUpdatedMessage {
+  type: 'COOP_ROOM_INFO_UPDATED';
+  roomId: number;
+  roomCode: string;
+  title: string;
+  teamName: string;
+  mode: 'COOP';
+  roomState: RoomState;
+  currentPlayers: number;
+  maxPlayers: number;
+  hasPassword: boolean;
+  selectedMap: SelectedMap;
+  members: RoomMember[];
+}
+
 /**
  * /topic/room/{roomId} 에서 수신 가능한 모든 메시지 union (브로드캐스트 이벤트만)
  */
@@ -126,7 +180,11 @@ export type RoomTopicMessage =
   | PlayerJoinedMessage
   | ReadyChangedMessage
   | PlayerLeftMessage
-  | HostDelegatedMessage;
+  | PlayerKickedMessage
+  | HostDelegatedMessage
+  | HostTransferredMessage
+  | ContributionRoomInfoUpdatedMessage
+  | CoopRoomInfoUpdatedMessage;
 
 /**
  * /user/queue/private 에서 수신 가능한 방 상태 스냅샷 메시지 union

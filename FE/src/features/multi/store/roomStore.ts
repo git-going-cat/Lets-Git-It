@@ -1,6 +1,10 @@
 ﻿import { create } from 'zustand';
 
 import type {
+  ContributionRoomInfoUpdatedMessage,
+  CoopRoomInfoUpdatedMessage,
+} from '../types/room.socket.types';
+import type {
   ContributionRoomStateResponse,
   CoopRoomStateResponse,
   CreateContributionRoomResponse,
@@ -26,6 +30,7 @@ interface RoomStateSlice {
   roomState: RoomState | null;
   currentPlayers: number;
   maxPlayers: number;
+  hasPassword: boolean;
   members: RoomMember[];
   allReady: boolean;
   /** 협력 모드 전용 */
@@ -47,6 +52,10 @@ interface RoomActions {
   initFromContributionRoomState: (data: ContributionRoomStateResponse) => void;
   /** 재연결 시 협력 방 상태로 전체 복원 */
   initFromCoopRoomState: (data: CoopRoomStateResponse) => void;
+  /** 방 정보 수정 브로드캐스트로 기여도 뺏기 방 정보 갱신 */
+  applyContributionRoomInfoUpdated: (data: ContributionRoomInfoUpdatedMessage) => void;
+  /** 방 정보 수정 브로드캐스트로 협력 방 정보 갱신 */
+  applyCoopRoomInfoUpdated: (data: CoopRoomInfoUpdatedMessage) => void;
   /** WebSocket ROOM_STATE / PLAYER_JOINED / PLAYER_LEFT 공통 멤버 갱신 */
   setMembers: (members: RoomMember[]) => void;
   /** WebSocket READY_CHANGED 단일 플레이어 준비 상태 갱신 */
@@ -76,6 +85,7 @@ const initialState: RoomStateSlice = {
   roomState: null,
   currentPlayers: 0,
   maxPlayers: 0,
+  hasPassword: false,
   members: [],
   allReady: false,
   teamName: null,
@@ -92,6 +102,16 @@ const computeAllReady = (members: RoomMember[]) => {
   return nonHostMembers.length > 0 && nonHostMembers.every((member) => member.isReady);
 };
 
+const normalizeMembers = (members: RoomMember[]) => [...members].reverse();
+
+const computeMembersState = (members: RoomMember[]) => {
+  const normalizedMembers = normalizeMembers(members);
+  return {
+    members: normalizedMembers,
+    allReady: computeAllReady(normalizedMembers),
+  };
+};
+
 export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
   ...initialState,
 
@@ -104,6 +124,7 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       roomState: null,
       currentPlayers: 1,
       maxPlayers: data.maxPlayers,
+      hasPassword: data.hasPassword,
       members: [],
       allReady: false,
       teamName: null,
@@ -120,6 +141,7 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       roomState: null,
       currentPlayers: 1,
       maxPlayers: data.maxPlayers,
+      hasPassword: data.hasPassword,
       members: [],
       allReady: false,
       teamName: data.teamName,
@@ -136,8 +158,8 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       roomState: data.roomState,
       currentPlayers: data.currentPlayers,
       maxPlayers: data.maxPlayers,
-      members: data.members,
-      allReady: computeAllReady(data.members),
+      hasPassword: data.hasPassword,
+      ...computeMembersState(data.members),
       teamName: null,
       selectedMap: null,
       mapList: [],
@@ -152,11 +174,11 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       roomState: data.roomState,
       currentPlayers: data.currentPlayers,
       maxPlayers: data.maxPlayers,
-      members: data.members,
-      allReady: computeAllReady(data.members),
+      hasPassword: data.hasPassword,
+      ...computeMembersState(data.members),
       teamName: data.teamName,
       selectedMap: data.selectedMap,
-      mapList: data.mapList,
+      mapList: data.mapList ?? [],
     }),
 
   initFromContributionRoomState: (data) =>
@@ -168,8 +190,8 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       roomState: data.roomState,
       currentPlayers: data.currentPlayers,
       maxPlayers: data.maxPlayers,
-      members: data.members,
-      allReady: computeAllReady(data.members),
+      hasPassword: data.hasPassword,
+      ...computeMembersState(data.members),
       teamName: null,
       selectedMap: null,
       mapList: [],
@@ -184,15 +206,49 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
       roomState: data.roomState,
       currentPlayers: data.currentPlayers,
       maxPlayers: data.maxPlayers,
-      members: data.members,
-      allReady: computeAllReady(data.members),
+      hasPassword: data.hasPassword,
+      ...computeMembersState(data.members),
       teamName: data.teamName,
       selectedMap: data.selectedMap,
       mapList: [],
     }),
 
+  applyContributionRoomInfoUpdated: (data) =>
+    set({
+      roomId: data.roomId,
+      roomCode: data.roomCode,
+      title: data.title,
+      mode: 'CONTRIBUTION',
+      roomState: data.roomState,
+      currentPlayers: data.currentPlayers,
+      maxPlayers: data.maxPlayers,
+      hasPassword: data.hasPassword,
+      ...computeMembersState(data.members),
+      teamName: null,
+      selectedMap: null,
+      mapList: [],
+    }),
+
+  applyCoopRoomInfoUpdated: (data) =>
+    set({
+      roomId: data.roomId,
+      roomCode: data.roomCode,
+      title: data.title,
+      mode: 'COOP',
+      roomState: data.roomState,
+      currentPlayers: data.currentPlayers,
+      maxPlayers: data.maxPlayers,
+      hasPassword: data.hasPassword,
+      ...computeMembersState(data.members),
+      teamName: data.teamName,
+      selectedMap: data.selectedMap,
+    }),
+
   setMembers: (members) =>
-    set({ members, currentPlayers: members.length, allReady: computeAllReady(members) }),
+    set({
+      ...computeMembersState(members),
+      currentPlayers: members.length,
+    }),
 
   updateReady: ({ playerId, nickname, isReady, allReady }) =>
     set((s) => ({

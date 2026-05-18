@@ -5,159 +5,48 @@ import { Check, Copy, Gamepad2, LockKeyhole, LogOut, Settings, Users } from 'luc
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useContributionStore } from '@/features/contribution/store/contributionStore';
 import { useCoopStore } from '@/features/coop/store/coopStore';
-import AnimatedCharacter from '@/shared/components/AnimatedCharacter';
 import { useModal } from '@/shared/hooks/useModal';
 
 import { useCopyRoomCode } from '../hooks/useCopyRoomCode';
 import { useLeaveRoom } from '../hooks/useLeaveRoom';
+import { useKickRoomMember } from '../hooks/useRoom';
 import { useRoomSocket } from '../hooks/useRoomSocket';
 import { useRoomStore } from '../store/roomStore';
 
+import { MembersSpreadsheet } from './MembersSpreadsheet';
+import { ConfirmModal } from './modals/ConfirmModal';
 import { EditRoomModal } from './modals/EditRoomModal';
 
 import type { ContributionStartedMessage } from '../schemas/room.schema';
 import type { RoomMember } from '../types/room.types';
-import type { CharacterAsset } from '@/shared/components/AnimatedCharacter';
 
 const MODE_LABELS: Record<string, string> = { CONTRIBUTION: '기여도 뺏기', COOP: '협력' };
 
-function toAsset(m: RoomMember): CharacterAsset {
-  return {
-    characterHair: m.characterHair,
-    characterHairColor: m.characterHairColor,
-    characterBody: m.characterBody,
-    characterEye: m.characterEye,
-    characterOutfit: m.characterOutfit,
-    characterOutfitColor: m.characterOutfitColor,
-  };
-}
+type MemberAction = 'kick' | 'transfer';
 
-const COL_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-const HATCHED = {
-  backgroundImage:
-    'repeating-linear-gradient(-45deg, #e8f5ee 0, #e8f5ee 3px, #f8fff9 3px, #f8fff9 9px)',
+type PendingMemberAction = {
+  type: MemberAction;
+  member: RoomMember;
 };
 
-interface MembersSpreadsheetProps {
-  slots: (RoomMember | null)[];
-  myNickname: string | undefined;
-}
+function getMemberActionErrorMessage(error: unknown) {
+  const responseData = (error as { response?: { data?: { code?: string; message?: string } } })
+    .response?.data;
 
-function MembersSpreadsheet({ slots, myNickname }: MembersSpreadsheetProps) {
-  return (
-    <div className="h-full overflow-auto select-none bg-white">
-      <table className="w-full border-collapse table-fixed">
-        <colgroup>
-          <col className="w-7" />
-          {slots.map((_, i) => (
-            <col key={i} />
-          ))}
-        </colgroup>
-        <thead>
-          <tr className="h-7">
-            <th className="border border-[#c8dfd0] bg-[#e8f5ee]" />
-            {slots.map((_, i) => (
-              <th
-                key={i}
-                className="border border-[#c8dfd0] bg-[#e8f5ee] text-center text-sm font-semibold text-[#175c35]"
-              >
-                {COL_LETTERS[i]}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="min-h-48">
-          {/* Row 1: Badges */}
-          <tr className="h-8">
-            <td className="border border-[#c8dfd0] bg-[#e8f5ee] text-center text-sm text-gray-500">
-              1
-            </td>
-            {slots.map((member, i) => (
-              <td
-                key={i}
-                className="border border-[#c8dfd0] px-1 py-1"
-                style={!member ? HATCHED : {}}
-              >
-                {member && (
-                  <div className="flex flex-wrap gap-0.5">
-                    {member.isHost && (
-                      <span className="inline-flex items-center justify-center rounded-sm bg-amber-400 px-1 py-0.5 text-md font-bold leading-none text-amber-900">
-                        HOST
-                      </span>
-                    )}
-                    {member.nickname === myNickname && (
-                      <span className="inline-flex items-center justify-center rounded-sm bg-[#217346] px-1 py-0.5 text-md font-bold leading-none text-white">
-                        ME
-                      </span>
-                    )}
-                    <span
-                      className={`inline-flex items-center justify-center rounded-sm px-1 py-0.5 text-md font-bold leading-none ${
-                        member.isHost || member.isReady
-                          ? 'bg-[#e8f5e9] text-[#1b5e20]'
-                          : 'bg-[#fce4ec] text-[#880e4f]'
-                      }`}
-                    >
-                      {member.isHost || member.isReady ? 'READY' : 'WAIT'}
-                    </span>
-                  </div>
-                )}
-              </td>
-            ))}
-          </tr>
-
-          {/* Row 2: Character */}
-          <tr className="h-45">
-            <td className="border border-[#c8dfd0] bg-[#e8f5ee] text-center text-sm text-gray-500">
-              2
-            </td>
-            {slots.map((member, i) => (
-              <td
-                key={i}
-                className={`border border-[#c8dfd0] text-center ${member ? 'bg-white' : ''}`}
-                style={!member ? HATCHED : {}}
-              >
-                {member ? (
-                  <AnimatedCharacter
-                    asset={toAsset(member)}
-                    animation="idle"
-                    direction="front"
-                    className="mx-auto h-24 w-12"
-                  />
-                ) : (
-                  <span className="font-mono text-md font-medium text-[#a8c5b0]">EMPTY</span>
-                )}
-              </td>
-            ))}
-          </tr>
-
-          {/* Row 3: Nickname */}
-          <tr className="h-7">
-            <td className="border border-[#c8dfd0] bg-[#e8f5ee] text-center text-sm text-gray-500">
-              3
-            </td>
-            {slots.map((member, i) => (
-              <td
-                key={i}
-                className="border border-[#c8dfd0] p-0 h-px"
-                style={!member ? HATCHED : {}}
-              >
-                {member && (
-                  <div className="flex h-full divide-x divide-[#c8dfd0]">
-                    <span className="flex w-9 shrink-0 items-center justify-center bg-[#e8f5ee] font-mono text-md text-[#3b7a57]">
-                      nick
-                    </span>
-                    <span className="flex flex-1 items-center overflow-hidden px-1.5 py-1 break-all text-md font-medium text-gray-800">
-                      {member.nickname}
-                    </span>
-                  </div>
-                )}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
+  switch (responseData?.code) {
+    case 'NOT_HOST':
+      return '방장만 수행할 수 있습니다.';
+    case 'PLAYER_NOT_FOUND':
+      return '해당 플레이어를 찾을 수 없습니다.';
+    case 'CANNOT_KICK_SELF':
+      return '자기 자신은 추방할 수 없습니다.';
+    case 'ROOM_IN_GAME':
+      return '이미 게임 중인 방입니다.';
+    case 'ROOM_NOT_FOUND':
+      return '존재하지 않는 방입니다.';
+    default:
+      return responseData?.message ?? '멤버 작업에 실패했습니다. 다시 시도해 주세요.';
+  }
 }
 
 export default function WaitingRoom() {
@@ -168,6 +57,7 @@ export default function WaitingRoom() {
   const title = useRoomStore((s) => s.title);
   const roomCode = useRoomStore((s) => s.roomCode);
   const mode = useRoomStore((s) => s.mode);
+  const hasPassword = useRoomStore((s) => s.hasPassword);
   const members = useRoomStore((s) => s.members);
   const maxPlayers = useRoomStore((s) => s.maxPlayers);
   const allReady = useRoomStore((s) => s.allReady);
@@ -180,6 +70,9 @@ export default function WaitingRoom() {
   const [restoreError, setRestoreError] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [privateError, setPrivateError] = useState<string | null>(null);
+  const [openMemberActionId, setOpenMemberActionId] = useState<string | null>(null);
+  const [pendingMemberAction, setPendingMemberAction] = useState<PendingMemberAction | null>(null);
+  const { mutate: kickRoomMember } = useKickRoomMember();
 
   const handleReconnectComplete = useCallback(
     (restoredRoomState: string | null) => {
@@ -262,7 +155,7 @@ export default function WaitingRoom() {
     void navigate({ to: '/coop' });
   }, [navigate, numericRoomId, reset]);
 
-  const { publishReady, publishStart, connectionStatus } = useRoomSocket(
+  const { publishReady, publishStart, publishHostTransfer, connectionStatus } = useRoomSocket(
     numericRoomId,
     handleReconnectComplete,
     {
@@ -278,6 +171,7 @@ export default function WaitingRoom() {
 
   const myNickname = useAuthStore((s) => s.user?.nickname);
   const me = members.find((m) => m.nickname === myNickname);
+  const myPlayerId = me?.playerId;
   const isHost = me?.isHost ?? false;
 
   const nonHostMembers = members.filter((m) => !m.isHost);
@@ -287,6 +181,68 @@ export default function WaitingRoom() {
 
   const { handleLeave } = useLeaveRoom({ roomId: numericRoomId, mode, reset, navigate });
 
+  const handleToggleMemberActions = useCallback((playerId: string) => {
+    setOpenMemberActionId((current) => (current === playerId ? null : playerId));
+  }, []);
+
+  const handleDialogClick = useCallback(() => {
+    setOpenMemberActionId(null);
+  }, []);
+
+  const handleTransferHost = useCallback(
+    (member: RoomMember) => {
+      if (!isHost || member.playerId === myPlayerId) return;
+      setOpenMemberActionId(null);
+      setPendingMemberAction({ type: 'transfer', member });
+    },
+    [isHost, myPlayerId]
+  );
+
+  const handleKickMember = useCallback(
+    (member: RoomMember) => {
+      if (!isHost || member.playerId === myPlayerId) return;
+      setOpenMemberActionId(null);
+      setPendingMemberAction({ type: 'kick', member });
+    },
+    [isHost, myPlayerId]
+  );
+
+  const handleConfirmMemberAction = useCallback(() => {
+    if (!pendingMemberAction) return;
+
+    const { member, type } = pendingMemberAction;
+    setPrivateError(null);
+    setPendingMemberAction(null);
+
+    if (type === 'transfer') {
+      publishHostTransfer(member.playerId);
+      return;
+    }
+
+    if (type === 'kick') {
+      kickRoomMember(
+        { roomId: numericRoomId, playerId: member.playerId },
+        {
+          onError: (error) => setPrivateError(getMemberActionErrorMessage(error)),
+        }
+      );
+    }
+  }, [kickRoomMember, numericRoomId, pendingMemberAction, publishHostTransfer]);
+
+  const handleCancelMemberAction = useCallback(() => {
+    setPendingMemberAction(null);
+  }, []);
+
+  const memberActionConfirmTitle =
+    pendingMemberAction?.type === 'kick' ? '멤버를 추방하겠습니까?' : '방장을 위임하겠습니까?';
+
+  const memberActionConfirmDescription =
+    pendingMemberAction?.type === 'kick'
+      ? `${pendingMemberAction.member.nickname} 님은 대기실에서 나가게 됩니다.`
+      : `${pendingMemberAction?.member.nickname ?? ''} 님에게 방장 권한을 넘깁니다.`;
+
+  const memberActionConfirmButtonLabel = pendingMemberAction?.type === 'kick' ? '추방' : '위임';
+
   const handleLeaveConfirm = useCallback(() => {
     setShowLeaveConfirm(false);
     handleLeave();
@@ -294,14 +250,8 @@ export default function WaitingRoom() {
 
   // B. 외부 dialog는 편집 모달·confirm·에러 오버레이가 없을 때만 ESC/focus trap 활성화
   const { containerRef: dialogRef } = useModal({
-    isOpen: !showEditModal && !showLeaveConfirm && !restoreError,
+    isOpen: !showEditModal && !showLeaveConfirm && !restoreError && !pendingMemberAction,
     onClose: () => setShowLeaveConfirm(true),
-  });
-
-  // confirm 모달 — 자체 focus trap
-  const { containerRef: leaveConfirmRef } = useModal({
-    isOpen: showLeaveConfirm,
-    onClose: () => setShowLeaveConfirm(false),
   });
 
   // C. restoreError가 활성화된 동안 confirm을 열지 않도록 backdrop/버튼 가드
@@ -330,7 +280,10 @@ export default function WaitingRoom() {
         className={`relative z-10 flex select-none flex-col overflow-hidden rounded-lg bg-[#f0f0f0] shadow-2xl ring-1 ring-black/10 ${
           isMaximized ? 'h-[calc(100vh-2rem)] w-[calc(100vw-2rem)]' : 'h-160 w-full max-w-245'
         }`}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDialogClick();
+        }}
       >
         {/* blocking 오버레이: 페이지 새로고침 또는 10초+ 단절 */}
         {connectionStatus === 'blocking' && !restoreError && (
@@ -544,7 +497,15 @@ export default function WaitingRoom() {
             </div>
 
             <div className="shrink-0">
-              <MembersSpreadsheet slots={slots} myNickname={myNickname ?? undefined} />
+              <MembersSpreadsheet
+                slots={slots}
+                myPlayerId={myPlayerId}
+                isHostView={isHost}
+                openMemberActionId={openMemberActionId}
+                onToggleMemberActions={handleToggleMemberActions}
+                onKickMember={handleKickMember}
+                onTransferHost={handleTransferHost}
+              />
             </div>
 
             {/* Chat terminal */}
@@ -646,6 +607,14 @@ export default function WaitingRoom() {
                       {members.length} / {maxPlayers}
                     </td>
                   </tr>
+                  <tr>
+                    <td className="border border-[#c8dfd0] bg-[#e8f5ee] px-2 py-1.5 font-mono text-[#3b7a57]">
+                      hasPassword
+                    </td>
+                    <td className="border border-[#c8dfd0] bg-white px-2 py-1.5 font-medium text-gray-800">
+                      {hasPassword ? 'TRUE' : 'FALSE'}
+                    </td>
+                  </tr>
                   {mode === 'COOP' && selectedMap && (
                     <tr>
                       <td className="border border-[#c8dfd0] bg-[#e8f5ee] px-2 py-1.5 font-mono text-[#3b7a57]">
@@ -719,45 +688,35 @@ export default function WaitingRoom() {
         <EditRoomModal
           isOpen={showEditModal && isHost}
           onClose={() => setShowEditModal(false)}
+          roomId={numericRoomId}
           title={title}
           mode={mode}
           teamName={teamName}
+          hasPassword={hasPassword}
+          maxPlayers={maxPlayers}
+          currentPlayers={members.length}
+          selectedMap={selectedMap}
         />
 
-        {/* Leave Confirm Modal */}
-        {showLeaveConfirm && (
-          <div className="absolute inset-0 z-60 flex items-center justify-center bg-black/40">
-            <div
-              ref={leaveConfirmRef}
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="leave-confirm-title"
-              tabIndex={-1}
-              className="flex flex-col gap-4 rounded-lg bg-white p-6 shadow-2xl ring-1 ring-black/10 w-80"
-            >
-              <h2 id="leave-confirm-title" className="text-base font-semibold text-gray-800">
-                방에서 나가겠습니까?
-              </h2>
-              <p className="text-sm text-gray-500">대기실에서 나가면 로비로 돌아갑니다.</p>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowLeaveConfirm(false)}
-                  className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLeaveConfirm}
-                  className="rounded border border-red-500 bg-red-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-600"
-                >
-                  나가기
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmModal
+          isOpen={pendingMemberAction !== null}
+          title={memberActionConfirmTitle}
+          description={memberActionConfirmDescription}
+          confirmLabel={memberActionConfirmButtonLabel}
+          confirmTone={pendingMemberAction?.type === 'kick' ? 'danger' : 'primary'}
+          onCancel={handleCancelMemberAction}
+          onConfirm={handleConfirmMemberAction}
+        />
+
+        <ConfirmModal
+          isOpen={showLeaveConfirm}
+          title="방에서 나가겠습니까?"
+          description="대기실에서 나가면 로비로 돌아갑니다."
+          confirmLabel="나가기"
+          confirmTone="danger"
+          onCancel={() => setShowLeaveConfirm(false)}
+          onConfirm={handleLeaveConfirm}
+        />
       </div>
     </div>
   );

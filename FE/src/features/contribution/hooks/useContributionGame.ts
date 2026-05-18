@@ -3,7 +3,7 @@ import { useSetAtom } from 'jotai';
 
 import { socketManager } from '@/core/socket/SocketManager';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { BaseMessageSchema } from '@/features/multi/schemas/room.schema';
+import { baseMessageSchema } from '@/features/multi/schemas/room.schema';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { contributionBus } from '../bridge/contributionBus';
@@ -89,7 +89,7 @@ export function useContributionGame() {
     socketManager.subscribe(
       `/topic/room/${roomId}/contribution`,
       (message) => {
-        const base = BaseMessageSchema.safeParse(message);
+        const base = baseMessageSchema.safeParse(message);
         if (!base.success) return;
 
         switch (base.data.type) {
@@ -165,7 +165,7 @@ export function useContributionGame() {
     socketManager.subscribe(
       '/user/queue/private',
       (message) => {
-        const base = BaseMessageSchema.safeParse(message);
+        const base = baseMessageSchema.safeParse(message);
         if (!base.success || base.data.type !== 'CONTRIBUTION_INPUT_FAILED') return;
 
         const r = ContributionInputFailedSchema.safeParse(message);
