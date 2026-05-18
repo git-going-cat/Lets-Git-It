@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 
 import { parseSwitchTarget } from '@/shared/game/branchParser';
 
@@ -8,6 +8,7 @@ import { activeBranchAtom } from '../store/activeBranchAtom';
 import { itemSlotsAtom } from '../store/itemSlotsAtom';
 import { livesAtom, MAX_LIVES } from '../store/livesAtom';
 import { useSingleStore } from '../store/singleStore';
+import { tutorialItemAllowedSlotAtom } from '../store/tutorialItemAllowedSlotAtom';
 
 import type { MutableRefObject } from 'react';
 
@@ -34,6 +35,11 @@ export function useItemSlots(
   const setItemSlots = useSetAtom(itemSlotsAtom);
   const setLives = useSetAtom(livesAtom);
   const setActiveBranch = useSetAtom(activeBranchAtom);
+  const allowedSlot = useAtomValue(tutorialItemAllowedSlotAtom);
+  const allowedSlotRef = useRef(allowedSlot);
+  useEffect(() => {
+    allowedSlotRef.current = allowedSlot;
+  }, [allowedSlot]);
   // CONFLICT 미니게임 진행 중 아이템 사용 차단용 플래그. 도메인 버스 구독으로 유지.
   const isConflictActiveRef = useRef(false);
 
@@ -42,6 +48,8 @@ export function useItemSlots(
       if (!isPlayingRef.current || !itemSlotsRef.current[slotIndex]) return;
       // 미니게임 중에는 아이템 사용 차단 — cherry-pick으로 CONFLICT를 한 번 더 트리거하는 사고 등 방지.
       if (isConflictActiveRef.current) return;
+      // 튜토리얼 중에는 지정된 슬롯 외 아이템 사용 차단.
+      if (useSingleStore.getState().isTutorial && allowedSlotRef.current !== slotIndex) return;
 
       itemSlotsRef.current[slotIndex] = false;
       setItemSlots([itemSlotsRef.current[0], itemSlotsRef.current[1], itemSlotsRef.current[2]]);

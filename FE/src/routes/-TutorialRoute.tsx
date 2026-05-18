@@ -19,7 +19,8 @@ export default function TutorialRoute() {
         useAuthStore.getState().updateUser({ onboardingStatus: 'TUTORIAL_DONE' });
       }
     } catch {
-      // 이미 TUTORIAL_DONE인 경우 무시
+      // 모든 에러 무시 — 가장 흔한 케이스는 이미 TUTORIAL_DONE이라 BE가 throw하는 경우이며,
+      // 네트워크/5xx 실패도 사용자 흐름을 막지 않기 위해 silent fallthrough 후 navigate로 진행한다.
     }
   }, [replay]);
 
