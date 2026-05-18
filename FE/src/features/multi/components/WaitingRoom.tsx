@@ -18,7 +18,7 @@ import { ConfirmModal } from './modals/ConfirmModal';
 import { EditRoomModal } from './modals/EditRoomModal';
 import { WaitingRoomChat } from './WaitingRoomChat';
 
-import type { ContributionStartedMessage } from '../schemas/room.schema';
+import type { ContributionStartedMessage, CoopStartedMessage } from '../schemas/room.schema';
 import type { RoomMember } from '../types/room.types';
 
 const MODE_LABELS: Record<string, string> = { CONTRIBUTION: '기여도 뺏기', COOP: '협력' };
@@ -150,11 +150,51 @@ export default function WaitingRoom() {
     [navigate, numericRoomId, reset]
   );
 
-  const handleCoopStarted = useCallback(() => {
-    useCoopStore.getState().setRoomId(numericRoomId);
-    reset();
-    void navigate({ to: '/coop' });
-  }, [navigate, numericRoomId, reset]);
+  const handleCoopStarted = useCallback(
+    (message: CoopStartedMessage) => {
+      const currentMembers = useRoomStore.getState().members;
+      const { user } = useAuthStore.getState();
+      const myMemberId = user?.memberId;
+      const myNickname = user?.nickname;
+
+      const players = message.players.slice(0, 4).map((player, index) => {
+        const member = currentMembers.find(
+          (item) => item.playerId === player.playerId || item.nickname === player.nickname
+        );
+
+        return {
+          playerId: player.playerId,
+          nickname: player.nickname,
+          isMe:
+            (myMemberId !== undefined && player.playerId === myMemberId) ||
+            (myMemberId !== undefined && member?.playerId === myMemberId) ||
+            (myNickname !== undefined && player.nickname === myNickname) ||
+            (myNickname !== undefined && member?.nickname === myNickname),
+          commandOrder: index + 1,
+          characterHair: member?.characterHair ?? '',
+          characterHairColor: member?.characterHairColor ?? '',
+          characterBody: member?.characterBody ?? '',
+          characterBodyColor: 'Body-color_01',
+          characterEye: member?.characterEye ?? '',
+          characterOutfit: member?.characterOutfit ?? '',
+          characterOutfitColor: member?.characterOutfitColor ?? '',
+        };
+      });
+
+      useCoopStore.getState().setSessionMeta({
+        sessionId: message.gameSessionId,
+        roomId: numericRoomId,
+        mapName: useRoomStore.getState().selectedMap?.mapName ?? null,
+      });
+      useCoopStore.getState().setPlayerSnapshots(players);
+      useCoopStore.getState().setGameSessionId(message.gameSessionId);
+      useCoopStore.getState().setTotalRounds(message.totalRounds ?? 5);
+      useCoopStore.getState().setGraphData(message.graphData ?? null);
+      reset();
+      void navigate({ to: '/coop' });
+    },
+    [navigate, numericRoomId, reset]
+  );
 
   const { publishReady, publishStart, publishHostTransfer, publishChat, connectionStatus } =
     useRoomSocket(

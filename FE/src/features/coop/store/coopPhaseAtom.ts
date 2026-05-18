@@ -9,4 +9,6 @@ export const coopCurrentOrderAtom = atom(1);
 export const coopInputBlockedAtom = atom(false);
 export const coopResetTargetPlayerIdAtom = atom<string | null>(null);
 export const coopGraphImageUrlAtom = atom<string | null>(null);
+export const coopGraphCompletedSequencesAtom = atom<number[]>([]);
+export const coopGraphActiveSequenceAtom = atom<number | null>(null);
 export const coopWrongPlayerNicknameAtom = atom<string | null>(null);

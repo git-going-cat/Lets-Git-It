@@ -7,7 +7,6 @@ import { useRoomExitGuard } from '@/features/multi/hooks/useRoomExitGuard';
 import { createGameConfig } from '@/game/config';
 
 import { coopBus } from '../bridge/coopBus';
-import { useMockCoopGame } from '../dev/useMockCoopGame';
 import { useCoopGame } from '../hooks/useCoopGame';
 import { CoopScene } from '../scenes/CoopScene';
 import { coopInputBlockedAtom, coopPhaseAtom } from '../store/coopPhaseAtom';
@@ -34,7 +33,6 @@ export default function CoopPage() {
   const [showAssignedCard, setShowAssignedCard] = useState(false);
 
   useCoopGame();
-  useMockCoopGame();
   useRoomExitGuard({ roomId, reset: clearSession });
 
   useEffect(() => {
