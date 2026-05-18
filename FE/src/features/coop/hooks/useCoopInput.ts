@@ -46,6 +46,7 @@ export function useCoopInput() {
   const isResetTarget = phase === 'reset_wait' && me?.playerId === resetTargetPlayerId;
 
   const isDisabled =
+    phase === 'waiting' ||
     phase === 'reveal' ||
     phase === 'assign' ||
     phase === 'ended' ||
