@@ -1068,7 +1068,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 - `SCORE_UPDATE` / `COMMAND_EXPIRED` / `CONTRIBUTION_GAME_END`의 `scores` 및 `rankings` 배열에 고양이가 항상 포함된다.
 - 고양이 항목: `playerId: null`, `nickname: "[CAT]"`
-- **기여도 계산 기준**: 분모는 "지금까지 처리된 점수 대상 명령어 수"다. `git switch` / `git checkout`은 자유 브랜치 이동 입력이므로 commandSet에 포함하지 않고, 점수, progress, CAT 만료 대상에서도 제외한다.
+- **기여도 계산 기준**: 분모는 "지금까지 처리된 점수 대상 명령어 수"다. `git switch`는 자유 브랜치 이동 입력이므로 commandSet에 포함하지 않고, 점수, progress, CAT 만료 대상에서도 제외한다.
   - 플레이어 기여도(%) = 해당 플레이어 성공 명령어 수 / 처리된 점수 대상 명령어 수 × 100
   - 고양이 기여도(%) = 만료된 점수 대상 명령어 수 / 처리된 점수 대상 명령어 수 × 100
   - 모든 플레이어 + 고양이의 기여도 합계는 100%
@@ -1088,7 +1088,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `type` | String | Y | `"CONTRIBUTION_INPUT"` 고정 |
 | `requestId` | UUID | Y | 요청-응답 매칭용 클라이언트 요청 ID |
 | `gameSessionId` | UUID | Y | 현재 게임 세션 ID |
-| `commandSequence` | Integer | 조건부 | 입력 대상 명령어 seq. 일반 명령어 입력 시 필수, `git switch` / `git checkout` 입력 시 생략 |
+| `commandSequence` | Integer | 조건부 | 입력 대상 명령어 seq. 일반 명령어 입력 시 필수, `git switch` 입력 시 생략 |
 | `inputText` | String | Y | 입력한 텍스트 |
 
 ```json
@@ -1106,7 +1106,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 > V3 변경: `BRANCH_MOVE` → `POSITION_UPDATE`. `gameSessionId`, `serverTime`, `requestId` 추가.
 
 - 경로: `/topic/room/{roomId}/contribution` (브로드캐스트)
-- `git switch {branch}` 또는 `git checkout {branch}` 입력으로 브랜치를 이동한다. switch/checkout은 commandSet에 포함하지 않으며, 이동 대상 branch는 현재 commandSet의 `branchName` 또는 `initialBranch`에 존재해야 한다.
+- `git switch {branch}` 입력으로 브랜치를 이동한다. switch는 commandSet에 포함하지 않으며, 이동 대상 branch는 현재 commandSet의 `branchName` 또는 `initialBranch`에 존재해야 한다.
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
@@ -1496,7 +1496,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "round": 2,
   "revealStartsAt": 1714567893000,
   "commands": [
-    { "commandOrder": 1, "commandText": "git checkout -b feature/login" },
+    { "commandOrder": 1, "commandText": "git switch -c feature/login" },
     { "commandOrder": 2, "commandText": "git add ." },
     { "commandOrder": 3, "commandText": "git commit -m 'feat: login'" },
     { "commandOrder": 4, "commandText": "git push origin feature/login" }
@@ -1801,7 +1801,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 4-6 HOST_TRANSFER_REQUEST | Request에서 `currentHostId` 제거. 에러에 `ROOM_NOT_FOUND` 추가 |
 | 4-7 (신규) | `ROOM_INFO_UPDATED` 방 정보 수정 브로드캐스트 이벤트 추가 |
 | 4-9 CHAT | Request에서 `playerId` 제거. 에러에 `MESSAGE_TOO_LONG`, `MESSAGE_EMPTY` 추가 |
-| 5-1 CONTRIBUTION_INPUT | 발행 경로 `/input`→`/commands`. Request 구조 변경 (`requestId`, `gameSessionId`, 일반 명령어용 `commandSequence` 추가, `playerId` 제거). switch/checkout은 commandSet 밖 자유 입력으로 처리. `BRANCH_MOVE`→`POSITION_UPDATE`. `CONTRIBUTION_INPUT_RESULT`→`CONTRIBUTION_INPUT_FAILED`. `progress` Integer→Object. 에러코드 정비 |
+| 5-1 CONTRIBUTION_INPUT | 발행 경로 `/input`→`/commands`. Request 구조 변경 (`requestId`, `gameSessionId`, 일반 명령어용 `commandSequence` 추가, `playerId` 제거). switch는 commandSet 밖 자유 입력으로 처리. `BRANCH_MOVE`→`POSITION_UPDATE`. `CONTRIBUTION_INPUT_RESULT`→`CONTRIBUTION_INPUT_FAILED`. `progress` Integer→Object. 에러코드 정비 |
 | 5-2 COMMAND_EXPIRED | 프론트 바닥 도달 기반 `COMMAND_EXPIRE_REQUEST` 추가. 서버 자동 만료 스케줄 제거. `gameSessionId`, `serverTime` 추가. `progress` Integer→Object |
 | 5-3 CONTRIBUTION_GAME_END | `gameSessionId`, `serverTime`, `isSuccess`, `reason` 추가. 이탈 종료 케이스 추가 |
 | 7-1 COOP_ROUND_REVEAL | `revealEndsAt`→`revealStartsAt`. `gameSessionId`, `serverTime` 추가. commands 항목 필드명 변경 |

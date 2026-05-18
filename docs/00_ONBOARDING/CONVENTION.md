@@ -78,9 +78,9 @@
 **로컬에서 직접 생성 (수동)**
 
     # develop 브랜치에서 feature 브랜치 생성
-    git checkout develop
+    git switch develop
     git pull origin develop
-    git checkout -b feat/BE-127-회원가입
+    git switch -c feat/BE-127-회원가입
 
     # 작업 완료 후 push
     git push origin feat/BE-127-회원가입

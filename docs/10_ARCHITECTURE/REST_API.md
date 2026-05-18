@@ -3221,16 +3221,16 @@ GET /api/v1/tutorial
 | 단계 | 제목 | 명령어 | 핵심 포인트 |
 | --- | --- | --- | --- |
 | 1 | 게임 시작 | `git clone https://github.com/gitcat/project.git` | 모든 모드의 게임 진입점 |
-| 2 | 새 브랜치 만들기 (checkout) | `git checkout -b feature/login` | 브랜치 생성 + 이동 동시에 |
+| 2 | 새 브랜치 만들기 (switch) | `git switch -c feature/login` | 브랜치 생성 + 이동 동시에 |
 | 3 | 변경 사항 스테이징 | `git add .` | 전체 파일 스테이징 |
 | 4 | 커밋하기 | `git commit -m "feat: add login page"` | 변경 기록 저장 |
 | 5 | 원격 저장소에 올리기 | `git push origin feature/login` | 브랜치 푸시 |
-| 6 | 브랜치 이동하기 (checkout) | `git checkout main` | `-b` 없이 기존 브랜치 이동 |
-| 7 | 새 브랜치 만들기 (switch) | `git switch -c feature/signup` | `checkout -b`와 동일 기능, 최신 문법 |
+| 6 | 브랜치 이동하기 (switch) | `git switch main` | 기존 브랜치 이동 |
+| 7 | 새 브랜치 만들기 (switch) | `git switch -c feature/signup` | 브랜치 생성 + 이동 동시에 |
 | 8 | 변경 사항 스테이징 | `git add .` | 전체 파일 스테이징 |
 | 9 | 커밋하기 | `git commit -m "feat: add signup page"` | 변경 기록 저장 |
 | 10 | 원격 저장소에 올리기 | `git push origin feature/signup` | 브랜치 푸시 |
-| 11 | 브랜치 이동하기 (switch) | `git switch main` | `checkout`과 동일 기능, 최신 문법 |
+| 11 | 브랜치 이동하기 (switch) | `git switch main` | 기존 브랜치 이동 |
 | 12 | 브랜치 합치기 | `git merge feature/login`<br>`git merge feature/signup` | 두 브랜치 순서대로 머지 |
 | 13 | 최종 반영 | `git push origin main` | 머지된 main 최종 푸시 |
 

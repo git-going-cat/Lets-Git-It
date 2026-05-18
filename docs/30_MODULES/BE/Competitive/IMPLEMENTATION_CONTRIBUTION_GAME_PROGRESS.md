@@ -66,7 +66,7 @@ Principal이 없는 미인증 요청은 게임 로직에 진입하지 않고 `AU
 
 ### 4. 응답 처리
 
-switch 명령어는 `git switch {branch}` 형식으로만 판정한다. `git checkout {branch}`는 기여도 게임의 이동 명령으로 허용하지 않는다.
+switch 명령어는 `git switch {branch}` 형식으로만 판정한다.
 
 - switch 성공: 위치 갱신 후 `POSITION_UPDATE`
 - switch 오타: `CONTRIBUTION_INPUT_FAILED`, `errorReason=WRONG_COMMAND`
