@@ -587,6 +587,13 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 	}
 
 	@Override
+	public String findGameSessionId(Long roomId) {
+		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
+		Object value = gameRedisTemplate.opsForHash().get(key, "gameSessionId");
+		return value == null ? null : String.valueOf(value);
+	}
+
+	@Override
 	public String findSelectedMapId(Long roomId) {
 		String key = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_INFO_KEY_SUFFIX;
 		Object value = gameRedisTemplate.opsForHash().get(key, "selectedMapId");

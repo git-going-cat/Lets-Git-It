@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionCommandCache;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionGameSessionCache;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionPlayerCache;
+import com.gitcat.letsgitit.domain.competitive.dto.ContributionRankingCache;
 
 public interface ContributionGameRedisRepository {
 
@@ -20,6 +21,10 @@ public interface ContributionGameRedisRepository {
 
 	void saveCommand(UUID gameSessionId, ContributionCommandCache command);
 
+	void markSessionEnded(UUID gameSessionId);
+
+	boolean markSessionEndedIfInProgress(UUID gameSessionId);
+
 	boolean existsPlayer(UUID gameSessionId, UUID playerId);
 
 	List<ContributionPlayerCache> findPlayers(UUID gameSessionId);
@@ -30,9 +35,15 @@ public interface ContributionGameRedisRepository {
 
 	long incrementSuccessCount(UUID gameSessionId, UUID playerId);
 
+	long incrementCatExpiredCount(UUID gameSessionId);
+
 	int findSuccessCount(UUID gameSessionId, UUID playerId);
 
 	int findCatExpiredCount(UUID gameSessionId);
 
 	int countScoredClearedCommands(UUID gameSessionId);
+
+	void saveFinalRankings(UUID gameSessionId, List<ContributionRankingCache> rankings);
+
+	List<ContributionRankingCache> findFinalRankings(UUID gameSessionId);
 }

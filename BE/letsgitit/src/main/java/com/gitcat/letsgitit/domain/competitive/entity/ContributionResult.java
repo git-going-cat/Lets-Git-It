@@ -1,6 +1,7 @@
 package com.gitcat.letsgitit.domain.competitive.entity;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import jakarta.persistence.*;
@@ -16,6 +17,8 @@ import lombok.NoArgsConstructor;
 	@UniqueConstraint(name = "uq_contribution_result_session", columnNames = {"session_id"})
 })
 public class ContributionResult {
+
+	private static final ZoneId KOREA_ZONE_ID = ZoneId.of("Asia/Seoul");
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
@@ -35,7 +38,7 @@ public class ContributionResult {
 		ContributionResult result = new ContributionResult();
 		result.roomId = roomId;
 		result.sessionId = sessionId;
-		result.playedAt = LocalDateTime.now();
+		result.playedAt = LocalDateTime.now(KOREA_ZONE_ID);
 		return result;
 	}
 }

@@ -56,6 +56,6 @@ class ContributionGameRedisRepositoryImplTest {
 		repository.initializeSession(session);
 
 		// then
-		verify(redisTemplate, times(5)).expire(anyString(), eq(SESSION_TTL));
+		verify(redisTemplate, times(6)).expire(anyString(), eq(SESSION_TTL));
 	}
 }

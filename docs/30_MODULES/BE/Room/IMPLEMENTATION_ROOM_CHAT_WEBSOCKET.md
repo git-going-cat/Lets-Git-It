@@ -39,7 +39,7 @@
 ## Caution
 
 - **`sentAt`은 서버 기준 시각**: `System.currentTimeMillis()` 사용. 클라이언트 시계와 오차가 있을 수 있으나 채팅 타임스탬프 용도로 충분.
-- **닉네임 검증 없음**: `nickname`은 클라이언트가 보낸 값을 그대로 신뢰해서 전달. 닉네임 위변조 방지가 필요하면 Redis에서 실제 닉네임을 조회하는 방식으로 변경 필요.
+- **닉네임 출처**: `ChatRequest`에 `nickname` 필드 없음. 서버가 `memberService.getNicknameById(memberId)`로 DB에서 조회하므로 클라이언트 위변조 불가.
 - **방 멤버 여부 미검증**: V3 명세의 에러 코드에 `PLAYER_NOT_IN_ROOM`이 없으므로 미구현. 방 입장 API 완성 후 필요 시 추가.
 - **메시지 영속화 없음**: 채팅 메시지는 Redis나 DB에 저장하지 않음. 재접속 시 이전 채팅 복원 불가.
 
@@ -63,8 +63,7 @@
 
 **원인**: Caution 섹션에 "위변조 방지가 필요하면 Redis에서 실제 닉네임 조회" 로 명시했으나 미구현 상태였다.
 
-**수정**: `memberService.getNicknameById(memberId)`로 서버 기준 닉네임을 조회하도록 변경.
-`ChatRequest.nickname` 필드는 응답 생성에 더 이상 사용하지 않는다.
+**수정 1단계**: `memberService.getNicknameById(memberId)`로 서버 기준 닉네임을 조회하도록 변경.
 
 ```java
 // Before
@@ -73,6 +72,16 @@ return ChatResponse.of(memberId, request.nickname(), message);
 // After
 String nickname = memberService.getNicknameById(memberId);
 return ChatResponse.of(memberId, nickname, message);
+```
+
+**수정 2단계**: `ChatRequest.nickname` 필드 자체를 제거. 클라이언트가 보낼 수 없도록 Request 명세에서 삭제.
+
+```java
+// ChatRequest (V4)
+public record ChatRequest(
+    String type,
+    String message
+) {}
 ```
 
 **참고**: `getNicknameById`는 DB 조회이므로 채팅마다 DB 호출이 발생한다.

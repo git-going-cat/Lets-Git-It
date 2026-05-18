@@ -55,7 +55,9 @@ public class ContributionHandler {
 			UUID memberId = UUID.fromString(principal.getName());
 			ContributionInputResult result = contributionGameService.processInput(roomId, memberId, request);
 			if (result.broadcast()) {
-				messageSender.send("/topic/room/" + roomId + "/contribution", result.payload());
+				for (Object payload : result.payloads()) {
+					messageSender.send("/topic/room/" + roomId + "/contribution", payload);
+				}
 				return;
 			}
 			messageSender.sendToUser(memberId.toString(), result.payload());

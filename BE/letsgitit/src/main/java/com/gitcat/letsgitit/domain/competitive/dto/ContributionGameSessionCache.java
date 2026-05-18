@@ -33,4 +33,17 @@ public record ContributionGameSessionCache(
 			commands,
 			players);
 	}
+
+	public ContributionGameSessionCache ended() {
+		return new ContributionGameSessionCache(
+			roomId,
+			gameSessionId,
+			commandSetId,
+			"ENDED",
+			startAt,
+			totalCommands,
+			initialBranch,
+			commands,
+			players);
+	}
 }

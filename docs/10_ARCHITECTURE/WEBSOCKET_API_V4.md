@@ -1020,13 +1020,11 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | `type` | String | Y | `"CHAT_REQUEST"` 고정 |
-| `nickname` | String | Y | 플레이어 닉네임 |
 | `message` | String | Y | 채팅 내용 |
 
 ```json
 {
   "type": "CHAT_REQUEST",
-  "nickname": "dobby",
   "message": "ㄱㄱ"
 }
 ```
@@ -1799,5 +1797,6 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 섹션 | 변경 내용 |
 | --- | --- |
 | 4-2 GAME_START (협력 응답) | `startGraphPicture` 제거 → `graphData` (viewBox / nodes / edges 구조) 추가. 프론트가 받은 데이터로 SVG 직접 렌더링. |
+| 4-9 CHAT | Request에서 `nickname` 제거. 서버가 memberId 기준으로 닉네임을 DB에서 조회하므로 클라이언트 전송 불필요. |
 | 7-1 COOP_ROUND_REVEAL | `isReset` 필드 추가. `commandOrder` 범위 `1~20` → `1~4` 수정. |
 | 7-3 COOP_INPUT (정답 응답) | `COOP_INPUT_CORRECT`에 `round`, `stepInRound` 추가. 프론트가 라운드/스텝 기준으로 그래프 노드 점등 처리. |
