@@ -1169,6 +1169,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `scores[].nickname` | String | 플레이어 닉네임. 고양이라면 [CAT] 으로 고정. |
 | `scores[].contribution` | Integer | 현재 기여도 (%)                   |
 | `scores[].rank` | Integer | 현재 순위                        |
+| `scores[].disconnected` | Boolean | 이탈 여부. 게임 중 이탈한 플레이어라면 true.  |
 | `progress` | Object | 전체 진행도                       |
 | `progress.current` | Integer | 완료된 명령어 수                    |
 | `progress.total` | Integer | 전체 명령어 수                     |
@@ -1183,11 +1184,11 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "commandSequence": 5,
   "winnerId": "550e8400-e29b-41d4-a716-446655440000",
   "scores": [
-    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "contribution": 40, "rank": 1 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440001", "nickname": "alice", "contribution": 35, "rank": 2 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440002", "nickname": "bob",   "contribution": 25, "rank": 3 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440003", "nickname": "carol", "contribution": 10,  "rank": 4 },
-    { "playerId": null, "nickname": "[CAT]", "contribution": 0, "rank": 5 }
+    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "contribution": 40, "rank": 1, "disconnected": false },
+    { "playerId": "550e8400-e29b-41d4-a716-446655440001", "nickname": "alice", "contribution": 35, "rank": 2, "disconnected": false },
+    { "playerId": "550e8400-e29b-41d4-a716-446655440002", "nickname": "bob",   "contribution": 25, "rank": 3, "disconnected": true },
+    { "playerId": "550e8400-e29b-41d4-a716-446655440003", "nickname": "carol", "contribution": 10, "rank": 4, "disconnected": false },
+    { "playerId": null, "nickname": "[CAT]", "contribution": 0, "rank": 5, "disconnected": false }
   ],
   "progress": {
     "current": 6,
@@ -1289,6 +1290,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `scores[].nickname` | String | 닉네임. 고양이는 [CAT] 으로 고정.         |
 | `scores[].contribution` | Integer | 현재 기여도                         |
 | `scores[].rank` | Integer | 현재 순위 (동점이면 동일 순위, 다음 순위는 건너뜀) |
+| `scores[].disconnected` | Boolean | 이탈 여부. 게임 중 이탈한 플레이어라면 true.   |
 | `progress` | Object | 진행도                            |
 | `progress.current` | Integer | 완료된 명령어 수                      |
 | `progress.total` | Integer | 전체 명령어 수                       |
@@ -1301,8 +1303,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "serverTime": 1714567894000,
   "commandSequence": 3,
   "scores": [
-    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "contribution": 40, "rank": 1 },
-    { "playerId": null, "nickname": "[CAT]", "contribution": 25, "rank": 2 }
+    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "contribution": 40, "rank": 1, "disconnected": false },
+    { "playerId": null, "nickname": "[CAT]", "contribution": 25, "rank": 2, "disconnected": false }
   ],
   "progress": {
     "current": 10,
@@ -1347,6 +1349,13 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 - `GAME_COMPLETED` 정상 종료 시 서버는 final rankings snapshot을 저장하고, CAT을 제외한 실제 플레이어 결과를 DB에 저장한다. DB 저장이 성공한 경우 실제 플레이어의 이번 게임 기여도와 총 플레이 수를 주간 Redis 랭킹에 누적한다.
 - `PLAYER_DISCONNECTED` 조기 종료는 결과 DB 저장과 주간 Redis 랭킹 갱신을 수행하지 않는다.
 
+**게임 중 이탈 처리 규칙**
+
+| 상황 | 동작 |
+| --- | --- |
+| 이탈 후 참가자 2명 이상 남음 | 게임 계속 진행. 이탈자는 Redis에 마킹되며 이후 `scores`/`rankings`에서 `disconnected: true`로 표시됨. 이탈 시점까지 클리어한 명령어 수 기준으로 기여도 계산. |
+| 이탈 후 참가자 1명 이하 남음 | 서버가 즉시 비정상 종료. `PLAYER_DISCONNECTED` reason으로 `CONTRIBUTION_GAME_END` 브로드캐스트. DB 저장 및 랭킹 갱신 없음. |
+
 #### Response: 정상 종료
 
 | 필드 | 타입 | 설명                                      |
@@ -1361,6 +1370,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `rankings[].playerId` | UUID | 플레이어 ID. 고양이라면 null                               |
 | `rankings[].nickname` | String | 플레이어 닉네임. 고양이는 [CAT] 으로 고정.             |
 | `rankings[].contribution` | Integer | 최종 기여도 (%)                              |
+| `rankings[].disconnected` | Boolean | 이탈 여부. 게임 중 이탈한 플레이어라면 true.            |
 | `winnerVideoTarget` | UUID | 탈출 영상 대상 플레이어 ID (1등). 고양이가 1등이라면 null. |
 
 ```json
@@ -1371,11 +1381,11 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "isSuccess": true,
   "reason": "GAME_COMPLETED",
   "rankings": [
-    { "rank": 1, "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby",  "contribution": 40 },
-    { "rank": 2, "playerId": "661f9511-f30c-52e5-b827-557766551111", "nickname": "alice",  "contribution": 35 },
-    { "rank": 3, "playerId": "772e0622-f41d-43f6-a938-668877662222", "nickname": "bob",    "contribution": 25 },
-    { "rank": 4, "playerId": "883e1733-a52e-44f7-b049-779988773333", "nickname": "carol",  "contribution": 10  },
-    { "rank": 5, "playerId": null, "nickname": "[CAT]", "contribution": 5 }
+    { "rank": 1, "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby",  "contribution": 40, "disconnected": false },
+    { "rank": 2, "playerId": "661f9511-f30c-52e5-b827-557766551111", "nickname": "alice",  "contribution": 35, "disconnected": false },
+    { "rank": 3, "playerId": "772e0622-f41d-43f6-a938-668877662222", "nickname": "bob",    "contribution": 25, "disconnected": true },
+    { "rank": 4, "playerId": "883e1733-a52e-44f7-b049-779988773333", "nickname": "carol",  "contribution": 10, "disconnected": false },
+    { "rank": 5, "playerId": null, "nickname": "[CAT]", "contribution": 5, "disconnected": false }
   ],
   "winnerVideoTarget": "550e8400-e29b-41d4-a716-446655440000"
 }
@@ -1841,7 +1851,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | 4-9 CHAT | Request에서 `playerId` 제거. 에러에 `MESSAGE_TOO_LONG`, `MESSAGE_EMPTY` 추가 |
 | 5-1 CONTRIBUTION_INPUT | 발행 경로 `/input`→`/commands`. Request 구조 변경 (`requestId`, `gameSessionId`, 일반 명령어용 `commandSequence` 추가, `playerId` 제거). switch/checkout은 commandSet 밖 자유 입력으로 처리. `BRANCH_MOVE`→`POSITION_UPDATE`. `CONTRIBUTION_INPUT_RESULT`→`CONTRIBUTION_INPUT_FAILED`. `progress` Integer→Object. 에러코드 정비 |
 | 5-2 COMMAND_EXPIRED | 프론트 바닥 도달 기반 `COMMAND_EXPIRE_REQUEST` 추가. 서버 자동 만료 스케줄 제거. `gameSessionId`, `serverTime` 추가. `progress` Integer→Object |
-| 5-3 CONTRIBUTION_GAME_END | `gameSessionId`, `serverTime`, `isSuccess`, `reason` 추가. 이탈 종료 케이스 추가. 정상 종료 시 CAT 제외 결과 DB 저장 및 주간 Redis 랭킹 갱신 |
+| 5-3 CONTRIBUTION_GAME_END | `gameSessionId`, `serverTime`, `isSuccess`, `reason` 추가. 이탈 종료 케이스 추가. 정상 종료 시 CAT 제외 결과 DB 저장 및 주간 Redis 랭킹 갱신. `rankings[].disconnected` 추가. 이탈 처리 규칙 명세 추가 (2명 이상 남으면 계속, 1명 이하면 비정상 종료) |
+| 5-1 SCORE_UPDATE / 5-2 COMMAND_EXPIRED | `scores[].disconnected` 추가. 이탈 플레이어 표시 지원 |
 | 7-1 COOP_ROUND_REVEAL | `revealEndsAt`→`revealStartsAt`. `gameSessionId`, `serverTime` 추가. commands 항목 필드명 변경 |
 | 7-2 COOP_ROUND_ASSIGN | `wrongPlayerNickname`, `gameSessionId`, `serverTime` 추가 |
 | 7-3 COOP_INPUT | Request에서 `playerId` 제거, `requestId` 추가. `COOP_TYPO`→`COOP_INPUT_WRONG`. `COOP_WRONG_ORDER`→`COOP_ORDER_WRONG`. `COOP_INPUT_RESULT`→`COOP_INPUT_CORRECT`. 각 응답에 `gameSessionId`, `serverTime`, `requestId` 추가 |

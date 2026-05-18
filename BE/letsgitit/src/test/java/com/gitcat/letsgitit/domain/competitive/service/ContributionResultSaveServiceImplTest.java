@@ -154,8 +154,8 @@ class ContributionResultSaveServiceImplTest {
 
 	private List<ContributionRankingCache> rankings() {
 		return List.of(
-			new ContributionRankingCache(1, PLAYER_ID, "dobby", 60),
-			new ContributionRankingCache(2, null, "[CAT]", 20),
-			new ContributionRankingCache(2, OTHER_PLAYER_ID, "alice", 20));
+			new ContributionRankingCache(1, PLAYER_ID, "dobby", 60, false),
+			new ContributionRankingCache(2, null, "[CAT]", 20, false),
+			new ContributionRankingCache(2, OTHER_PLAYER_ID, "alice", 20, false));
 	}
 }

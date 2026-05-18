@@ -28,4 +28,6 @@ public interface ContributionGameService {
 	ContributionInputResult processExpireRequest(Long roomId, UUID memberId, ContributionExpireRequestMessage request);
 
 	ContributionGameEndMessage endByPlayerDisconnected(Long roomId, UUID gameSessionId);
+
+	void handlePlayerDisconnected(UUID gameSessionId, UUID disconnectedPlayerId);
 }

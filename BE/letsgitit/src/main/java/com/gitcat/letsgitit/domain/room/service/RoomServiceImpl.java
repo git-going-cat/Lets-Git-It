@@ -161,13 +161,17 @@ public class RoomServiceImpl implements RoomService {
 			roomRedisRepository.removeMember(roomId, memberIdStr);
 			List<PlayerInfoDto> remainMembers = roomMemberMapper
 				.toPlayerInfoDtos(roomRedisRepository.getMembers(roomId.toString()));
-			if (contributionGameInProgress && remainMembers.size() <= 1 && gameSessionId != null) {
-				ContributionGameEndMessage gameEnd = contributionGameService.endByPlayerDisconnected(
-					roomId,
-					UUID.fromString(gameSessionId));
-				if (gameEnd != null) {
-					roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
-					roomWebSocketEventPublisher.publishContributionGameEnd(roomId, gameEnd);
+			if (contributionGameInProgress && gameSessionId != null) {
+				UUID parsedSessionId = UUID.fromString(gameSessionId);
+				if (remainMembers.size() < 2) {
+					ContributionGameEndMessage gameEnd = contributionGameService.endByPlayerDisconnected(
+						roomId, parsedSessionId);
+					if (gameEnd != null) {
+						roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
+						roomWebSocketEventPublisher.publishContributionGameEnd(roomId, gameEnd);
+					}
+				} else {
+					contributionGameService.handlePlayerDisconnected(parsedSessionId, memberId);
 				}
 			}
 			if (remainMembers.isEmpty()) {

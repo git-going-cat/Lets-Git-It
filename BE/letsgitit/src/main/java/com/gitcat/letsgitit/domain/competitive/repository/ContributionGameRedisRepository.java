@@ -48,4 +48,8 @@ public interface ContributionGameRedisRepository {
 	void saveFinalRankings(UUID gameSessionId, List<ContributionRankingCache> rankings);
 
 	List<ContributionRankingCache> findFinalRankings(UUID gameSessionId);
+
+	void markPlayerDisconnected(UUID gameSessionId, UUID playerId);
+
+	boolean isPlayerDisconnected(UUID gameSessionId, UUID playerId);
 }

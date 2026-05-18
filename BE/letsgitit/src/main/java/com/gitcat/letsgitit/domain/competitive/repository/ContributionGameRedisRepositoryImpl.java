@@ -102,7 +102,8 @@ public class ContributionGameRedisRepositoryImpl implements ContributionGameRedi
 			ContributionRedisKeys.players(gameSessionId),
 			ContributionRedisKeys.scores(gameSessionId),
 			ContributionRedisKeys.positions(gameSessionId),
-			ContributionRedisKeys.rankings(gameSessionId));
+			ContributionRedisKeys.rankings(gameSessionId),
+			ContributionRedisKeys.disconnectedPlayers(gameSessionId));
 	}
 
 	@Override
@@ -233,6 +234,19 @@ public class ContributionGameRedisRepositoryImpl implements ContributionGameRedi
 			ContributionRedisKeys.rankings(gameSessionId),
 			toJson(rankings),
 			SESSION_TTL);
+	}
+
+	@Override
+	public void markPlayerDisconnected(UUID gameSessionId, UUID playerId) {
+		String key = ContributionRedisKeys.disconnectedPlayers(gameSessionId);
+		gameStringRedisTemplate.opsForSet().add(key, playerId.toString());
+		gameStringRedisTemplate.expire(key, SESSION_TTL);
+	}
+
+	@Override
+	public boolean isPlayerDisconnected(UUID gameSessionId, UUID playerId) {
+		return Boolean.TRUE.equals(gameStringRedisTemplate.opsForSet()
+			.isMember(ContributionRedisKeys.disconnectedPlayers(gameSessionId), playerId.toString()));
 	}
 
 	@Override

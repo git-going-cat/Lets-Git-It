@@ -337,10 +337,12 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		List<ScoreSeed> seeds = new ArrayList<>();
 		for (ContributionPlayerCache player : contributionGameRedisRepository.findPlayers(gameSessionId)) {
 			int successCount = contributionGameRedisRepository.findSuccessCount(gameSessionId, player.playerId());
-			seeds
-				.add(new ScoreSeed(player.playerId(), player.nickname(), contribution(successCount, appearedCommands)));
+			boolean disconnected = contributionGameRedisRepository.isPlayerDisconnected(gameSessionId,
+				player.playerId());
+			seeds.add(new ScoreSeed(player.playerId(), player.nickname(),
+				contribution(successCount, appearedCommands), disconnected));
 		}
-		seeds.add(new ScoreSeed(null, CAT_NICKNAME, contribution(catExpiredCount, appearedCommands)));
+		seeds.add(new ScoreSeed(null, CAT_NICKNAME, contribution(catExpiredCount, appearedCommands), false));
 
 		seeds.sort(Comparator.comparingInt(ScoreSeed::contribution).reversed()
 			.thenComparing(seed -> seed.nickname() == null ? "" : seed.nickname()));
@@ -351,7 +353,8 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		for (int i = 0; i < seeds.size(); i++) {
 			ScoreSeed seed = seeds.get(i);
 			int rank = seed.contribution() == previousContribution ? previousRank : i + 1;
-			scores.add(new ScoreEntryMessage(seed.playerId(), seed.nickname(), seed.contribution(), rank));
+			scores.add(new ScoreEntryMessage(seed.playerId(), seed.nickname(), seed.contribution(), rank,
+				seed.disconnected()));
 			previousContribution = seed.contribution();
 			previousRank = rank;
 		}
@@ -377,7 +380,8 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 				score.rank(),
 				score.playerId(),
 				score.nickname(),
-				score.contribution()))
+				score.contribution(),
+				score.disconnected()))
 			.toList();
 		List<ContributionRankingCache> finalRankings = toRankingCaches(rankings);
 		contributionGameRedisRepository.saveFinalRankings(gameSessionId, finalRankings);
@@ -424,13 +428,21 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		}
 	}
 
+	@Override
+	public void handlePlayerDisconnected(UUID gameSessionId, UUID disconnectedPlayerId) {
+		contributionGameRedisRepository.markPlayerDisconnected(gameSessionId, disconnectedPlayerId);
+		log.info("[contribution][handlePlayerDisconnected] gameSessionId={}, disconnectedPlayerId={}",
+			gameSessionId, disconnectedPlayerId);
+	}
+
 	private List<ContributionRankingCache> toRankingCaches(List<ContributionRankingMessage> rankings) {
 		return rankings.stream()
 			.map(ranking -> new ContributionRankingCache(
 				ranking.rank(),
 				ranking.playerId(),
 				ranking.nickname(),
-				ranking.contribution()))
+				ranking.contribution(),
+				ranking.disconnected()))
 			.toList();
 	}
 
@@ -462,6 +474,7 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	private record ScoreSeed(
 		UUID playerId,
 		String nickname,
-		int contribution) {
+		int contribution,
+		boolean disconnected) {
 	}
 }

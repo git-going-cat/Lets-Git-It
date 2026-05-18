@@ -40,4 +40,8 @@ public final class ContributionRedisKeys {
 	public static String positionLock(UUID gameSessionId, UUID playerId) {
 		return COMMAND_LOCK_PREFIX + gameSessionId + ":position:" + playerId;
 	}
+
+	public static String disconnectedPlayers(UUID gameSessionId) {
+		return SESSION_PREFIX + gameSessionId + ":disconnected";
+	}
 }
