@@ -197,7 +197,9 @@ public class RoomServiceImpl implements RoomService {
 			if (!hostLeft) {
 				log.info("[room][leaveRoom] roomId={}, memberId={}", roomId, memberId);
 			}
-			roomWebSocketEventPublisher.publishPlayerLeft(roomId, memberId, leftPlayerNickname, remainMembers);
+			String currentRoomState = roomRedisRepository.findRoomStateById(roomId);
+			roomWebSocketEventPublisher.publishPlayerLeft(roomId, memberId, leftPlayerNickname, remainMembers,
+				currentRoomState);
 			if (delegatedHostId != null) {
 				roomWebSocketEventPublisher.publishHostDelegated(roomId, delegatedHostId, remainMembers);
 			}

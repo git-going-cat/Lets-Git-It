@@ -698,6 +698,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 #### Response
 
 > V3 변경: 필드명 변경 — `playerId` → `leftPlayerId`, `nickname` → `leftPlayerNickname`
+> V4 변경: `roomState` 필드 추가
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
@@ -705,12 +706,14 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `leftPlayerId` | UUID | 나간 플레이어 ID |
 | `leftPlayerNickname` | String | 나간 플레이어 닉네임 |
 | `remainMembers` | Array | 퇴장 후 남은 멤버 목록 (공통 Player 객체 배열) |
+| `roomState` | String | 퇴장 처리 후 방 상태 (`"WAITING"` / `"IN_GAME"`) |
 
 ```json
 {
   "type": "PLAYER_LEFT",
   "leftPlayerId": "550e8400-e29b-41d4-a716-446655440000",
   "leftPlayerNickname": "dobby",
+  "roomState": "WAITING",
   "remainMembers": [
     {
       "playerId": "661f9511-f30c-52e5-b827-557766551111",
@@ -1412,6 +1415,43 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "reason": "PLAYER_DISCONNECTED"
 }
 ```
+
+#### FE 처리 지침 — PLAYER_DISCONNECTED 수신 시
+
+`CONTRIBUTION_GAME_END` + `reason: "PLAYER_DISCONNECTED"` 수신 직후, 서버는 연달아 `PLAYER_LEFT`(및 방장 이탈 시 `HOST_DELEGATED`)를 `/topic/room/{roomId}`로 전송한다.
+
+**이벤트 수신 순서**
+
+```
+① CONTRIBUTION_GAME_END  (isSuccess: false, reason: "PLAYER_DISCONNECTED")
+   → /topic/room/{roomId}/contribution
+
+② PLAYER_LEFT  (roomState: "WAITING", remainMembers: [...])
+   → /topic/room/{roomId}
+
+③ HOST_DELEGATED  (방장이 이탈한 경우에만)
+   → /topic/room/{roomId}
+```
+
+**클라이언트 동작**
+
+1. `CONTRIBUTION_GAME_END (PLAYER_DISCONNECTED)` 수신 → 게임 화면에서 선택 모달 표시
+   - "상대방이 게임을 나갔습니다."
+   - [대기실로 돌아가기] / [방 목록으로 이동]
+
+2. 모달 표시 중에도 `PLAYER_LEFT`, `HOST_DELEGATED` 이벤트가 수신된다. 두 이벤트는 대기실 화면 상태(멤버 목록, 방장 정보)에 즉시 반영해 두어야 한다.
+
+3. **[대기실로 돌아가기] 선택 시**
+   - 대기실 화면으로 navigate
+   - `PLAYER_LEFT.roomState === "WAITING"` 이므로 대기실 UI를 그대로 렌더링
+   - `PLAYER_LEFT.remainMembers`로 멤버 목록 갱신, `HOST_DELEGATED`로 방장 변경 반영
+   - 상태 불일치가 우려되면 `GET /api/rooms/{roomId}/state` fallback 호출로 최신 상태를 보장할 수 있다.
+
+4. **[방 목록으로 이동] 선택 시**
+   - `DELETE /api/rooms/{roomId}/leave` 호출하여 방에서 퇴장 처리
+   - 방 목록 화면으로 navigate
+
+> **주의**: 방장이 이탈한 경우, 서버가 남은 인원 중 랜덤으로 새 방장을 선택하고 `HOST_DELEGATED`를 전송한다. [대기실로 돌아가기]를 선택한 경우 이 이벤트를 기반으로 방장 표시를 갱신해야 한다.
 
 ---
 

@@ -49,11 +49,11 @@ public class RoomWebSocketEventPublisher {
 	}
 
 	public void publishPlayerLeft(Long roomId, UUID leftPlayerId, String leftPlayerNickname,
-		List<PlayerInfoDto> remainMembers) {
+		List<PlayerInfoDto> remainMembers, String roomState) {
 		try {
 			webSocketMessageSender.send(
 				ROOM_TOPIC_PREFIX + roomId,
-				PlayerLeftResponse.of(leftPlayerId, leftPlayerNickname, remainMembers));
+				PlayerLeftResponse.of(leftPlayerId, leftPlayerNickname, remainMembers, roomState));
 		} catch (RuntimeException e) {
 			log.warn(
 				"[room][publishPlayerLeft] PLAYER_LEFT publish failed. roomId={}, leftPlayerId={}, reason={}",
