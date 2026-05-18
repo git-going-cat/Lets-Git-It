@@ -17,14 +17,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import org.slf4j.MDC;
-import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
+import com.gitcat.letsgitit.domain.competitive.constants.CompetitiveConstants;
 import com.gitcat.letsgitit.domain.competitive.constants.ContributionRedisKeys;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionCommandCache;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionGameSessionCache;
@@ -34,18 +32,20 @@ import com.gitcat.letsgitit.domain.competitive.dto.ContributionRankingCache;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionCommand;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionPlayer;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.CommandExpiredMessage;
+import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionExpireRequestMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionGameEndMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionInputFailedMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionInputMessage;
+import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionPlayerDisconnectedMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionProgressMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionRankingMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.PositionUpdateMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ScoreEntryMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ScoreUpdateMessage;
 import com.gitcat.letsgitit.domain.competitive.repository.ContributionGameRedisRepository;
+import com.gitcat.letsgitit.domain.ranking.service.ContributionRankingService;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
-import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,18 +60,14 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	private static final String COMMAND_STATUS_READY = "READY";
 	private static final String COMMAND_STATUS_CLEARED = "CLEARED";
 	private static final String COMMAND_STATUS_EXPIRED = "EXPIRED";
-	private static final String COMMAND_STATUS_SWITCHED = "SWITCHED";
 	private static final String CAT_NICKNAME = "[CAT]";
-	private static final long COMMAND_EXPIRE_INTERVAL_MS = 20000;
 	private static final long LOCK_WAIT_MS = 100;
 	private static final long LOCK_LEASE_MS = 2000;
-	private static final Pattern SWITCH_PATTERN = Pattern.compile("^git\\s+(switch|checkout)\\s+(.+)$");
 
 	private final ContributionGameRedisRepository contributionGameRedisRepository;
 	private final RedissonClient redissonClient;
-	private final TaskScheduler taskScheduler;
-	private final WebSocketMessageSender messageSender;
 	private final ContributionResultSaveService contributionResultSaveService;
+	private final ContributionRankingService contributionRankingService;
 
 	@Override
 	public void initializeSession(
@@ -101,7 +97,6 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 					player.bestContribution()))
 				.toList());
 		contributionGameRedisRepository.initializeSession(session);
-		scheduleCommandExpirations(session);
 		log.info("[contribution][initializeSession] roomId={}, gameSessionId={}, commandSetId={}",
 			roomId, gameSessionId, commandSetId);
 	}
@@ -114,119 +109,126 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 
 	@Override
 	public ContributionInputResult processInput(Long roomId, UUID memberId, ContributionInputMessage request) {
-		ContributionGameSessionCache session = contributionGameRedisRepository.findSession(request.gameSessionId())
-			.orElseThrow(() -> new BusinessException(GAME_NOT_STARTED));
-		validateSession(roomId, memberId, request.gameSessionId(), session);
-
-		RLock lock = redissonClient.getLock(
-			ContributionRedisKeys.commandLock(request.gameSessionId(), request.commandSequence()));
-		boolean locked = tryLock(lock);
+		RLock sessionLock = redissonClient.getLock(ContributionRedisKeys.sessionLock(request.gameSessionId()));
+		boolean sessionLocked = tryLock(sessionLock);
 		try {
-			ContributionCommandCache command = contributionGameRedisRepository
-				.findCommand(request.gameSessionId(), request.commandSequence())
-				.orElseThrow(() -> new BusinessException(INVALID_COMMAND));
-			validateCommandStatus(command);
+			ContributionGameSessionCache session = contributionGameRedisRepository.findSession(request.gameSessionId())
+				.orElseThrow(() -> new BusinessException(GAME_NOT_STARTED));
+			validateSession(roomId, memberId, request.gameSessionId(), session);
 
-			if (isSwitchCommand(command.text())) {
-				return processSwitchInput(memberId, request, command);
+			if (isSwitchCommand(request.inputText())) {
+				return processSwitchInput(memberId, request);
 			}
-			return processCommandInput(memberId, request, command, session);
+			if (request.commandSequence() == null) {
+				throw new BusinessException(INVALID_COMMAND);
+			}
+
+			RLock commandLock = redissonClient.getLock(
+				ContributionRedisKeys.commandLock(request.gameSessionId(), request.commandSequence()));
+			boolean commandLocked = tryLock(commandLock);
+			try {
+				ContributionCommandCache command = contributionGameRedisRepository
+					.findCommand(request.gameSessionId(), request.commandSequence())
+					.orElseThrow(() -> new BusinessException(INVALID_COMMAND));
+				validateCommandStatus(command);
+
+				return processCommandInput(memberId, request, command, session);
+			} finally {
+				if (commandLocked) {
+					commandLock.unlock();
+				}
+			}
 		} finally {
-			if (locked) {
-				lock.unlock();
+			if (sessionLocked) {
+				sessionLock.unlock();
 			}
 		}
 	}
 
 	@Override
-	public Object expireCommand(Long roomId, UUID gameSessionId, int commandSequence) {
-		Optional<ContributionGameSessionCache> sessionOptional = contributionGameRedisRepository.findSession(
-			gameSessionId);
-		if (sessionOptional.isEmpty()) {
-			return null;
-		}
-		ContributionGameSessionCache session = sessionOptional.get();
-		if (!session.roomId().equals(roomId) || SESSION_STATUS_ENDED.equals(session.status())) {
-			return null;
-		}
-
-		RLock lock = redissonClient.getLock(ContributionRedisKeys.commandLock(gameSessionId, commandSequence));
-		boolean locked = tryLock(lock);
+	public ContributionInputResult processExpireRequest(
+		Long roomId,
+		UUID memberId,
+		ContributionExpireRequestMessage request) {
+		RLock sessionLock = redissonClient.getLock(ContributionRedisKeys.sessionLock(request.gameSessionId()));
+		boolean sessionLocked = tryLock(sessionLock);
 		try {
-			ContributionCommandCache command = contributionGameRedisRepository.findCommand(gameSessionId,
-				commandSequence)
-				.orElse(null);
-			if (command == null || !COMMAND_STATUS_READY.equals(command.status())) {
-				return null;
+			ContributionGameSessionCache session = contributionGameRedisRepository.findSession(request.gameSessionId())
+				.orElseThrow(() -> new BusinessException(GAME_NOT_STARTED));
+			validateSession(roomId, memberId, request.gameSessionId(), session);
+
+			RLock commandLock = redissonClient.getLock(
+				ContributionRedisKeys.commandLock(request.gameSessionId(), request.commandSequence()));
+			boolean commandLocked = tryLock(commandLock);
+			try {
+				ContributionCommandCache command = contributionGameRedisRepository
+					.findCommand(request.gameSessionId(), request.commandSequence())
+					.orElseThrow(() -> new BusinessException(INVALID_COMMAND));
+				if (!COMMAND_STATUS_READY.equals(command.status()) || isSwitchCommand(command.text())) {
+					return null;
+				}
+				Object payload = expireReadyCommand(roomId, request.gameSessionId(), request.commandSequence(), command,
+					session);
+				return payload == null ? null : ContributionInputResult.broadcast(payload);
+			} finally {
+				if (commandLocked) {
+					commandLock.unlock();
+				}
 			}
-
-			contributionGameRedisRepository.saveCommand(gameSessionId, command.expired());
-			contributionGameRedisRepository.incrementCatExpiredCount(gameSessionId);
-
-			int clearedCommandCount = contributionGameRedisRepository.countScoredClearedCommands(gameSessionId);
-			int catExpiredCount = contributionGameRedisRepository.findCatExpiredCount(gameSessionId);
-			int processedCommandCount = clearedCommandCount + catExpiredCount;
-			int totalCommands = countScorableCommands(session);
-			List<ScoreEntryMessage> scores = buildScores(gameSessionId, clearedCommandCount, catExpiredCount);
-			ContributionProgressMessage progress = buildProgress(processedCommandCount, totalCommands);
-
-			log.info("[contribution][expireCommand] gameSessionId={}, commandSequence={}",
-				gameSessionId, commandSequence);
-			if (isCompleted(processedCommandCount, totalCommands)) {
-				return completeGame(roomId, gameSessionId, scores);
-			}
-			return CommandExpiredMessage.of(gameSessionId, commandSequence, scores, progress);
 		} finally {
-			if (locked) {
-				lock.unlock();
+			if (sessionLocked) {
+				sessionLock.unlock();
 			}
 		}
+	}
+
+	private Object expireReadyCommand(
+		Long roomId,
+		UUID gameSessionId,
+		int commandSequence,
+		ContributionCommandCache command,
+		ContributionGameSessionCache session) {
+		contributionGameRedisRepository.saveCommand(gameSessionId, command.expired());
+		contributionGameRedisRepository.incrementCatExpiredCount(gameSessionId);
+
+		int clearedCommandCount = contributionGameRedisRepository.countScoredClearedCommands(gameSessionId);
+		int catExpiredCount = contributionGameRedisRepository.findCatExpiredCount(gameSessionId);
+		int processedCommandCount = clearedCommandCount + catExpiredCount;
+		int totalCommands = countScorableCommands(session);
+		List<ScoreEntryMessage> scores = buildScores(gameSessionId, clearedCommandCount, catExpiredCount);
+		ContributionProgressMessage progress = buildProgress(processedCommandCount, totalCommands);
+
+		log.info("[contribution][expireCommand] gameSessionId={}, commandSequence={}",
+			gameSessionId, commandSequence);
+		if (isCompleted(processedCommandCount, totalCommands)) {
+			return completeGame(roomId, gameSessionId, scores, session.startAt());
+		}
+		return CommandExpiredMessage.of(gameSessionId, commandSequence, scores, progress);
 	}
 
 	@Override
 	public ContributionGameEndMessage endByPlayerDisconnected(Long roomId, UUID gameSessionId) {
-		Optional<ContributionGameSessionCache> sessionOptional = contributionGameRedisRepository.findSession(
-			gameSessionId);
-		if (sessionOptional.isEmpty()) {
-			return ContributionGameEndMessage.playerDisconnected(gameSessionId);
-		}
-		ContributionGameSessionCache session = sessionOptional.get();
-		if (!session.roomId().equals(roomId)) {
-			throw new BusinessException(SESSION_MISMATCH);
-		}
-		if (!contributionGameRedisRepository.markSessionEndedIfInProgress(gameSessionId)) {
-			return null;
-		}
-		log.info("[contribution][endByPlayerDisconnected] roomId={}, gameSessionId={}", roomId, gameSessionId);
-		return ContributionGameEndMessage.playerDisconnected(gameSessionId);
-	}
-
-	private void scheduleCommandExpirations(ContributionGameSessionCache session) {
-		List<ContributionCommandCache> scorableCommands = session.commands().stream()
-			.filter(command -> !isSwitchCommand(command.text()))
-			.sorted(Comparator.comparingInt(ContributionCommandCache::commandSequence))
-			.toList();
-		for (int i = 0; i < scorableCommands.size(); i++) {
-			ContributionCommandCache command = scorableCommands.get(i);
-			long expireAt = session.startAt() + ((long)i + 1) * COMMAND_EXPIRE_INTERVAL_MS;
-			taskScheduler.schedule(
-				() -> publishExpiredCommand(session.roomId(), session.gameSessionId(), command.commandSequence()),
-				java.time.Instant.ofEpochMilli(Math.max(System.currentTimeMillis(), expireAt)));
-		}
-	}
-
-	private void publishExpiredCommand(Long roomId, UUID gameSessionId, int commandSequence) {
-		MDC.put("requestId", "scheduler-contribution-expire");
+		RLock sessionLock = redissonClient.getLock(ContributionRedisKeys.sessionLock(gameSessionId));
+		boolean sessionLocked = tryLock(sessionLock);
 		try {
-			Object payload = expireCommand(roomId, gameSessionId, commandSequence);
-			if (payload != null) {
-				messageSender.send("/topic/room/" + roomId + "/contribution", payload);
+			Optional<ContributionGameSessionCache> sessionOptional = contributionGameRedisRepository.findSession(
+				gameSessionId);
+			if (sessionOptional.isEmpty()) {
+				return ContributionGameEndMessage.playerDisconnected(gameSessionId);
 			}
-		} catch (RuntimeException e) {
-			log.error("[contribution][publishExpiredCommand] 만료 처리 실패. roomId={}, gameSessionId={}, commandSequence={}",
-				roomId, gameSessionId, commandSequence, e);
+			ContributionGameSessionCache session = sessionOptional.get();
+			if (!session.roomId().equals(roomId)) {
+				throw new BusinessException(SESSION_MISMATCH);
+			}
+			if (!contributionGameRedisRepository.markSessionEndedIfInProgress(gameSessionId)) {
+				return null;
+			}
+			log.info("[contribution][endByPlayerDisconnected] roomId={}, gameSessionId={}", roomId, gameSessionId);
+			return ContributionGameEndMessage.playerDisconnected(gameSessionId);
 		} finally {
-			MDC.clear();
+			if (sessionLocked) {
+				sessionLock.unlock();
+			}
 		}
 	}
 
@@ -260,10 +262,13 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		if (!contributionGameRedisRepository.existsPlayer(gameSessionId, memberId)) {
 			throw new BusinessException(PLAYER_NOT_IN_GAME);
 		}
+		if (contributionGameRedisRepository.isPlayerDisconnected(gameSessionId, memberId)) {
+			throw new BusinessException(PLAYER_NOT_IN_GAME);
+		}
 	}
 
 	private void validateCommandStatus(ContributionCommandCache command) {
-		if (COMMAND_STATUS_CLEARED.equals(command.status()) || COMMAND_STATUS_SWITCHED.equals(command.status())) {
+		if (COMMAND_STATUS_CLEARED.equals(command.status())) {
 			throw new BusinessException(COMMAND_ALREADY_CLEARED);
 		}
 		if (COMMAND_STATUS_EXPIRED.equals(command.status())) {
@@ -276,31 +281,30 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 
 	private ContributionInputResult processSwitchInput(
 		UUID memberId,
-		ContributionInputMessage request,
-		ContributionCommandCache command) {
-		if (!command.text().equals(request.inputText())) {
-			return ContributionInputResult.privateMessage(
-				ContributionInputFailedMessage.of(
-					request.gameSessionId(),
-					request.requestId(),
-					memberId,
-					"WRONG_COMMAND"));
+		ContributionInputMessage request) {
+		RLock lock = redissonClient.getLock(
+			ContributionRedisKeys.positionLock(request.gameSessionId(), memberId));
+		boolean locked = tryLock(lock);
+		try {
+			String branch = parseSwitchBranch(request.inputText());
+			if (!contributionGameRedisRepository.existsBranch(request.gameSessionId(), branch)) {
+				return ContributionInputResult.privateMessage(
+					ContributionInputFailedMessage.of(
+						request.gameSessionId(),
+						request.requestId(),
+						memberId,
+						"INVALID_BRANCH"));
+			}
+			contributionGameRedisRepository.updatePosition(request.gameSessionId(), memberId, branch);
+			log.info("[contribution][input] switch success. memberId={}, gameSessionId={}, branch={}",
+				memberId, request.gameSessionId(), branch);
+			return ContributionInputResult.broadcast(
+				PositionUpdateMessage.of(request.gameSessionId(), request.requestId(), memberId, branch));
+		} finally {
+			if (locked) {
+				lock.unlock();
+			}
 		}
-		String branch = parseSwitchBranch(command.text());
-		if (!contributionGameRedisRepository.existsBranch(request.gameSessionId(), branch)) {
-			return ContributionInputResult.privateMessage(
-				ContributionInputFailedMessage.of(
-					request.gameSessionId(),
-					request.requestId(),
-					memberId,
-					"INVALID_BRANCH"));
-		}
-		contributionGameRedisRepository.updatePosition(request.gameSessionId(), memberId, branch);
-		contributionGameRedisRepository.saveCommand(request.gameSessionId(), command.switched(memberId));
-		log.info("[contribution][input] switch success. memberId={}, gameSessionId={}, commandSequence={}",
-			memberId, request.gameSessionId(), request.commandSequence());
-		return ContributionInputResult.broadcast(
-			PositionUpdateMessage.of(request.gameSessionId(), request.requestId(), memberId, branch));
 	}
 
 	private ContributionInputResult processCommandInput(
@@ -315,6 +319,16 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 					request.requestId(),
 					memberId,
 					"WRONG_COMMAND"));
+		}
+		String currentBranch = contributionGameRedisRepository.findPosition(request.gameSessionId(), memberId)
+			.orElse(session.initialBranch());
+		if (!command.branchName().equals(currentBranch)) {
+			return ContributionInputResult.privateMessage(
+				ContributionInputFailedMessage.of(
+					request.gameSessionId(),
+					request.requestId(),
+					memberId,
+					"INVALID_BRANCH"));
 		}
 
 		contributionGameRedisRepository.saveCommand(request.gameSessionId(), command.cleared(memberId));
@@ -335,7 +349,8 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			scores,
 			progress);
 		if (isCompleted(processedCommandCount, totalCommands)) {
-			ContributionGameEndMessage gameEnd = completeGame(session.roomId(), request.gameSessionId(), scores);
+			ContributionGameEndMessage gameEnd = completeGame(session.roomId(), request.gameSessionId(), scores,
+				session.startAt());
 			if (gameEnd == null) {
 				return ContributionInputResult.broadcast(scoreUpdate);
 			}
@@ -349,10 +364,12 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		List<ScoreSeed> seeds = new ArrayList<>();
 		for (ContributionPlayerCache player : contributionGameRedisRepository.findPlayers(gameSessionId)) {
 			int successCount = contributionGameRedisRepository.findSuccessCount(gameSessionId, player.playerId());
-			seeds
-				.add(new ScoreSeed(player.playerId(), player.nickname(), contribution(successCount, appearedCommands)));
+			boolean disconnected = contributionGameRedisRepository.isPlayerDisconnected(gameSessionId,
+				player.playerId());
+			seeds.add(new ScoreSeed(player.playerId(), player.nickname(),
+				contribution(successCount, appearedCommands), disconnected));
 		}
-		seeds.add(new ScoreSeed(null, CAT_NICKNAME, contribution(catExpiredCount, appearedCommands)));
+		seeds.add(new ScoreSeed(null, CAT_NICKNAME, contribution(catExpiredCount, appearedCommands), false));
 
 		seeds.sort(Comparator.comparingInt(ScoreSeed::contribution).reversed()
 			.thenComparing(seed -> seed.nickname() == null ? "" : seed.nickname()));
@@ -363,23 +380,25 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		for (int i = 0; i < seeds.size(); i++) {
 			ScoreSeed seed = seeds.get(i);
 			int rank = seed.contribution() == previousContribution ? previousRank : i + 1;
-			scores.add(new ScoreEntryMessage(seed.playerId(), seed.nickname(), seed.contribution(), rank));
+			scores.add(new ScoreEntryMessage(seed.playerId(), seed.nickname(), seed.contribution(), rank,
+				seed.disconnected()));
 			previousContribution = seed.contribution();
 			previousRank = rank;
 		}
 		return scores;
 	}
 
-	private ContributionProgressMessage buildProgress(int clearedCommandCount, int totalCommands) {
-		int percent = totalCommands == 0 ? 0 : (int)Math.floor((clearedCommandCount * 100.0) / totalCommands);
-		return new ContributionProgressMessage(clearedCommandCount, totalCommands, percent);
+	private ContributionProgressMessage buildProgress(int processedCommandCount, int totalCommands) {
+		int percent = totalCommands == 0 ? 0 : (int)Math.floor((processedCommandCount * 100.0) / totalCommands);
+		return new ContributionProgressMessage(processedCommandCount, totalCommands, percent);
 	}
 
 	private boolean isCompleted(int processedCommandCount, int totalCommands) {
 		return totalCommands > 0 && processedCommandCount >= totalCommands;
 	}
 
-	private ContributionGameEndMessage completeGame(Long roomId, UUID gameSessionId, List<ScoreEntryMessage> scores) {
+	private ContributionGameEndMessage completeGame(Long roomId, UUID gameSessionId, List<ScoreEntryMessage> scores,
+		long startAt) {
 		if (!contributionGameRedisRepository.markSessionEndedIfInProgress(gameSessionId)) {
 			log.info("[contribution][completeGame] already ended. roomId={}, gameSessionId={}", roomId, gameSessionId);
 			return null;
@@ -389,19 +408,26 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 				score.rank(),
 				score.playerId(),
 				score.nickname(),
-				score.contribution()))
+				score.contribution(),
+				score.disconnected()))
 			.toList();
 		List<ContributionRankingCache> finalRankings = toRankingCaches(rankings);
 		contributionGameRedisRepository.saveFinalRankings(gameSessionId, finalRankings);
+		boolean resultSaved = false;
 		try {
 			contributionResultSaveService.saveCompletedResult(
 				roomId,
 				gameSessionId,
-				finalRankings);
+				finalRankings,
+				startAt);
+			resultSaved = true;
 		} catch (RuntimeException e) {
 			log.error(
 				"[contribution][completeGame] 결과 DB 저장 실패, 게임 종료는 정상 진행. roomId={}, gameSessionId={}",
 				roomId, gameSessionId, e);
+		}
+		if (resultSaved) {
+			updateContributionRankings(gameSessionId, finalRankings);
 		}
 		UUID winnerVideoTarget = rankings.stream()
 			.anyMatch(ranking -> ranking.rank() == 1 && ranking.playerId() == null)
@@ -416,13 +442,60 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		return ContributionGameEndMessage.completed(gameSessionId, rankings, winnerVideoTarget);
 	}
 
+	private void updateContributionRankings(UUID gameSessionId, List<ContributionRankingCache> finalRankings) {
+		for (ContributionRankingCache ranking : finalRankings) {
+			if (ranking.playerId() == null) {
+				continue;
+			}
+			try {
+				contributionRankingService.updateContributionScore(ranking.playerId(), ranking.contribution());
+			} catch (RuntimeException e) {
+				log.error(
+					"[contribution][completeGame] 랭킹 Redis 갱신 실패. gameSessionId={}, memberId={}, contribution={}",
+					gameSessionId, ranking.playerId(), ranking.contribution(), e);
+			}
+		}
+	}
+
+	@Override
+	public ContributionInputResult handlePlayerDisconnected(UUID gameSessionId, UUID disconnectedPlayerId) {
+		RLock sessionLock = redissonClient.getLock(ContributionRedisKeys.sessionLock(gameSessionId));
+		boolean sessionLocked = tryLock(sessionLock);
+		try {
+			ContributionGameSessionCache session = contributionGameRedisRepository.findSession(gameSessionId)
+				.orElse(null);
+			if (session == null || !SESSION_STATUS_IN_PROGRESS.equals(session.status())) {
+				return null;
+			}
+			contributionGameRedisRepository.markPlayerDisconnected(gameSessionId, disconnectedPlayerId);
+			int clearedCommandCount = contributionGameRedisRepository.countScoredClearedCommands(gameSessionId);
+			int catExpiredCount = contributionGameRedisRepository.findCatExpiredCount(gameSessionId);
+			int processedCommandCount = clearedCommandCount + catExpiredCount;
+			int totalCommands = countScorableCommands(session);
+			List<ScoreEntryMessage> scores = buildScores(gameSessionId, clearedCommandCount, catExpiredCount);
+			ContributionProgressMessage progress = buildProgress(processedCommandCount, totalCommands);
+			log.info("[contribution][handlePlayerDisconnected] gameSessionId={}, disconnectedPlayerId={}",
+				gameSessionId, disconnectedPlayerId);
+			return ContributionInputResult.broadcast(ContributionPlayerDisconnectedMessage.of(
+				gameSessionId,
+				disconnectedPlayerId,
+				scores,
+				progress));
+		} finally {
+			if (sessionLocked) {
+				sessionLock.unlock();
+			}
+		}
+	}
+
 	private List<ContributionRankingCache> toRankingCaches(List<ContributionRankingMessage> rankings) {
 		return rankings.stream()
 			.map(ranking -> new ContributionRankingCache(
 				ranking.rank(),
 				ranking.playerId(),
 				ranking.nickname(),
-				ranking.contribution()))
+				ranking.contribution(),
+				ranking.disconnected()))
 			.toList();
 	}
 
@@ -440,20 +513,21 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	}
 
 	private boolean isSwitchCommand(String commandText) {
-		return commandText != null && SWITCH_PATTERN.matcher(commandText.trim()).matches();
+		return commandText != null && CompetitiveConstants.SWITCH_PATTERN.matcher(commandText.trim()).matches();
 	}
 
 	private String parseSwitchBranch(String inputText) {
-		Matcher matcher = SWITCH_PATTERN.matcher(inputText.trim());
+		Matcher matcher = CompetitiveConstants.SWITCH_PATTERN.matcher(inputText.trim());
 		if (!matcher.matches()) {
 			throw new BusinessException(ErrorCode.INVALID_COMMAND);
 		}
-		return matcher.group(2).trim();
+		return matcher.group(1).trim();
 	}
 
 	private record ScoreSeed(
 		UUID playerId,
 		String nickname,
-		int contribution) {
+		int contribution,
+		boolean disconnected) {
 	}
 }

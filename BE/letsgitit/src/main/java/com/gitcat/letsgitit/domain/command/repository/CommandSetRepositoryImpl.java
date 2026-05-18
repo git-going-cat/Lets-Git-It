@@ -19,4 +19,9 @@ public class CommandSetRepositoryImpl implements CommandSetRepository {
 	public List<CompetitiveCommandSet> findAllByMode(CompetitiveMode mode) {
 		return jpaRepository.findAllByMode(mode);
 	}
+
+	@Override
+	public List<CompetitiveCommandSet> findAllByModeAndPlayerCount(CompetitiveMode mode, int playerCount) {
+		return jpaRepository.findAllByModeAndPlayerCount(mode, playerCount);
+	}
 }

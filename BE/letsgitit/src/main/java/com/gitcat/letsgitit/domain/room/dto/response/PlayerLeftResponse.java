@@ -10,10 +10,11 @@ public record PlayerLeftResponse(
 	String type,
 	UUID leftPlayerId,
 	String leftPlayerNickname,
-	List<PlayerInfoDto> remainMembers) implements BaseWebSocketResponse {
+	List<PlayerInfoDto> remainMembers,
+	String roomState) implements BaseWebSocketResponse {
 
 	public static PlayerLeftResponse of(UUID leftPlayerId, String leftPlayerNickname,
-		List<PlayerInfoDto> remainMembers) {
-		return new PlayerLeftResponse("PLAYER_LEFT", leftPlayerId, leftPlayerNickname, remainMembers);
+		List<PlayerInfoDto> remainMembers, String roomState) {
+		return new PlayerLeftResponse("PLAYER_LEFT", leftPlayerId, leftPlayerNickname, remainMembers, roomState);
 	}
 }

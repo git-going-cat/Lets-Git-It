@@ -53,6 +53,22 @@ public class RecordServiceImpl implements RecordService {
 		return true;
 	}
 
+	@Override
+	@Transactional
+	public boolean updateContributionBestRecord(UUID memberId, int contribution, int rank) {
+		MemberBestRecord record = memberBestRecordRepository
+			.findByMemberIdAndMode(memberId, BestRecordMode.CONTRIBUTION)
+			.orElseGet(() -> MemberBestRecord.of(memberId, BestRecordMode.CONTRIBUTION, 0, 0));
+
+		if (contribution <= record.getBestScore()) {
+			return false;
+		}
+
+		record.update(contribution, rank);
+		memberBestRecordRepository.save(record);
+		return true;
+	}
+
 	private BestRecordMode toSingleBestRecordMode(Difficulty difficulty) {
 		return switch (difficulty) {
 			case EASY -> BestRecordMode.SINGLE_EASY;

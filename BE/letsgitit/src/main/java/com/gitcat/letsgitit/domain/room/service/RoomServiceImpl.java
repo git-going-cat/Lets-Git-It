@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 
 import com.gitcat.letsgitit.domain.command.dto.response.CommandSetResponse;
 import com.gitcat.letsgitit.domain.command.service.CommandService;
+import com.gitcat.letsgitit.domain.competitive.dto.ContributionInputResult;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionCommand;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionSessionPlayer;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionGameEndMessage;
@@ -161,13 +162,20 @@ public class RoomServiceImpl implements RoomService {
 			roomRedisRepository.removeMember(roomId, memberIdStr);
 			List<PlayerInfoDto> remainMembers = roomMemberMapper
 				.toPlayerInfoDtos(roomRedisRepository.getMembers(roomId.toString()));
-			if (contributionGameInProgress && remainMembers.size() <= 1 && gameSessionId != null) {
-				ContributionGameEndMessage gameEnd = contributionGameService.endByPlayerDisconnected(
-					roomId,
-					UUID.fromString(gameSessionId));
-				if (gameEnd != null) {
-					roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
-					roomWebSocketEventPublisher.publishContributionGameEnd(roomId, gameEnd);
+			if (contributionGameInProgress && gameSessionId != null) {
+				UUID parsedSessionId = UUID.fromString(gameSessionId);
+				ContributionInputResult disconnectedResult = contributionGameService.handlePlayerDisconnected(
+					parsedSessionId, memberId);
+				if (disconnectedResult != null && disconnectedResult.payload() != null) {
+					roomWebSocketEventPublisher.publishContributionEvent(roomId, disconnectedResult.payload());
+				}
+				if (remainMembers.size() < 2) {
+					ContributionGameEndMessage gameEnd = contributionGameService.endByPlayerDisconnected(
+						roomId, parsedSessionId);
+					if (gameEnd != null) {
+						roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
+						roomWebSocketEventPublisher.publishContributionGameEnd(roomId, gameEnd);
+					}
 				}
 			}
 			if (remainMembers.isEmpty()) {
@@ -193,7 +201,9 @@ public class RoomServiceImpl implements RoomService {
 			if (!hostLeft) {
 				log.info("[room][leaveRoom] roomId={}, memberId={}", roomId, memberId);
 			}
-			roomWebSocketEventPublisher.publishPlayerLeft(roomId, memberId, leftPlayerNickname, remainMembers);
+			String currentRoomState = roomRedisRepository.findRoomStateById(roomId);
+			roomWebSocketEventPublisher.publishPlayerLeft(roomId, memberId, leftPlayerNickname, remainMembers,
+				currentRoomState);
 			if (delegatedHostId != null) {
 				roomWebSocketEventPublisher.publishHostDelegated(roomId, delegatedHostId, remainMembers);
 			}
@@ -450,7 +460,7 @@ public class RoomServiceImpl implements RoomService {
 
 			if (RoomMode.CONTRIBUTION.name().equals(mode)) {
 				// ── 5a. 기여도 모드: 랜덤 커맨드셋 + 플레이어 최고 기록 조회 ──────────
-				CommandSetResponse commandSet = commandService.getRandomContributionCommandSet();
+				CommandSetResponse commandSet = commandService.getRandomContributionCommandSet(memberIds.size());
 				List<ContributionPlayerDto> players = memberIds.stream()
 					.map(id -> {
 						int best = recordService.getBestRecords(id).stream()

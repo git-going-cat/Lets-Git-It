@@ -28,7 +28,7 @@
 5. 최소 인원 확인 — CONTRIBUTION: 2명↑, COOP: 4명↑ (`NOT_ENOUGH_PLAYERS`)
 6. 방장 제외 전원 준비 확인 (`NOT_ALL_READY`)
 7. 닉네임 일괄 조회 (`memberService.getNicknamesByIds`)
-8. 모드별 데이터 조회 (명령어셋 or 맵 그래프)
+8. 모드별 데이터 조회 (기여도는 현재 인원수에 맞는 명령어셋, 협력은 맵 그래프)
 9. 모든 조회 성공 후 방 상태 `IN_GAME` 변경 + `gameSessionId` 저장
 
 **startAt 처리:** `startAt = serverTime + 3000` — 고정 3초 딜레이로 네트워크 지연 대응
@@ -46,12 +46,14 @@
 | 방 상태 변경 시점 | 모든 데이터 조회 성공 후 | 조회 실패 시 IN_GAME 고착 방지 |
 | 준비 확인 | `countReadyNonHostMembers(hostId)` | 방장은 준비 버튼 없으므로 명시적 제외 필요 |
 | 닉네임 출처 | `memberService.getNicknamesByIds` (DB 실시간 조회) | Redis 멤버 Hash의 nickname은 입장 시점 값으로 변경 반영 안 됨 |
+| 기여도 명령어셋 | 현재 방 인원수와 `competitive_command_set.player_count` 일치 데이터만 사용 | 인원수와 맞지 않는 게임 시나리오 시작 방지 |
 
 ## Caution
 
 - **COOP `selectedMapId` 필수**: `room:{roomId}:info` Hash에 `selectedMapId`가 없으면 `UUID.fromString(null)` → NPE → INTERNAL_SERVER_ERROR 발생. 방 생성/맵 선택 API에서 반드시 설정해야 함.
 - **`countReadyNonHostMembers`**: `opsForHash().entries()`로 전체를 읽어 Java에서 필터링. 방 최대 인원이 4명이므로 성능 문제 없음.
 - **CONTRIBUTION 최소 인원**: 2명 미만이면 `NOT_ENOUGH_PLAYERS`. 에러 메시지는 "협력 모드는 4명이 필요합니다"로 되어 있어 CONTRIBUTION 케이스와 불일치 — 추후 수정 필요.
+- **CONTRIBUTION command set**: 현재 방 인원수와 일치하는 `player_count` 데이터가 없으면 `COMMAND_SET_NOT_FOUND`로 시작 실패. fallback은 두지 않는다.
 - **gameSessionId**: 게임 시작 시 서버가 생성한 UUID. Redis `room:{roomId}:info`의 `gameSessionId` 필드에 저장. 게임 진행 중 세션 식별용.
 
 ## Test Plan
@@ -66,7 +68,7 @@
 - `NOT_HOST`: 방장이 아닌 멤버가 시작 요청
 - `NOT_ENOUGH_PLAYERS`: CONTRIBUTION 1명, COOP 3명 이하
 - `NOT_ALL_READY`: 비호스트 멤버 중 미준비 상태 존재
-- `COMMAND_SET_NOT_FOUND`: `competitive_command_set` 테이블에 CONTRIBUTION 데이터 없음
+- `COMMAND_SET_NOT_FOUND`: `competitive_command_set` 테이블에 현재 CONTRIBUTION 인원수와 일치하는 `player_count` 데이터 없음
 - INTERNAL_SERVER_ERROR: COOP에서 `selectedMapId`가 Redis에 없거나 DB에 없는 UUID
 
 ---

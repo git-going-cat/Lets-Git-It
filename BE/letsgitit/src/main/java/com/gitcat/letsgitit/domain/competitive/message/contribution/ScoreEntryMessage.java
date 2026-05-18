@@ -6,5 +6,6 @@ public record ScoreEntryMessage(
 	UUID playerId,
 	String nickname,
 	int contribution,
-	int rank) {
+	int rank,
+	boolean disconnected) {
 }

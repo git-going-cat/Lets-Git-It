@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import com.gitcat.letsgitit.domain.competitive.constants.CompetitiveConstants;
+
 public record ContributionInputMessage(
 	@NotBlank(message = "type은 필수입니다.")
 	String type,
@@ -17,7 +19,7 @@ public record ContributionInputMessage(
 	@NotNull(message = "gameSessionId는 필수입니다.")
 	UUID gameSessionId,
 
-	@NotNull(message = "commandSequence는 필수입니다.") @Min(value = 0, message = "commandSequence는 0 이상이어야 합니다.")
+	@Min(value = 0, message = "commandSequence는 0 이상이어야 합니다.")
 	Integer commandSequence,
 
 	@NotBlank(message = "inputText는 필수입니다.")
@@ -26,5 +28,11 @@ public record ContributionInputMessage(
 	@AssertTrue(message = "type은 CONTRIBUTION_INPUT이어야 합니다.")
 	public boolean isContributionInputType() {
 		return "CONTRIBUTION_INPUT".equals(type);
+	}
+
+	@AssertTrue(message = "일반 명령어 입력에는 commandSequence가 필수입니다.")
+	public boolean isCommandSequenceRequiredForScorableCommand() {
+		return (inputText != null && CompetitiveConstants.SWITCH_PATTERN.matcher(inputText.trim()).matches())
+			|| commandSequence != null;
 	}
 }
