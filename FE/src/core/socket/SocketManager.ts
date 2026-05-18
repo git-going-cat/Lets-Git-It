@@ -1,6 +1,7 @@
 import { Client } from '@stomp/stompjs';
 
 import { env } from '@/config/env';
+import { reissueToken } from '@/core/http';
 
 import type { SocketMessageHandler } from '@/shared/types/socket.types';
 import type { IMessage, StompSubscription } from '@stomp/stompjs';
@@ -30,6 +31,8 @@ class SocketManager {
   private isConnected = false;
 
   private isConnecting = false;
+
+  private isReissuingToken = false;
 
   /** Dev 전용 mock 모드. publish를 silent no-op으로 만들어 진짜 WS 없이 동작 가능. */
   private mockMode = false;
@@ -86,6 +89,11 @@ class SocketManager {
     };
 
     client.onStompError = (frame) => {
+      if (this.isTokenExpiredFrame(frame.body, frame.headers.message)) {
+        void this.reconnectWithFreshToken();
+        return;
+      }
+
       this.isConnected = false;
       this.isConnecting = false;
       this.queueActiveSubscriptionsForReconnect();
@@ -228,6 +236,42 @@ class SocketManager {
         this.pendingSubscriptions.set(key, { callback, destination, key });
       }
     });
+  }
+
+  private isTokenExpiredFrame(body: string, message?: string): boolean {
+    if (message === '액세스 토큰이 만료되었습니다.') return true;
+
+    try {
+      const parsed = JSON.parse(body) as { code?: unknown };
+      return parsed.code === 'TOKEN_EXPIRED';
+    } catch {
+      return false;
+    }
+  }
+
+  private async reconnectWithFreshToken(): Promise<void> {
+    if (this.isReissuingToken) return;
+
+    this.isReissuingToken = true;
+    this.isConnected = false;
+    this.isConnecting = false;
+    this.queueActiveSubscriptionsForReconnect();
+    this.emitConnectionEvent('disconnected');
+
+    const currentClient = this.client;
+    this.client = null;
+
+    try {
+      if (currentClient) {
+        await currentClient.deactivate();
+      }
+      const token = await reissueToken();
+      this.connect(token);
+    } catch (error) {
+      console.error('[socket] Token reissue failed during STOMP reconnect.', error);
+    } finally {
+      this.isReissuingToken = false;
+    }
   }
 
   private parseMessage(message: IMessage): ParsedSocketMessage {

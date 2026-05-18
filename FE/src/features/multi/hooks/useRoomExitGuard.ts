@@ -10,6 +10,8 @@ interface UseRoomExitGuardOptions {
   reset: () => void;
 }
 
+const pendingLeaveTimers = new Map<number, number>();
+
 async function leaveRoomKeepAlive(roomId: number): Promise<void> {
   const token = useAuthStore.getState().accessToken;
   const headers: Record<string, string> = {
@@ -60,6 +62,13 @@ export function useRoomExitGuard({ roomId, reset }: UseRoomExitGuardOptions) {
 
   useEffect(() => {
     hasLeftRef.current = false;
+    if (roomId == null) return;
+
+    const pendingTimer = pendingLeaveTimers.get(roomId);
+    if (pendingTimer === undefined) return;
+
+    window.clearTimeout(pendingTimer);
+    pendingLeaveTimers.delete(roomId);
   }, [roomId]);
 
   useEffect(() => {
@@ -75,7 +84,11 @@ export function useRoomExitGuard({ roomId, reset }: UseRoomExitGuardOptions) {
     return () => {
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('beforeunload', handlePageHide);
-      void leave(false);
+      const timerId = window.setTimeout(() => {
+        pendingLeaveTimers.delete(roomId);
+        void leave(false);
+      }, 100);
+      pendingLeaveTimers.set(roomId, timerId);
     };
   }, [leave, roomId]);
 }
