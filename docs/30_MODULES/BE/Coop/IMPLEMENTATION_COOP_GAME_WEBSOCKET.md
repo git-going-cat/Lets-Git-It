@@ -79,6 +79,8 @@ CoopResultMember: 플레이어별 결과 (wrongTypeCount, wrongOrderCount)
 | 오타/순서오류 카운터 | Redis Hash `opsForHash().increment()` | 원자적 증가, 락 없이 안전 |
 | 시작 시간 기준 | `initGameState` 호출 시점 | 3초 REVEAL 딜레이 포함 전체 소요 시간 측정 |
 | difficulty 타입 | `int` (DB·엔티티 일치) | `CoopResult.difficulty`, `MemberCoopBestRecord.difficulty` 모두 int |
+| endGame ↔ disconnect 레이스 차단 | `endGame`에서 `LOCK_DISCONNECT` 획득 + `isGameActive` 가드 | `LOCK_INPUT`과 `LOCK_DISCONNECT`는 독립 락 — disconnect 선점 시 `endGame`이 빈 상태를 읽어 빈 데이터 DB 저장 + GAME_END 중복 발송 |
+| `saveRoundCommands` 원자화 | `putAll` (HMSET) | 개별 HSET 4회는 partial read 가능 — 단일 HMSET은 Redis 수준에서 원자적 |
 
 ## Caution
 
@@ -136,3 +138,126 @@ ALTER TABLE member_coop_best_record
   DROP INDEX uq_member_coop_best_record,
   ADD UNIQUE KEY uq_member_coop_best_record (member_id, map_name, difficulty);
 ```
+
+---
+
+### 게임 시작 시 전체 최고기록 조회 (2026-05-18)
+
+**현상**: `COOP_STARTED` 응답에 포함된 `bestTime`이 다른 맵·난이도의 기록을 반환하거나, 맵 변경 후에도 이전 맵 기록이 표시됨.
+
+**원인**: `RoomServiceImpl.startGame()`에서 `recordService.getCoopBestRecord(memberId)` — 전체 최고기록 조회 — 를 호출하고 있었다. 맵·난이도 필터가 없어 현재 맵과 무관한 기록이 반환됐다.
+
+**수정**: `RecordService.getCoopBestRecordByMap(memberId, mapName, difficulty)` 신규 추가.  
+`MemberCoopBestRecordDslRepository.findBestRecordByMemberId(memberId, mapName, difficulty)` QueryDSL 쿼리 추가.  
+`startGame()`에서 맵+난이도 기준 조회로 교체.
+
+---
+
+### 게임 종료 시 DB 저장 실패해도 Redis 정리·클라이언트 알림 미보장 (2026-05-18)
+
+**현상**: `endGame()`에서 `transactionTemplate.execute()`가 예외를 던지면 이후 `deleteGameState()`, `deleteRoomGameSession()`, `COOP_GAME_END` 브로드캐스트가 모두 실행되지 않아 방이 `IN_GAME` 상태로 고착됨.
+
+**원인**: DB 저장·Redis 정리·WebSocket 송신이 단일 try 블록에 나열되어 있었고 예외 시 뒤 단계가 건너뜀.
+
+**수정**: `transactionTemplate.execute()` 호출을 `try/catch`로 감싸 DB 저장 실패를 `log.error`로 기록 후 계속 진행.  
+Redis 정리(`deleteGameState`, `deleteRoomGameSession`, `updateRoomState`) 및 `COOP_GAME_END` 브로드캐스트는 DB 성패와 무관하게 항상 실행되도록 순서 재정렬.
+
+---
+
+### 정상 종료 후 disconnect 이벤트로 인한 방 이중 초기화·메시지 중복 전송 (2026-05-18)
+
+**현상**: 게임이 정상 종료(`COOP_GAME_END` 브로드캐스트)된 직후 플레이어 disconnect 이벤트가 수신되어 `COOP_GAME_END`(isSuccess=false)가 재전송되고 방 상태가 이중으로 WAITING으로 초기화됨.
+
+**원인**: `endGame()`에서 Redis 정리 후 disconnect 이벤트가 도달하면 `isGameActive` 체크 없이 `handlePlayerDisconnect()`가 다시 종료 처리를 수행했다.
+
+**수정**: `handlePlayerDisconnect()` 진입 시 `isGameActive(gameSessionId)` 확인 추가 — Redis 상태가 이미 삭제된 경우 조용히 return.
+
+---
+
+### 게임 종료 시 최고기록 미갱신·isNewRecord 응답 누락 (2026-05-18)
+
+**현상**: 게임 클리어 후 `COOP_GAME_END` 응답에 `isNewRecord` 필드가 없고, 기록이 갱신되지 않음.
+
+**원인**: `endGame()`의 `transactionTemplate` 블록에 최고기록 갱신 로직이 없었고, `ResultDto`에 `isNewRecord` 필드가 없었다.  
+또한 `RoomServiceImpl.startGame()`에서 `RecordService.getCoopBestRecord()`를 호출해 불필요한 DB 조회가 발생하고 있었다.
+
+**수정**:
+- `RecordServiceImpl.updateCoopBestRecord(memberId, mapName, difficulty, elapsedTime, rank)` 추가 — 최초 클리어거나 기존 기록보다 빠른 경우 `MemberCoopBestRecord`를 저장·갱신하고 `true` 반환.
+- `MemberCoopBestRecordJpaRepository` 신규 생성 (`JpaRepository<MemberCoopBestRecord, UUID>`).
+- `endGame()` `transactionTemplate` 블록에서 플레이어별 `updateCoopBestRecord` + `addPlayTime` 호출.
+- `CoopGameEndResponse.ResultDto`에 `isNewRecord: boolean` 필드 추가.
+- `RoomServiceImpl.startGame()`에서 `bestCoopRecordByMap` 조회 제거 — `CoopPlayerDto`에서 `bestTime` 필드 제거.
+
+---
+
+### disconnect 동시성 버그 — COOP_GAME_END 중복 브로드캐스트·ghost player (2026-05-18)
+
+**현상 1**: 두 플레이어가 동시에 disconnect되면 `COOP_GAME_END`가 두 번 브로드캐스트됨.
+
+**원인 1**: `handlePlayerDisconnect()`가 `isGameActive` 체크와 Redis 정리 사이에 락이 없어 두 스레드가 동시에 체크를 통과.
+
+**수정 1**: `LOCK_DISCONNECT` (`coop:lock:disconnect:{roomId}`) Redisson 락 추가. `tryLock` 실패 시 조용히 return — 먼저 획득한 스레드만 종료 처리.
+
+**현상 2**: 게임 종료 후 방으로 복귀했을 때 이미 disconnect된 플레이어가 방 멤버로 남아있는 ghost player 발생.
+
+**원인 2**: `leaveGameIfDisconnected()`에서 `!ROOM_STATE_IN_GAME`이면 최상단 early return — Thread A가 게임을 먼저 끝내 방 상태를 WAITING으로 바꾸면 Thread B가 early return하며 disconnect된 플레이어의 `leaveRoom`이 호출되지 않음.
+
+**수정 2**: `leaveGameIfDisconnected()` 재구조화.
+- CONTRIBUTION: 기존 동작 유지 (`isInGame`일 때만 `leaveRoom`).
+- COOP: `isInGame`이면 `handlePlayerDisconnect`, 이후 `existsMember` 가드로 멤버가 남아있으면 항상 `leaveRoom` 호출.
+
+---
+
+### COOP 게임 시작 시 ROUND_REVEAL 누락·유령 세션 중복 전송 (2026-05-18)
+
+**현상 1**: 일부 클라이언트가 `COOP_ROUND_REVEAL`을 수신하지 못해 첫 라운드 명령어가 표시되지 않음.
+
+**원인 1**: `COOP_STARTED` 브로드캐스트 100ms 후 `initAndStartGame` (내부에서 `ROUND_REVEAL` 전송) 이 실행됐는데, 클라이언트가 room topic → coop topic 재구독 전환을 완료하기 전에 REVEAL이 나가 일부 클라이언트에 미도달.
+
+**수정 1**: `initAndStartGame` 스케줄 지연을 100ms → `REVEAL_DURATION_MS`(3000ms)로 변경. `startAt = serverTime + 3000`이므로 전원이 구독 완료된 시각에 REVEAL 전송.
+
+**현상 2**: `sendToUser()` 시 `ROUND_ASSIGN`이 동일 플레이어에게 중복 전송됨.
+
+**원인 2**: 브라우저 새로고침 등으로 WebSocket 재연결 시 기존 세션이 `SimpUserRegistry`에 좀비 상태로 잔존. 기존 `notifyDisconnectByNewLogin()`은 HTTP 로그인 플로우에서만 호출되어 WebSocket 직접 재연결 케이스를 처리하지 못했다.
+
+**수정 2**: `SessionConnectedEvent` 핸들러 추가 (`WebSocketEventListener`). 새 세션 연결 시 동일 멤버의 다른 세션에 `FORCE_DISCONNECT(REPLACED_BY_NEW_LOGIN)` 즉시 전송 후 레지스트리에서 제거. `WebSocketSessionRegistry.getSessionIds()` 메서드 추가.
+
+---
+
+### CoopInputRequest·CoopResetRequest 검증 어노테이션 누락 (2026-05-18)
+
+**현상**: `inputText`가 null 또는 빈 문자열이어도 컨트롤러를 통과해 `NullPointerException` 또는 오동작 발생.
+
+**원인**: `CoopInputRequest`, `CoopResetRequest` DTO에 `@NotNull`, `@NotBlank` 등 Bean Validation 어노테이션이 없었다.
+
+**수정**: `CoopInputRequest.inputText`, `CoopResetRequest.inputText`에 `@NotBlank` 추가. `@Valid` 어노테이션은 컨트롤러 파라미터에 이미 적용되어 있었으므로 DTO 필드 어노테이션만 추가.
+
+---
+
+### 협력 방 팀 이름 유효성 검사 누락 (2026-05-18)
+
+**현상**: 특수문자, 공백만으로 구성된 팀 이름이나 8자 초과 팀 이름이 DB에 저장됨.
+
+**원인**: `CreateCoopRoomRequest`, `UpdateCoopRoomInfoRequest`의 `teamName` 필드에 형식 제약이 없었다.
+
+**수정**: `@Pattern(regexp = "^[가-힣a-zA-Z0-9]{1,8}$")` 어노테이션 추가 — 한글·영문·숫자 1~8자만 허용.
+
+---
+
+### endGame-disconnect 동시 실행 레이스·Redis 원자성 결함 (2026-05-18)
+
+**현상 1**: 20번째 정답 입력으로 `endGame()`이 실행되는 동시에 disconnect 이벤트가 발생하면 `endGame()`이 빈 Redis 상태를 읽어 빈 데이터를 DB에 저장하고 `COOP_GAME_END`가 두 번 브로드캐스트됨.
+
+**원인 1**: `LOCK_INPUT`과 `LOCK_DISCONNECT`는 독립 락이어서 `endGame()`(LOCK_INPUT 보유)과 `handlePlayerDisconnect()`(LOCK_DISCONNECT 보유)가 동시에 실행 가능. disconnect 선점 시 Redis 정리 완료 후 `endGame()`이 빈 상태를 읽음.
+
+**수정 1**: `endGame()`에서 로직 실행 전 `LOCK_DISCONNECT` 추가 획득 + `isGameActive` 가드 확인. `endGame()` wrapper + `endGameInternal()` private으로 분리.
+
+**현상 2**: `saveRoundCommands()`에서 4개 명령어가 개별 `HSET`으로 저장되어 partial read 가능.
+
+**원인 2**: `commands.forEach((order, text) -> redisTemplate.opsForHash().put(...))` — 4회 개별 호출.
+
+**수정 2**: `HashMap`으로 집계 후 `putAll`(HMSET) 단일 호출로 원자적 저장.
+
+**현상 3**: `unblock()`에서 `FIELD_BLOCKED`와 `FIELD_RESET_TARGET` 갱신이 2회 HSET으로 나뉘어 partial read 가능.
+
+**수정 3**: `putAll`(HMSET)으로 두 필드를 단일 호출로 갱신. `block()`과 동일한 패턴으로 통일.

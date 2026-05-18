@@ -41,4 +41,9 @@ public class WebSocketSessionRegistry {
 		Set<String> sessions = memberSessions.get(memberId);
 		return sessions != null && !sessions.isEmpty();
 	}
+
+	public Set<String> getSessionIds(String memberId) {
+		Set<String> sessions = memberSessions.get(memberId);
+		return sessions != null ? Set.copyOf(sessions) : Set.of();
+	}
 }

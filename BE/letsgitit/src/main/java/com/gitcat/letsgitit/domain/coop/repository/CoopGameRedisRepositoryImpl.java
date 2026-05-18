@@ -3,6 +3,7 @@ package com.gitcat.letsgitit.domain.coop.repository;
 import static com.gitcat.letsgitit.domain.coop.constants.CoopConstants.*;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -115,8 +116,9 @@ public class CoopGameRedisRepositoryImpl implements CoopGameRedisRepository {
 
 	@Override
 	public void unblock(UUID gameSessionId) {
-		redisTemplate.opsForHash().put(stateKey(gameSessionId), FIELD_BLOCKED, "false");
-		redisTemplate.opsForHash().put(stateKey(gameSessionId), FIELD_RESET_TARGET, "");
+		redisTemplate.opsForHash().putAll(stateKey(gameSessionId), Map.of(
+			FIELD_BLOCKED, "false",
+			FIELD_RESET_TARGET, ""));
 	}
 
 	@Override
@@ -130,7 +132,9 @@ public class CoopGameRedisRepositoryImpl implements CoopGameRedisRepository {
 	@Override
 	public void saveRoundCommands(UUID gameSessionId, int round, Map<Integer, String> commands) {
 		String key = commandsKey(gameSessionId, round);
-		commands.forEach((order, text) -> redisTemplate.opsForHash().put(key, String.valueOf(order), text));
+		Map<String, String> hashCommands = new HashMap<>();
+		commands.forEach((order, text) -> hashCommands.put(String.valueOf(order), text));
+		redisTemplate.opsForHash().putAll(key, hashCommands);
 		redisTemplate.expire(key, GAME_TTL_SECONDS, TimeUnit.SECONDS);
 	}
 

@@ -14,9 +14,21 @@ import lombok.RequiredArgsConstructor;
 public class MemberCoopBestRecordRepositoryImpl implements MemberCoopBestRecordRepository {
 
 	private final MemberCoopBestRecordDslRepository memberCoopBestRecordDslRepository;
+	private final MemberCoopBestRecordJpaRepository memberCoopBestRecordJpaRepository;
 
 	@Override
 	public Optional<MemberCoopBestRecord> findBestRecordByMemberId(UUID memberId) {
 		return memberCoopBestRecordDslRepository.findBestRecordByMemberId(memberId);
+	}
+
+	@Override
+	public Optional<MemberCoopBestRecord> findBestRecordByMemberIdAndMap(UUID memberId, String mapName,
+		int difficulty) {
+		return memberCoopBestRecordDslRepository.findBestRecordByMemberIdAndMap(memberId, mapName, difficulty);
+	}
+
+	@Override
+	public void save(MemberCoopBestRecord record) {
+		memberCoopBestRecordJpaRepository.save(record);
 	}
 }
