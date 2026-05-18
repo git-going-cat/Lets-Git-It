@@ -20,8 +20,4 @@ public record ContributionCommandCache(
 	public ContributionCommandCache expired() {
 		return new ContributionCommandCache(commandSequence, text, branchName, "EXPIRED", winnerId);
 	}
-
-	public ContributionCommandCache expired() {
-		return new ContributionCommandCache(commandSequence, text, branchName, "EXPIRED", winnerId);
-	}
 }
