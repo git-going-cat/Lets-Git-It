@@ -51,22 +51,26 @@ const initialState: CoopMetaState = {
   pendingMessages: [],
 };
 
-export const useCoopStore = create<CoopMetaState & CoopMetaActions>((set, get) => ({
-  ...initialState,
-  setRoomId: (roomId) => set({ roomId }),
-  setGameSessionId: (id) => set({ gameSessionId: id, sessionId: id }),
-  setTotalRounds: (n) => set({ totalRounds: n }),
-  setGraphData: (data) => set({ graphData: data }),
-  setResult: (result) => set({ result }),
-  setSessionMeta: (meta) => set((state) => ({ ...state, ...meta })),
-  setPlayerSnapshots: (players) => set({ playerSnapshots: players }),
-  enqueuePendingMessage: (message) =>
-    set((state) => ({ pendingMessages: [...state.pendingMessages, message] })),
-  consumePendingMessages: () => {
-    const messages = get().pendingMessages;
-    set({ pendingMessages: [] });
-    return messages;
-  },
-  reset: () => set(initialState),
-  clearSession: () => set(initialState),
-}));
+export const useCoopStore = create<CoopMetaState & CoopMetaActions>((set, get) => {
+  const resetSession = () => set(initialState);
+
+  return {
+    ...initialState,
+    setRoomId: (roomId) => set({ roomId }),
+    setGameSessionId: (id) => set({ gameSessionId: id, sessionId: id }),
+    setTotalRounds: (n) => set({ totalRounds: n }),
+    setGraphData: (data) => set({ graphData: data }),
+    setResult: (result) => set({ result }),
+    setSessionMeta: (meta) => set((state) => ({ ...state, ...meta })),
+    setPlayerSnapshots: (players) => set({ playerSnapshots: players }),
+    enqueuePendingMessage: (message) =>
+      set((state) => ({ pendingMessages: [...state.pendingMessages, message] })),
+    consumePendingMessages: () => {
+      const messages = get().pendingMessages;
+      set({ pendingMessages: [] });
+      return messages;
+    },
+    reset: resetSession,
+    clearSession: resetSession,
+  };
+});

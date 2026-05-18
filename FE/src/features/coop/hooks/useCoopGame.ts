@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useSetAtom } from 'jotai';
+import { useCallback, useEffect, useRef } from 'react';
+import { useAtomValue, useSetAtom } from 'jotai';
 
 import { socketManager } from '@/core/socket/SocketManager';
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -36,6 +36,8 @@ import { useCoopStore } from '../store/coopStore';
 import { coopElapsedSecondsAtom } from '../store/coopTimerAtom';
 
 import type { CoopCommandCard, CoopPlayer } from '../types/coop.types';
+
+const COMMANDS_PER_ROUND = 4;
 
 function createInitialPlayerStats(players: CoopPlayer[]) {
   return Object.fromEntries(
@@ -96,6 +98,8 @@ function toRevealTiming(revealStartsAt: number) {
 
 export function useCoopGame() {
   const commandsRef = useRef<CoopCommandCard[]>([]);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const phase = useAtomValue(coopPhaseAtom);
   const setPhase = useSetAtom(coopPhaseAtom);
   const setRound = useSetAtom(coopRoundAtom);
   const setCompletedCount = useSetAtom(coopCompletedCountAtom);
@@ -148,12 +152,86 @@ export function useCoopGame() {
   ]);
 
   useEffect(() => {
+    if (phase === 'ended') return;
+
     const timerId = window.setInterval(() => {
       setElapsedSeconds((seconds) => seconds + 1);
     }, 1000);
 
     return () => window.clearInterval(timerId);
-  }, [setElapsedSeconds]);
+  }, [phase, setElapsedSeconds]);
+
+  const handleRoundReveal = useCallback(
+    (message: unknown, shouldLogError = false) => {
+      const result = CoopRoundRevealSchema.safeParse(message);
+      if (!result.success) {
+        if (shouldLogError) {
+          console.error('[coop] Invalid COOP_ROUND_REVEAL packet dropped.', result.error);
+        }
+        return;
+      }
+
+      setRound(result.data.round);
+      setCompletedCount(0);
+      setCurrentOrder(1);
+      setInputBlocked(true);
+      setResetTargetPlayerId(null);
+      setWrongPlayerNickname(null);
+      const commands = result.data.commands.map((command) => ({
+        commandOrder: command.commandOrder,
+        commandText: command.commandText,
+      }));
+      commandsRef.current = commands;
+      setCommands(commands);
+      setMyCommand(null);
+      setMyCommandOrder(null);
+      const firstSequenceInRound = (result.data.round - 1) * COMMANDS_PER_ROUND + 1;
+      setGraphCompletedSequences((sequences) =>
+        sequences.filter((sequence) => sequence < firstSequenceInRound)
+      );
+      setGraphActiveSequence(firstSequenceInRound);
+      setSessionMeta(toRevealTiming(result.data.revealStartsAt));
+      setPhase('reveal');
+    },
+    [
+      setCommands,
+      setCompletedCount,
+      setCurrentOrder,
+      setGraphActiveSequence,
+      setGraphCompletedSequences,
+      setInputBlocked,
+      setMyCommand,
+      setMyCommandOrder,
+      setPhase,
+      setResetTargetPlayerId,
+      setRound,
+      setSessionMeta,
+      setWrongPlayerNickname,
+    ]
+  );
+
+  const handleRoundAssign = useCallback(
+    (message: unknown, shouldLogError = false) => {
+      const result = CoopRoundAssignSchema.safeParse(message);
+      if (!result.success) {
+        if (shouldLogError) {
+          console.error('[coop] Invalid COOP_ROUND_ASSIGN packet dropped.', result.error);
+        }
+        return;
+      }
+
+      const order =
+        commandsRef.current.find((command) => command.commandText === result.data.myCommandText)
+          ?.commandOrder ?? null;
+
+      setMyCommand(result.data.myCommandText);
+      setMyCommandOrder(order);
+      if (order !== null) {
+        coopBus.emit('coop:assign-reveal', { myCommandOrder: order });
+      }
+    },
+    [setMyCommand, setMyCommandOrder]
+  );
 
   useEffect(() => {
     if (!sessionId || roomId == null) return;
@@ -162,46 +240,12 @@ export function useCoopGame() {
     messages.forEach((message) => {
       switch (getMessageType(message)) {
         case 'COOP_ROUND_REVEAL': {
-          const result = CoopRoundRevealSchema.safeParse(message);
-          if (!result.success) return;
-
-          setRound(result.data.round);
-          setCompletedCount(0);
-          setCurrentOrder(1);
-          setInputBlocked(true);
-          setResetTargetPlayerId(null);
-          setWrongPlayerNickname(null);
-          const commands = result.data.commands.map((command) => ({
-            commandOrder: command.commandOrder,
-            commandText: command.commandText,
-          }));
-          commandsRef.current = commands;
-          setCommands(commands);
-          setMyCommand(null);
-          setMyCommandOrder(null);
-          const firstSequenceInRound = (result.data.round - 1) * 4 + 1;
-          setGraphCompletedSequences((sequences) =>
-            sequences.filter((sequence) => sequence < firstSequenceInRound)
-          );
-          setGraphActiveSequence(firstSequenceInRound);
-          setSessionMeta(toRevealTiming(result.data.revealStartsAt));
-          setPhase('reveal');
+          handleRoundReveal(message);
           return;
         }
 
         case 'COOP_ROUND_ASSIGN': {
-          const result = CoopRoundAssignSchema.safeParse(message);
-          if (!result.success) return;
-
-          const order =
-            commandsRef.current.find((command) => command.commandText === result.data.myCommandText)
-              ?.commandOrder ?? null;
-
-          setMyCommand(result.data.myCommandText);
-          setMyCommandOrder(order);
-          if (order !== null) {
-            coopBus.emit('coop:assign-reveal', { myCommandOrder: order });
-          }
+          handleRoundAssign(message);
           return;
         }
 
@@ -211,67 +255,28 @@ export function useCoopGame() {
     });
   }, [
     consumePendingMessages,
-    pendingMessages.length,
+    handleRoundAssign,
+    handleRoundReveal,
+    pendingMessages,
     roomId,
     sessionId,
-    setCommands,
-    setCompletedCount,
-    setCurrentOrder,
-    setGraphActiveSequence,
-    setGraphCompletedSequences,
-    setInputBlocked,
-    setMyCommand,
-    setMyCommandOrder,
-    setPhase,
-    setResetTargetPlayerId,
-    setRound,
-    setSessionMeta,
-    setWrongPlayerNickname,
   ]);
 
   useEffect(() => {
     if (!sessionId || roomId == null) return;
-
-    const token = useAuthStore.getState().accessToken;
-    if (!token) return;
+    if (!accessToken) return;
 
     const gameKey = `coop:game:${roomId}`;
     const privateKey = 'coop:private';
 
-    socketManager.connect(token);
+    socketManager.connect(accessToken);
 
     socketManager.subscribe(
       `/topic/room/${roomId}/coop`,
       (message) => {
         switch (getMessageType(message)) {
           case 'COOP_ROUND_REVEAL': {
-            const result = CoopRoundRevealSchema.safeParse(message);
-            if (!result.success) {
-              console.error('[coop] Invalid COOP_ROUND_REVEAL packet dropped.', result.error);
-              return;
-            }
-
-            setRound(result.data.round);
-            setCompletedCount(0);
-            setCurrentOrder(1);
-            setInputBlocked(true);
-            setResetTargetPlayerId(null);
-            setWrongPlayerNickname(null);
-            const commands = result.data.commands.map((command) => ({
-              commandOrder: command.commandOrder,
-              commandText: command.commandText,
-            }));
-            commandsRef.current = commands;
-            setCommands(commands);
-            setMyCommand(null);
-            setMyCommandOrder(null);
-            const firstSequenceInRound = (result.data.round - 1) * 4 + 1;
-            setGraphCompletedSequences((sequences) =>
-              sequences.filter((sequence) => sequence < firstSequenceInRound)
-            );
-            setGraphActiveSequence(firstSequenceInRound);
-            setSessionMeta(toRevealTiming(result.data.revealStartsAt));
-            setPhase('reveal');
+            handleRoundReveal(message, true);
             return;
           }
 
@@ -301,9 +306,7 @@ export function useCoopGame() {
               return;
             }
 
-            const isMe = toCoopPlayers().some(
-              (player) => player.isMe && player.playerId === result.data.resetTargetPlayerId
-            );
+            const isMe = useAuthStore.getState().user?.memberId === result.data.resetTargetPlayerId;
             setPlayerStats((stats) => {
               const current = stats[result.data.resetTargetPlayerId] ?? {
                 typoCount: 0,
@@ -368,22 +371,7 @@ export function useCoopGame() {
       (message) => {
         switch (getMessageType(message)) {
           case 'COOP_ROUND_ASSIGN': {
-            const result = CoopRoundAssignSchema.safeParse(message);
-            if (!result.success) {
-              console.error('[coop] Invalid COOP_ROUND_ASSIGN packet dropped.', result.error);
-              return;
-            }
-
-            const order =
-              commandsRef.current.find(
-                (command) => command.commandText === result.data.myCommandText
-              )?.commandOrder ?? null;
-
-            setMyCommand(result.data.myCommandText);
-            setMyCommandOrder(order);
-            if (order !== null) {
-              coopBus.emit('coop:assign-reveal', { myCommandOrder: order });
-            }
+            handleRoundAssign(message, true);
             return;
           }
 
@@ -418,9 +406,10 @@ export function useCoopGame() {
               return;
             }
 
-            const players = toCoopPlayers();
-            const wrongPlayer = players.find((player) => player.playerId === result.data.playerId);
-            const isMe = wrongPlayer?.isMe ?? false;
+            const wrongPlayer = toCoopPlayers().find(
+              (player) => player.playerId === result.data.playerId
+            );
+            const isMe = useAuthStore.getState().user?.memberId === result.data.playerId;
 
             setPlayerStats((stats) => {
               const current = stats[result.data.playerId] ?? {
@@ -466,19 +455,18 @@ export function useCoopGame() {
       socketManager.unsubscribe(privateKey);
     };
   }, [
+    accessToken,
+    handleRoundAssign,
+    handleRoundReveal,
     roomId,
     sessionId,
-    setCommands,
     setCompletedCount,
     setCurrentOrder,
     setGraphActiveSequence,
     setGraphCompletedSequences,
     setInputBlocked,
-    setMyCommand,
-    setMyCommandOrder,
     setPlayerStats,
     setResult,
-    setSessionMeta,
     setPhase,
     setResetTargetPlayerId,
     setRound,

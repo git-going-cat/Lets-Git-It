@@ -29,6 +29,8 @@ function createRequestId() {
 export function useCoopInput() {
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingTextsRef = useRef<Map<string, string>>(new Map());
+  const inputValueRef = useRef('');
+  const lastSubmittedTextRef = useRef<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [isShaking, setIsShaking] = useState(false);
@@ -70,9 +72,14 @@ export function useCoopInput() {
   }, []);
 
   useEffect(() => {
+    inputValueRef.current = inputValue;
+  }, [inputValue]);
+
+  useEffect(() => {
     return coopBus.subscribe('coop:input-wrong-shake', () => {
-      const text = Array.from(pendingTextsRef.current.values()).at(-1) ?? inputValue.trim();
+      const text = lastSubmittedTextRef.current ?? inputValueRef.current.trim();
       pendingTextsRef.current.clear();
+      lastSubmittedTextRef.current = null;
       if (text) {
         setHistory((prev) => [...prev, { text, status: 'typo' }]);
       }
@@ -80,7 +87,7 @@ export function useCoopInput() {
       triggerShake();
       inputRef.current?.focus();
     });
-  }, [inputValue, triggerShake]);
+  }, [triggerShake]);
 
   useEffect(() => {
     if (!isDisabled) inputRef.current?.focus();
@@ -100,9 +107,11 @@ export function useCoopInput() {
 
       const requestId = createRequestId();
       pendingTextsRef.current.set(requestId, value);
+      lastSubmittedTextRef.current = value;
       if (env.MODE === 'development' && roomId == null) {
         coopBus.emit('coop:mock-reset');
         pendingTextsRef.current.delete(requestId);
+        lastSubmittedTextRef.current = null;
         setHistory((prev) => [...prev, { text: value, status: 'switch' }]);
         setInputValue('');
         return;
@@ -120,6 +129,7 @@ export function useCoopInput() {
 
     const requestId = createRequestId();
     pendingTextsRef.current.set(requestId, value);
+    lastSubmittedTextRef.current = value;
 
     if (env.MODE === 'development' && roomId == null) {
       if (value === myCommand) {
@@ -132,6 +142,8 @@ export function useCoopInput() {
 
       if (commands.some((command) => command.commandText === value)) {
         coopBus.emit('coop:mock-order-wrong');
+        pendingTextsRef.current.delete(requestId);
+        lastSubmittedTextRef.current = null;
         return;
       }
 

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { env } from '@/config/env';
-import { useAuthStore } from '@/features/auth/store/authStore';
+import { sendKeepAliveRequest } from '@/core/http';
 
 import { leaveRoom } from '../api/room.api';
 
@@ -14,20 +13,8 @@ interface UseRoomExitGuardOptions {
 const pendingLeaveTimers = new Map<number, number>();
 
 async function leaveRoomKeepAlive(roomId: number): Promise<void> {
-  const token = useAuthStore.getState().accessToken;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  await fetch(`${env.API_BASE_URL}/api/v1/rooms/${roomId}/leave`, {
+  await sendKeepAliveRequest(`/api/v1/rooms/${roomId}/leave`, {
     method: 'DELETE',
-    credentials: 'include',
-    headers,
-    keepalive: true,
   });
 }
 
