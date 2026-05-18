@@ -66,6 +66,8 @@ export class BranchLane extends Phaser.GameObjects.Container {
   private commandNodes: Phaser.GameObjects.Container[] = [];
   private flashGraphic: Phaser.GameObjects.Graphics | null = null;
   private activeGlow: Phaser.GameObjects.Graphics | null = null;
+  private activeGlowLine: Phaser.GameObjects.Graphics | null = null;
+  private activeGlowPulse: Phaser.Tweens.Tween | null = null;
   private blinkIndicator: Phaser.GameObjects.Graphics | null = null;
   // 페이드 트윈 진행 중에도 즉시 판별 가능한 명시 플래그. `this.alpha`는 트윈 시작 직후
   // 첫 프레임까지 0일 수 있어 spawn 가드로 신뢰하기 어렵다.
@@ -221,26 +223,69 @@ export class BranchLane extends Phaser.GameObjects.Container {
     this.scene.tweens.add({ targets: this, alpha: 0, duration: 500, ease: 'Power2' });
   }
 
-  /** 활성 브랜치 여부에 따라 레인 배경 글로우를 표시하거나 숨깁니다. */
+  /** 활성 브랜치 여부에 따라 레인 배경 글로우 + 라인 neon glow를 표시하거나 숨깁니다. */
   setLaneActive(isActive: boolean): void {
     if (isActive && !this.activeGlow) {
-      const glow = this.scene.add.graphics();
-      glow.fillStyle(this.branchColor.line, 0.12);
-      glow.fillRect(0, 0, this.laneWidth, this.canvasHeight);
-      glow.setAlpha(0);
-      this.addAt(glow, 0);
-      this.activeGlow = glow;
-      this.scene.tweens.add({ targets: glow, alpha: 1, duration: 300, ease: 'Power2' });
+      const x = this.laneWidth / 2;
+      const bright = LINE_TO_BRIGHT[this.branchColor.line] ?? this.branchColor.line;
+
+      // 배경 fill — alpha 고정, 펄스 없음
+      const bg = this.scene.add.graphics();
+      bg.fillStyle(this.branchColor.line, 0.12);
+      bg.fillRect(0, 0, this.laneWidth, this.canvasHeight);
+      bg.setAlpha(0);
+      this.addAt(bg, 0);
+      this.activeGlow = bg;
+      this.scene.tweens.add({ targets: bg, alpha: 1, duration: 300, ease: 'Power2' });
+
+      // 라인 neon glow — 별도 graphics로 펄스 적용
+      const line = this.scene.add.graphics();
+      line.lineStyle(14, bright, 0.1);
+      line.lineBetween(x, 0, x, this.canvasHeight);
+      line.lineStyle(8, bright, 0.22);
+      line.lineBetween(x, 0, x, this.canvasHeight);
+      line.lineStyle(4, bright, 0.55);
+      line.lineBetween(x, 0, x, this.canvasHeight);
+      line.lineStyle(2, 0xffffff, 0.95);
+      line.lineBetween(x, 0, x, this.canvasHeight);
+      line.setAlpha(0);
+      this.addAt(line, 1);
+      this.activeGlowLine = line;
+      this.scene.tweens.add({ targets: line, alpha: 1, duration: 300, ease: 'Power2' });
+      this.activeGlowPulse = this.scene.tweens.add({
+        targets: line,
+        alpha: 0.65,
+        duration: 900,
+        ease: 'Sine.easeInOut',
+        yoyo: true,
+        repeat: -1,
+        delay: 300,
+      });
     } else if (!isActive && this.activeGlow) {
-      const glow = this.activeGlow;
+      this.activeGlowPulse?.stop();
+      this.activeGlowPulse = null;
+
+      const bg = this.activeGlow;
       this.activeGlow = null;
       this.scene.tweens.add({
-        targets: glow,
+        targets: bg,
         alpha: 0,
         duration: 300,
         ease: 'Power2',
-        onComplete: () => glow.destroy(),
+        onComplete: () => bg.destroy(),
       });
+
+      const line = this.activeGlowLine;
+      this.activeGlowLine = null;
+      if (line) {
+        this.scene.tweens.add({
+          targets: line,
+          alpha: 0,
+          duration: 300,
+          ease: 'Power2',
+          onComplete: () => line.destroy(),
+        });
+      }
     }
   }
 

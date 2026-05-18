@@ -10,12 +10,15 @@ import { singleBus } from '../bridge/singleBus';
 import { activeBranchAtom } from '../store/activeBranchAtom';
 import { churuCountAtom } from '../store/churuAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
+import { commandTimestampsAtom } from '../store/commandTimestampsAtom';
 import { gameResultAtom } from '../store/gameResultAtom';
 import { itemSlotsAtom } from '../store/itemSlotsAtom';
 import { livesAtom, MAX_LIVES } from '../store/livesAtom';
+import { livesLostAtom } from '../store/livesLostAtom';
+import { maxComboAtom } from '../store/maxComboAtom';
 import { useSingleStore } from '../store/singleStore';
 import { elapsedTimeAtom } from '../store/timerAtom';
-import { calcScore, CHURU_THRESHOLD } from '../utils/scoreCalculator';
+import { calcScore, CHURU_THRESHOLD, countScoringCommands } from '../utils/scoreCalculator';
 
 import type { MutableRefObject } from 'react';
 
@@ -57,7 +60,9 @@ export function useGameLifecycle({
   typoRef,
 }: GameLifecycleParams) {
   const setLives = useSetAtom(livesAtom);
+  const setLivesLost = useSetAtom(livesLostAtom);
   const setCombo = useSetAtom(comboAtom);
+  const setMaxCombo = useSetAtom(maxComboAtom);
   const setCommandIndex = useSetAtom(currentCommandIndexAtom);
   const setElapsedTime = useSetAtom(elapsedTimeAtom);
   const setTypoCount = useSetAtom(typoCountAtom);
@@ -67,6 +72,7 @@ export function useGameLifecycle({
   const setChuru = useSetAtom(churuCountAtom);
   const setGameStatus = useSetAtom(gameStatusAtom);
   const setGameResult = useSetAtom(gameResultAtom);
+  const setCommandTimestamps = useSetAtom(commandTimestampsAtom);
 
   useEffect(() => {
     const resetGame = () => {
@@ -81,7 +87,9 @@ export function useGameLifecycle({
       itemSlotsRef.current[2] = false;
       commandIndexRef.current = 0;
       setLives(MAX_LIVES);
+      setLivesLost(0);
       setCombo(0);
+      setMaxCombo(0);
       setCommandIndex(0);
       setElapsedTime(0);
       setTypoCount(0);
@@ -89,6 +97,7 @@ export function useGameLifecycle({
       setActiveBranch('main');
       setItemSlots([false, false, false]);
       setChuru(0);
+      setCommandTimestamps([]);
     };
 
     resetGame();
@@ -105,9 +114,7 @@ export function useGameLifecycle({
         analytics.gameOver(diff, playTimeMs);
         setGameResult({ status, score: 0, grade: 'F', playTimeMs, missCount, typoCount });
       } else {
-        const totalCommands = useSingleStore
-          .getState()
-          .commandSet.filter((c) => c.type !== 'SWITCH').length;
+        const totalCommands = countScoringCommands(useSingleStore.getState().commandSet, diff);
         const { score, grade } = calcScore({
           playTimeMs,
           typoCount,
@@ -143,10 +150,10 @@ export function useGameLifecycle({
       }),
       singleBus.subscribe('game:complete', () => {
         isPlayingRef.current = false;
-        if (useSingleStore.getState().isTutorial) return;
-        const totalCommands = useSingleStore
-          .getState()
-          .commandSet.filter((c) => c.type !== 'SWITCH').length;
+        const { isTutorial, commandSet, difficulty } = useSingleStore.getState();
+        // !difficulty 분기는 TS narrowing 용 — runtime 상 game:complete가 difficulty 미설정 상태로 도달할 일은 없음
+        if (isTutorial || !difficulty) return;
+        const totalCommands = countScoringCommands(commandSet, difficulty);
         const threshold = Math.ceil(totalCommands * CHURU_THRESHOLD);
         finishGame(stateRef.current.churu >= threshold ? 'SUCCESS' : 'ESCAPE_FAILED');
       }),
@@ -171,6 +178,7 @@ export function useGameLifecycle({
     isFinishedRef,
     typoRef,
     setLives,
+    setLivesLost,
     setCombo,
     setCommandIndex,
     setElapsedTime,
@@ -179,7 +187,9 @@ export function useGameLifecycle({
     setActiveBranch,
     setItemSlots,
     setChuru,
+    setMaxCombo,
     setGameStatus,
     setGameResult,
+    setCommandTimestamps,
   ]);
 }
