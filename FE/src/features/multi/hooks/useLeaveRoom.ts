@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
+import { socketManager } from '@/core/socket/SocketManager';
+
 import { leaveRoom } from '../api/room.api';
 
 import type { GameMode } from '../types/room.types';
@@ -25,6 +27,7 @@ export function useLeaveRoom({ roomId, mode, reset, navigate }: UseLeaveRoomOpti
         console.error('[WaitingRoom] 방 나가기 API 실패:', err);
       })
       .finally(() => {
+        socketManager.disconnect();
         reset();
         void navigate({ to: '/home', search: { lobby: mode ?? 'CONTRIBUTION' } });
       });
