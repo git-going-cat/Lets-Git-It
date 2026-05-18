@@ -43,10 +43,11 @@ function getMessageType(message: unknown) {
 }
 
 /**
- * ?곌껐 ?곹깭
- * - `idle`         ???뺤긽 ?곌껐 以? * - `disconnected` ???ㅽ듃?뚰겕 ?⑥젅 (?몃? 諛곕꼫, 10珥??대궡)
- * - `reconnected`  ??諛⑷툑 ?ъ뿰寃??깃났 (珥덈줉 諛곕꼫, 2珥???idle)
- * - `blocking`     ??蹂듭썝 ?꾩슂 ?ㅻ쾭?덉씠 (?섏씠吏 ?덈줈怨좎묠 ?먮뒗 10珥? ?⑥젅)
+ * 대기실 WebSocket 연결 상태.
+ * - `idle`: 정상 연결 또는 복원 완료
+ * - `disconnected`: 네트워크 단절 감지 상태
+ * - `reconnected`: 재연결 성공 배너 표시 상태
+ * - `blocking`: ROOM_STATE 복원이 필요한 차단 상태
  */
 export type RoomConnectionStatus = 'idle' | 'disconnected' | 'reconnected' | 'blocking';
 
@@ -62,19 +63,12 @@ type GameStartHandlers = {
 };
 
 /**
- * 諛??湲곗떎 WebSocket ?곌껐 쨌 援щ룆??愿由ы븳??
+ * 대기실 WebSocket 연결과 구독을 관리한다.
  *
- * ## ?ъ뿰寃??먮쫫
- *
- * ### ?섏씠吏 ?덈줈怨좎묠
- * - store??title???놁쑝硫?`blocking` ?곹깭濡??쒖옉
- * - 援щ룆 吏곹썑 ?쒕쾭 ?먮룞 ?꾩넚 `CONTRIBUTION/COOP_ROOM_STATE` 瑜?3珥??湲? * - 3珥???誘몄닔????REST fallback ?몄텧
- * - 蹂듭썝 ??`roomState === 'IN_GAME'`?대㈃ `onReconnectComplete('IN_GAME')` ?몄텧
- *
- * ### ?ㅽ듃?뚰겕 ?⑥젅
- * - ?⑥젅 媛먯? 利됱떆 `disconnected` ?곹깭 (?몃? 諛곕꼫)
- * - 10珥??대궡 蹂듭썝: `reconnected` (珥덈줉 諛곕꼫 2珥? ??`idle`
- * - 10珥?珥덇낵: `blocking` ?ㅻ쾭?덉씠濡?寃⑹긽 + ROOM_STATE ?ъ닔???湲? */
+ * 새로고침/409 재진입처럼 store 복원이 필요한 경우 ROOM_STATE를 기다리고,
+ * 일정 시간 안에 수신되지 않으면 REST fallback으로 방 상태를 복원한다.
+ * 네트워크 단절이 길어지면 blocking 상태로 전환해 사용자에게 복원 대기 UI를 보여준다.
+ */
 export function useRoomSocket(
   roomId: number,
   onReconnectComplete?: (roomState: string | null) => void,
@@ -106,12 +100,12 @@ export function useRoomSocket(
     gameStartHandlersRef.current = gameStartHandlers;
   }, [gameStartHandlers]);
 
-  // ROOM_STATE 蹂듭썝???꾩슂???곹깭?몄? 異붿쟻
+  // ROOM_STATE 복원이 필요한 상태인지 추적한다.
   const needsRestoreRef = useRef(needsInitialRestore);
   const escalationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectedBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // 理쒖큹 ?곌껐 ?꾨즺 ?щ? (珥덇린 connect ?댁쟾 disconnect ?대깽??臾댁떆??
+  // 최초 연결 완료 여부. 초기 connect 전 disconnect 이벤트를 무시하는 데 사용한다.
   const hasEverConnectedRef = useRef(false);
 
   const clearFallbackTimer = useCallback(() => {
@@ -129,7 +123,7 @@ export function useRoomSocket(
         let restoredRoomState: string | null = null;
         try {
           const state = await getRoomState(roomId);
-          if (!needsRestoreRef.current) return; // WS媛 癒쇱? ?꾩갑??寃쎌슦 race guard
+          if (!needsRestoreRef.current) return; // WS가 먼저 복원한 경우 race guard
           if (state.type === 'CONTRIBUTION_ROOM_STATE') {
             useRoomStore.getState().initFromContributionRoomState(state);
           } else {
@@ -137,30 +131,30 @@ export function useRoomSocket(
           }
           restoredRoomState = state.roomState;
         } catch {
-          // ?ㅽ뙣 ??null濡?onReconnectComplete ?몄텧
+          // 실패 시 null로 onReconnectComplete 호출
         }
         needsRestoreRef.current = false;
         fallbackTimerRef.current = null;
         setConnectionStatus('idle');
-        onReconnectCompleteRef.current?.(restoredRoomState); // null = 蹂듭썝 ?ㅽ뙣
+        onReconnectCompleteRef.current?.(restoredRoomState); // null = 복원 실패
       })();
     }, REST_FALLBACK_DELAY_MS);
   }, [clearFallbackTimer, roomId]);
 
-  // ?? Effect 1: WS 援щ룆 + ?섏씠吏 ?덈줈怨좎묠 REST fallback ??????????
+  // Effect 1: WS 구독 + 새로고침 REST fallback
   useEffect(() => {
     const token = useAuthStore.getState().accessToken;
     if (!token) return;
 
     socketManager.connect(token);
 
-    // 1. 媛쒖씤 ?먮? 癒쇱? 援щ룆 (ROOM_STATE ?좊땲罹먯뒪???섏떊)
+    // 1. 개인 큐를 먼저 구독한다. ROOM_STATE 유니캐스트와 개인 이벤트를 처리한다.
     socketManager.subscribe(
       '/user/queue/private',
       (raw) => {
         const baseMessage = baseMessageSchema.safeParse(raw);
         if (!baseMessage.success) {
-          console.error('[WS] 媛쒖씤 ??硫붿떆吏 ?뚯떛 ?ㅽ뙣:', baseMessage.error);
+          console.error('[WS] 개인 큐 메시지 파싱 실패:', baseMessage.error);
           return;
         }
 
@@ -225,7 +219,7 @@ export function useRoomSocket(
       PRIVATE_KEY
     );
 
-    // 2. 諛??꾩껜 topic? ?몃━嫄곗슜?쇰줈 援щ룆 (釉뚮줈?쒖틦?ㅽ듃 ?대깽?몃쭔)
+    // 2. 방 전체 topic은 브로드캐스트 이벤트를 처리한다.
     socketManager.subscribe(
       `/topic/room/${roomId}`,
       (raw) => {
@@ -239,7 +233,7 @@ export function useRoomSocket(
       (raw) => {
         const result = contributionStartedSchema.safeParse(raw);
         if (!result.success) {
-          console.error('[WS] CONTRIBUTION_STARTED ?뚯떛 ?ㅽ뙣:', result.error);
+          console.error('[WS] CONTRIBUTION_STARTED 파싱 실패:', result.error);
           return;
         }
         needsRestoreRef.current = false;
@@ -286,13 +280,13 @@ export function useRoomSocket(
     };
   }, [clearFallbackTimer, roomId, scheduleRestFallback]);
 
-  // ?? Effect 2: ?ㅽ듃?뚰겕 ?⑥젅 / ?ъ뿰寃?媛먯? ??????????????????????
+  // Effect 2: 네트워크 단절 / 재연결 감지
   useEffect(() => {
     const removeListener = socketManager.addConnectionListener((event) => {
       if (event === 'connected') {
         hasEverConnectedRef.current = true;
 
-        // 寃⑹긽 ??대㉧ 痍⑥냼
+        // 격상 타이머 취소
         if (escalationTimerRef.current) {
           clearTimeout(escalationTimerRef.current);
           escalationTimerRef.current = null;
@@ -300,24 +294,24 @@ export function useRoomSocket(
 
         setConnectionStatus((prev) => {
           if (prev === 'disconnected') {
-            // 珥덈줉 諛곕꼫 2珥???idle
+            // 재연결 배너를 잠시 보여준 뒤 idle로 복귀한다.
             if (reconnectedBannerTimerRef.current) clearTimeout(reconnectedBannerTimerRef.current);
             reconnectedBannerTimerRef.current = setTimeout(() => {
               setConnectionStatus('idle');
             }, RECONNECTED_BANNER_MS);
             return 'reconnected';
           }
-          // blocking(10珥?寃⑹긽)??寃쎌슦: ROOM_STATE ?섏떊?쇰줈 泥섎━ (needsRestoreRef)
+          // blocking 상태는 ROOM_STATE 수신 또는 REST fallback으로 처리한다.
           return prev;
         });
       } else {
         // disconnected
-        if (!hasEverConnectedRef.current) return; // 珥덇린 ?곌껐 ??臾댁떆
-        if (needsRestoreRef.current) return; // ?대? blocking (?덈줈怨좎묠)
+        if (!hasEverConnectedRef.current) return; // 초기 연결 전 이벤트는 무시
+        if (needsRestoreRef.current) return; // 이미 blocking 또는 복원 대기 중
 
         setConnectionStatus('disconnected');
 
-        // 10珥???blocking?쇰줈 寃⑹긽
+        // 10초 이상 단절되면 blocking으로 격상한다.
         if (escalationTimerRef.current) clearTimeout(escalationTimerRef.current);
         escalationTimerRef.current = setTimeout(() => {
           needsRestoreRef.current = true;
