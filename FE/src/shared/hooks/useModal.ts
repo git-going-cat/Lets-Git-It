@@ -45,14 +45,26 @@ export function useModal({ isOpen, onClose }: UseModalOptions) {
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  // modalId 할당 + stack 관리는 canClose와 무관하게 isOpen인 모든 모달에 적용.
+  // Tab focus trap의 top 가드가 close 불가 모달까지 포함해야 부모 모달의 trap이 자식 포커스를
+  // 가로채는 사고를 막을 수 있다.
   useEffect(() => {
-    if (!isOpen || !canClose) return;
+    if (!isOpen) return;
 
     if (modalIdRef.current === null) {
       nextModalId += 1;
       modalIdRef.current = nextModalId;
     }
 
+    const modalId = modalIdRef.current;
+    modalStack.push(modalId);
+    return () => {
+      removeModalFromStack(modalId);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !canClose) return;
     const modalId = modalIdRef.current;
     if (modalId === null) return;
 
@@ -63,10 +75,8 @@ export function useModal({ isOpen, onClose }: UseModalOptions) {
       onCloseRef.current?.();
     };
 
-    modalStack.push(modalId);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
-      removeModalFromStack(modalId);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, canClose]);
@@ -100,6 +110,11 @@ export function useModal({ isOpen, onClose }: UseModalOptions) {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
+      const modalId = modalIdRef.current;
+      // top 모달만 Tab을 처리. 가드가 없으면 부모 모달(아래 layer)의 핸들러가
+      // 자식 모달 내부의 포커스를 자기 컨테이너로 끌어가 사용자가 Tab으로 자식
+      // 모달의 버튼에 도달하지 못한다.
+      if (modalId === null || modalStack[modalStack.length - 1] !== modalId) return;
       const container = containerRef.current;
       if (!container) return;
 

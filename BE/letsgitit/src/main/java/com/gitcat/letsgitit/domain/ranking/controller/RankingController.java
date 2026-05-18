@@ -157,8 +157,12 @@ public class RankingController implements RankingControllerDocs {
 			return ApiResponse.ok("협력 랭킹 조회 성공",
 				coopRankingService.getCoopRankingScrollBefore(beforeRank, size, memberId));
 		}
+		if (afterRank != null) {
+			return ApiResponse.ok("협력 랭킹 조회 성공",
+				coopRankingService.getCoopRankingScrollAfter(afterRank, size, memberId));
+		}
 		return ApiResponse.ok("협력 랭킹 조회 성공",
-			coopRankingService.getCoopRankingScrollAfter(afterRank, size, memberId));
+			coopRankingService.getCoopRanking(memberId));
 	}
 
 	@Override

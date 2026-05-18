@@ -1,14 +1,6 @@
 import { z } from 'zod';
 
-// ── 공통 API 래퍼 ────────────────────────────────────────────────────────────
-
-/** API 공통 응답 래퍼 스키마 팩토리 */
-export const apiResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
-  z.object({
-    status: z.number(),
-    message: z.string(),
-    data: dataSchema,
-  });
+import { apiResponseSchema } from '@/shared/schemas/response.schema';
 
 // ── 인증 응답 스키마 ──────────────────────────────────────────────────────────
 

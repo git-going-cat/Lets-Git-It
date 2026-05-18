@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { calcGrade, calcScore, SCORE_CONFIG } from './scoreCalculator';
+import {
+  calcGrade,
+  calcScore,
+  countScoringCommands,
+  isScoringCommand,
+  SCORE_CONFIG,
+} from './scoreCalculator';
 
 // 보너스 없는 테스트에 사용할 기본 보너스 파라미터
 const NO_BONUS = { churuCount: 0, totalCommands: 0, maxCombo: 0 };
@@ -253,8 +259,8 @@ describe('calcScore', () => {
   });
 
   describe('보너스 점수', () => {
-    it('초과 churu 1개당 200점 보너스가 붙는다', () => {
-      // totalCommands=4 → threshold=ceil(3)=3, churuCount=5 → 초과 2개 → +400
+    it('초과 churu 1개당 500점 보너스가 붙는다', () => {
+      // totalCommands=4 → threshold=ceil(3)=3, churuCount=5 → 초과 2개 → +1000
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 0,
@@ -264,10 +270,11 @@ describe('calcScore', () => {
         totalCommands: 4,
         maxCombo: 0,
       });
-      expect(score).toBe(10000 + 2 * 200);
+      expect(score).toBe(10000 + 2 * 500);
     });
 
-    it('maxCombo 1당 50점 보너스가 붙는다', () => {
+    it('maxCombo N에 따라 5·N·(N+1) 누진 보너스가 붙는다', () => {
+      // maxCombo=10 → 5·10·11 = 550
       const { score } = calcScore({
         playTimeMs: 0,
         typoCount: 0,
@@ -277,7 +284,20 @@ describe('calcScore', () => {
         totalCommands: 0,
         maxCombo: 10,
       });
-      expect(score).toBe(10000 + 10 * 50);
+      expect(score).toBe(10000 + 5 * 10 * 11);
+    });
+
+    it('EASY 퍼펙트 클리어 시 maxCombo=13 → 5·13·14=910 보너스', () => {
+      const { score } = calcScore({
+        playTimeMs: 0,
+        typoCount: 0,
+        livesLost: 0,
+        difficulty: 'EASY',
+        churuCount: 0,
+        totalCommands: 0,
+        maxCombo: 13,
+      });
+      expect(score).toBe(10000 + 5 * 13 * 14);
     });
 
     it('churu 미달성 시 churu 보너스는 0이다', () => {
@@ -293,6 +313,59 @@ describe('calcScore', () => {
       });
       expect(score).toBe(10000);
     });
+  });
+});
+
+// ─── isScoringCommand / countScoringCommands ──────────────────────────────────
+
+describe('isScoringCommand', () => {
+  it('EASY + SWITCH → true (EASY는 모든 명령어 포함)', () => {
+    expect(isScoringCommand({ type: 'SWITCH' }, 'EASY')).toBe(true);
+  });
+
+  it('EASY + 일반 명령어 → true', () => {
+    expect(isScoringCommand({ type: 'COMMON' }, 'EASY')).toBe(true);
+  });
+
+  it('NORMAL + SWITCH → false', () => {
+    expect(isScoringCommand({ type: 'SWITCH' }, 'NORMAL')).toBe(false);
+  });
+
+  it('NORMAL + 일반 명령어 → true', () => {
+    expect(isScoringCommand({ type: 'COMMON' }, 'NORMAL')).toBe(true);
+  });
+
+  it('HARD + SWITCH → false', () => {
+    expect(isScoringCommand({ type: 'SWITCH' }, 'HARD')).toBe(false);
+  });
+
+  it('HARD + 일반 명령어 → true', () => {
+    expect(isScoringCommand({ type: 'COMMON' }, 'HARD')).toBe(true);
+  });
+});
+
+describe('countScoringCommands', () => {
+  const set = [
+    { type: 'COMMON' as const },
+    { type: 'SWITCH' as const },
+    { type: 'COMMON' as const },
+  ];
+
+  it('EASY: SWITCH 포함 전체 3개를 카운트한다', () => {
+    expect(countScoringCommands(set, 'EASY')).toBe(3);
+  });
+
+  it('NORMAL: SWITCH 제외 2개를 카운트한다', () => {
+    expect(countScoringCommands(set, 'NORMAL')).toBe(2);
+  });
+
+  it('HARD: SWITCH 제외 2개를 카운트한다', () => {
+    expect(countScoringCommands(set, 'HARD')).toBe(2);
+  });
+
+  it('빈 배열이면 0이다', () => {
+    expect(countScoringCommands([], 'EASY')).toBe(0);
+    expect(countScoringCommands([], 'NORMAL')).toBe(0);
   });
 });
 

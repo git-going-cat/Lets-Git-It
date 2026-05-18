@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import PreparingPage from '@/shared/components/PreparingPage';
+import WaitingRoom from '@/features/multi/components/WaitingRoom';
 
 export const Route = createFileRoute('/multi/$roomId')({
-  component: () => <PreparingPage title="멀티 대기방 준비 중" />,
+  component: WaitingRoom,
 });

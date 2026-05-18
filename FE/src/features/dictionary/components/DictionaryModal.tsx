@@ -141,10 +141,24 @@ export default function DictionaryModal({ onClose }: DictionaryModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="nes-rounded-button flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+              className="flex h-7 w-8 items-center justify-center rounded text-xs text-gray-600 transition-colors hover:bg-red-500 hover:text-white"
               aria-label="닫기"
+              title="닫기"
             >
-              X
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 12 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
             </button>
           </div>
           <CommandDetail command={selectedCommand} />

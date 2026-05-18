@@ -1,9 +1,5 @@
-export type {
-  CharacterFormValues,
-  NicknameFormValues,
-  TutorialCommand,
-  TutorialStep,
-} from '../schemas/onboarding.schema';
+export type { CharacterFormValues, NicknameFormValues } from '../schemas/onboarding.schema';
+export type { TutorialCommand, TutorialStep } from '@/shared/types/tutorial.types';
 
 // ── 온보딩 진행 단계 ──────────────────────────────────────────────────────────
 

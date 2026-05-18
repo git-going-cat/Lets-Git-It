@@ -1,5 +1,7 @@
 # Single_IMPLEMENTATION_타이핑입력로직_EventBus연동
 
+> **NOTE**: 본 문서는 작업 당시(`EventBus` 전역 싱글턴) 기준으로 작성되었으며, 이후 도메인 분리 리팩터링으로 `singleBus`(`features/single/bridge/singleBus.ts`)로 이전되었습니다. 본문 내 코드 예시는 이미 갱신된 상태이며, 자세한 내용은 [`IMPLEMENTATION_싱글_이벤트버스_도메인분리.md`](./IMPLEMENTATION_싱글_이벤트버스_도메인분리.md) 참고.
+
 ## Background / Context
 
 싱글 모드 게임의 핵심 플레이 루프를 완성하는 작업 (S14P31A304-128).  
@@ -27,11 +29,11 @@ Enter 키 입력 시점에 정답을 판정한다. 판정은 3단계 우선순�
 `command:miss` / `game:restart` / `game:over` / `game:complete` 이벤트 수신 시 입력창 초기화.  
 `command:miss` 수신 시에도 `command:wrong`을 emit한다.
 
-### 2. EventBus → Jotai 브릿지 — `useSingleGame`
+### 2. singleBus → Jotai 브릿지 — `useSingleGame`
 
 Phaser Scene이 emit하는 이벤트를 구독해 HUD atom을 갱신한다.
 
-| EventBus 이벤트 | Jotai 변경 |
+| singleBus 이벤트 | Jotai 변경 |
 |----------------|-----------|
 | `command:miss` | `livesAtom` -1, `comboAtom` 0, `commandIndexAtom` 동기화. lives ≤ 0이면 `game:over` 재발행 |
 | `command:complete` | `commandIndexAtom` +1, `comboAtom` +1, SWITCH 제외 시 `churuCountAtom` +1, `Command.itemDrop` 사전 배정값 확인 후 아이템 드롭 |
@@ -48,13 +50,13 @@ Alt+1/2/3 키는 `window.addEventListener('keydown')`으로 `useSingleGame` 내�
 ### 3. Scene 내부 로직 — `SingleScene` + `BranchLane`
 
 - `BranchLane`: 브랜치별 세로 레인 렌더링 + 명령어 낙하 tween. tween 완료(시간 초과) 시 `onTimeout` 콜백으로 Scene에 miss를 알린다.
-- `SingleScene`: 레인 초기화 → EventBus 등록 → 타이머 시작 → 명령어 순차 표시. `command:complete` 수신 시 다음 명령어로 진행. 마지막 명령어 완료 시 `game:complete` emit.
+- `SingleScene`: 레인 초기화 → singleBus 등록 → 타이머 시작 → 명령어 순차 표시. `command:complete` 수신 시 다음 명령어로 진행. 마지막 명령어 완료 시 `game:complete` emit.
 
 ### 4. 콤보 증가 위치
 
 `useSingleGame`의 `handleComplete`에서 `comboAtom +1` 처리.  
 `useCommandInput`은 입력 판정만 담당하고, 상태 변경은 `useSingleGame`이 단일 책임을 갖는다.  
-(오타 시 `useCommandInput`에서 직접 `setCombo(0)` 하는 것은 EventBus를 거치지 않는 즉각적인 UX 피드백으로 예외 인정.)
+(오타 시 `useCommandInput`에서 직접 `setCombo(0)` 하는 것은 singleBus를 거치지 않는 즉각적인 UX 피드백으로 예외 인정.)
 
 ---
 

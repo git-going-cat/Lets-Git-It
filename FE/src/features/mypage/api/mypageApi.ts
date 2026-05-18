@@ -52,7 +52,7 @@ function toMyRecord(data: MyPageResponseData): MyRecord {
   const singleEasy = findRecord(data.records, 'SINGLE_EASY');
   const singleNormal = findRecord(data.records, 'SINGLE_NORMAL');
   const singleHard = findRecord(data.records, 'SINGLE_HARD');
-  const contribution = findRecord(data.records, 'CONTRIBUTION_RUN');
+  const contribution = findRecord(data.records, 'CONTRIBUTION');
   const timeattack = findRecord(data.records, 'TIME_ATTACK');
   const coop = findRecord(data.records, 'COOP');
 

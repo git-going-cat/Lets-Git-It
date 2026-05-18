@@ -12,13 +12,15 @@ import {
 } from '../api/rankingApi';
 import { rankingQueryKey } from '../utils/rankingQueryKey';
 
-import type {
-  CoopRankingQuery,
-  MyRank,
-  RankingEntry,
-  RankingMode,
-  RankingResponse,
-  WeekParam,
+import {
+  type CoopRankingQuery,
+  type MyRank,
+  type RankingEntry,
+  type RankingMode,
+  type RankingResponse,
+  SINGLE_RANKING_MODES,
+  type SingleRankingMode,
+  type WeekParam,
 } from '../types/ranking.types';
 import type { InfiniteData } from '@tanstack/react-query';
 
@@ -28,12 +30,8 @@ type RankingPageParam = {
 };
 
 /** 싱글 랭킹 모드 여부를 판별합니다. */
-function isSingleMode(mode: RankingMode) {
-  return mode === 'single-easy' || mode === 'single-normal' || mode === 'single-hard';
-}
-
-function isAvailableSingleMode(mode: RankingMode) {
-  return mode === 'single-easy' || mode === 'single-normal';
+function isSingleMode(mode: RankingMode): mode is SingleRankingMode {
+  return SINGLE_RANKING_MODES.includes(mode as SingleRankingMode);
 }
 
 /** React Query pageParam을 싱글 랭킹 양방향 커서 파라미터로 변환합니다. */
@@ -59,7 +57,10 @@ export function useRanking(
 ) {
   const hasCoopQuery = Boolean(coopQuery?.mapName.trim() && coopQuery.difficulty);
   const isCoopHistoryReady = selectedWeek === null || coopQuery?.mapId !== undefined;
-  const enabled = isAvailableSingleMode(mode) && (!hasCoopQuery || isCoopHistoryReady);
+  const enabled =
+    isSingleMode(mode) ||
+    mode === 'speed' ||
+    (mode === 'coop' && hasCoopQuery && isCoopHistoryReady);
 
   return useInfiniteQuery<
     RankingResponse<RankingEntry, Exclude<MyRank, null>>,
