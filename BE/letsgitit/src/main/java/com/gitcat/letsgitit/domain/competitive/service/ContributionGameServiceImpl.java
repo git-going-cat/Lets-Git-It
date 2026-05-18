@@ -186,7 +186,7 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		log.info("[contribution][expireCommand] gameSessionId={}, commandSequence={}",
 			gameSessionId, commandSequence);
 		if (isCompleted(processedCommandCount, totalCommands)) {
-			return completeGame(roomId, gameSessionId, scores);
+			return completeGame(roomId, gameSessionId, scores, session.startAt());
 		}
 		return CommandExpiredMessage.of(gameSessionId, commandSequence, scores, progress);
 	}
@@ -323,7 +323,8 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			scores,
 			progress);
 		if (isCompleted(processedCommandCount, totalCommands)) {
-			ContributionGameEndMessage gameEnd = completeGame(session.roomId(), request.gameSessionId(), scores);
+			ContributionGameEndMessage gameEnd = completeGame(session.roomId(), request.gameSessionId(), scores,
+				session.startAt());
 			if (gameEnd == null) {
 				return ContributionInputResult.broadcast(scoreUpdate);
 			}
@@ -370,7 +371,8 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		return totalCommands > 0 && processedCommandCount >= totalCommands;
 	}
 
-	private ContributionGameEndMessage completeGame(Long roomId, UUID gameSessionId, List<ScoreEntryMessage> scores) {
+	private ContributionGameEndMessage completeGame(Long roomId, UUID gameSessionId, List<ScoreEntryMessage> scores,
+		long startAt) {
 		if (!contributionGameRedisRepository.markSessionEndedIfInProgress(gameSessionId)) {
 			log.info("[contribution][completeGame] already ended. roomId={}, gameSessionId={}", roomId, gameSessionId);
 			return null;
@@ -390,7 +392,8 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			contributionResultSaveService.saveCompletedResult(
 				roomId,
 				gameSessionId,
-				finalRankings);
+				finalRankings,
+				startAt);
 			resultSaved = true;
 		} catch (RuntimeException e) {
 			log.error(

@@ -345,7 +345,7 @@ class ContributionGameServiceImplTest {
 		assertThat(end.isSuccess()).isTrue();
 		assertThat(end.reason()).isEqualTo("GAME_COMPLETED");
 		assertThat(end.winnerVideoTarget()).isEqualTo(PLAYER_ID);
-		verify(contributionResultSaveService).saveCompletedResult(any(), any(), any());
+		verify(contributionResultSaveService).saveCompletedResult(any(), any(), any(), anyLong());
 		verify(contributionRankingService).updateContributionScore(PLAYER_ID, 100);
 		verify(contributionRankingService).updateContributionScore(OTHER_PLAYER_ID, 0);
 		verify(repository).markSessionEndedIfInProgress(GAME_SESSION_ID);
@@ -374,7 +374,7 @@ class ContributionGameServiceImplTest {
 		ContributionGameEndMessage end = (ContributionGameEndMessage)payload;
 		assertThat(end.isSuccess()).isTrue();
 		assertThat(end.reason()).isEqualTo("GAME_COMPLETED");
-		verify(contributionResultSaveService).saveCompletedResult(any(), any(), any());
+		verify(contributionResultSaveService).saveCompletedResult(any(), any(), any(), anyLong());
 		verify(contributionRankingService).updateContributionScore(PLAYER_ID, 0);
 		verify(contributionRankingService, never()).updateContributionScore(isNull(), anyInt());
 		verify(repository).markSessionEndedIfInProgress(GAME_SESSION_ID);
@@ -395,7 +395,7 @@ class ContributionGameServiceImplTest {
 		when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(1);
 		doThrow(new RuntimeException("db down"))
 			.when(contributionResultSaveService)
-			.saveCompletedResult(any(), any(), any());
+			.saveCompletedResult(any(), any(), any(), anyLong());
 
 		// when
 		ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
@@ -430,7 +430,7 @@ class ContributionGameServiceImplTest {
 		// then
 		assertThat(result.payloads()).hasSize(2);
 		assertThat(result.payloads().get(1)).isInstanceOf(ContributionGameEndMessage.class);
-		verify(contributionResultSaveService).saveCompletedResult(any(), any(), any());
+		verify(contributionResultSaveService).saveCompletedResult(any(), any(), any(), anyLong());
 		verify(contributionRankingService).updateContributionScore(PLAYER_ID, 100);
 	}
 
@@ -456,7 +456,7 @@ class ContributionGameServiceImplTest {
 		assertThat(result.payloads()).hasSize(1);
 		assertThat(result.payloads().get(0)).isInstanceOf(ScoreUpdateMessage.class);
 		verify(repository, never()).saveFinalRankings(any(), any());
-		verify(contributionResultSaveService, never()).saveCompletedResult(any(), any(), any());
+		verify(contributionResultSaveService, never()).saveCompletedResult(any(), any(), any(), anyLong());
 	}
 
 	@Test
