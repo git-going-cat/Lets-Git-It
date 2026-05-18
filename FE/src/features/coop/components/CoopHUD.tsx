@@ -15,22 +15,22 @@ export default function CoopHUD() {
   const round = useAtomValue(coopRoundAtom);
   const completedCount = useAtomValue(coopCompletedCountAtom);
   const elapsedSeconds = useAtomValue(coopElapsedSecondsAtom);
-  const progressPercent = Math.min(100, Math.max(0, (completedCount / 20) * 100));
+  const totalCompleted = (round - 1) * 4 + completedCount;
+  const progressPercent = Math.min(100, Math.max(0, (totalCompleted / 20) * 100));
+  const progressLabel = `${Math.round(progressPercent)}%`;
 
   return (
-    <div className="pointer-events-none absolute top-0 right-0 left-0 z-20 grid grid-cols-3 items-center px-6 py-3 font-pixel text-white">
-      <div className="text-lg drop-shadow">Round {round}/5</div>
-      <div className="mx-auto h-3 w-64 border-2 border-dotted border-white/70 bg-gray-700/70">
+    <div className="pointer-events-none flex h-full w-full items-center justify-between gap-6 px-4 py-2 font-pixel text-white">
+      <div className="shrink-0 text-2xl drop-shadow">Round {round}/5</div>
+      <div className="mx-auto h-4 w-full max-w-3xl border-2 border-dotted border-white/70 bg-gray-700/70">
         <div className="h-full bg-[#76BF41]" style={{ width: `${progressPercent}%` }} />
       </div>
-      <div className="flex items-center justify-end gap-4">
-        <div className="flex items-center gap-2 text-lg text-[#F2CB05] drop-shadow">
+      <div className="flex shrink-0 items-center justify-end gap-4">
+        <span className="text-2xl text-[#76BF41] drop-shadow">{progressLabel}</span>
+        <div className="flex items-center gap-2 text-2xl text-[#F2CB05] drop-shadow">
           <span aria-hidden="true">⏱</span>
           <span>{formatElapsed(elapsedSeconds)}</span>
         </div>
-        <span className="border-2 border-dotted border-white bg-[#76BF41] px-3 py-2 text-sm text-white">
-          {completedCount}/4 완료
-        </span>
       </div>
     </div>
   );

@@ -1,5 +1,3 @@
-import { COOP_MAP_DATA } from '../data/coopMapData';
-
 const GRAPH_COLORS = {
   completed: '#05AFF2',
   active: '#F2CB05',
@@ -8,43 +6,86 @@ const GRAPH_COLORS = {
   edgeDone: '#05AFF2',
 } as const;
 
-interface CoopGraphProps {
-  mapId: number;
-  completedSequences: number[];
-  activeSequence: number;
+interface CoopGraphNode {
+  sequence: number;
+  x: number;
+  y: number;
+  label: string;
+  branch?: string;
 }
 
-function getNodeColor(sequence: number, completedSet: Set<number>, activeSequence: number) {
+interface CoopGraphEdge {
+  from: number;
+  to: number;
+  type?: 'solid' | 'dashed' | 'curve';
+}
+
+interface CoopGraphData {
+  viewBox: string;
+  nodes: CoopGraphNode[];
+  edges: CoopGraphEdge[];
+}
+
+interface CoopGraphProps {
+  graphData: unknown;
+  completedSequences: number[];
+  activeSequence: number | null;
+}
+
+function isGraphNode(node: unknown): node is CoopGraphNode {
+  if (typeof node !== 'object' || node === null) return false;
+  const candidate = node as Record<string, unknown>;
+  return (
+    typeof candidate.sequence === 'number' &&
+    typeof candidate.x === 'number' &&
+    typeof candidate.y === 'number' &&
+    typeof candidate.label === 'string'
+  );
+}
+
+function isGraphEdge(edge: unknown): edge is CoopGraphEdge {
+  if (typeof edge !== 'object' || edge === null) return false;
+  const candidate = edge as Record<string, unknown>;
+  return typeof candidate.from === 'number' && typeof candidate.to === 'number';
+}
+
+function isCoopGraphData(data: unknown): data is CoopGraphData {
+  if (typeof data !== 'object' || data === null) return false;
+  const candidate = data as Record<string, unknown>;
+  return (
+    typeof candidate.viewBox === 'string' &&
+    Array.isArray(candidate.nodes) &&
+    candidate.nodes.every(isGraphNode) &&
+    Array.isArray(candidate.edges) &&
+    candidate.edges.every(isGraphEdge)
+  );
+}
+
+function getNodeColor(sequence: number, completedSet: Set<number>, activeSequence: number | null) {
   if (sequence === activeSequence) return GRAPH_COLORS.active;
   if (completedSet.has(sequence)) return GRAPH_COLORS.completed;
   return GRAPH_COLORS.inactive;
 }
 
-export default function CoopGraph({ mapId, completedSequences, activeSequence }: CoopGraphProps) {
-  const mapData = COOP_MAP_DATA.find((map) => map.mapId === mapId);
-  if (!mapData) return null;
+export default function CoopGraph({
+  graphData,
+  completedSequences,
+  activeSequence,
+}: CoopGraphProps) {
+  if (!isCoopGraphData(graphData)) return null;
 
   const completedSet = new Set(completedSequences);
-  const nodeMap = new Map(mapData.nodes.map((node) => [node.sequence, node]));
+  const nodeMap = new Map(graphData.nodes.map((node) => [node.sequence, node]));
 
   return (
     <svg
-      viewBox={mapData.viewBox}
+      viewBox={graphData.viewBox}
       role="img"
       aria-label="협력 모드 Git 형상 그래프"
       className="h-full w-full overflow-visible"
     >
-      <style>{`
-        @keyframes coop-ping {
-          75%, 100% {
-            transform: scale(2);
-            opacity: 0;
-          }
-        }
-      `}</style>
-
       <g>
-        {mapData.edges.map((edge) => {
+        {graphData.edges.map((edge) => {
           const fromNode = nodeMap.get(edge.from);
           const toNode = nodeMap.get(edge.to);
           if (!fromNode || !toNode) return null;
@@ -61,32 +102,18 @@ export default function CoopGraph({ mapId, completedSequences, activeSequence }:
               stroke={isDone ? GRAPH_COLORS.edgeDone : GRAPH_COLORS.edge}
               strokeWidth="5"
               strokeLinecap="round"
+              strokeDasharray={edge.type === 'dashed' ? '8 8' : undefined}
             />
           );
         })}
       </g>
 
       <g>
-        {mapData.nodes.map((node) => {
-          const isActive = node.sequence === activeSequence;
+        {graphData.nodes.map((node) => {
           const nodeColor = getNodeColor(node.sequence, completedSet, activeSequence);
 
           return (
             <g key={node.sequence}>
-              {isActive && (
-                <circle
-                  cx={node.x}
-                  cy={node.y}
-                  r="15"
-                  fill={GRAPH_COLORS.active}
-                  opacity="0.35"
-                  style={{
-                    transformBox: 'fill-box',
-                    transformOrigin: `${node.x}px ${node.y}px`,
-                    animation: 'coop-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite',
-                  }}
-                />
-              )}
               <circle
                 cx={node.x}
                 cy={node.y}

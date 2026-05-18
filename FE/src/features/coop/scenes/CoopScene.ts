@@ -9,10 +9,6 @@ const CARD_START_OFFSET = 276;
 const SHUFFLE_DURATIONS = [300, 280, 250, 220, 180, 150, 120, 100, 80, 70];
 
 export class CoopScene extends Phaser.Scene {
-  private handLeft: Phaser.GameObjects.Rectangle | null = null;
-
-  private handRight: Phaser.GameObjects.Rectangle | null = null;
-
   private cards: Phaser.GameObjects.Image[] = [];
 
   private readonly cardBackKeys = ['card_back_1', 'card_back_2', 'card_back_3', 'card_back_4'];
@@ -20,6 +16,8 @@ export class CoopScene extends Phaser.Scene {
   private cardOrder = [0, 1, 2, 3];
 
   private isShuffling = false;
+
+  private isAssignStarted = false;
 
   private pendingAssignReveal = false;
 
@@ -40,7 +38,7 @@ export class CoopScene extends Phaser.Scene {
   create() {
     this.renderScene();
     this.scale.on('resize', this.handleResize);
-    coopBus.on('coop:reveal-ended', this.startShuffleTween);
+    coopBus.on('coop:reveal-ended', this.showAssignCards);
     coopBus.on('coop:assign-reveal', this.handleAssignReveal);
     coopBus.on('coop:cards-hide', this.handleCardsHide);
     coopBus.on('coop:screen-shake', this.handleScreenShake);
@@ -50,7 +48,7 @@ export class CoopScene extends Phaser.Scene {
 
   private shutdown = () => {
     this.scale.off('resize', this.handleResize);
-    coopBus.off('coop:reveal-ended', this.startShuffleTween);
+    coopBus.off('coop:reveal-ended', this.showAssignCards);
     coopBus.off('coop:assign-reveal', this.handleAssignReveal);
     coopBus.off('coop:cards-hide', this.handleCardsHide);
     coopBus.off('coop:screen-shake', this.handleScreenShake);
@@ -65,14 +63,11 @@ export class CoopScene extends Phaser.Scene {
     this.children.removeAll();
     this.cards = [];
     this.cardOrder = [0, 1, 2, 3];
-    this.handLeft = null;
-    this.handRight = null;
 
     const width = this.scale.width;
     const height = this.scale.height;
 
     this.renderCards(width, height);
-    this.renderHands(width);
   }
 
   private renderCards(width: number, height: number) {
@@ -88,20 +83,11 @@ export class CoopScene extends Phaser.Scene {
     );
   }
 
-  private renderHands(width: number) {
-    const centerX = width / 2;
-    this.handLeft = this.add.rectangle(centerX - 150, -100, 60, 80, 0x333333, 0.86);
-    this.handRight = this.add.rectangle(centerX + 150, -100, 60, 80, 0x333333, 0.86);
-
-    this.handLeft.setStrokeStyle(3, 0x05aff2, 0.9).setVisible(false);
-    this.handRight.setStrokeStyle(3, 0x05aff2, 0.9).setVisible(false);
-  }
-
-  private startShuffleTween = () => {
-    if (this.isShuffling || !this.handLeft || !this.handRight || this.cards.length === 0) return;
+  private showAssignCards = () => {
+    if (this.isShuffling || this.cards.length === 0) return;
     this.isShuffling = true;
-    this.pendingAssignReveal = false;
-    this.myCardPhysicalIndex = null;
+    this.isAssignStarted = true;
+    this.pendingAssignReveal = this.myCardPhysicalIndex !== null;
     this.cardOrder = [0, 1, 2, 3];
 
     const centerX = this.scale.width / 2;
@@ -116,16 +102,7 @@ export class CoopScene extends Phaser.Scene {
         .setVisible(true);
     });
 
-    this.handLeft.setVisible(true).setPosition(centerX - 150, -100);
-    this.handRight.setVisible(true).setPosition(centerX + 150, -100);
-
-    this.tweens.add({
-      targets: [this.handLeft, this.handRight],
-      y: cardY,
-      duration: 400,
-      ease: 'Back.easeOut',
-      onComplete: () => this.startCardSwapLoop(),
-    });
+    this.startCardSwapLoop();
   };
 
   private startCardSwapLoop() {
@@ -137,11 +114,8 @@ export class CoopScene extends Phaser.Scene {
           this.isShuffling = false;
           if (this.pendingAssignReveal) {
             this.pendingAssignReveal = false;
-            this.liftHands();
-            return;
+            this.revealMyCard();
           }
-
-          coopBus.emit('coop:shuffle-complete');
         });
         return;
       }
@@ -189,41 +163,25 @@ export class CoopScene extends Phaser.Scene {
     const physicalIndex = this.cardOrder.indexOf(originalIndex);
     this.myCardPhysicalIndex = physicalIndex >= 0 ? physicalIndex : originalIndex;
 
-    if (this.isShuffling) {
+    if (this.isShuffling || !this.isAssignStarted) {
       this.pendingAssignReveal = true;
       return;
     }
 
-    this.liftHands();
+    this.revealMyCard();
   };
 
-  private liftHands = () => {
-    if (!this.handLeft || !this.handRight) return;
-
-    if (this.myCardPhysicalIndex !== null) {
-      this.cards[this.myCardPhysicalIndex]?.setTexture('card_front');
-    }
-
-    this.tweens.add({
-      targets: [this.handLeft, this.handRight],
-      y: -100,
-      duration: 400,
-      ease: 'Back.easeIn',
-      onComplete: () => {
-        this.handLeft?.setVisible(false);
-        this.handRight?.setVisible(false);
-        coopBus.emit('coop:shuffle-complete');
-      },
-    });
+  private revealMyCard = () => {
+    this.cards.forEach((card) => card.setVisible(false));
+    coopBus.emit('coop:shuffle-complete');
   };
 
   private handleCardsHide = () => {
     this.cards.forEach((card) => card.setVisible(false));
-    this.handLeft?.setVisible(false);
-    this.handRight?.setVisible(false);
     this.myCardPhysicalIndex = null;
     this.pendingAssignReveal = false;
     this.isShuffling = false;
+    this.isAssignStarted = false;
   };
 
   private handleScreenShake = () => {
