@@ -4,6 +4,5 @@ import java.util.UUID;
 
 public record CoopPlayerDto(
 	UUID playerId,
-	String nickname,
-	int bestTime) {
+	String nickname) {
 }

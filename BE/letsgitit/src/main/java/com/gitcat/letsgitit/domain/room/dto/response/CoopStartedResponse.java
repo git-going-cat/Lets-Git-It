@@ -3,6 +3,7 @@ package com.gitcat.letsgitit.domain.room.dto.response;
 import java.util.List;
 import java.util.UUID;
 
+import com.gitcat.letsgitit.domain.coop.constants.CoopConstants;
 import com.gitcat.letsgitit.domain.coop.dto.response.GraphDataDto;
 
 public record CoopStartedResponse(
@@ -20,7 +21,7 @@ public record CoopStartedResponse(
 		GraphDataDto graphData,
 		List<CoopPlayerDto> players) {
 		return new CoopStartedResponse(
-			"COOP_STARTED", now, now + 3000,
+			"COOP_STARTED", now, now + CoopConstants.REVEAL_DURATION_MS,
 			gameSessionId, 5, graphData, players);
 	}
 }

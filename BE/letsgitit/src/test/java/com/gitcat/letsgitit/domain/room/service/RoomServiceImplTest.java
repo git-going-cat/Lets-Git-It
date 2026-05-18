@@ -602,7 +602,6 @@ class RoomServiceImplTest {
 			given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
 			given(roomRedisRepository.findSelectedMapId(ROOM_ID)).willReturn(mapId);
 			given(coopGraphDataStore.getByMapId(any())).willReturn(Mockito.mock(GraphDataDto.class));
-			given(recordService.getBestCoopRecord(any())).willReturn(null);
 			given(coopService.getSelectedMap(any()))
 				.willReturn(new SelectedMapDto(UUID.fromString(mapId), "테스트 맵", 1));
 			given(roomRedisRepository.findTeamNameById(ROOM_ID)).willReturn("테스트 팀");
@@ -611,6 +610,34 @@ class RoomServiceImplTest {
 
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.IN_GAME.name());
 			assertThat(result.destination()).isEqualTo("/topic/room/" + ROOM_ID + "/coop");
+		}
+
+		@Test
+		void COOP_게임_시작_시_플레이어_최고기록은_조회하지_않는다() {
+			// CoopPlayerDto에서 bestTime이 제거(a3a51df)됨에 따라
+			// startGame COOP 경로는 recordService를 호출하지 않는다
+			UUID p3 = UUID.fromString("cccccccc-0000-0000-0000-000000000003");
+			UUID p4 = UUID.fromString("dddddddd-0000-0000-0000-000000000004");
+			String mapId = UUID.randomUUID().toString();
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn(RoomState.WAITING.name());
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(MEMBER_ID.toString());
+			given(roomRedisRepository.findAllMemberIds(ROOM_ID)).willReturn(
+				Set.of(MEMBER_ID.toString(), OTHER_ID.toString(), p3.toString(), p4.toString()));
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("COOP");
+			given(roomRedisRepository.isAllMembersReady(ROOM_ID)).willReturn(true);
+			given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
+			given(roomRedisRepository.findSelectedMapId(ROOM_ID)).willReturn(mapId);
+			given(coopGraphDataStore.getByMapId(any())).willReturn(Mockito.mock(GraphDataDto.class));
+			given(coopService.getSelectedMap(any()))
+				.willReturn(new SelectedMapDto(UUID.fromString(mapId), "기초 브랜치", 2));
+			given(roomRedisRepository.findTeamNameById(ROOM_ID)).willReturn("테스트 팀");
+
+			roomService.startGame(ROOM_ID, MEMBER_ID, request);
+
+			then(recordService).should(never()).getBestCoopRecord(any());
+			then(recordService).should(never()).getBestCoopRecordByMap(any(), any(), anyInt());
 		}
 
 		@Test
@@ -801,6 +828,39 @@ class RoomServiceImplTest {
 			then(roomRedisRepository).should().removeMember(ROOM_ID, MEMBER_ID.toString());
 			then(roomWebSocketEventPublisher).should()
 				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "member", List.of(host), "WAITING");
+		}
+
+		@Test
+		void COOP_게임_진행_중_나가면_handlePlayerDisconnect를_호출한다() {
+			PlayerInfoDto leftPlayer = player(MEMBER_ID, "member", false);
+			PlayerInfoDto host = player(OTHER_ID, "host", true);
+			Map<Object, Object> beforeMembers = Map.of("member", "before");
+			Map<Object, Object> afterMembers = Map.of("host", "after");
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(OTHER_ID.toString());
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("IN_GAME");
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("COOP");
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, afterMembers);
+			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of(leftPlayer, host));
+			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(host));
+
+			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
+
+			then(coopGameService).should().handlePlayerDisconnect(ROOM_ID);
+		}
+	}
+
+	@Nested
+	class ResetRoomAfterGame {
+
+		@Test
+		void WAITING으로_상태_변경과_비방장_멤버_준비_초기화를_함께_수행한다() {
+			roomService.resetRoomAfterGame(ROOM_ID);
+
+			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.WAITING.name());
+			then(roomRedisRepository).should().resetMembersReadyExceptHost(ROOM_ID);
 		}
 	}
 

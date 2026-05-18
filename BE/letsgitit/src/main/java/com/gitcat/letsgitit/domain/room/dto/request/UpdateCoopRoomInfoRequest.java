@@ -14,7 +14,7 @@ public record UpdateCoopRoomInfoRequest(
 	@NotBlank(message = "방 제목은 필수입니다") @Size(min = 2, max = 12, message = "방 제목은 2자 이상 12자 이하여야 합니다") @Pattern(regexp = "^[가-힣a-zA-Z0-9 _-]+$", message = "방 제목은 한글, 영문, 숫자, 공백, _, -만 사용할 수 있습니다")
 	String title,
 
-	@NotBlank(message = "팀 이름은 필수입니다") @Size(min = 2, max = 12, message = "팀 이름은 2자 이상 12자 이하여야 합니다") @Pattern(regexp = "^[가-힣a-zA-Z0-9 _-]+$", message = "팀 이름은 한글, 영문, 숫자, 공백, _, -만 사용할 수 있습니다")
+	@NotBlank(message = "팀 이름은 필수입니다") @Size(min = 2, max = 8, message = "팀 이름은 2자 이상 8자 이하여야 합니다") @Pattern(regexp = "^[가-힣a-zA-Z0-9 _-]+$", message = "팀 이름은 한글, 영문, 숫자, 공백, _, -만 사용할 수 있습니다")
 	String teamName,
 
 	@NotNull(message = "비밀번호 설정 여부는 필수입니다")

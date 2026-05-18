@@ -33,4 +33,18 @@ public class MemberCoopBestRecordDslRepository {
 
 		return Optional.ofNullable(result);
 	}
+
+	public Optional<MemberCoopBestRecord> findBestRecordByMemberIdAndMap(UUID memberId, String mapName,
+		int difficulty) {
+		QMemberCoopBestRecord record = QMemberCoopBestRecord.memberCoopBestRecord;
+
+		return Optional.ofNullable(
+			jpaQueryFactory
+				.selectFrom(record)
+				.where(
+					record.memberId.eq(memberId),
+					record.mapName.eq(mapName),
+					record.difficulty.eq(difficulty))
+				.fetchOne());
+	}
 }

@@ -13,7 +13,11 @@ public interface RecordService {
 
 	MemberCoopBestRecord getBestCoopRecord(UUID memberId);
 
+	MemberCoopBestRecord getBestCoopRecordByMap(UUID memberId, String mapName, int difficulty);
+
 	boolean updateSingleBestRecord(UUID memberId, Difficulty difficulty, int score, int rank);
 
 	boolean updateContributionBestRecord(UUID memberId, int contribution, int rank);
+
+	boolean updateCoopBestRecord(UUID memberId, String mapName, int difficulty, int elapsedTime, int rank);
 }

@@ -337,47 +337,38 @@ class CoopGameServiceImplTest {
 	@Nested
 	class HandlePlayerDisconnect {
 
-		// 구 동작: gameSessionId == null → GAME_NOT_STARTED 예외
-		// 신 동작: 100ms 윈도우(initAndStartGame 실행 전) disconnect 케이스이므로
-		//          Redis 정리는 생략하고 방 초기화 + COOP_GAME_END만 브로드캐스트
+		// gameSessionId == null: COOP_STARTED 이전 100ms 윈도우 disconnect 케이스
+		// → initAndStartGame이 아직 실행되지 않아 Redis에 세션이 없으므로 아무것도 처리하지 않는다
 		@Test
-		void 게임_세션이_없으면_Redis_정리는_생략하고_방_초기화_후_COOP_GAME_END를_브로드캐스트한다() {
+		void 게임_세션이_없으면_아무_처리도_하지_않는다() throws InterruptedException {
+			givenDisconnectLockAcquired();
 			given(coopGameRedisRepository.findGameSessionIdByRoomId(ROOM_ID)).willReturn(null);
 
 			coopGameService.handlePlayerDisconnect(ROOM_ID);
 
 			then(coopGameRedisRepository).should(never()).deleteGameState(any());
-			then(roomService).should().resetRoomAfterGame(ROOM_ID);
-
-			ArgumentCaptor<CoopGameEndResponse> captor = ArgumentCaptor.forClass(CoopGameEndResponse.class);
-			then(messageSender).should().send(eq("/topic/room/" + ROOM_ID + "/coop"), captor.capture());
-			assertThat(captor.getValue().type()).isEqualTo("COOP_GAME_END");
-			assertThat(captor.getValue().isSuccess()).isFalse();
-			assertThat(captor.getValue().reason()).isEqualTo("PLAYER_DISCONNECTED");
+			then(roomService).should(never()).resetRoomAfterGame(any());
+			then(messageSender).should(never()).send(any(), any());
 		}
 
-		// 구 동작: isGameActive == false → early return (아무 작업 없음)
-		// 신 동작: endGame()이 이미 완료된 케이스이므로 Redis 정리는 생략하고
-		//          방 초기화 + COOP_GAME_END 브로드캐스트 (멱등성 허용)
+		// isGameActive == false: endGame()이 이미 완료된 케이스
+		// → 방 이중 초기화 및 메시지 중복 전송 방지를 위해 아무것도 처리하지 않는다 (ae1ab7b)
 		@Test
-		void 게임이_비활성이면_Redis_정리는_생략하고_방_초기화_후_COOP_GAME_END를_브로드캐스트한다() {
+		void 게임이_비활성이면_아무_처리도_하지_않는다() throws InterruptedException {
+			givenDisconnectLockAcquired();
 			given(coopGameRedisRepository.findGameSessionIdByRoomId(ROOM_ID)).willReturn(GAME_SESSION_ID);
 			given(coopGameRedisRepository.isGameActive(GAME_SESSION_ID)).willReturn(false);
 
 			coopGameService.handlePlayerDisconnect(ROOM_ID);
 
 			then(coopGameRedisRepository).should(never()).deleteGameState(any());
-			then(roomService).should().resetRoomAfterGame(ROOM_ID);
-
-			ArgumentCaptor<CoopGameEndResponse> captor = ArgumentCaptor.forClass(CoopGameEndResponse.class);
-			then(messageSender).should().send(eq("/topic/room/" + ROOM_ID + "/coop"), captor.capture());
-			assertThat(captor.getValue().type()).isEqualTo("COOP_GAME_END");
-			assertThat(captor.getValue().isSuccess()).isFalse();
-			assertThat(captor.getValue().reason()).isEqualTo("PLAYER_DISCONNECTED");
+			then(roomService).should(never()).resetRoomAfterGame(any());
+			then(messageSender).should(never()).send(any(), any());
 		}
 
 		@Test
-		void 게임이_활성이면_게임_상태를_삭제하고_방_초기화_후_COOP_GAME_END를_브로드캐스트한다() {
+		void 게임이_활성이면_게임_상태를_삭제하고_방_초기화_후_COOP_GAME_END를_브로드캐스트한다() throws InterruptedException {
+			givenDisconnectLockAcquired();
 			given(coopGameRedisRepository.findGameSessionIdByRoomId(ROOM_ID)).willReturn(GAME_SESSION_ID);
 			given(coopGameRedisRepository.isGameActive(GAME_SESSION_ID)).willReturn(true);
 
@@ -404,6 +395,12 @@ class CoopGameServiceImplTest {
 
 	private void givenResetLockAcquired() throws InterruptedException {
 		given(redissonClient.getLock(String.format(LOCK_RESET, GAME_SESSION_ID))).willReturn(rLock);
+		given(rLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)).willReturn(true);
+		given(rLock.isHeldByCurrentThread()).willReturn(true);
+	}
+
+	private void givenDisconnectLockAcquired() throws InterruptedException {
+		given(redissonClient.getLock(String.format(LOCK_DISCONNECT, ROOM_ID))).willReturn(rLock);
 		given(rLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)).willReturn(true);
 		given(rLock.isHeldByCurrentThread()).willReturn(true);
 	}
