@@ -3,11 +3,11 @@ package com.gitcat.letsgitit.domain.competitive.message.contribution;
 import java.util.UUID;
 
 import jakarta.validation.constraints.AssertTrue;
-
-import com.gitcat.letsgitit.domain.competitive.constants.CompetitiveConstants;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+
+import com.gitcat.letsgitit.domain.competitive.constants.CompetitiveConstants;
 
 public record ContributionInputMessage(
 	@NotBlank(message = "type은 필수입니다.")

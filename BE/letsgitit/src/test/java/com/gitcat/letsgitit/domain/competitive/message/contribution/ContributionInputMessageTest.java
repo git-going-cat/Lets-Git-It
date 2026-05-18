@@ -31,7 +31,8 @@ class ContributionInputMessageTest {
 			assertThat(violations).isNotEmpty();
 			assertThat(violations)
 				.extracting(violation -> violation.getPropertyPath().toString())
-				.contains("type", "requestId", "gameSessionId", "commandSequenceRequiredForScorableCommand", "inputText");
+				.contains("type", "requestId", "gameSessionId", "commandSequenceRequiredForScorableCommand",
+					"inputText");
 		}
 
 		@Test

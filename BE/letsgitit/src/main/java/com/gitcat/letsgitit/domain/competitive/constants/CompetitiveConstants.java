@@ -6,6 +6,5 @@ public final class CompetitiveConstants {
 
 	private CompetitiveConstants() {}
 
-	public static final Pattern SWITCH_PATTERN =
-		Pattern.compile("^git\\s+(switch|checkout)\\s+(\\S+)\\s*$");
+	public static final Pattern SWITCH_PATTERN = Pattern.compile("^git\\s+(switch|checkout)\\s+(\\S+)\\s*$");
 }
