@@ -2,11 +2,7 @@ import { useAtomValue } from 'jotai';
 
 import PlayerCharacterPreview from '@/shared/components/PlayerCharacterPreview';
 
-import {
-  coopCurrentOrderAtom,
-  coopInputBlockedAtom,
-  coopResetTargetPlayerIdAtom,
-} from '../store/coopPhaseAtom';
+import { coopInputBlockedAtom, coopResetTargetPlayerIdAtom } from '../store/coopPhaseAtom';
 import { coopPlayersAtom, coopPlayerStatsAtom } from '../store/coopPlayersAtom';
 
 import type { CoopPlayer } from '../types/coop.types';
@@ -25,7 +21,6 @@ function toCharacterAsset(player: CoopPlayer): CharacterAsset {
 
 export default function CoopSidebar() {
   const players = useAtomValue(coopPlayersAtom);
-  const currentOrder = useAtomValue(coopCurrentOrderAtom);
   const isInputBlocked = useAtomValue(coopInputBlockedAtom);
   const resetTargetPlayerId = useAtomValue(coopResetTargetPlayerIdAtom);
   const playerStats = useAtomValue(coopPlayerStatsAtom);
@@ -38,10 +33,9 @@ export default function CoopSidebar() {
         </div>
         <ol className="flex flex-1 flex-col justify-between gap-5 pb-2">
           {players.map((player) => {
-            const isCurrentTurn = player.commandOrder === currentOrder;
             const isWrongPlayer = player.playerId === resetTargetPlayerId;
             const stats = playerStats[player.playerId] ?? { typoCount: 0, resetCount: 0 };
-            const cardBg = player.isMe || isCurrentTurn ? '!bg-yellow-100' : '!bg-white';
+            const cardBg = player.isMe ? '!bg-yellow-100' : '!bg-white';
 
             return (
               <li key={player.playerId} className="flex min-h-0 flex-1">

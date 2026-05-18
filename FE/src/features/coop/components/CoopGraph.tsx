@@ -85,7 +85,7 @@ export default function CoopGraph({
       className="h-full w-full overflow-visible"
     >
       <g>
-        {graphData.edges.map((edge) => {
+        {graphData.edges.map((edge, index) => {
           const fromNode = nodeMap.get(edge.from);
           const toNode = nodeMap.get(edge.to);
           if (!fromNode || !toNode) return null;
@@ -94,7 +94,7 @@ export default function CoopGraph({
 
           return (
             <line
-              key={`${edge.from}-${edge.to}`}
+              key={`${edge.from}-${edge.to}-${index}`}
               x1={fromNode.x}
               y1={fromNode.y}
               x2={toNode.x}
@@ -109,11 +109,11 @@ export default function CoopGraph({
       </g>
 
       <g>
-        {graphData.nodes.map((node) => {
+        {graphData.nodes.map((node, index) => {
           const nodeColor = getNodeColor(node.sequence, completedSet, activeSequence);
 
           return (
-            <g key={node.sequence}>
+            <g key={`${node.sequence}-${index}`}>
               <circle
                 cx={node.x}
                 cy={node.y}
