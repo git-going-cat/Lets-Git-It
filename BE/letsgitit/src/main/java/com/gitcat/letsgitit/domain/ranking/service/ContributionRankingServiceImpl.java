@@ -3,6 +3,7 @@ package com.gitcat.letsgitit.domain.ranking.service;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -17,9 +18,12 @@ import com.gitcat.letsgitit.domain.ranking.dto.response.ContributionRankingIniti
 import com.gitcat.letsgitit.domain.ranking.dto.response.ContributionRankingInitialResponse.MyContributionRank;
 import com.gitcat.letsgitit.domain.ranking.dto.response.ContributionRankingScrollResponse;
 import com.gitcat.letsgitit.domain.ranking.dto.response.UpdateContributionRankingResult;
+import com.gitcat.letsgitit.domain.ranking.entity.CompetitiveRanking;
+import com.gitcat.letsgitit.domain.ranking.repository.CompetitiveRankingRepository;
 import com.gitcat.letsgitit.domain.ranking.repository.ContributionRankingRedisRepository;
 import com.gitcat.letsgitit.domain.ranking.repository.ContributionRankingRedisRepository.RankEntry;
 import com.gitcat.letsgitit.domain.ranking.util.RankingTimeUtil;
+import com.gitcat.letsgitit.global.enums.CompetitiveMode;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
 import com.gitcat.letsgitit.global.util.WeekUtil;
@@ -38,6 +42,7 @@ public class ContributionRankingServiceImpl implements ContributionRankingServic
 	private final ContributionRankingRedisRepository contributionRankingRedisRepository;
 	private final MemberService memberService;
 	private final MeterRegistry meterRegistry;
+	private final CompetitiveRankingRepository competitiveRankingRepository;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -275,5 +280,168 @@ public class ContributionRankingServiceImpl implements ContributionRankingServic
 		}
 
 		return result;
+	}
+
+	/**
+	 * 과거주 기여도 뺏기 랭킹 초기 진입 조회
+	 * - top3: 화면 상단 고정 노출 (항상 반환)
+	 * - myRank: 로그인 사용자의 해당 주차 기록 (기록 없으면 null, around 빈 배열)
+	 * - around: 내 순위 기준 ±2 범위 (예: 내가 15위 → 13~17위)
+	 * - prevCursor/nextCursor: around 첫/마지막 순위값 (스크롤 시작 커서로 사용)
+	 */
+	@Override
+	@Transactional(readOnly = true)
+	public ContributionRankingInitialResponse getContributionRankingHistory(int year, int month, int week, int size,
+		UUID memberId) {
+		// year/month/week 조합을 DB 저장 형식 "YYYY-MM-W"로 변환 (예: "2025-4-3")
+		String weekKey = WeekUtil.getWeek(year, month, week);
+
+		List<CompetitiveRanking> top3Raw = competitiveRankingRepository.findTop3ByModeAndWeek(
+			CompetitiveMode.CONTRIBUTION, weekKey);
+		long total = competitiveRankingRepository.countByModeAndWeek(CompetitiveMode.CONTRIBUTION, weekKey);
+
+		CompetitiveRanking myRankEntity = competitiveRankingRepository
+			.findByMemberIdAndModeAndWeek(memberId, CompetitiveMode.CONTRIBUTION, weekKey)
+			.orElse(null);
+
+		// 해당 주차에 플레이 기록이 없으면 top3만 반환
+		// around가 없으므로 nextCursor는 top3의 마지막 순위(3)로 설정
+		if (myRankEntity == null) {
+			List<UUID> top3Ids = top3Raw.stream().map(CompetitiveRanking::getMemberId).toList();
+			Map<UUID, String> top3NicknameMap = memberService.getNicknamesByIds(top3Ids);
+			List<ContributionRankingEntry> top3 = toEntries(top3Raw, top3NicknameMap);
+
+			boolean hasNext = total > 3;
+			return new ContributionRankingInitialResponse(
+				year, month, week,
+				top3,
+				null, // myRank 없음
+				List.of(), // around 없음
+				null, false,
+				hasNext ? 3 : null, // 4위부터 스크롤 가능하도록 커서를 3으로 설정
+				hasNext);
+		}
+
+		// around 범위 계산: 내 순위 ±2, 단 1 미만 및 전체 순위 초과는 클램핑
+		int aroundMinRank = Math.max(1, myRankEntity.getRank() - 2);
+		int aroundMaxRank = Math.min((int)total, myRankEntity.getRank() + 2);
+
+		List<CompetitiveRanking> aroundRaw = competitiveRankingRepository
+			.findAroundByModeAndWeekAndRank(CompetitiveMode.CONTRIBUTION, weekKey, aroundMinRank, aroundMaxRank);
+
+		// top3 memberId와 around memberId를 합쳐서 닉네임을 한 번에 배치 조회 (N+1 방지)
+		List<UUID> allIds = new ArrayList<>();
+		top3Raw.stream().map(CompetitiveRanking::getMemberId).forEach(allIds::add);
+		aroundRaw.stream().map(CompetitiveRanking::getMemberId).forEach(allIds::add);
+		Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(allIds.stream().distinct().toList());
+
+		List<ContributionRankingEntry> top3 = toEntries(top3Raw, nicknameMap);
+		// myRank는 자기 자신이므로 playerId/nickname 미포함 (ContributionMyRankEntry)
+		MyContributionRank myRank = new MyContributionRank(
+			myRankEntity.getRank(),
+			myRankEntity.getScore(), // DB 컬럼명은 score, 응답 필드명은 contribution
+			myRankEntity.getPlayCount());
+		List<ContributionRankingEntry> around = toEntries(aroundRaw, nicknameMap);
+
+		// around의 첫 순위가 1이면 위로 더 없음 → prevCursor null
+		boolean hasPrev = aroundMinRank > 1;
+		Integer prevCursor = hasPrev ? aroundMinRank : null;
+		// around의 마지막 순위가 전체 끝이면 아래로 더 없음 → nextCursor null
+		boolean hasNext = aroundMaxRank < total;
+		Integer nextCursor = hasNext ? aroundMaxRank : null;
+
+		return new ContributionRankingInitialResponse(
+			year, month, week,
+			top3, myRank, around,
+			prevCursor, hasPrev,
+			nextCursor, hasNext);
+	}
+
+	/**
+	 * 아래 방향 스크롤: afterRank 초과 데이터를 rank ASC로 조회
+	 * - size+1개를 fetch해서 실제 페이지(size개) 외에 다음 데이터 존재 여부(hasNext)를 판단
+	 * - prevCursor: 현재 페이지 첫 순위 (위 방향 스크롤 진입점)
+	 * - nextCursor: 현재 페이지 마지막 순위 (다음 아래 스크롤 커서)
+	 */
+	@Override
+	@Transactional(readOnly = true)
+	public ContributionRankingScrollResponse getContributionRankingHistoryScrollAfter(int year, int month, int week,
+		int afterRank, int size, UUID memberId) {
+		String weekKey = WeekUtil.getWeek(year, month, week);
+
+		// size+1개 요청: size개는 현재 페이지, 1개 초과 시 hasNext=true
+		List<CompetitiveRanking> raw = competitiveRankingRepository.findScrollResult(
+			CompetitiveMode.CONTRIBUTION, weekKey, afterRank, size + 1);
+
+		if (raw.isEmpty()) {
+			return new ContributionRankingScrollResponse(List.of(), null, false, null, false);
+		}
+
+		boolean hasNext = raw.size() > size;
+		List<CompetitiveRanking> page = hasNext ? raw.subList(0, size) : raw;
+
+		List<UUID> memberIds = page.stream().map(CompetitiveRanking::getMemberId).toList();
+		Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberIds);
+		List<ContributionRankingEntry> rankings = toEntries(page, nicknameMap);
+
+		boolean hasPrev = afterRank > 0; // afterRank가 0이면 이미 최상단
+		Integer prevCursor = hasPrev ? page.get(0).getRank() : null;
+		Integer nextCursor = hasNext ? page.get(page.size() - 1).getRank() : null;
+
+		return new ContributionRankingScrollResponse(rankings, prevCursor, hasPrev, nextCursor, hasNext);
+	}
+
+	/**
+	 * 위 방향 스크롤: beforeRank 미만 데이터를 rank DESC로 조회 후 오름차순 복원
+	 * - DSL 쿼리가 rank DESC로 반환하므로 Collections.reverse로 오름차순 복원
+	 * - size+1개를 fetch해서 hasPrev(더 위에 데이터 존재 여부)를 판단
+	 * - hasNext: 현재 페이지 마지막 순위가 전체 끝보다 작으면 아래 데이터 존재
+	 */
+	@Override
+	@Transactional(readOnly = true)
+	public ContributionRankingScrollResponse getContributionRankingHistoryScrollBefore(int year, int month, int week,
+		int beforeRank, int size, UUID memberId) {
+		String weekKey = WeekUtil.getWeek(year, month, week);
+
+		// hasNext 판단을 위해 total 조회 (현재 페이지 마지막 순위와 비교)
+		long total = competitiveRankingRepository.countByModeAndWeek(CompetitiveMode.CONTRIBUTION, weekKey);
+
+		// DSL에서 rank DESC + size+1 fetch → hasPrev 판단용 1개 초과분 포함
+		List<CompetitiveRanking> raw = competitiveRankingRepository.findScrollResultBefore(
+			CompetitiveMode.CONTRIBUTION, weekKey, beforeRank, size);
+
+		if (raw.isEmpty()) {
+			return new ContributionRankingScrollResponse(List.of(), null, false, null, false);
+		}
+
+		boolean hasPrev = raw.size() > size;
+		// DSL이 DESC로 반환했으므로 화면 표시를 위해 오름차순(ASC)으로 뒤집기
+		List<CompetitiveRanking> page = new ArrayList<>(hasPrev ? raw.subList(0, size) : raw);
+		Collections.reverse(page);
+
+		List<UUID> memberIds = page.stream().map(CompetitiveRanking::getMemberId).toList();
+		Map<UUID, String> nicknameMap = memberService.getNicknamesByIds(memberIds);
+		List<ContributionRankingEntry> rankings = toEntries(page, nicknameMap);
+
+		Integer prevCursor = hasPrev ? page.get(0).getRank() : null;
+		// 현재 페이지 마지막 순위가 전체 끝 미만이면 아래 방향 데이터 존재
+		int lastRank = page.get(page.size() - 1).getRank();
+		boolean hasNext = (long)lastRank < total;
+		Integer nextCursor = hasNext ? lastRank : null;
+
+		return new ContributionRankingScrollResponse(rankings, prevCursor, hasPrev, nextCursor, hasNext);
+	}
+
+	// CompetitiveRanking 엔티티 리스트를 ContributionRankingEntry DTO 리스트로 변환
+	// score(DB 컬럼) → contribution(응답 필드), memberId → playerId 매핑
+	private List<ContributionRankingEntry> toEntries(List<CompetitiveRanking> raw, Map<UUID, String> nicknameMap) {
+		return raw.stream()
+			.map(r -> new ContributionRankingEntry(
+				r.getRank(),
+				r.getMemberId(),
+				nicknameMap.getOrDefault(r.getMemberId(), "[Unknown]"),
+				r.getScore(),
+				r.getPlayCount()))
+			.toList();
 	}
 }
