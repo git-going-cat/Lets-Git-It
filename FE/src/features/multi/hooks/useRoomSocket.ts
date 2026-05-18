@@ -25,6 +25,7 @@ const PRIVATE_KEY = 'room-private';
 const REST_FALLBACK_DELAY_MS = 3_000;
 const RECONNECTED_BANNER_MS = 2_000;
 const BLOCKING_ESCALATION_MS = 10_000;
+const FORCE_DISCONNECT_NEW_LOGIN_CODES = new Set(['NEW_LOGIN', 'REPLACED_BY_NEW_LOGIN']);
 
 /**
  * 연결 상태
@@ -171,6 +172,7 @@ export function useRoomSocket(
               console.error('[socket] Invalid FORCE_DISCONNECT packet dropped.', result.error);
               return;
             }
+            if (!FORCE_DISCONNECT_NEW_LOGIN_CODES.has(result.data.code)) return;
             socketManager.disconnect();
             privateQueueHandlersRef.current.onForceDisconnect?.();
             return;

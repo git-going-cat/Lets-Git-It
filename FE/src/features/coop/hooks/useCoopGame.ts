@@ -380,7 +380,6 @@ export function useCoopGame() {
     return () => {
       socketManager.unsubscribe(gameKey);
       socketManager.unsubscribe(privateKey);
-      socketManager.disconnect();
     };
   }, [
     roomId,

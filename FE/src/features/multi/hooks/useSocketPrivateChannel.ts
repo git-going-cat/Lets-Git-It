@@ -18,6 +18,7 @@ import {
  */
 const PRIVATE_CHANNEL_DESTINATION = '/user/queue/private';
 const PRIVATE_CHANNEL_SUBSCRIPTION_KEY = 'multi:private-channel';
+const FORCE_DISCONNECT_NEW_LOGIN_CODES = new Set(['NEW_LOGIN', 'REPLACED_BY_NEW_LOGIN']);
 
 type UseSocketPrivateChannelOptions = {
   onForceDisconnect: () => void;
@@ -56,6 +57,7 @@ export function useSocketPrivateChannel({
               return;
             }
 
+            if (!FORCE_DISCONNECT_NEW_LOGIN_CODES.has(result.data.code)) return;
             socketManager.disconnect();
             onForceDisconnect();
             return;
