@@ -68,8 +68,9 @@ function toCoopPlayers(): CoopPlayer[] {
     playerId: member.playerId,
     nickname: member.nickname,
     isMe:
-      (myMemberId !== null && member.playerId === myMemberId) ||
-      (myNickname !== null && member.nickname === myNickname),
+      myMemberId !== null
+        ? member.playerId === myMemberId
+        : myNickname !== null && member.nickname === myNickname,
     commandOrder: index + 1,
     characterHair: member.characterHair,
     characterHairColor: member.characterHairColor,
@@ -81,10 +82,15 @@ function toCoopPlayers(): CoopPlayer[] {
   }));
 }
 
-function toRevealDurationMs(revealStartsAt: number, serverTime: number) {
+function toRevealTiming(revealStartsAt: number, serverTime: number) {
   const revealDurationMs = 3000;
+  const revealDelayMs = Math.max(0, revealStartsAt - serverTime);
   const elapsedMs = Math.max(0, serverTime - revealStartsAt);
-  return Math.max(0, revealDurationMs - elapsedMs);
+  return {
+    revealKey: Date.now(),
+    revealDelayMs,
+    revealDurationMs: Math.max(0, revealDurationMs - elapsedMs),
+  };
 }
 
 export function useCoopGame() {
@@ -104,7 +110,15 @@ export function useCoopGame() {
   const setElapsedSeconds = useSetAtom(coopElapsedSecondsAtom);
   const setGraphCompletedSequences = useSetAtom(coopGraphCompletedSequencesAtom);
   const setGraphActiveSequence = useSetAtom(coopGraphActiveSequenceAtom);
-  const { sessionId, roomId, setPlayerSnapshots, setResult, setSessionMeta } = useCoopStore();
+  const {
+    sessionId,
+    roomId,
+    pendingMessages,
+    consumePendingMessages,
+    setPlayerSnapshots,
+    setResult,
+    setSessionMeta,
+  } = useCoopStore();
 
   useEffect(() => {
     const players = toCoopPlayers();
@@ -143,14 +157,92 @@ export function useCoopGame() {
   useEffect(() => {
     if (!sessionId || roomId == null) return;
 
+    const messages = consumePendingMessages();
+    messages.forEach((message) => {
+      switch (getMessageType(message)) {
+        case 'COOP_ROUND_REVEAL': {
+          const result = CoopRoundRevealSchema.safeParse(message);
+          if (!result.success) return;
+
+          setRound(result.data.round);
+          setCompletedCount(0);
+          setCurrentOrder(1);
+          setInputBlocked(true);
+          setResetTargetPlayerId(null);
+          setWrongPlayerNickname(null);
+          const commands = result.data.commands.map((command) => ({
+            commandOrder: command.commandOrder,
+            commandText: command.commandText,
+          }));
+          commandsRef.current = commands;
+          setCommands(commands);
+          setMyCommand(null);
+          setMyCommandOrder(null);
+          const firstSequenceInRound = (result.data.round - 1) * 4 + 1;
+          setGraphCompletedSequences((sequences) =>
+            sequences.filter((sequence) => sequence < firstSequenceInRound)
+          );
+          setGraphActiveSequence(firstSequenceInRound);
+          setSessionMeta(toRevealTiming(result.data.revealStartsAt, result.data.serverTime));
+          setPhase('reveal');
+          return;
+        }
+
+        case 'COOP_ROUND_ASSIGN': {
+          const result = CoopRoundAssignSchema.safeParse(message);
+          if (!result.success) return;
+
+          const order =
+            commandsRef.current.find((command) => command.commandText === result.data.myCommandText)
+              ?.commandOrder ?? null;
+
+          setMyCommand(result.data.myCommandText);
+          setMyCommandOrder(order);
+          if (order !== null) {
+            coopBus.emit('coop:assign-reveal', { myCommandOrder: order });
+          }
+          return;
+        }
+
+        default:
+          return;
+      }
+    });
+  }, [
+    consumePendingMessages,
+    pendingMessages.length,
+    roomId,
+    sessionId,
+    setCommands,
+    setCompletedCount,
+    setCurrentOrder,
+    setGraphActiveSequence,
+    setGraphCompletedSequences,
+    setInputBlocked,
+    setMyCommand,
+    setMyCommandOrder,
+    setPhase,
+    setResetTargetPlayerId,
+    setRound,
+    setSessionMeta,
+    setWrongPlayerNickname,
+  ]);
+
+  useEffect(() => {
+    if (!sessionId || roomId == null) return;
+
     const token = useAuthStore.getState().accessToken;
     if (!token) return;
 
     const gameKey = `coop:game:${roomId}`;
     const privateKey = 'coop:private';
 
-    socketManager.connect(token);
+    console.log('[COOP] connect 시도', { roomId, sessionId });
+    socketManager.connect(token, () => {
+      console.log('[COOP] connect 성공, subscribe 시작');
+    });
 
+    console.log('[COOP] subscribe 호출', `/topic/room/${roomId}/coop`);
     socketManager.subscribe(
       `/topic/room/${roomId}/coop`,
       (message) => {
@@ -181,12 +273,7 @@ export function useCoopGame() {
               sequences.filter((sequence) => sequence < firstSequenceInRound)
             );
             setGraphActiveSequence(firstSequenceInRound);
-            setSessionMeta({
-              revealDurationMs: toRevealDurationMs(
-                result.data.revealStartsAt,
-                result.data.serverTime
-              ),
-            });
+            setSessionMeta(toRevealTiming(result.data.revealStartsAt, result.data.serverTime));
             setPhase('reveal');
             return;
           }

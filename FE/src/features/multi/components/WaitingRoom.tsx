@@ -166,10 +166,10 @@ export default function WaitingRoom() {
           playerId: player.playerId,
           nickname: player.nickname,
           isMe:
-            (myMemberId !== undefined && player.playerId === myMemberId) ||
-            (myMemberId !== undefined && member?.playerId === myMemberId) ||
-            (myNickname !== undefined && player.nickname === myNickname) ||
-            (myNickname !== undefined && member?.nickname === myNickname),
+            myMemberId !== undefined
+              ? player.playerId === myMemberId || member?.playerId === myMemberId
+              : myNickname !== undefined &&
+                (player.nickname === myNickname || member?.nickname === myNickname),
           commandOrder: index + 1,
           characterHair: member?.characterHair ?? '',
           characterHairColor: member?.characterHairColor ?? '',
@@ -185,6 +185,8 @@ export default function WaitingRoom() {
         sessionId: message.gameSessionId,
         roomId: numericRoomId,
         mapName: useRoomStore.getState().selectedMap?.mapName ?? null,
+        startKey: Date.now(),
+        startDelayMs: Math.max(0, message.startAt - Date.now()),
       });
       useCoopStore.getState().setPlayerSnapshots(players);
       useCoopStore.getState().setGameSessionId(message.gameSessionId);

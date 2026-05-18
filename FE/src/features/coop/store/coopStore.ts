@@ -9,10 +9,15 @@ interface CoopMetaState {
   roomId: number | null;
   mapName: string | null;
   playerSnapshots: CoopPlayer[];
+  startKey: number;
+  startDelayMs: number;
+  revealKey: number;
+  revealDelayMs: number;
   revealDurationMs: number;
   totalRounds: number;
   graphData: unknown | null;
   result: CoopGameEndMessage | null;
+  pendingMessages: unknown[];
 }
 
 interface CoopMetaActions {
@@ -23,6 +28,8 @@ interface CoopMetaActions {
   setResult: (result: CoopGameEndMessage | null) => void;
   setSessionMeta: (meta: Partial<CoopMetaState>) => void;
   setPlayerSnapshots: (players: CoopPlayer[]) => void;
+  enqueuePendingMessage: (message: unknown) => void;
+  consumePendingMessages: () => unknown[];
   reset: () => void;
   clearSession: () => void;
 }
@@ -33,13 +40,18 @@ const initialState: CoopMetaState = {
   roomId: null,
   mapName: null,
   playerSnapshots: [],
+  startKey: 0,
+  startDelayMs: 0,
+  revealKey: 0,
+  revealDelayMs: 0,
   revealDurationMs: 3000,
   totalRounds: 5,
   graphData: null,
   result: null,
+  pendingMessages: [],
 };
 
-export const useCoopStore = create<CoopMetaState & CoopMetaActions>((set) => ({
+export const useCoopStore = create<CoopMetaState & CoopMetaActions>((set, get) => ({
   ...initialState,
   setRoomId: (roomId) => set({ roomId }),
   setGameSessionId: (id) => set({ gameSessionId: id, sessionId: id }),
@@ -48,6 +60,13 @@ export const useCoopStore = create<CoopMetaState & CoopMetaActions>((set) => ({
   setResult: (result) => set({ result }),
   setSessionMeta: (meta) => set((state) => ({ ...state, ...meta })),
   setPlayerSnapshots: (players) => set({ playerSnapshots: players }),
+  enqueuePendingMessage: (message) =>
+    set((state) => ({ pendingMessages: [...state.pendingMessages, message] })),
+  consumePendingMessages: () => {
+    const messages = get().pendingMessages;
+    set({ pendingMessages: [] });
+    return messages;
+  },
   reset: () => set(initialState),
   clearSession: () => set(initialState),
 }));
