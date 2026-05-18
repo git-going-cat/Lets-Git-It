@@ -6,6 +6,7 @@ import type { SocketMessageHandler } from '@/shared/types/socket.types';
 import type { IMessage, StompSubscription } from '@stomp/stompjs';
 
 const RECONNECT_DELAY_MS = 5000;
+const HEARTBEAT_INTERVAL_MS = 5000;
 const INVALID_SOCKET_MESSAGE = Symbol('INVALID_SOCKET_MESSAGE');
 
 type ConnectionEvent = 'connected' | 'disconnected';
@@ -62,6 +63,8 @@ class SocketManager {
       connectHeaders: {
         Authorization: `Bearer ${token}`,
       },
+      heartbeatIncoming: HEARTBEAT_INTERVAL_MS,
+      heartbeatOutgoing: HEARTBEAT_INTERVAL_MS,
       reconnectDelay: RECONNECT_DELAY_MS,
     });
 

@@ -22,10 +22,11 @@
  *   - /app/room/{roomId}/start  → GAME_START
  */
 
-import { roomTopicMessageSchema } from '../schemas/room.schema';
+import { roomPrivateMessageSchema, roomTopicMessageSchema } from '../schemas/room.schema';
 
 import type { useRoomStore } from '../store/roomStore';
 import type {
+  ChatResponseMessage,
   ContributionRoomInfoUpdatedMessage,
   ContributionRoomStateMessage,
   CoopRoomInfoUpdatedMessage,
@@ -45,8 +46,6 @@ type RoomStoreState = ReturnType<typeof useRoomStore.getState>;
 // ────────────────────────────────────────────────────────────
 // 핸들러
 // ────────────────────────────────────────────────────────────
-
-import { roomPrivateMessageSchema } from '../schemas/room.schema';
 
 // /user/queue/private에서 수신되는 방 상태 스냅샷 메시지 핸들러
 export function handleRoomPrivateMessage(
@@ -182,6 +181,15 @@ export function handleCoopRoomInfoUpdated(
 }
 
 /**
+ * CHAT_RESPONSE 처리
+ *
+ * 대기실 채팅 메시지를 수신 순서대로 추가합니다.
+ */
+export function handleChatResponse(msg: ChatResponseMessage, store: RoomStoreState): void {
+  store.appendChatMessage(msg);
+}
+
+/**
  * /topic/room/{roomId} 수신 raw 메시지를 검증 후 적절한 핸들러로 위임한다.
  *
  * WebSocket 구독 콜백에서 `JSON.parse(frame.body)` 결과를 그대로 전달하면 된다.
@@ -221,6 +229,9 @@ export function handleRoomTopicMessage(
       break;
     case 'COOP_ROOM_INFO_UPDATED':
       handleCoopRoomInfoUpdated(msg, store);
+      break;
+    case 'CHAT_RESPONSE':
+      handleChatResponse(msg, store);
       break;
   }
   return msg;

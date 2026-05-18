@@ -254,7 +254,6 @@ export function useRoomSocket(
       socketManager.unsubscribe(coopGameKey(roomId));
       socketManager.unsubscribe(PRIVATE_KEY);
       clearFallbackTimer();
-      socketManager.disconnect(); // 컨벤션 §13: 방 완전 이탈 시 disconnect
     };
   }, [clearFallbackTimer, roomId, scheduleRestFallback]);
 
@@ -324,5 +323,11 @@ export function useRoomSocket(
       nextHostId,
     });
 
-  return { publishReady, publishStart, publishHostTransfer, connectionStatus };
+  const publishChat = (message: string) =>
+    socketManager.publish(`/app/room/${roomId}/chat`, {
+      type: 'CHAT_REQUEST',
+      message,
+    });
+
+  return { publishReady, publishStart, publishHostTransfer, publishChat, connectionStatus };
 }

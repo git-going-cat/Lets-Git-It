@@ -16,6 +16,7 @@ import { useRoomStore } from '../store/roomStore';
 import { MembersSpreadsheet } from './MembersSpreadsheet';
 import { ConfirmModal } from './modals/ConfirmModal';
 import { EditRoomModal } from './modals/EditRoomModal';
+import { WaitingRoomChat } from './WaitingRoomChat';
 
 import type { ContributionStartedMessage } from '../schemas/room.schema';
 import type { RoomMember } from '../types/room.types';
@@ -155,19 +156,20 @@ export default function WaitingRoom() {
     void navigate({ to: '/coop' });
   }, [navigate, numericRoomId, reset]);
 
-  const { publishReady, publishStart, publishHostTransfer, connectionStatus } = useRoomSocket(
-    numericRoomId,
-    handleReconnectComplete,
-    {
-      onForceDisconnect: handleForceDisconnect,
-      onKicked: handleKicked,
-      onPrivateError: handlePrivateError,
-    },
-    {
-      onContributionStarted: handleContributionStarted,
-      onCoopStarted: handleCoopStarted,
-    }
-  );
+  const { publishReady, publishStart, publishHostTransfer, publishChat, connectionStatus } =
+    useRoomSocket(
+      numericRoomId,
+      handleReconnectComplete,
+      {
+        onForceDisconnect: handleForceDisconnect,
+        onKicked: handleKicked,
+        onPrivateError: handlePrivateError,
+      },
+      {
+        onContributionStarted: handleContributionStarted,
+        onCoopStarted: handleCoopStarted,
+      }
+    );
 
   const myNickname = useAuthStore((s) => s.user?.nickname);
   const me = members.find((m) => m.nickname === myNickname);
@@ -466,8 +468,8 @@ export default function WaitingRoom() {
           </div>
 
           <div className="ml-auto flex items-center gap-1 text-xs text-gray-500">
-            <LockKeyhole className="h-3.5 w-3.5" />
-            <span>비밀방</span>
+            {hasPassword && <LockKeyhole className="h-3.5 w-3.5" />}
+            <span>{hasPassword ? '비밀방' : '공개방'}</span>
           </div>
         </div>
 
@@ -508,26 +510,7 @@ export default function WaitingRoom() {
               />
             </div>
 
-            {/* Chat terminal */}
-            <div className="flex flex-1 flex-col border-t border-[#c8dfd0]">
-              <div className="flex shrink-0 items-center gap-1.5 border-b border-gray-700 bg-[#1a1a1a] px-3 py-1">
-                <span className="font-mono text-md font-bold uppercase tracking-wider text-green-400">
-                  CHAT_TERMINAL
-                </span>
-              </div>
-              <div className="flex-1 overflow-y-auto bg-[#0d0d0d] px-3 py-2 font-mono text-md">
-                <p className="text-[#217346]">[SYSTEM] 대기실에 입장했습니다.</p>
-                <p className="text-gray-500">[SYSTEM] 방 코드를 공유하여 친구를 초대하세요.</p>
-              </div>
-              <div className="flex shrink-0 items-center border-t border-gray-700 bg-[#1a1a1a] px-2 py-1">
-                <span className="mr-1 font-mono text-md text-green-400">{'>'}</span>
-                <input
-                  type="text"
-                  className="flex-1 bg-transparent font-mono text-md text-green-400 outline-none placeholder:text-gray-600"
-                  placeholder="채팅 입력..."
-                />
-              </div>
-            </div>
+            <WaitingRoomChat onSendMessage={publishChat} />
           </div>
 
           {/* Right: Room Info */}
@@ -624,8 +607,8 @@ export default function WaitingRoom() {
                         <div className="flex flex-col gap-0.5">
                           <span className="font-medium text-gray-800">{selectedMap.mapName}</span>
                           <span className="text-amber-400">
-                            {'★'.repeat(Math.min(selectedMap.difficulty, 3))}
-                            {'☆'.repeat(Math.max(0, 3 - selectedMap.difficulty))}
+                            {'★'.repeat(Math.min(selectedMap.difficulty, 5))}
+                            {'☆'.repeat(Math.max(0, 5 - selectedMap.difficulty))}
                           </span>
                         </div>
                       </td>

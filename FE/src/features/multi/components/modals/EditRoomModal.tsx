@@ -224,6 +224,7 @@ function EditRoomModalContent({
                     maxLength={30}
                     className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-800 outline-none focus:border-[#217346]"
                     placeholder="방 제목"
+                    aria-label="방 제목"
                   />
                 </td>
               </tr>
@@ -269,6 +270,7 @@ function EditRoomModalContent({
                       maxLength={20}
                       className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-800 outline-none focus:border-[#217346]"
                       placeholder="팀 이름"
+                      aria-label="팀 이름"
                     />
                   </td>
                 </tr>

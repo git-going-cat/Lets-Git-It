@@ -179,6 +179,14 @@ export const coopRoomInfoUpdatedSchema = z.object({
   members: z.array(roomMemberSchema),
 });
 
+export const chatResponseMessageSchema = z.object({
+  type: z.literal('CHAT_RESPONSE'),
+  playerId: z.string().uuid(),
+  nickname: z.string(),
+  message: z.string(),
+  sentAt: z.number(),
+});
+
 export const roomInfoUpdatedSchema = z.union([
   contributionRoomInfoUpdatedSchema,
   coopRoomInfoUpdatedSchema,
@@ -223,6 +231,7 @@ export const roomTopicMessageSchema = z.discriminatedUnion('type', [
   hostTransferredMessageSchema,
   contributionRoomInfoUpdatedSchema,
   coopRoomInfoUpdatedSchema,
+  chatResponseMessageSchema,
 ]);
 
 // /user/queue/private 에서 수신되는 방 상태 스냅샷 메시지

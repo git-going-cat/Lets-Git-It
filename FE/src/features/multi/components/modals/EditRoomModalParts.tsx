@@ -107,6 +107,7 @@ export function PasswordField({
               onChange={(event) => onPasswordChange(event.target.value)}
               className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-800 outline-none focus:border-[#217346]"
               placeholder={hasPassword ? '변경할 때만 입력' : '새 비밀번호'}
+              aria-label="방 비밀번호"
             />
             {hasPassword && (
               <p className="text-xs text-gray-400">비워두면 기존 비밀번호를 유지합니다.</p>

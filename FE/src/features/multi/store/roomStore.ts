@@ -1,6 +1,7 @@
 ﻿import { create } from 'zustand';
 
 import type {
+  ChatResponseMessage,
   ContributionRoomInfoUpdatedMessage,
   CoopRoomInfoUpdatedMessage,
 } from '../types/room.socket.types';
@@ -37,6 +38,7 @@ interface RoomStateSlice {
   teamName: string | null;
   selectedMap: SelectedMap | null;
   mapList: MapInfo[];
+  chatMessages: ChatResponseMessage[];
 }
 
 interface RoomActions {
@@ -67,6 +69,8 @@ interface RoomActions {
   }) => void;
   /** WebSocket ROOM_STATE 방 상태 갱신 */
   setRoomState: (state: RoomState) => void;
+  /** WebSocket CHAT_RESPONSE 채팅 메시지 추가 */
+  appendChatMessage: (message: ChatResponseMessage) => void;
   /** 409 재접속 시 최소 정보만 세팅 — 대기실에서 ROOM_STATE로 복원 */
   setPreviewForReconnect: (data: { roomId: number; title: string; mode: GameMode }) => void;
   /** 방 퇴장 / 언마운트 시 초기화 */
@@ -91,6 +95,7 @@ const initialState: RoomStateSlice = {
   teamName: null,
   selectedMap: null,
   mapList: [],
+  chatMessages: [],
 };
 
 // ────────────────────────────────────────────────────────────
@@ -261,6 +266,11 @@ export const useRoomStore = create<RoomStateSlice & RoomActions>((set) => ({
     })),
 
   setRoomState: (roomState) => set({ roomState }),
+
+  appendChatMessage: (message) =>
+    set((s) => ({
+      chatMessages: [...s.chatMessages, message],
+    })),
 
   setPreviewForReconnect: ({ roomId, title, mode }) =>
     set({ ...initialState, roomId, title, mode }),
