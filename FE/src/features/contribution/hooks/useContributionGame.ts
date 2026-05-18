@@ -181,7 +181,6 @@ export function useContributionGame() {
     return () => {
       socketManager.unsubscribe(GAME_KEY);
       socketManager.unsubscribe(PRIVATE_KEY);
-      socketManager.disconnect();
     };
   }, [
     roomId,

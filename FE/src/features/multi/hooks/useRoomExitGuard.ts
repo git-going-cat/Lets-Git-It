@@ -1,30 +1,20 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { env } from '@/config/env';
-import { useAuthStore } from '@/features/auth/store/authStore';
+import { sendKeepAliveRequest } from '@/core/http';
 
 import { leaveRoom } from '../api/room.api';
 
 interface UseRoomExitGuardOptions {
   roomId: number | null | undefined;
   reset: () => void;
+  shouldLeave?: () => boolean;
 }
 
+const pendingLeaveTimers = new Map<number, number>();
+
 async function leaveRoomKeepAlive(roomId: number): Promise<void> {
-  const token = useAuthStore.getState().accessToken;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  await fetch(`${env.API_BASE_URL}/api/v1/rooms/${roomId}/leave`, {
+  await sendKeepAliveRequest(`/api/v1/rooms/${roomId}/leave`, {
     method: 'DELETE',
-    credentials: 'include',
-    headers,
-    keepalive: true,
   });
 }
 
@@ -35,12 +25,13 @@ async function leaveRoomKeepAlive(roomId: number): Promise<void> {
  * - 탭 닫기 / 새로고침 / pagehide: `fetch(..., keepalive)`로 best-effort 전송
  * - 중복 호출은 roomId 단위로 한 번만 실행
  */
-export function useRoomExitGuard({ roomId, reset }: UseRoomExitGuardOptions) {
+export function useRoomExitGuard({ roomId, reset, shouldLeave }: UseRoomExitGuardOptions) {
   const hasLeftRef = useRef(false);
 
   const leave = useCallback(
     async (bestEffort: boolean) => {
       if (roomId == null || roomId <= 0 || hasLeftRef.current) return;
+      if (shouldLeave && !shouldLeave()) return;
       hasLeftRef.current = true;
 
       try {
@@ -55,11 +46,18 @@ export function useRoomExitGuard({ roomId, reset }: UseRoomExitGuardOptions) {
         reset();
       }
     },
-    [reset, roomId]
+    [reset, roomId, shouldLeave]
   );
 
   useEffect(() => {
     hasLeftRef.current = false;
+    if (roomId == null) return;
+
+    const pendingTimer = pendingLeaveTimers.get(roomId);
+    if (pendingTimer === undefined) return;
+
+    window.clearTimeout(pendingTimer);
+    pendingLeaveTimers.delete(roomId);
   }, [roomId]);
 
   useEffect(() => {
@@ -75,7 +73,11 @@ export function useRoomExitGuard({ roomId, reset }: UseRoomExitGuardOptions) {
     return () => {
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('beforeunload', handlePageHide);
-      void leave(false);
+      const timerId = window.setTimeout(() => {
+        pendingLeaveTimers.delete(roomId);
+        void leave(false);
+      }, 100);
+      pendingLeaveTimers.set(roomId, timerId);
     };
   }, [leave, roomId]);
 }
