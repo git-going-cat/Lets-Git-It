@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { useNavigate } from '@tanstack/react-router';
 import { useSetAtom } from 'jotai';
 
 import { socketManager } from '@/core/socket/SocketManager';
@@ -9,6 +8,7 @@ import {
   CoopInputCorrectSchema,
   CoopInputWrongSchema,
   CoopOrderWrongSchema,
+  CoopResetWrongSchema,
   CoopRoundAssignSchema,
   CoopRoundRevealSchema,
 } from '@/features/multi/schemas/coop.schema';
@@ -23,101 +23,53 @@ import {
 import {
   coopCompletedCountAtom,
   coopCurrentOrderAtom,
-  coopGraphImageUrlAtom,
+  coopGraphActiveSequenceAtom,
+  coopGraphCompletedSequencesAtom,
   coopInputBlockedAtom,
   coopPhaseAtom,
   coopResetTargetPlayerIdAtom,
   coopRoundAtom,
   coopWrongPlayerNicknameAtom,
 } from '../store/coopPhaseAtom';
-import { coopPlayersAtom } from '../store/coopPlayersAtom';
+import { coopPlayersAtom, coopPlayerStatsAtom } from '../store/coopPlayersAtom';
 import { useCoopStore } from '../store/coopStore';
 import { coopElapsedSecondsAtom } from '../store/coopTimerAtom';
 
 import type { CoopCommandCard, CoopPlayer } from '../types/coop.types';
 
-const MOCK_PLAYERS: CoopPlayer[] = [
-  {
-    playerId: 'mock-player-1',
-    nickname: 'Dobby',
-    isMe: true,
-    commandOrder: 1,
-    characterHair: 'Hairstyle_01',
-    characterHairColor: 'Hairstyle-color_01',
-    characterBody: 'Body_01',
-    characterBodyColor: 'Body-color_01',
-    characterEye: 'Eyes_01',
-    characterOutfit: 'Outfit_01',
-    characterOutfitColor: 'Outfit-color_01',
-  },
-  {
-    playerId: 'mock-player-2',
-    nickname: 'GitCat',
-    isMe: false,
-    commandOrder: 2,
-    characterHair: 'Hairstyle_02',
-    characterHairColor: 'Hairstyle-color_02',
-    characterBody: 'Body_02',
-    characterBodyColor: 'Body-color_01',
-    characterEye: 'Eyes_02',
-    characterOutfit: 'Outfit_02',
-    characterOutfitColor: 'Outfit-color_01',
-  },
-  {
-    playerId: 'mock-player-3',
-    nickname: 'Branch',
-    isMe: false,
-    commandOrder: 3,
-    characterHair: 'Hairstyle_03',
-    characterHairColor: 'Hairstyle-color_03',
-    characterBody: 'Body_03',
-    characterBodyColor: 'Body-color_01',
-    characterEye: 'Eyes_03',
-    characterOutfit: 'Outfit_03',
-    characterOutfitColor: 'Outfit-color_01',
-  },
-  {
-    playerId: 'mock-player-4',
-    nickname: 'Merge',
-    isMe: false,
-    commandOrder: 4,
-    characterHair: 'Hairstyle_04',
-    characterHairColor: 'Hairstyle-color_04',
-    characterBody: 'Body_04',
-    characterBodyColor: 'Body-color_01',
-    characterEye: 'Eyes_04',
-    characterOutfit: 'Outfit_04',
-    characterOutfitColor: 'Outfit-color_01',
-  },
-];
-
-const MOCK_COMMANDS: CoopCommandCard[] = [
-  { commandOrder: 1, commandText: 'git init' },
-  { commandOrder: 2, commandText: 'git add .' },
-  { commandOrder: 3, commandText: 'git commit -m "init"' },
-  { commandOrder: 4, commandText: 'git push origin main' },
-];
-
-const COOP_GAME_TOPIC_TODO = '/topic/coop/{gameSessionId}';
+function createInitialPlayerStats(players: CoopPlayer[]) {
+  return Object.fromEntries(
+    players.map((player) => [player.playerId, { typoCount: 0, resetCount: 0 }])
+  );
+}
 
 function getMessageType(message: unknown) {
   if (typeof message !== 'object' || message === null || !('type' in message)) return null;
   return typeof message.type === 'string' ? message.type : null;
 }
 
+function getErrorCode(message: unknown) {
+  if (typeof message !== 'object' || message === null || !('code' in message)) return null;
+  return typeof message.code === 'string' ? message.code : null;
+}
+
 function toCoopPlayers(): CoopPlayer[] {
   const members = useRoomStore.getState().members;
-  const myMemberId = useAuthStore.getState().user?.memberId ?? null;
+  const { user } = useAuthStore.getState();
+  const myMemberId = user?.memberId ?? null;
+  const myNickname = user?.nickname ?? null;
   if (members.length === 0) {
     return useCoopStore.getState().playerSnapshots.length > 0
       ? useCoopStore.getState().playerSnapshots
-      : MOCK_PLAYERS;
+      : [];
   }
 
   return members.slice(0, 4).map((member, index) => ({
     playerId: member.playerId,
     nickname: member.nickname,
-    isMe: myMemberId !== null && member.playerId === myMemberId,
+    isMe:
+      (myMemberId !== null && member.playerId === myMemberId) ||
+      (myNickname !== null && member.nickname === myNickname),
     commandOrder: index + 1,
     characterHair: member.characterHair,
     characterHairColor: member.characterHairColor,
@@ -129,15 +81,14 @@ function toCoopPlayers(): CoopPlayer[] {
   }));
 }
 
-/** 협력 게임 WebSocket 이벤트와 React/Jotai 상태를 연결합니다. */
-function toDurationMs(startAt: number, serverTime: number) {
-  const diff = Math.max(0, startAt - serverTime);
-  return diff > 100 ? diff : diff * 1000;
+function toRevealDurationMs(revealStartsAt: number, serverTime: number) {
+  const revealDurationMs = 3000;
+  const elapsedMs = Math.max(0, serverTime - revealStartsAt);
+  return Math.max(0, revealDurationMs - elapsedMs);
 }
 
 export function useCoopGame() {
-  const commandsRef = useRef<CoopCommandCard[]>(MOCK_COMMANDS);
-  const navigate = useNavigate();
+  const commandsRef = useRef<CoopCommandCard[]>([]);
   const setPhase = useSetAtom(coopPhaseAtom);
   const setRound = useSetAtom(coopRoundAtom);
   const setCompletedCount = useSetAtom(coopCompletedCountAtom);
@@ -146,32 +97,37 @@ export function useCoopGame() {
   const setResetTargetPlayerId = useSetAtom(coopResetTargetPlayerIdAtom);
   const setWrongPlayerNickname = useSetAtom(coopWrongPlayerNicknameAtom);
   const setPlayers = useSetAtom(coopPlayersAtom);
+  const setPlayerStats = useSetAtom(coopPlayerStatsAtom);
   const setCommands = useSetAtom(coopCommandsAtom);
   const setMyCommand = useSetAtom(coopMyCommandAtom);
   const setMyCommandOrder = useSetAtom(coopMyCommandOrderAtom);
   const setElapsedSeconds = useSetAtom(coopElapsedSecondsAtom);
-  const setGraphImageUrl = useSetAtom(coopGraphImageUrlAtom);
-  const { sessionId, setPlayerSnapshots, setSessionMeta } = useCoopStore();
+  const setGraphCompletedSequences = useSetAtom(coopGraphCompletedSequencesAtom);
+  const setGraphActiveSequence = useSetAtom(coopGraphActiveSequenceAtom);
+  const { sessionId, roomId, setPlayerSnapshots, setResult, setSessionMeta } = useCoopStore();
 
   useEffect(() => {
     const players = toCoopPlayers();
     setPlayers(players);
+    setPlayerStats(createInitialPlayerStats(players));
     setPlayerSnapshots(players);
-    commandsRef.current = MOCK_COMMANDS;
-    setCommands(MOCK_COMMANDS);
+    commandsRef.current = [];
+    setCommands([]);
     setMyCommand(null);
     setMyCommandOrder(null);
-    setGraphImageUrl(null);
+    setGraphCompletedSequences([]);
+    setGraphActiveSequence(null);
     setSessionMeta({
-      roomId: useRoomStore.getState().roomId,
       mapName: useRoomStore.getState().selectedMap?.mapName ?? null,
     });
   }, [
     setCommands,
-    setGraphImageUrl,
+    setGraphActiveSequence,
+    setGraphCompletedSequences,
     setMyCommand,
     setMyCommandOrder,
     setPlayerSnapshots,
+    setPlayerStats,
     setPlayers,
     setSessionMeta,
   ]);
@@ -185,11 +141,18 @@ export function useCoopGame() {
   }, [setElapsedSeconds]);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || roomId == null) return;
 
-    // TODO: BE와 협력 게임 topic destination 확정 후 실제 경로로 교체.
+    const token = useAuthStore.getState().accessToken;
+    if (!token) return;
+
+    const gameKey = `coop:game:${roomId}`;
+    const privateKey = 'coop:private';
+
+    socketManager.connect(token);
+
     socketManager.subscribe(
-      COOP_GAME_TOPIC_TODO.replace('{gameSessionId}', sessionId),
+      `/topic/room/${roomId}/coop`,
       (message) => {
         switch (getMessageType(message)) {
           case 'COOP_ROUND_REVEAL': {
@@ -213,13 +176,113 @@ export function useCoopGame() {
             setCommands(commands);
             setMyCommand(null);
             setMyCommandOrder(null);
+            const firstSequenceInRound = (result.data.round - 1) * 4 + 1;
+            setGraphCompletedSequences((sequences) =>
+              sequences.filter((sequence) => sequence < firstSequenceInRound)
+            );
+            setGraphActiveSequence(firstSequenceInRound);
             setSessionMeta({
-              revealDurationMs: toDurationMs(result.data.revealStartsAt, result.data.serverTime),
+              revealDurationMs: toRevealDurationMs(
+                result.data.revealStartsAt,
+                result.data.serverTime
+              ),
             });
             setPhase('reveal');
             return;
           }
 
+          case 'COOP_INPUT_CORRECT': {
+            const result = CoopInputCorrectSchema.safeParse(message);
+            if (!result.success) {
+              console.error('[coop] Invalid COOP_INPUT_CORRECT packet dropped.', result.error);
+              return;
+            }
+
+            setRound(result.data.round);
+            setCompletedCount(Math.min(4, result.data.stepInRound));
+            setCurrentOrder(result.data.stepInRound + 1);
+            setGraphCompletedSequences((sequences) =>
+              sequences.includes(result.data.sequence)
+                ? sequences
+                : [...sequences, result.data.sequence]
+            );
+            setGraphActiveSequence(result.data.isRoundComplete ? null : result.data.sequence + 1);
+            return;
+          }
+
+          case 'COOP_ORDER_WRONG': {
+            const result = CoopOrderWrongSchema.safeParse(message);
+            if (!result.success) {
+              console.error('[coop] Invalid COOP_ORDER_WRONG packet dropped.', result.error);
+              return;
+            }
+
+            const isMe = toCoopPlayers().some(
+              (player) => player.isMe && player.playerId === result.data.resetTargetPlayerId
+            );
+            setPlayerStats((stats) => {
+              const current = stats[result.data.resetTargetPlayerId] ?? {
+                typoCount: 0,
+                resetCount: 0,
+              };
+              return {
+                ...stats,
+                [result.data.resetTargetPlayerId]: {
+                  ...current,
+                  resetCount: current.resetCount + 1,
+                },
+              };
+            });
+            setInputBlocked(true);
+            setResetTargetPlayerId(result.data.resetTargetPlayerId);
+            setWrongPlayerNickname(result.data.nickname);
+            setPhase(isMe ? 'reset_wait' : 'wrong');
+            coopBus.emit('coop:screen-shake');
+            return;
+          }
+
+          case 'COOP_GAME_END': {
+            const result = CoopGameEndSchema.safeParse(message);
+            if (!result.success) {
+              console.error('[coop] Invalid COOP_GAME_END packet dropped.', result.error);
+              return;
+            }
+
+            const gameEnd = result.data;
+            if (gameEnd.isSuccess === true && 'results' in gameEnd) {
+              setPlayerStats((stats) => {
+                const next = { ...stats };
+                gameEnd.results.forEach((playerResult) => {
+                  next[playerResult.playerId] = {
+                    typoCount: playerResult.wrongTypeCount,
+                    resetCount: playerResult.wrongOrderCount,
+                  };
+                });
+                return next;
+              });
+              setResult(gameEnd);
+              setInputBlocked(true);
+              setPhase('ended');
+              return;
+            }
+
+            setResult(gameEnd);
+            setInputBlocked(true);
+            setPhase('ended');
+            return;
+          }
+
+          default:
+            return;
+        }
+      },
+      gameKey
+    );
+
+    socketManager.subscribe(
+      '/user/queue/private',
+      (message) => {
+        switch (getMessageType(message)) {
           case 'COOP_ROUND_ASSIGN': {
             const result = CoopRoundAssignSchema.safeParse(message);
             if (!result.success) {
@@ -240,18 +303,6 @@ export function useCoopGame() {
             return;
           }
 
-          case 'COOP_INPUT_CORRECT': {
-            const result = CoopInputCorrectSchema.safeParse(message);
-            if (!result.success) {
-              console.error('[coop] Invalid COOP_INPUT_CORRECT packet dropped.', result.error);
-              return;
-            }
-
-            setCompletedCount((count) => Math.min(4, count + 1));
-            setCurrentOrder(result.data.sequence + 1);
-            return;
-          }
-
           case 'COOP_INPUT_WRONG': {
             const result = CoopInputWrongSchema.safeParse(message);
             if (!result.success) {
@@ -259,36 +310,63 @@ export function useCoopGame() {
               return;
             }
 
+            setPlayerStats((stats) => {
+              const current = stats[result.data.playerId] ?? {
+                typoCount: 0,
+                resetCount: 0,
+              };
+              return {
+                ...stats,
+                [result.data.playerId]: {
+                  ...current,
+                  typoCount: current.typoCount + 1,
+                },
+              };
+            });
             coopBus.emit('coop:input-wrong-shake');
             return;
           }
 
-          case 'COOP_ORDER_WRONG': {
-            const result = CoopOrderWrongSchema.safeParse(message);
+          case 'COOP_RESET_WRONG': {
+            const result = CoopResetWrongSchema.safeParse(message);
             if (!result.success) {
-              console.error('[coop] Invalid COOP_ORDER_WRONG packet dropped.', result.error);
+              console.error('[coop] Invalid COOP_RESET_WRONG packet dropped.', result.error);
               return;
             }
 
-            const isMe = toCoopPlayers().some(
-              (player) => player.isMe && player.playerId === result.data.resetTargetPlayerId
-            );
+            const players = toCoopPlayers();
+            const wrongPlayer = players.find((player) => player.playerId === result.data.playerId);
+            const isMe = wrongPlayer?.isMe ?? false;
+
+            setPlayerStats((stats) => {
+              const current = stats[result.data.playerId] ?? {
+                typoCount: 0,
+                resetCount: 0,
+              };
+              return {
+                ...stats,
+                [result.data.playerId]: {
+                  ...current,
+                  typoCount: current.typoCount + 1,
+                },
+              };
+            });
             setInputBlocked(true);
-            setResetTargetPlayerId(result.data.resetTargetPlayerId);
-            setWrongPlayerNickname(result.data.nickname);
+            setResetTargetPlayerId(result.data.playerId);
+            setWrongPlayerNickname(wrongPlayer?.nickname ?? null);
             setPhase(isMe ? 'reset_wait' : 'wrong');
             coopBus.emit('coop:screen-shake');
             return;
           }
 
-          case 'COOP_GAME_END': {
-            const result = CoopGameEndSchema.safeParse(message);
-            if (!result.success) {
-              console.error('[coop] Invalid COOP_GAME_END packet dropped.', result.error);
+          case 'ERROR': {
+            const code = getErrorCode(message);
+            if (code === 'GAME_ALREADY_ENDED') {
+              setInputBlocked(true);
               return;
             }
 
-            void navigate({ to: '/home' });
+            coopBus.emit('coop:input-wrong-shake');
             return;
           }
 
@@ -296,19 +374,27 @@ export function useCoopGame() {
             return;
         }
       },
-      `coop:game:${sessionId}`
+      privateKey
     );
 
-    return () => socketManager.unsubscribe(`coop:game:${sessionId}`);
+    return () => {
+      socketManager.unsubscribe(gameKey);
+      socketManager.unsubscribe(privateKey);
+      socketManager.disconnect();
+    };
   }, [
-    navigate,
+    roomId,
     sessionId,
     setCommands,
     setCompletedCount,
     setCurrentOrder,
+    setGraphActiveSequence,
+    setGraphCompletedSequences,
     setInputBlocked,
     setMyCommand,
     setMyCommandOrder,
+    setPlayerStats,
+    setResult,
     setSessionMeta,
     setPhase,
     setResetTargetPlayerId,
