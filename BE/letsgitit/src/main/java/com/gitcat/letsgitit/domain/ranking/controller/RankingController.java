@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.gitcat.letsgitit.domain.member.model.CustomUserDetails;
 import com.gitcat.letsgitit.domain.ranking.service.ContributionRankingService;
+import com.gitcat.letsgitit.domain.ranking.service.CoopRankingService;
 import com.gitcat.letsgitit.domain.ranking.service.SingleRankingService;
 import com.gitcat.letsgitit.global.enums.Difficulty;
 import com.gitcat.letsgitit.global.response.ApiResponse;
@@ -26,6 +27,7 @@ public class RankingController implements RankingControllerDocs {
 
 	private final SingleRankingService singleRankingService;
 	private final ContributionRankingService contributionRankingService;
+	private final CoopRankingService coopRankingService;
 
 	@Override
 	@GetMapping("/single")
@@ -118,7 +120,6 @@ public class RankingController implements RankingControllerDocs {
 		return ApiResponse.ok("타임어택 랭킹 조회 성공", data);
 	}
 
-	// TODO: 서비스 로직 연동 후 제거
 	@Override
 	@GetMapping("/coop")
 	public ResponseEntity<?> getCoopRanking(
@@ -131,102 +132,18 @@ public class RankingController implements RankingControllerDocs {
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 
-		if (afterRank == null && beforeRank == null) {
-			Map<String, Object> data = new LinkedHashMap<>();
-			data.put("year", 2026);
-			data.put("month", 4);
-			data.put("week", 18);
-			data.put("top3", List.of(
-				Map.of(
-					"rank", 1,
-					"teamName", "git masters",
-					"mapName", "기초 브랜치",
-					"difficulty", 3,
-					"elapsedTime", 61000,
-					"totalWrongTypeCount", 2,
-					"totalWrongOrderCount", 1,
-					"members", List.of(
-						Map.of("playerId", "22222222-e29b-41d4-a716-446655440000", "nickname", "alice"),
-						Map.of("playerId", "33333333-e29b-41d4-a716-446655440000", "nickname", "bob"),
-						Map.of("playerId", "44444444-e29b-41d4-a716-446655440000", "nickname", "charlie"),
-						Map.of("playerId", "11111111-e29b-41d4-a716-446655440000", "nickname", "dobby")))));
-			data.put("myRank", Map.of(
-				"rank", 5,
-				"teamName", "merge crew",
-				"mapName", "rebase 실전",
-				"difficulty", 3,
-				"elapsedTime", 83000,
-				"totalWrongTypeCount", 5,
-				"totalWrongOrderCount", 3,
-				"members", List.of(
-					Map.of("playerId", "aaaaaaaa-e29b-41d4-a716-446655440000", "nickname", "alice"),
-					Map.of("playerId", "bbbbbbbb-e29b-41d4-a716-446655440000", "nickname", "bob"),
-					Map.of("playerId", "cccccccc-e29b-41d4-a716-446655440000", "nickname", "charlie"),
-					Map.of("playerId", "99999999-e29b-41d4-a716-446655440000", "nickname", "dobby"))));
-			data.put("around", List.of(
-				Map.of(
-					"rank", 4,
-					"teamName", "reset zero",
-					"mapName", "브랜치 이동",
-					"difficulty", 3,
-					"elapsedTime", 81000,
-					"totalWrongTypeCount", 4,
-					"totalWrongOrderCount", 2,
-					"members", List.of(
-						Map.of("playerId", "dddddddd-e29b-41d4-a716-446655440000", "nickname", "user5"),
-						Map.of("playerId", "eeeeeeee-e29b-41d4-a716-446655440000", "nickname", "user6"),
-						Map.of("playerId", "ffffffff-e29b-41d4-a716-446655440000", "nickname", "user7"),
-						Map.of("playerId", "12121212-e29b-41d4-a716-446655440000", "nickname", "user8")))));
-			data.put("prevCursor", 4);
-			data.put("hasPrev", true);
-			data.put("nextCursor", 6);
-			data.put("hasNext", true);
-			return ApiResponse.ok("협력 랭킹 조회 성공", data);
-		}
+		UUID memberId = userDetails.getMemberId();
 
 		if (beforeRank != null) {
-			Map<String, Object> data = new LinkedHashMap<>();
-			data.put("rankings", List.of(
-				Map.of(
-					"rank", 2,
-					"teamName", "branch squad",
-					"mapName", "merge 충돌",
-					"difficulty", 3,
-					"elapsedTime", 72000,
-					"totalWrongTypeCount", 3,
-					"totalWrongOrderCount", 1,
-					"members", List.of(
-						Map.of("playerId", "23232323-e29b-41d4-a716-446655440000", "nickname", "anna"),
-						Map.of("playerId", "24242424-e29b-41d4-a716-446655440000", "nickname", "bella"),
-						Map.of("playerId", "25252525-e29b-41d4-a716-446655440000", "nickname", "cody"),
-						Map.of("playerId", "26262626-e29b-41d4-a716-446655440000", "nickname", "dane")))));
-			data.put("prevCursor", 2);
-			data.put("hasPrev", true);
-			data.put("nextCursor", 3);
-			data.put("hasNext", true);
-			return ApiResponse.ok("협력 랭킹 조회 성공", data);
+			return ApiResponse.ok("협력 랭킹 조회 성공",
+				coopRankingService.getCoopRankingScrollBefore(beforeRank, size, memberId));
 		}
-
-		Map<String, Object> data = new LinkedHashMap<>();
-		data.put("rankings", List.of(
-			Map.of(
-				"rank", afterRank + 1,
-				"teamName", "conflict solvers",
-				"mapName", "기초 브랜치",
-				"difficulty", 3,
-				"elapsedTime", 89000,
-				"totalWrongTypeCount", 7,
-				"totalWrongOrderCount", 4,
-				"members", List.of(
-					Map.of("playerId", "17171717-e29b-41d4-a716-446655440000", "nickname", "user13"),
-					Map.of("playerId", "18181818-e29b-41d4-a716-446655440000", "nickname", "user14"),
-					Map.of("playerId", "19191919-e29b-41d4-a716-446655440000", "nickname", "user15"),
-					Map.of("playerId", "20202020-e29b-41d4-a716-446655440000", "nickname", "user16")))));
-		data.put("prevCursor", afterRank + 1);
-		data.put("hasPrev", true);
-		data.put("nextCursor", afterRank + 20);
-		data.put("hasNext", true);
-		return ApiResponse.ok("협력 랭킹 조회 성공", data);
+		if (afterRank != null) {
+			return ApiResponse.ok("협력 랭킹 조회 성공",
+				coopRankingService.getCoopRankingScrollAfter(afterRank, size, memberId));
+		}
+		return ApiResponse.ok("협력 랭킹 조회 성공",
+			coopRankingService.getCoopRanking(memberId));
 	}
 
 	@Override
