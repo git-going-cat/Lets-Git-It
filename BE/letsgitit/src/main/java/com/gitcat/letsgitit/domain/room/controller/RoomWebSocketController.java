@@ -3,6 +3,8 @@ package com.gitcat.letsgitit.domain.room.controller;
 import java.security.Principal;
 import java.util.UUID;
 
+import jakarta.validation.Valid;
+
 import org.slf4j.MDC;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -45,7 +47,7 @@ public class RoomWebSocketController {
 	public void chat(
 		@DestinationVariable
 		Long roomId,
-		@Payload
+		@Valid @Payload
 		ChatRequest request,
 		Principal principal,
 		SimpMessageHeaderAccessor headerAccessor) {
@@ -76,7 +78,7 @@ public class RoomWebSocketController {
 	public void startGame(
 		@DestinationVariable
 		Long roomId,
-		@Payload
+		@Valid @Payload
 		GameStartRequest request,
 		Principal principal,
 		SimpMessageHeaderAccessor headerAccessor) {
