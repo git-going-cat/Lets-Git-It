@@ -146,3 +146,16 @@ lock.unlock() ──────────────────────
 `Object payload` → `GameStartPayload` sealed interface로 변경.
 `ContributionStartedResponse`, `CoopStartedResponse`가 `GameStartPayload`를 implement.
 타임어택 시작 DTO 추가 시 `permits` 목록에 함께 추가 필요.
+
+
+---
+
+### 게임 종료 후 대기방 복귀 시 비방장 멤버 준비 상태 미초기화 (2026-05-18)
+
+**현상**: 게임이 끝난 뒤 방이 WAITING 상태로 돌아왔을 때 이전 게임에서 준비했던 비방장 멤버의 `isReady`가 `true`로 남아 있어, 다음 게임 시작 시 준비 버튼을 누르지 않아도 준비된 것으로 간주됨.
+
+**원인**: `endGame()` / `handlePlayerDisconnect()` 흐름에서 방 상태를 WAITING으로 되돌릴 때 `room:{roomId}:members` 해시의 각 멤버 `isReady` 필드를 `false`로 초기화하는 처리가 없었다.
+
+**수정**: `RoomRedisRepository.resetAllMembersReady(roomId)` 추가.  
+`room:{roomId}:members` 해시를 전체 조회 후 각 멤버 JSON의 `isReady`를 `false`로 재직렬화해 덮어쓴다.  
+`RoomServiceImpl.resetRoomToWaiting()` 호출 시 `resetAllMembersReady` 함께 호출.

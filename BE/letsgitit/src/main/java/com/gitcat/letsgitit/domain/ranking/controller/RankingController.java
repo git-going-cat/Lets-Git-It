@@ -44,6 +44,11 @@ public class RankingController implements RankingControllerDocs {
 		Integer beforeRank,
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
+
+		if (afterRank != null && beforeRank != null) {
+			throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+		}
+
 		UUID memberId = userDetails.getMemberId();
 
 		if (afterRank == null && beforeRank == null) {
@@ -70,18 +75,22 @@ public class RankingController implements RankingControllerDocs {
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 
+		if (afterRank != null && beforeRank != null) {
+			throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+		}
+
 		UUID memberId = userDetails.getMemberId();
 
+		if (afterRank == null && beforeRank == null) {
+			return ApiResponse.ok("기여도 뺏기 랭킹 조회 성공",
+				contributionRankingService.getContributionRanking(size, memberId));
+		}
 		if (beforeRank != null) {
 			return ApiResponse.ok("기여도 뺏기 랭킹 조회 성공",
 				contributionRankingService.getContributionRankingScrollBefore(beforeRank, size, memberId));
 		}
-		if (afterRank != null) {
-			return ApiResponse.ok("기여도 뺏기 랭킹 조회 성공",
-				contributionRankingService.getContributionRankingScrollAfter(afterRank, size, memberId));
-		}
 		return ApiResponse.ok("기여도 뺏기 랭킹 조회 성공",
-			contributionRankingService.getContributionRanking(size, memberId));
+			contributionRankingService.getContributionRankingScrollAfter(afterRank, size, memberId));
 	}
 
 	// TODO: 서비스 로직 연동 후 제거
@@ -134,8 +143,16 @@ public class RankingController implements RankingControllerDocs {
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
 
+		if (afterRank != null && beforeRank != null) {
+			throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+		}
+
 		UUID memberId = userDetails.getMemberId();
 
+		if (afterRank == null && beforeRank == null) {
+			return ApiResponse.ok("협력 랭킹 조회 성공",
+				coopRankingService.getCoopRanking(memberId));
+		}
 		if (beforeRank != null) {
 			return ApiResponse.ok("협력 랭킹 조회 성공",
 				coopRankingService.getCoopRankingScrollBefore(beforeRank, size, memberId));
@@ -167,6 +184,10 @@ public class RankingController implements RankingControllerDocs {
 		Integer beforeRank,
 		@RequestParam(required = false, defaultValue = "20")
 		Integer size) {
+
+		if (afterRank != null && beforeRank != null) {
+			throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+		}
 
 		UUID memberId = userDetails.getMemberId();
 
