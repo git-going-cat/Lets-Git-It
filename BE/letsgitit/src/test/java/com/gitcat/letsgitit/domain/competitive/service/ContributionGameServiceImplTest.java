@@ -93,6 +93,7 @@ class ContributionGameServiceImplTest {
 		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 		when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+		when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
 		when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
 			new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
 			new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
@@ -125,13 +126,33 @@ class ContributionGameServiceImplTest {
 	}
 
 	@Test
-	void switch_명령어_정답이면_위치를_갱신하고_POSITION_UPDATE를_반환한다() {
+	void 일반_명령어가_현재_브랜치와_다르면_점수를_갱신하지_않고_INVALID_BRANCH를_반환한다() {
 		// given
-		ContributionInputMessage request = input(2, "git switch feature/login");
-		ContributionCommandCache command = ContributionCommandCache.ready(2, "git switch feature/login", "main");
+		ContributionInputMessage request = input(1, "git commit -m 'fix'");
+		ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "develop");
 		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
-		when(repository.findCommand(GAME_SESSION_ID, 2)).thenReturn(Optional.of(command));
+		when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+		when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
+
+		// when
+		ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+		// then
+		assertThat(result.broadcast()).isFalse();
+		assertThat(result.payload()).isInstanceOf(ContributionInputFailedMessage.class);
+		ContributionInputFailedMessage payload = (ContributionInputFailedMessage)result.payload();
+		assertThat(payload.errorReason()).isEqualTo("INVALID_BRANCH");
+		verify(repository, never()).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+		verify(repository, never()).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
+	}
+
+	@Test
+	void switch_명령어는_commandSequence_없이_위치를_갱신하고_POSITION_UPDATE를_반환한다() {
+		// given
+		ContributionInputMessage request = switchInput("git switch feature/login");
+		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 		when(repository.existsBranch(GAME_SESSION_ID, "feature/login")).thenReturn(true);
 
 		// when
@@ -144,18 +165,17 @@ class ContributionGameServiceImplTest {
 		assertThat(payload.type()).isEqualTo("POSITION_UPDATE");
 		assertThat(payload.branch()).isEqualTo("feature/login");
 		verify(repository).updatePosition(GAME_SESSION_ID, PLAYER_ID, "feature/login");
-		verify(repository).saveCommand(GAME_SESSION_ID, command.switched(PLAYER_ID));
+		verify(repository, never()).findCommand(any(), anyInt());
+		verify(repository, never()).saveCommand(any(), any());
 		verify(repository, never()).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
 	}
 
 	@Test
 	void switch_대상_브랜치가_없으면_개인_실패_메시지를_반환한다() {
 		// given
-		ContributionInputMessage request = input(2, "git switch missing");
-		ContributionCommandCache command = ContributionCommandCache.ready(2, "git switch missing", "main");
+		ContributionInputMessage request = switchInput("git switch missing");
 		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
-		when(repository.findCommand(GAME_SESSION_ID, 2)).thenReturn(Optional.of(command));
 		when(repository.existsBranch(GAME_SESSION_ID, "missing")).thenReturn(false);
 
 		// when
@@ -169,22 +189,22 @@ class ContributionGameServiceImplTest {
 	}
 
 	@Test
-	void switch_명령어가_다른_유효_브랜치로_입력되면_WRONG_COMMAND를_반환한다() {
+	void checkout_명령어도_유효_브랜치이면_위치를_갱신한다() {
 		// given
-		ContributionInputMessage request = input(2, "git switch feature/payment");
-		ContributionCommandCache command = ContributionCommandCache.ready(2, "git switch feature/login", "main");
+		ContributionInputMessage request = switchInput("git checkout feature/payment");
 		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
-		when(repository.findCommand(GAME_SESSION_ID, 2)).thenReturn(Optional.of(command));
+		when(repository.existsBranch(GAME_SESSION_ID, "feature/payment")).thenReturn(true);
 
 		// when
 		ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
 
 		// then
-		assertThat(result.broadcast()).isFalse();
-		assertThat(result.payload()).isInstanceOf(ContributionInputFailedMessage.class);
-		ContributionInputFailedMessage payload = (ContributionInputFailedMessage)result.payload();
-		assertThat(payload.errorReason()).isEqualTo("WRONG_COMMAND");
+		assertThat(result.broadcast()).isTrue();
+		assertThat(result.payload()).isInstanceOf(PositionUpdateMessage.class);
+		PositionUpdateMessage payload = (PositionUpdateMessage)result.payload();
+		assertThat(payload.branch()).isEqualTo("feature/payment");
+		verify(repository).updatePosition(GAME_SESSION_ID, PLAYER_ID, "feature/payment");
 	}
 
 	@Test
@@ -211,22 +231,6 @@ class ContributionGameServiceImplTest {
 
 		// when & then
 		assertThatThrownBy(() -> service.processInput(ROOM_ID, PLAYER_ID, input(1, "git commit -m 'fix'")))
-			.isInstanceOf(BusinessException.class)
-			.extracting("errorCode")
-			.isEqualTo(COMMAND_ALREADY_CLEARED);
-	}
-
-	@Test
-	void 이미_switch_처리된_명령어면_COMMAND_ALREADY_CLEARED_예외가_발생한다() {
-		// given
-		ContributionCommandCache command = ContributionCommandCache.ready(2, "git switch feature/login", "main")
-			.switched(OTHER_PLAYER_ID);
-		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
-		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
-		when(repository.findCommand(GAME_SESSION_ID, 2)).thenReturn(Optional.of(command));
-
-		// when & then
-		assertThatThrownBy(() -> service.processInput(ROOM_ID, PLAYER_ID, input(2, "git switch feature/login")))
 			.isInstanceOf(BusinessException.class)
 			.extracting("errorCode")
 			.isEqualTo(COMMAND_ALREADY_CLEARED);
@@ -538,6 +542,15 @@ class ContributionGameServiceImplTest {
 			REQUEST_ID,
 			GAME_SESSION_ID,
 			commandSequence,
+			inputText);
+	}
+
+	private ContributionInputMessage switchInput(String inputText) {
+		return new ContributionInputMessage(
+			"CONTRIBUTION_INPUT",
+			REQUEST_ID,
+			GAME_SESSION_ID,
+			null,
 			inputText);
 	}
 

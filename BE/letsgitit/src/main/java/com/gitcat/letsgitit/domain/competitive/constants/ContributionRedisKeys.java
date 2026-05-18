@@ -36,4 +36,8 @@ public final class ContributionRedisKeys {
 	public static String commandLock(UUID gameSessionId, int commandSequence) {
 		return COMMAND_LOCK_PREFIX + gameSessionId + ":command:" + commandSequence;
 	}
+
+	public static String positionLock(UUID gameSessionId, UUID playerId) {
+		return COMMAND_LOCK_PREFIX + gameSessionId + ":position:" + playerId;
+	}
 }

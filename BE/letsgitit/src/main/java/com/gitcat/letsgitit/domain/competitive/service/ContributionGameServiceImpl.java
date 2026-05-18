@@ -114,6 +114,13 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			.orElseThrow(() -> new BusinessException(GAME_NOT_STARTED));
 		validateSession(roomId, memberId, request.gameSessionId(), session);
 
+		if (isSwitchCommand(request.inputText())) {
+			return processSwitchInput(memberId, request);
+		}
+		if (request.commandSequence() == null) {
+			throw new BusinessException(INVALID_COMMAND);
+		}
+
 		RLock lock = redissonClient.getLock(
 			ContributionRedisKeys.commandLock(request.gameSessionId(), request.commandSequence()));
 		boolean locked = tryLock(lock);
@@ -123,9 +130,6 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 				.orElseThrow(() -> new BusinessException(INVALID_COMMAND));
 			validateCommandStatus(command);
 
-			if (isSwitchCommand(command.text())) {
-				return processSwitchInput(memberId, request, command);
-			}
 			return processCommandInput(memberId, request, command, session);
 		} finally {
 			if (locked) {
@@ -251,31 +255,30 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 
 	private ContributionInputResult processSwitchInput(
 		UUID memberId,
-		ContributionInputMessage request,
-		ContributionCommandCache command) {
-		if (!command.text().equals(request.inputText())) {
-			return ContributionInputResult.privateMessage(
-				ContributionInputFailedMessage.of(
-					request.gameSessionId(),
-					request.requestId(),
-					memberId,
-					"WRONG_COMMAND"));
+		ContributionInputMessage request) {
+		RLock lock = redissonClient.getLock(
+			ContributionRedisKeys.positionLock(request.gameSessionId(), memberId));
+		boolean locked = tryLock(lock);
+		try {
+			String branch = parseSwitchBranch(request.inputText());
+			if (!contributionGameRedisRepository.existsBranch(request.gameSessionId(), branch)) {
+				return ContributionInputResult.privateMessage(
+					ContributionInputFailedMessage.of(
+						request.gameSessionId(),
+						request.requestId(),
+						memberId,
+						"INVALID_BRANCH"));
+			}
+			contributionGameRedisRepository.updatePosition(request.gameSessionId(), memberId, branch);
+			log.info("[contribution][input] switch success. memberId={}, gameSessionId={}, branch={}",
+				memberId, request.gameSessionId(), branch);
+			return ContributionInputResult.broadcast(
+				PositionUpdateMessage.of(request.gameSessionId(), request.requestId(), memberId, branch));
+		} finally {
+			if (locked) {
+				lock.unlock();
+			}
 		}
-		String branch = parseSwitchBranch(command.text());
-		if (!contributionGameRedisRepository.existsBranch(request.gameSessionId(), branch)) {
-			return ContributionInputResult.privateMessage(
-				ContributionInputFailedMessage.of(
-					request.gameSessionId(),
-					request.requestId(),
-					memberId,
-					"INVALID_BRANCH"));
-		}
-		contributionGameRedisRepository.updatePosition(request.gameSessionId(), memberId, branch);
-		contributionGameRedisRepository.saveCommand(request.gameSessionId(), command.switched(memberId));
-		log.info("[contribution][input] switch success. memberId={}, gameSessionId={}, commandSequence={}",
-			memberId, request.gameSessionId(), request.commandSequence());
-		return ContributionInputResult.broadcast(
-			PositionUpdateMessage.of(request.gameSessionId(), request.requestId(), memberId, branch));
 	}
 
 	private ContributionInputResult processCommandInput(
@@ -290,6 +293,16 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 					request.requestId(),
 					memberId,
 					"WRONG_COMMAND"));
+		}
+		String currentBranch = contributionGameRedisRepository.findPosition(request.gameSessionId(), memberId)
+			.orElse(session.initialBranch());
+		if (!command.branchName().equals(currentBranch)) {
+			return ContributionInputResult.privateMessage(
+				ContributionInputFailedMessage.of(
+					request.gameSessionId(),
+					request.requestId(),
+					memberId,
+					"INVALID_BRANCH"));
 		}
 
 		contributionGameRedisRepository.saveCommand(request.gameSessionId(), command.cleared(memberId));

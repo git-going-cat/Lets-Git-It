@@ -27,7 +27,7 @@ class ContributionInputMessageTest {
 		assertThat(violations).isNotEmpty();
 		assertThat(violations)
 			.extracting(violation -> violation.getPropertyPath().toString())
-			.contains("type", "requestId", "gameSessionId", "commandSequence", "inputText");
+			.contains("type", "requestId", "gameSessionId", "commandSequenceRequiredForScorableCommand", "inputText");
 	}
 
 	@Test
@@ -66,5 +66,41 @@ class ContributionInputMessageTest {
 		assertThat(violations)
 			.extracting(violation -> violation.getPropertyPath().toString())
 			.contains("commandSequence");
+	}
+
+	@Test
+	void switch_명령어는_commandSequence가_없어도_검증에_성공한다() {
+		// given
+		ContributionInputMessage request = new ContributionInputMessage(
+			"CONTRIBUTION_INPUT",
+			UUID.randomUUID(),
+			UUID.randomUUID(),
+			null,
+			"git switch develop");
+
+		// when
+		Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
+
+		// then
+		assertThat(violations).isEmpty();
+	}
+
+	@Test
+	void 일반_명령어는_commandSequence가_없으면_검증에_실패한다() {
+		// given
+		ContributionInputMessage request = new ContributionInputMessage(
+			"CONTRIBUTION_INPUT",
+			UUID.randomUUID(),
+			UUID.randomUUID(),
+			null,
+			"git add .");
+
+		// when
+		Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
+
+		// then
+		assertThat(violations)
+			.extracting(violation -> violation.getPropertyPath().toString())
+			.contains("commandSequenceRequiredForScorableCommand");
 	}
 }

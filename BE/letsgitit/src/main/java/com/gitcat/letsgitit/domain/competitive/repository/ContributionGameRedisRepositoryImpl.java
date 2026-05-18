@@ -174,6 +174,14 @@ public class ContributionGameRedisRepositoryImpl implements ContributionGameRedi
 	}
 
 	@Override
+	public Optional<String> findPosition(UUID gameSessionId, UUID playerId) {
+		Object branch = gameStringRedisTemplate.opsForHash().get(
+			ContributionRedisKeys.positions(gameSessionId),
+			playerId.toString());
+		return Optional.ofNullable(branch).map(Object::toString);
+	}
+
+	@Override
 	public void updatePosition(UUID gameSessionId, UUID playerId, String branch) {
 		gameStringRedisTemplate.opsForHash().put(
 			ContributionRedisKeys.positions(gameSessionId),

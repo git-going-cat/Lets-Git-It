@@ -31,6 +31,8 @@ public interface ContributionGameRedisRepository {
 
 	boolean existsBranch(UUID gameSessionId, String branch);
 
+	Optional<String> findPosition(UUID gameSessionId, UUID playerId);
+
 	void updatePosition(UUID gameSessionId, UUID playerId, String branch);
 
 	long incrementSuccessCount(UUID gameSessionId, UUID playerId);
