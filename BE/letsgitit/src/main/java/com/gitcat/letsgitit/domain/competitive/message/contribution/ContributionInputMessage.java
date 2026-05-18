@@ -1,9 +1,10 @@
 package com.gitcat.letsgitit.domain.competitive.message.contribution;
 
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 import jakarta.validation.constraints.AssertTrue;
+
+import com.gitcat.letsgitit.domain.competitive.constants.CompetitiveConstants;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -24,8 +25,6 @@ public record ContributionInputMessage(
 	@NotBlank(message = "inputText는 필수입니다.")
 	String inputText) {
 
-	private static final Pattern SWITCH_PATTERN = Pattern.compile("^git\\s+(switch|checkout)\\s+\\S+\\s*$");
-
 	@AssertTrue(message = "type은 CONTRIBUTION_INPUT이어야 합니다.")
 	public boolean isContributionInputType() {
 		return "CONTRIBUTION_INPUT".equals(type);
@@ -33,6 +32,7 @@ public record ContributionInputMessage(
 
 	@AssertTrue(message = "일반 명령어 입력에는 commandSequence가 필수입니다.")
 	public boolean isCommandSequenceRequiredForScorableCommand() {
-		return inputText != null && SWITCH_PATTERN.matcher(inputText.trim()).matches() || commandSequence != null;
+		return (inputText != null && CompetitiveConstants.SWITCH_PATTERN.matcher(inputText.trim()).matches())
+			|| commandSequence != null;
 	}
 }

@@ -17,12 +17,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
+import com.gitcat.letsgitit.domain.competitive.constants.CompetitiveConstants;
 import com.gitcat.letsgitit.domain.competitive.constants.ContributionRedisKeys;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionCommandCache;
 import com.gitcat.letsgitit.domain.competitive.dto.ContributionGameSessionCache;
@@ -59,11 +59,9 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	private static final String COMMAND_STATUS_READY = "READY";
 	private static final String COMMAND_STATUS_CLEARED = "CLEARED";
 	private static final String COMMAND_STATUS_EXPIRED = "EXPIRED";
-	private static final String COMMAND_STATUS_SWITCHED = "SWITCHED";
 	private static final String CAT_NICKNAME = "[CAT]";
 	private static final long LOCK_WAIT_MS = 100;
 	private static final long LOCK_LEASE_MS = 2000;
-	private static final Pattern SWITCH_PATTERN = Pattern.compile("^git\\s+(switch|checkout)\\s+(.+)$");
 
 	private final ContributionGameRedisRepository contributionGameRedisRepository;
 	private final RedissonClient redissonClient;
@@ -242,7 +240,7 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	}
 
 	private void validateCommandStatus(ContributionCommandCache command) {
-		if (COMMAND_STATUS_CLEARED.equals(command.status()) || COMMAND_STATUS_SWITCHED.equals(command.status())) {
+		if (COMMAND_STATUS_CLEARED.equals(command.status())) {
 			throw new BusinessException(COMMAND_ALREADY_CLEARED);
 		}
 		if (COMMAND_STATUS_EXPIRED.equals(command.status())) {
@@ -362,9 +360,9 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		return scores;
 	}
 
-	private ContributionProgressMessage buildProgress(int clearedCommandCount, int totalCommands) {
-		int percent = totalCommands == 0 ? 0 : (int)Math.floor((clearedCommandCount * 100.0) / totalCommands);
-		return new ContributionProgressMessage(clearedCommandCount, totalCommands, percent);
+	private ContributionProgressMessage buildProgress(int processedCommandCount, int totalCommands) {
+		int percent = totalCommands == 0 ? 0 : (int)Math.floor((processedCommandCount * 100.0) / totalCommands);
+		return new ContributionProgressMessage(processedCommandCount, totalCommands, percent);
 	}
 
 	private boolean isCompleted(int processedCommandCount, int totalCommands) {
@@ -463,11 +461,11 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	}
 
 	private boolean isSwitchCommand(String commandText) {
-		return commandText != null && SWITCH_PATTERN.matcher(commandText.trim()).matches();
+		return commandText != null && CompetitiveConstants.SWITCH_PATTERN.matcher(commandText.trim()).matches();
 	}
 
 	private String parseSwitchBranch(String inputText) {
-		Matcher matcher = SWITCH_PATTERN.matcher(inputText.trim());
+		Matcher matcher = CompetitiveConstants.SWITCH_PATTERN.matcher(inputText.trim());
 		if (!matcher.matches()) {
 			throw new BusinessException(ErrorCode.INVALID_COMMAND);
 		}
