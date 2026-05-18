@@ -4,6 +4,8 @@ import java.text.Collator;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -14,7 +16,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.gitcat.letsgitit.domain.coop.entity.CoopResultMember;
+import com.gitcat.letsgitit.domain.coop.repository.CoopResultMemberRepository;
 import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.domain.ranking.constants.RankingKeyUtil;
 import com.gitcat.letsgitit.domain.ranking.dto.CoopRankingData;
@@ -22,7 +27,9 @@ import com.gitcat.letsgitit.domain.ranking.dto.response.CoopRankingEntry;
 import com.gitcat.letsgitit.domain.ranking.dto.response.CoopRankingInitialResponse;
 import com.gitcat.letsgitit.domain.ranking.dto.response.CoopRankingMemberDto;
 import com.gitcat.letsgitit.domain.ranking.dto.response.CoopRankingScrollResponse;
+import com.gitcat.letsgitit.domain.ranking.entity.CoopRanking;
 import com.gitcat.letsgitit.domain.ranking.repository.CoopRankingRedisRepository;
+import com.gitcat.letsgitit.domain.ranking.repository.CoopRankingRepository;
 import com.gitcat.letsgitit.global.util.WeekUtil;
 
 import lombok.RequiredArgsConstructor;
@@ -49,6 +56,8 @@ public class CoopRankingServiceImpl implements CoopRankingService {
 
 	private final CoopRankingRedisRepository coopRankingRedisRepository;
 	private final MemberService memberService;
+	private final CoopRankingRepository coopRankingRepository;
+	private final CoopResultMemberRepository coopResultMemberRepository;
 
 	@Override
 	public CoopRankingInitialResponse getCoopRanking(UUID memberId) {
@@ -309,5 +318,200 @@ public class CoopRankingServiceImpl implements CoopRankingService {
 			data.totalWrongTypeCount(),
 			data.totalWrongOrderCount(),
 			members);
+	}
+
+	/**
+	 * 과거주 협력 랭킹 초기 진입 조회
+	 * - top3: 화면 상단 3팀 고정 노출
+	 * - myRank: 로그인 사용자가 속한 팀 중 해당 주차 최고 순위 팀 (없으면 null)
+	 * - around: 내 팀 순위 기준 ±2 범위
+	 * - members: 각 팀의 팀원 목록, 닉네임 가나다순 정렬
+	 */
+	@Override
+	@Transactional(readOnly = true)
+	public CoopRankingInitialResponse getCoopRankingHistory(int year, int month, int week, int size, UUID memberId) {
+		// year/month/week → DB 저장 형식 "YYYY-MM-W" 변환 (예: "2025-04-3")
+		String weekKey = WeekUtil.getWeek(year, month, week);
+
+		List<CoopRanking> top3Raw = coopRankingRepository.findTop3ByWeek(weekKey);
+		long total = coopRankingRepository.countByWeek(weekKey);
+
+		// coop_ranking ↔ coop_result_member 조인으로 사용자가 속한 팀의 최고 순위 조회
+		CoopRanking myRankEntity = coopRankingRepository
+			.findMyCoopRankingByMemberIdAndWeek(memberId, weekKey)
+			.orElse(null);
+
+		if (myRankEntity == null) {
+			// 해당 주차에 참여 기록이 없으면 top3 + 첫 스크롤 커서만 반환
+			Map<UUID, List<CoopResultMember>> memberMap = fetchMemberMap(top3Raw);
+			Map<UUID, String> nicknameMap = fetchNicknameMap(memberMap.values());
+			List<CoopRankingEntry> top3 = toEntries(top3Raw, memberMap, nicknameMap);
+
+			boolean hasNext = total > 3;
+			return new CoopRankingInitialResponse(
+				year, month, week,
+				top3,
+				null, // myRank 없음
+				List.of(), // around 없음
+				null, false,
+				hasNext ? 3 : null,
+				hasNext);
+		}
+
+		// around 범위 계산: 내 팀 순위 ±2, 1 미만 및 전체 초과 방지
+		int aroundMinRank = Math.max(1, myRankEntity.getRank() - 2);
+		int aroundMaxRank = Math.min((int)total, myRankEntity.getRank() + 2);
+
+		List<CoopRanking> aroundRaw = coopRankingRepository.findAroundByWeekAndRank(weekKey, aroundMinRank,
+			aroundMaxRank);
+
+		// top3 + around + myRank 의 coopResultId를 한 번에 배치 조회 (N+1 방지)
+		List<CoopRanking> allRankings = new ArrayList<>();
+		allRankings.addAll(top3Raw);
+		allRankings.addAll(aroundRaw);
+		if (aroundRaw.stream().noneMatch(r -> r.getCoopResultId().equals(myRankEntity.getCoopResultId()))) {
+			// myRankEntity가 around 범위 밖인 경우(경계 근처)에도 멤버 조회 포함
+			allRankings.add(myRankEntity);
+		}
+		Map<UUID, List<CoopResultMember>> memberMap = fetchMemberMap(allRankings);
+		Map<UUID, String> nicknameMap = fetchNicknameMap(memberMap.values());
+
+		List<CoopRankingEntry> top3 = toEntries(top3Raw, memberMap, nicknameMap);
+		CoopRankingEntry myRank = toEntry(myRankEntity, memberMap, nicknameMap);
+		List<CoopRankingEntry> around = toEntries(aroundRaw, memberMap, nicknameMap);
+
+		// around의 첫 순위가 1이면 위로 더 없음 → prevCursor null
+		boolean hasPrev = aroundMinRank > 1;
+		Integer prevCursor = hasPrev ? aroundMinRank : null;
+		// around의 마지막 순위가 전체 끝이면 아래로 더 없음 → nextCursor null
+		boolean hasNext = aroundMaxRank < total;
+		Integer nextCursor = hasNext ? aroundMaxRank : null;
+
+		return new CoopRankingInitialResponse(
+			year, month, week,
+			top3, myRank, around,
+			prevCursor, hasPrev,
+			nextCursor, hasNext);
+	}
+
+	/**
+	 * 아래 방향 스크롤: afterRank 초과 데이터를 rank ASC로 조회
+	 * - size+1개 fetch로 hasNext 판단
+	 */
+	@Override
+	@Transactional(readOnly = true)
+	public CoopRankingScrollResponse getCoopRankingHistoryScrollAfter(int year, int month, int week, int afterRank,
+		int size, UUID memberId) {
+		String weekKey = WeekUtil.getWeek(year, month, week);
+
+		// size+1개 요청: size개는 현재 페이지, 1개 초과 시 hasNext=true
+		List<CoopRanking> raw = coopRankingRepository.findScrollResult(weekKey, afterRank, size + 1);
+
+		if (raw.isEmpty()) {
+			return new CoopRankingScrollResponse(List.of(), null, false, null, false);
+		}
+
+		boolean hasNext = raw.size() > size;
+		List<CoopRanking> page = hasNext ? raw.subList(0, size) : raw;
+
+		Map<UUID, List<CoopResultMember>> memberMap = fetchMemberMap(page);
+		Map<UUID, String> nicknameMap = fetchNicknameMap(memberMap.values());
+		List<CoopRankingEntry> rankings = toEntries(page, memberMap, nicknameMap);
+
+		boolean hasPrev = afterRank > 0; // afterRank가 0이면 이미 최상단
+		Integer prevCursor = hasPrev ? page.get(0).getRank() : null;
+		Integer nextCursor = hasNext ? page.get(page.size() - 1).getRank() : null;
+
+		return new CoopRankingScrollResponse(rankings, prevCursor, hasPrev, nextCursor, hasNext);
+	}
+
+	/**
+	 * 위 방향 스크롤: beforeRank 미만 데이터를 rank DESC로 조회 후 오름차순 복원
+	 * - DSL이 DESC로 반환하므로 Collections.reverse로 오름차순 복원
+	 */
+	@Override
+	@Transactional(readOnly = true)
+	public CoopRankingScrollResponse getCoopRankingHistoryScrollBefore(int year, int month, int week, int beforeRank,
+		int size, UUID memberId) {
+		String weekKey = WeekUtil.getWeek(year, month, week);
+
+		// hasNext 판단을 위해 total 조회 (현재 페이지 마지막 순위와 비교)
+		long total = coopRankingRepository.countByWeek(weekKey);
+
+		// DSL에서 rank DESC + size+1 fetch → hasPrev 판단용 1개 초과분 포함
+		List<CoopRanking> raw = coopRankingRepository.findScrollResultBefore(weekKey, beforeRank, size);
+
+		if (raw.isEmpty()) {
+			return new CoopRankingScrollResponse(List.of(), null, false, null, false);
+		}
+
+		boolean hasPrev = raw.size() > size;
+		// DSL이 DESC로 반환했으므로 화면 표시를 위해 오름차순(ASC)으로 뒤집기
+		List<CoopRanking> page = new ArrayList<>(hasPrev ? raw.subList(0, size) : raw);
+		Collections.reverse(page);
+
+		Map<UUID, List<CoopResultMember>> memberMap = fetchMemberMap(page);
+		Map<UUID, String> nicknameMap = fetchNicknameMap(memberMap.values());
+		List<CoopRankingEntry> rankings = toEntries(page, memberMap, nicknameMap);
+
+		Integer prevCursor = hasPrev ? page.get(0).getRank() : null;
+		// 현재 페이지 마지막 순위가 전체 끝 미만이면 아래 방향 데이터 존재
+		int lastRank = page.get(page.size() - 1).getRank();
+		boolean hasNext = (long)lastRank < total;
+		Integer nextCursor = hasNext ? lastRank : null;
+
+		return new CoopRankingScrollResponse(rankings, prevCursor, hasPrev, nextCursor, hasNext);
+	}
+
+	// CoopRanking 리스트 → CoopRankingEntry DTO 리스트 변환
+	private List<CoopRankingEntry> toEntries(List<CoopRanking> rankings,
+		Map<UUID, List<CoopResultMember>> memberMap,
+		Map<UUID, String> nicknameMap) {
+		return rankings.stream()
+			.map(r -> toEntry(r, memberMap, nicknameMap))
+			.toList();
+	}
+
+	// CoopRanking 단건 → CoopRankingEntry DTO 변환
+	// members는 닉네임 가나다순 정렬
+	private CoopRankingEntry toEntry(CoopRanking ranking,
+		Map<UUID, List<CoopResultMember>> memberMap,
+		Map<UUID, String> nicknameMap) {
+		List<CoopRankingMemberDto> members = memberMap
+			.getOrDefault(ranking.getCoopResultId(), List.of())
+			.stream()
+			.map(m -> new CoopRankingMemberDto(
+				m.getMemberId(),
+				nicknameMap.getOrDefault(m.getMemberId(), "[Unknown]")))
+			.sorted(Comparator.comparing(CoopRankingMemberDto::nickname))
+			.toList();
+
+		return new CoopRankingEntry(
+			ranking.getRank(),
+			ranking.getTeamName(),
+			ranking.getMapName(),
+			ranking.getDifficulty(),
+			ranking.getElapsedTime(),
+			ranking.getTotalWrongTypeCount(),
+			ranking.getTotalWrongOrderCount(),
+			members);
+	}
+
+	// CoopRanking 리스트의 coopResultId로 CoopResultMember를 배치 조회 후 coopResultId 기준으로 그룹핑
+	private Map<UUID, List<CoopResultMember>> fetchMemberMap(List<CoopRanking> rankings) {
+		List<UUID> coopResultIds = rankings.stream().map(CoopRanking::getCoopResultId).distinct().toList();
+		return coopResultMemberRepository.findAllByCoopResultIdIn(coopResultIds)
+			.stream()
+			.collect(Collectors.groupingBy(CoopResultMember::getCoopResultId));
+	}
+
+	// CoopResultMember 컬렉션에서 memberId를 수집해 닉네임 배치 조회
+	private Map<UUID, String> fetchNicknameMap(Collection<List<CoopResultMember>> memberLists) {
+		List<UUID> memberIds = memberLists.stream()
+			.flatMap(List::stream)
+			.map(CoopResultMember::getMemberId)
+			.distinct()
+			.toList();
+		return memberService.getNicknamesByIds(memberIds);
 	}
 }
