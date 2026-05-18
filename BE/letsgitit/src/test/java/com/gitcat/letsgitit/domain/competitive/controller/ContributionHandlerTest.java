@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 
+import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionExpireRequestMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionInputMessage;
 import com.gitcat.letsgitit.domain.competitive.service.ContributionGameService;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
@@ -54,6 +55,33 @@ class ContributionHandlerTest {
 				return ErrorCode.AUTHENTICATION_REQUIRED.getCode().equals(response.code());
 			}));
 		verify(contributionGameService, never()).processInput(
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
+	void 만료요청_Principal이_없으면_인증_에러를_반환하고_게임_로직을_호출하지_않는다() {
+		// given
+		SimpMessageHeaderAccessor headerAccessor = mock(SimpMessageHeaderAccessor.class);
+		when(headerAccessor.getSessionId()).thenReturn("session-1");
+		ContributionExpireRequestMessage request = new ContributionExpireRequestMessage(
+			"COMMAND_EXPIRE_REQUEST",
+			UUID.randomUUID(),
+			UUID.randomUUID(),
+			0);
+
+		// when
+		handler.expireCommand(1L, request, null, headerAccessor);
+
+		// then
+		verify(messageSender).sendToSession(
+			org.mockito.ArgumentMatchers.eq("session-1"),
+			argThat(payload -> {
+				WebSocketErrorResponse response = (WebSocketErrorResponse)payload;
+				return ErrorCode.AUTHENTICATION_REQUIRED.getCode().equals(response.code());
+			}));
+		verify(contributionGameService, never()).processExpireRequest(
 			org.mockito.ArgumentMatchers.any(),
 			org.mockito.ArgumentMatchers.any(),
 			org.mockito.ArgumentMatchers.any());

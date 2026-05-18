@@ -318,8 +318,9 @@ CREATE TABLE competitive_command_set (
 competitive_command_set_id BINARY(16)  NOT NULL,
 set_number                 INT         NOT NULL COMMENT '1 / 2 / 3',
 mode                       VARCHAR(50) NOT NULL COMMENT 'CONTRIBUTION / TIME_ATTACK',
+player_count               INT         NULL COMMENT '기여도 모드 플레이어 수',
 PRIMARY KEY (competitive_command_set_id),
-UNIQUE KEY uq_competitive_command_set (set_number, mode),
+UNIQUE KEY uq_competitive_command_set (set_number, mode, player_count),
 CONSTRAINT chk_competitive_command_set_mode
 CHECK (mode IN ('CONTRIBUTION', 'TIME_ATTACK'))
 );

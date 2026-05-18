@@ -302,7 +302,8 @@ public interface RankingControllerDocs {
 		@Parameter(name = "size", description = "페이지 크기 (기본값 20)") @Min(1) @Max(100)
 		Integer size);
 
-	@Operation(summary = "과거주 기여도 뺏기 랭킹 조회", description = "RDB에서 조회. afterRank/beforeRank 모두 생략 시 초기 응답, afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤.")
+	@Operation(summary = "과거주 기여도 뺏기 랭킹 조회", description = "RDB에서 조회. afterRank/beforeRank 모두 생략 시 초기 응답, afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤. afterRank와 beforeRank를 동시에 전달하면 400.")
+	@ApiResponse(responseCode = "400", description = "잘못된 요청 (afterRank와 beforeRank 동시 입력, 또는 파라미터 범위 오류)")
 	@ApiResponse(responseCode = "200", description = "기여도 뺏기 랭킹 조회 성공", content = @Content(mediaType = "application/json", examples = {
 		@ExampleObject(name = "초기 진입", value = """
 			{
@@ -339,11 +340,11 @@ public interface RankingControllerDocs {
 	ResponseEntity<?> getContributionRankingHistory(
 		@Parameter(hidden = true)
 		CustomUserDetails userDetails,
-		@Parameter(name = "year", description = "조회 연도", required = true)
+		@Parameter(name = "year", description = "조회 연도 (예: 2025). 1 이상", required = true) @Min(1)
 		Integer year,
-		@Parameter(name = "month", description = "조회 월", required = true)
+		@Parameter(name = "month", description = "조회 월 (1~12)", required = true) @Min(1) @Max(12)
 		Integer month,
-		@Parameter(name = "week", description = "조회 주차", required = true)
+		@Parameter(name = "week", description = "조회 주차 (1~6)", required = true) @Min(1) @Max(6)
 		Integer week,
 		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상") @Min(1)
 		Integer afterRank,
@@ -378,7 +379,8 @@ public interface RankingControllerDocs {
 		@Parameter(name = "size", description = "페이지 크기 (기본값 20)")
 		Integer size);
 
-	@Operation(summary = "과거주 협력 랭킹 조회", description = "RDB에서 조회. 팀 단위 랭킹. afterRank/beforeRank 모두 생략 시 초기 응답, afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤.")
+	@Operation(summary = "과거주 협력 랭킹 조회", description = "RDB에서 조회. 팀 단위 랭킹. afterRank/beforeRank 모두 생략 시 초기 응답, afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤. afterRank와 beforeRank를 동시에 전달하면 400.")
+	@ApiResponse(responseCode = "400", description = "잘못된 요청 (afterRank와 beforeRank 동시 입력, 또는 파라미터 범위 오류)")
 	@ApiResponse(responseCode = "200", description = "협력 랭킹 조회 성공", content = @Content(mediaType = "application/json", examples = {
 		@ExampleObject(name = "초기 진입", value = """
 			{
@@ -455,11 +457,11 @@ public interface RankingControllerDocs {
 	ResponseEntity<?> getCoopRankingHistory(
 		@Parameter(hidden = true)
 		CustomUserDetails userDetails,
-		@Parameter(name = "year", description = "조회 연도", required = true)
+		@Parameter(name = "year", description = "조회 연도 (예: 2025). 1 이상", required = true) @Min(1)
 		Integer year,
-		@Parameter(name = "month", description = "조회 월", required = true)
+		@Parameter(name = "month", description = "조회 월 (1~12)", required = true) @Min(1) @Max(12)
 		Integer month,
-		@Parameter(name = "week", description = "조회 주차", required = true)
+		@Parameter(name = "week", description = "조회 주차 (1~6)", required = true) @Min(1) @Max(6)
 		Integer week,
 		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상") @Min(1)
 		Integer afterRank,

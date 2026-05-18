@@ -12,6 +12,8 @@ import com.gitcat.letsgitit.domain.competitive.entity.ContributionResult;
 import com.gitcat.letsgitit.domain.competitive.entity.ContributionResultMember;
 import com.gitcat.letsgitit.domain.competitive.repository.ContributionResultMemberRepository;
 import com.gitcat.letsgitit.domain.competitive.repository.ContributionResultRepository;
+import com.gitcat.letsgitit.domain.member.service.MemberService;
+import com.gitcat.letsgitit.domain.record.service.RecordService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,10 +25,14 @@ public class ContributionResultSaveServiceImpl implements ContributionResultSave
 
 	private final ContributionResultRepository contributionResultRepository;
 	private final ContributionResultMemberRepository contributionResultMemberRepository;
+	private final MemberService memberService;
+	private final RecordService recordService;
 
 	@Override
 	@Transactional
-	public void saveCompletedResult(Long roomId, UUID gameSessionId, List<ContributionRankingCache> rankings) {
+	public void saveCompletedResult(Long roomId, UUID gameSessionId, List<ContributionRankingCache> rankings,
+		long startAt) {
+		int playTimeSeconds = (int)((System.currentTimeMillis() - startAt) / 1000);
 		String sessionId = gameSessionId.toString();
 		if (contributionResultRepository.existsBySessionId(sessionId)) {
 			log.warn("[contribution][saveCompletedResult] duplicate result ignored. roomId={}, gameSessionId={}",
@@ -54,8 +60,11 @@ public class ContributionResultSaveServiceImpl implements ContributionResultSave
 		}
 
 		try {
-			List<ContributionResultMember> members = rankings.stream()
+			List<ContributionRankingCache> realPlayers = rankings.stream()
 				.filter(ranking -> ranking.playerId() != null)
+				.toList();
+
+			List<ContributionResultMember> members = realPlayers.stream()
 				.map(ranking -> ContributionResultMember.of(
 					result.getId(),
 					ranking.playerId(),
@@ -64,6 +73,15 @@ public class ContributionResultSaveServiceImpl implements ContributionResultSave
 			contributionResultMemberRepository.saveAll(members);
 			log.info("[contribution][saveCompletedResult] roomId={}, gameSessionId={}, playerCount={}",
 				roomId, gameSessionId, members.size());
+
+			for (ContributionRankingCache ranking : realPlayers) {
+				memberService.addPlayTime(ranking.playerId(), playTimeSeconds);
+				boolean isNewRecord = recordService.updateContributionBestRecord(
+					ranking.playerId(), ranking.contribution(), ranking.rank());
+				log.info(
+					"[contribution][saveCompletedResult] playTime+record. memberId={}, playTimeSeconds={}, contribution={}, isNewRecord={}",
+					ranking.playerId(), playTimeSeconds, ranking.contribution(), isNewRecord);
+			}
 		} catch (RuntimeException e) {
 			log.error("[contribution][saveCompletedResult] unexpected error. roomId={}, gameSessionId={}",
 				roomId, gameSessionId, e);

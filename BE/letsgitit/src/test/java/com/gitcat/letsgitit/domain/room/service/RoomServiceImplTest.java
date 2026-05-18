@@ -576,12 +576,13 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.isAllMembersReady(ROOM_ID)).willReturn(true);
 			given(memberService.getNicknamesByIds(anyList())).willReturn(
 				Map.of(MEMBER_ID, "방장", OTHER_ID, "플레이어"));
-			given(commandService.getRandomContributionCommandSet()).willReturn(commandSet);
+			given(commandService.getRandomContributionCommandSet(2)).willReturn(commandSet);
 			given(recordService.getBestRecords(any())).willReturn(List.of());
 
 			GameStartResult result = roomService.startGame(ROOM_ID, MEMBER_ID, request);
 
 			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.IN_GAME.name());
+			then(commandService).should().getRandomContributionCommandSet(2);
 			assertThat(result.destination()).isEqualTo("/topic/room/" + ROOM_ID + "/contribution");
 		}
 
@@ -623,7 +624,7 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
 			given(roomRedisRepository.isAllMembersReady(ROOM_ID)).willReturn(true);
 			given(memberService.getNicknamesByIds(anyList())).willReturn(Map.of());
-			given(commandService.getRandomContributionCommandSet())
+			given(commandService.getRandomContributionCommandSet(2))
 				.willThrow(new BusinessException(COMMAND_SET_NOT_FOUND));
 
 			assertThatThrownBy(() -> roomService.startGame(ROOM_ID, MEMBER_ID, request))
@@ -675,6 +676,7 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, afterMembers);
 			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of(leftPlayer, host));
 			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(host));
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
 
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
@@ -682,7 +684,7 @@ class RoomServiceImplTest {
 			then(roomRedisRepository).should(never()).dissolveRoom(any());
 			then(roomRedisRepository).should(never()).updateHostId(any(), any());
 			then(roomWebSocketEventPublisher).should()
-				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "member", List.of(host));
+				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "member", List.of(host), "WAITING");
 			then(roomWebSocketEventPublisher).should(never()).publishHostDelegated(any(), any(), any());
 		}
 
@@ -700,6 +702,7 @@ class RoomServiceImplTest {
 			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, afterMembers);
 			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of(leftHost, newHost));
 			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(newHost));
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
 
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
@@ -708,7 +711,7 @@ class RoomServiceImplTest {
 
 			InOrder inOrder = Mockito.inOrder(roomWebSocketEventPublisher, rLock);
 			inOrder.verify(roomWebSocketEventPublisher)
-				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "host", List.of(newHost));
+				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "host", List.of(newHost), "WAITING");
 			inOrder.verify(roomWebSocketEventPublisher)
 				.publishHostDelegated(ROOM_ID, OTHER_ID, List.of(newHost));
 			inOrder.verify(rLock).unlock();
@@ -791,12 +794,13 @@ class RoomServiceImplTest {
 			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of());
 			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(host));
 			given(memberService.getNicknameById(MEMBER_ID)).willReturn("member");
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
 
 			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
 
 			then(roomRedisRepository).should().removeMember(ROOM_ID, MEMBER_ID.toString());
 			then(roomWebSocketEventPublisher).should()
-				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "member", List.of(host));
+				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "member", List.of(host), "WAITING");
 		}
 	}
 

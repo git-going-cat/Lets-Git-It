@@ -34,7 +34,7 @@ public class CoopRanking {
 	@Column(name = "map_name", nullable = false, length = 100)
 	private String mapName;
 
-	@Column(name = "difficulty", nullable = false, length = 20)
+	@Column(name = "difficulty", nullable = false)
 	private int difficulty;
 
 	@Column(name = "team_name", nullable = false, length = 100)

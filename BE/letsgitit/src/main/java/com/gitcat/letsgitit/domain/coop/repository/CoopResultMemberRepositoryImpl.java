@@ -1,6 +1,8 @@
 package com.gitcat.letsgitit.domain.coop.repository;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Repository;
 
@@ -17,5 +19,10 @@ public class CoopResultMemberRepositoryImpl implements CoopResultMemberRepositor
 	@Override
 	public void saveAll(List<CoopResultMember> members) {
 		jpaRepository.saveAll(members);
+	}
+
+	@Override
+	public List<CoopResultMember> findAllByCoopResultIdIn(Collection<UUID> coopResultIds) {
+		return jpaRepository.findAllByCoopResultIdIn(coopResultIds);
 	}
 }
