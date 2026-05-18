@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class CommandServiceImpl implements CommandService {
 
 	private static final Random RANDOM = new Random();
+	private static final long CONTRIBUTION_FALL_DURATION_MS = 20000L;
 
 	private final CommandSetRepository commandSetRepository;
 	private final CommandSetItemRepository commandSetItemRepository;
@@ -30,6 +31,18 @@ public class CommandServiceImpl implements CommandService {
 	@Override
 	public CommandSetResponse getRandomContributionCommandSet() {
 		List<CompetitiveCommandSet> sets = commandSetRepository.findAllByMode(CompetitiveMode.CONTRIBUTION);
+		return randomContributionCommandSet(sets);
+	}
+
+	@Override
+	public CommandSetResponse getRandomContributionCommandSet(int playerCount) {
+		List<CompetitiveCommandSet> sets = commandSetRepository.findAllByModeAndPlayerCount(
+			CompetitiveMode.CONTRIBUTION,
+			playerCount);
+		return randomContributionCommandSet(sets);
+	}
+
+	private CommandSetResponse randomContributionCommandSet(List<CompetitiveCommandSet> sets) {
 		if (sets.isEmpty()) {
 			throw new BusinessException(COMMAND_SET_NOT_FOUND);
 		}
@@ -40,7 +53,11 @@ public class CommandServiceImpl implements CommandService {
 		String initialBranch = items.isEmpty() ? "main" : items.get(0).getBranchName();
 
 		List<CommandSetItemDto> commandSet = items.stream()
-			.map(item -> new CommandSetItemDto(item.getSequence(), item.getCommandText(), item.getBranchName()))
+			.map(item -> new CommandSetItemDto(
+				item.getSequence(),
+				item.getCommandText(),
+				item.getBranchName(),
+				CONTRIBUTION_FALL_DURATION_MS))
 			.toList();
 
 		return new CommandSetResponse(set.getSetNumber(), initialBranch, commandSet);

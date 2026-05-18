@@ -6,5 +6,6 @@ public record ContributionRankingMessage(
 	int rank,
 	UUID playerId,
 	String nickname,
-	int contribution) {
+	int contribution,
+	boolean disconnected) {
 }

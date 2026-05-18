@@ -31,6 +31,8 @@ public interface ContributionGameRedisRepository {
 
 	boolean existsBranch(UUID gameSessionId, String branch);
 
+	Optional<String> findPosition(UUID gameSessionId, UUID playerId);
+
 	void updatePosition(UUID gameSessionId, UUID playerId, String branch);
 
 	long incrementSuccessCount(UUID gameSessionId, UUID playerId);
@@ -46,4 +48,8 @@ public interface ContributionGameRedisRepository {
 	void saveFinalRankings(UUID gameSessionId, List<ContributionRankingCache> rankings);
 
 	List<ContributionRankingCache> findFinalRankings(UUID gameSessionId);
+
+	void markPlayerDisconnected(UUID gameSessionId, UUID playerId);
+
+	boolean isPlayerDisconnected(UUID gameSessionId, UUID playerId);
 }

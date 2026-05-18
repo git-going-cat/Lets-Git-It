@@ -14,4 +14,6 @@ public interface RecordService {
 	MemberCoopBestRecord getBestCoopRecord(UUID memberId);
 
 	boolean updateSingleBestRecord(UUID memberId, Difficulty difficulty, int score, int rank);
+
+	boolean updateContributionBestRecord(UUID memberId, int contribution, int rank);
 }

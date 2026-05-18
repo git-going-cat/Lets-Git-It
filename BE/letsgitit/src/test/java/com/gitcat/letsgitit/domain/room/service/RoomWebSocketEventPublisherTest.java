@@ -66,7 +66,7 @@ class RoomWebSocketEventPublisherTest {
 		PlayerInfoDto remainPlayer = player(UUID.randomUUID(), true, true);
 		List<PlayerInfoDto> remainMembers = List.of(remainPlayer);
 
-		publisher.publishPlayerLeft(roomId, leftPlayerId, "dobby", remainMembers);
+		publisher.publishPlayerLeft(roomId, leftPlayerId, "dobby", remainMembers, "WAITING");
 
 		ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
 		verify(webSocketMessageSender).send(eq("/topic/room/1"), payloadCaptor.capture());
@@ -76,6 +76,7 @@ class RoomWebSocketEventPublisherTest {
 		assertThat(payload.leftPlayerId()).isEqualTo(leftPlayerId);
 		assertThat(payload.leftPlayerNickname()).isEqualTo("dobby");
 		assertThat(payload.remainMembers()).containsExactly(remainPlayer);
+		assertThat(payload.roomState()).isEqualTo("WAITING");
 	}
 
 	@Test

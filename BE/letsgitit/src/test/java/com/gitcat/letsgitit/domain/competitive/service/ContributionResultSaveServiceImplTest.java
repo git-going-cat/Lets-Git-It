@@ -3,7 +3,10 @@ package com.gitcat.letsgitit.domain.competitive.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -22,6 +25,8 @@ import com.gitcat.letsgitit.domain.competitive.entity.ContributionResult;
 import com.gitcat.letsgitit.domain.competitive.entity.ContributionResultMember;
 import com.gitcat.letsgitit.domain.competitive.repository.ContributionResultMemberRepository;
 import com.gitcat.letsgitit.domain.competitive.repository.ContributionResultRepository;
+import com.gitcat.letsgitit.domain.member.service.MemberService;
+import com.gitcat.letsgitit.domain.record.service.RecordService;
 
 class ContributionResultSaveServiceImplTest {
 
@@ -29,12 +34,19 @@ class ContributionResultSaveServiceImplTest {
 	private static final UUID GAME_SESSION_ID = UUID.randomUUID();
 	private static final UUID PLAYER_ID = UUID.randomUUID();
 	private static final UUID OTHER_PLAYER_ID = UUID.randomUUID();
+	private static final long START_AT = System.currentTimeMillis() - 60_000L;
 
 	@Mock
 	private ContributionResultRepository contributionResultRepository;
 
 	@Mock
 	private ContributionResultMemberRepository contributionResultMemberRepository;
+
+	@Mock
+	private MemberService memberService;
+
+	@Mock
+	private RecordService recordService;
 
 	private ContributionResultSaveServiceImpl service;
 
@@ -43,7 +55,9 @@ class ContributionResultSaveServiceImplTest {
 		MockitoAnnotations.openMocks(this);
 		service = new ContributionResultSaveServiceImpl(
 			contributionResultRepository,
-			contributionResultMemberRepository);
+			contributionResultMemberRepository,
+			memberService,
+			recordService);
 	}
 
 	@Test
@@ -54,7 +68,7 @@ class ContributionResultSaveServiceImplTest {
 			.thenAnswer(invocation -> invocation.getArgument(0));
 
 		// when
-		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings());
+		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings(), START_AT);
 
 		// then
 		ArgumentCaptor<ContributionResult> resultCaptor = ArgumentCaptor.forClass(ContributionResult.class);
@@ -76,7 +90,7 @@ class ContributionResultSaveServiceImplTest {
 			.thenAnswer(invocation -> invocation.getArgument(0));
 
 		// when
-		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings());
+		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings(), START_AT);
 
 		// then
 		ArgumentCaptor<List<ContributionResultMember>> membersCaptor = ArgumentCaptor.captor();
@@ -92,7 +106,7 @@ class ContributionResultSaveServiceImplTest {
 		when(contributionResultRepository.existsBySessionId(GAME_SESSION_ID.toString())).thenReturn(true);
 
 		// when
-		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings());
+		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings(), START_AT);
 
 		// then
 		verify(contributionResultRepository, never()).save(any());
@@ -107,7 +121,7 @@ class ContributionResultSaveServiceImplTest {
 			.thenAnswer(invocation -> invocation.getArgument(0));
 
 		// when
-		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings());
+		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings(), START_AT);
 
 		// then
 		ArgumentCaptor<List<ContributionResultMember>> membersCaptor = ArgumentCaptor.captor();
@@ -124,6 +138,26 @@ class ContributionResultSaveServiceImplTest {
 	}
 
 	@Test
+	void 실제_플레이어에게_플레이_시간_누적_및_최고_기록_갱신을_호출한다() {
+		// given
+		when(contributionResultRepository.existsBySessionId(GAME_SESSION_ID.toString())).thenReturn(false);
+		when(contributionResultRepository.save(any(ContributionResult.class)))
+			.thenAnswer(invocation -> invocation.getArgument(0));
+
+		// when
+		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings(), START_AT);
+
+		// then — CAT 제외 실제 플레이어(2명)에게만 호출
+		verify(memberService, times(2)).addPlayTime(any(UUID.class), anyInt());
+		verify(memberService).addPlayTime(eq(PLAYER_ID), anyInt());
+		verify(memberService).addPlayTime(eq(OTHER_PLAYER_ID), anyInt());
+
+		verify(recordService, times(2)).updateContributionBestRecord(any(UUID.class), anyInt(), anyInt());
+		verify(recordService).updateContributionBestRecord(eq(PLAYER_ID), eq(60), eq(1));
+		verify(recordService).updateContributionBestRecord(eq(OTHER_PLAYER_ID), eq(20), eq(2));
+	}
+
+	@Test
 	void DB_unique_충돌이_발생해도_idempotent하게_처리한다() {
 		// given
 		when(contributionResultRepository.existsBySessionId(GAME_SESSION_ID.toString()))
@@ -132,7 +166,7 @@ class ContributionResultSaveServiceImplTest {
 			.thenThrow(new DataIntegrityViolationException("duplicate session"));
 
 		// when
-		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings());
+		service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings(), START_AT);
 
 		// then
 		verify(contributionResultMemberRepository, never()).saveAll(any());
@@ -147,15 +181,15 @@ class ContributionResultSaveServiceImplTest {
 			.thenThrow(new DataIntegrityViolationException("constraint violation"));
 
 		// when & then
-		assertThatThrownBy(() -> service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings()))
+		assertThatThrownBy(() -> service.saveCompletedResult(ROOM_ID, GAME_SESSION_ID, rankings(), START_AT))
 			.isInstanceOf(DataIntegrityViolationException.class);
 		verify(contributionResultMemberRepository, never()).saveAll(any());
 	}
 
 	private List<ContributionRankingCache> rankings() {
 		return List.of(
-			new ContributionRankingCache(1, PLAYER_ID, "dobby", 60),
-			new ContributionRankingCache(2, null, "[CAT]", 20),
-			new ContributionRankingCache(2, OTHER_PLAYER_ID, "alice", 20));
+			new ContributionRankingCache(1, PLAYER_ID, "dobby", 60, false),
+			new ContributionRankingCache(2, null, "[CAT]", 20, false),
+			new ContributionRankingCache(2, OTHER_PLAYER_ID, "alice", 20, false));
 	}
 }

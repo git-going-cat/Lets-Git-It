@@ -7,4 +7,6 @@ import com.gitcat.letsgitit.global.enums.CompetitiveMode;
 
 public interface CommandSetRepository {
 	List<CompetitiveCommandSet> findAllByMode(CompetitiveMode mode);
+
+	List<CompetitiveCommandSet> findAllByModeAndPlayerCount(CompetitiveMode mode, int playerCount);
 }

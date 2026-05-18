@@ -49,11 +49,11 @@ public class RoomWebSocketEventPublisher {
 	}
 
 	public void publishPlayerLeft(Long roomId, UUID leftPlayerId, String leftPlayerNickname,
-		List<PlayerInfoDto> remainMembers) {
+		List<PlayerInfoDto> remainMembers, String roomState) {
 		try {
 			webSocketMessageSender.send(
 				ROOM_TOPIC_PREFIX + roomId,
-				PlayerLeftResponse.of(leftPlayerId, leftPlayerNickname, remainMembers));
+				PlayerLeftResponse.of(leftPlayerId, leftPlayerNickname, remainMembers, roomState));
 		} catch (RuntimeException e) {
 			log.warn(
 				"[room][publishPlayerLeft] PLAYER_LEFT publish failed. roomId={}, leftPlayerId={}, reason={}",
@@ -150,6 +150,18 @@ public class RoomWebSocketEventPublisher {
 			log.warn(
 				"[room][publishContributionGameEnd] CONTRIBUTION_GAME_END publish failed. roomId={}, reason={}",
 				roomId, response.reason(), e);
+		}
+	}
+
+	public void publishContributionEvent(Long roomId, Object response) {
+		try {
+			webSocketMessageSender.send(ROOM_TOPIC_PREFIX + roomId + "/contribution", response);
+			log.info("[room][publishContributionEvent] contribution event published. roomId={}, payloadType={}",
+				roomId, response.getClass().getSimpleName());
+		} catch (RuntimeException e) {
+			log.warn(
+				"[room][publishContributionEvent] contribution event publish failed. roomId={}, payloadType={}, reason={}",
+				roomId, response.getClass().getSimpleName(), e.getClass().getSimpleName(), e);
 		}
 	}
 }
