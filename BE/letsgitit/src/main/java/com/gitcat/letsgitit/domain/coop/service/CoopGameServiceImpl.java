@@ -40,6 +40,9 @@ import com.gitcat.letsgitit.domain.coop.repository.CoopGameRedisRepository;
 import com.gitcat.letsgitit.domain.coop.repository.CoopResultMemberRepository;
 import com.gitcat.letsgitit.domain.coop.repository.CoopResultRepository;
 import com.gitcat.letsgitit.domain.member.service.MemberService;
+import com.gitcat.letsgitit.domain.ranking.dto.CoopRankingData;
+import com.gitcat.letsgitit.domain.ranking.service.CoopRankingService;
+import com.gitcat.letsgitit.domain.ranking.util.RankingTimeUtil;
 import com.gitcat.letsgitit.domain.room.service.RoomService;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
@@ -57,6 +60,7 @@ public class CoopGameServiceImpl implements CoopGameService {
 	private final CoopResultRepository coopResultRepository;
 	private final CoopResultMemberRepository coopResultMemberRepository;
 	private final MemberService memberService;
+	private final CoopRankingService coopRankingService;
 	private final WebSocketMessageSender messageSender;
 	private final RedissonClient redissonClient;
 	private final TaskScheduler taskScheduler;
@@ -375,6 +379,26 @@ public class CoopGameServiceImpl implements CoopGameService {
 				.toList());
 			return result;
 		});
+
+		// 협력 랭킹 등록 (DB 커밋 후)
+		List<String> memberIdStrings = players.stream().map(UUID::toString).toList();
+		CoopRankingData rankingData = new CoopRankingData(
+			savedResult.getId().toString(),
+			teamName,
+			mapName,
+			difficulty,
+			elapsedTime,
+			totalWrongOrder,
+			totalWrongType,
+			RankingTimeUtil.currentWeekDeciseconds(),
+			memberIdStrings);
+		// 랭킹 등록 실패가 게임 종료 흐름(상태 정리 + WebSocket)을 막지 않도록 격리
+		try {
+			coopRankingService.registerCoopRanking(rankingData);
+		} catch (Exception e) {
+			log.error("[coop] ranking registration failed. gameSessionId={}, coopResultId={}",
+				gameSessionId, savedResult.getId(), e);
+		}
 
 		// WebSocket 전송
 		List<ResultDto> results = statsList.stream()
