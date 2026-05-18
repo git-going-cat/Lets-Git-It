@@ -82,10 +82,11 @@ function toCoopPlayers(): CoopPlayer[] {
   }));
 }
 
-function toRevealTiming(revealStartsAt: number, serverTime: number) {
+function toRevealTiming(revealStartsAt: number) {
   const revealDurationMs = 3000;
-  const revealDelayMs = Math.max(0, revealStartsAt - serverTime);
-  const elapsedMs = Math.max(0, serverTime - revealStartsAt);
+  const now = Date.now();
+  const revealDelayMs = Math.max(0, revealStartsAt - now);
+  const elapsedMs = Math.max(0, now - revealStartsAt);
   return {
     revealKey: Date.now(),
     revealDelayMs,
@@ -183,7 +184,7 @@ export function useCoopGame() {
             sequences.filter((sequence) => sequence < firstSequenceInRound)
           );
           setGraphActiveSequence(firstSequenceInRound);
-          setSessionMeta(toRevealTiming(result.data.revealStartsAt, result.data.serverTime));
+          setSessionMeta(toRevealTiming(result.data.revealStartsAt));
           setPhase('reveal');
           return;
         }
@@ -237,12 +238,8 @@ export function useCoopGame() {
     const gameKey = `coop:game:${roomId}`;
     const privateKey = 'coop:private';
 
-    console.log('[COOP] connect 시도', { roomId, sessionId });
-    socketManager.connect(token, () => {
-      console.log('[COOP] connect 성공, subscribe 시작');
-    });
+    socketManager.connect(token);
 
-    console.log('[COOP] subscribe 호출', `/topic/room/${roomId}/coop`);
     socketManager.subscribe(
       `/topic/room/${roomId}/coop`,
       (message) => {
@@ -273,7 +270,7 @@ export function useCoopGame() {
               sequences.filter((sequence) => sequence < firstSequenceInRound)
             );
             setGraphActiveSequence(firstSequenceInRound);
-            setSessionMeta(toRevealTiming(result.data.revealStartsAt, result.data.serverTime));
+            setSessionMeta(toRevealTiming(result.data.revealStartsAt));
             setPhase('reveal');
             return;
           }
