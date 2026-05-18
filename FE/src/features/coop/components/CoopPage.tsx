@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import Phaser from 'phaser';
 
@@ -25,6 +25,7 @@ export default function CoopPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const assignFallbackTimerRef = useRef<number | null>(null);
+  const shouldLeaveRoomRef = useRef(true);
   const phase = useAtomValue(coopPhaseAtom);
   const setPhase = useSetAtom(coopPhaseAtom);
   const setInputBlocked = useSetAtom(coopInputBlockedAtom);
@@ -41,9 +42,14 @@ export default function CoopPage() {
   const isStartCountdownDone = !hasStartCountdown || countdownDoneStartKey === startKey;
   const hasRevealPacket = revealKey > 0;
   const isCountdownDone = countdownDoneRevealKey === revealKey;
+  const shouldLeaveRoom = useCallback(() => shouldLeaveRoomRef.current, []);
 
   useCoopGame();
-  useRoomExitGuard({ roomId, reset: clearSession });
+  useRoomExitGuard({
+    roomId,
+    reset: clearSession,
+    shouldLeave: shouldLeaveRoom,
+  });
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -195,7 +201,11 @@ export default function CoopPage() {
         <CoopSidebar />
       </div>
 
-      <ResultModal />
+      <ResultModal
+        onBackToRoom={() => {
+          shouldLeaveRoomRef.current = false;
+        }}
+      />
     </div>
   );
 }

@@ -5,6 +5,10 @@ import PixelModal from '@/shared/components/PixelModal';
 
 import { useCoopStore } from '../store/coopStore';
 
+interface ResultModalProps {
+  onBackToRoom?: () => void;
+}
+
 function formatElapsedMs(ms: number) {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60)
@@ -17,7 +21,7 @@ function formatElapsedMs(ms: number) {
   return `${minutes}:${seconds}.${centiseconds}`;
 }
 
-export default function ResultModal() {
+export default function ResultModal({ onBackToRoom }: ResultModalProps) {
   const navigate = useNavigate();
   const result = useCoopStore((state) => state.result);
   const roomId = useCoopStore((state) => state.roomId);
@@ -35,6 +39,7 @@ export default function ResultModal() {
   };
 
   const handleBackToRoom = () => {
+    onBackToRoom?.();
     cleanup();
     if (roomId != null) {
       void navigate({ to: '/multi/$roomId', params: { roomId: String(roomId) } });
