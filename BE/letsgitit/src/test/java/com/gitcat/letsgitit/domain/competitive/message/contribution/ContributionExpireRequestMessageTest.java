@@ -17,7 +17,7 @@ class ContributionExpireRequestMessageTest {
 	private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
 	@Nested
-	class Validation {
+	class Constraints {
 
 		@Test
 		void 필수값이_누락되면_검증에_실패한다() {
