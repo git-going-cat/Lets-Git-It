@@ -1,4 +1,11 @@
-export type CoopGamePhase = 'reveal' | 'assign' | 'input' | 'wrong' | 'reset_wait' | 'ended';
+export type CoopGamePhase =
+  | 'waiting'
+  | 'reveal'
+  | 'assign'
+  | 'input'
+  | 'wrong'
+  | 'reset_wait'
+  | 'ended';
 
 export interface CoopPlayer {
   playerId: string;

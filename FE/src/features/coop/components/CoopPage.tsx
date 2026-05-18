@@ -16,6 +16,7 @@ import CoopCardArea from './CoopCardArea';
 import CoopGitShapePanel from './CoopGitShapePanel';
 import CoopHUD from './CoopHUD';
 import CoopSidebar from './CoopSidebar';
+import RevealOverlay from './overlays/RevealOverlay';
 import SirenOverlay from './overlays/SirenOverlay';
 import ResultModal from './ResultModal';
 import SimpleInputBar from './SimpleInputBar';
@@ -29,8 +30,17 @@ export default function CoopPage() {
   const setInputBlocked = useSetAtom(coopInputBlockedAtom);
   const roomId = useCoopStore((state) => state.roomId);
   const clearSession = useCoopStore((state) => state.clearSession);
+  const startKey = useCoopStore((state) => state.startKey);
+  const startDelayMs = useCoopStore((state) => state.startDelayMs);
+  const revealKey = useCoopStore((state) => state.revealKey);
   const revealDurationMs = useCoopStore((state) => state.revealDurationMs);
+  const [countdownDoneStartKey, setCountdownDoneStartKey] = useState<number | null>(null);
+  const [countdownDoneRevealKey, setCountdownDoneRevealKey] = useState<number | null>(null);
   const [showAssignedCard, setShowAssignedCard] = useState(false);
+  const hasStartCountdown = startKey > 0 && startDelayMs > 0;
+  const isStartCountdownDone = !hasStartCountdown || countdownDoneStartKey === startKey;
+  const hasRevealPacket = revealKey > 0;
+  const isCountdownDone = countdownDoneRevealKey === revealKey;
 
   useCoopGame();
   useRoomExitGuard({ roomId, reset: clearSession });
@@ -53,33 +63,33 @@ export default function CoopPage() {
   }, []);
 
   useEffect(() => {
-    if (phase !== 'reveal') return;
+    if (phase !== 'reveal' || !isStartCountdownDone || !hasRevealPacket || !isCountdownDone) {
+      return;
+    }
 
     const timerId = window.setTimeout(() => {
       setShowAssignedCard(false);
       setPhase('assign');
       coopBus.emit('coop:reveal-ended');
-      assignFallbackTimerRef.current = window.setTimeout(() => {
-        setShowAssignedCard(false);
-        setInputBlocked(false);
-        setPhase('input');
-        coopBus.emit('coop:cards-hide');
-      }, 10000);
     }, revealDurationMs);
 
     return () => {
       window.clearTimeout(timerId);
-      if (assignFallbackTimerRef.current !== null) {
-        window.clearTimeout(assignFallbackTimerRef.current);
-        assignFallbackTimerRef.current = null;
-      }
     };
-  }, [phase, revealDurationMs, setInputBlocked, setPhase]);
+  }, [hasRevealPacket, isCountdownDone, isStartCountdownDone, phase, revealDurationMs, setPhase]);
 
   useEffect(() => {
     if (phase !== 'assign') return;
 
     let timerId: number | null = null;
+    assignFallbackTimerRef.current = window.setTimeout(() => {
+      setShowAssignedCard(false);
+      setInputBlocked(false);
+      setPhase('input');
+      coopBus.emit('coop:cards-hide');
+      assignFallbackTimerRef.current = null;
+    }, 10000);
+
     const unsubscribe = coopBus.subscribe('coop:shuffle-complete', () => {
       if (assignFallbackTimerRef.current !== null) {
         window.clearTimeout(assignFallbackTimerRef.current);
@@ -129,9 +139,33 @@ export default function CoopPage() {
           />
 
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-6 pointer-events-none">
-            {phase === 'reveal' && (
+            {!isStartCountdownDone && (
+              <RevealOverlay
+                key={`start-${startKey}`}
+                delayMs={startDelayMs}
+                title="게임 시작"
+                onCountdownComplete={() => setCountdownDoneStartKey(startKey)}
+              />
+            )}
+
+            {phase === 'reveal' && isStartCountdownDone && hasRevealPacket && !isCountdownDone && (
+              <RevealOverlay
+                key={`reveal-${revealKey}`}
+                title="순서를 암기하세요!"
+                onCountdownComplete={() => setCountdownDoneRevealKey(revealKey)}
+              />
+            )}
+
+            {phase === 'reveal' && isStartCountdownDone && hasRevealPacket && isCountdownDone && (
               <div className="relative flex w-full flex-1 items-center justify-center">
                 <CoopCardArea />
+              </div>
+            )}
+
+            {(phase === 'waiting' ||
+              (phase === 'reveal' && (!isStartCountdownDone || !hasRevealPacket))) && (
+              <div className="flex w-full max-w-4xl flex-1 items-center justify-center pointer-events-auto">
+                <CoopGitShapePanel />
               </div>
             )}
 

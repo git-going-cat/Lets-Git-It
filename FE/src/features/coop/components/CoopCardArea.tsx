@@ -50,9 +50,9 @@ export default function CoopCardArea() {
   return (
     <section className="pointer-events-none z-20 flex w-full items-center justify-center">
       <div className="flex flex-row items-center justify-center gap-6">
-        {commands.map((command) => (
+        {commands.map((command, index) => (
           <CardFront
-            key={command.commandOrder}
+            key={`${command.commandOrder}-${index}`}
             commandOrder={command.commandOrder}
             commandText={command.commandText}
           />
