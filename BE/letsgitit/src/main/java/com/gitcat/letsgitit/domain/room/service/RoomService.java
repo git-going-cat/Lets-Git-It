@@ -36,6 +36,12 @@ public interface RoomService {
 	// 방 나가기 — 방장이면 위임 또는 방 해체, 아니면 단순 제거
 	void leaveRoom(Long roomId, UUID memberId);
 
+	// WebSocket disconnect 후 활성 세션이 없을 때 기여도 게임 중이면 방 나가기 처리
+	void leaveContributionGameIfDisconnected(String memberId);
+
+	// WebSocket disconnect 후 활성 세션이 없을 때 진행 중인 게임 모드에 맞춰 이탈 처리
+	void leaveGameIfDisconnected(String memberId);
+
 	// 준비 상태 변경 — ROOM_NOT_FOUND / ROOM_IN_GAME / PLAYER_NOT_IN_ROOM
 	ReadyChangedResponse updateReadyStatus(UUID memberId, Long roomId, ReadyUpdateRequest request);
 

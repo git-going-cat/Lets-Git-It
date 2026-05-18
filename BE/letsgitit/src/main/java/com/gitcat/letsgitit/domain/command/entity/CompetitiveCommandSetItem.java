@@ -8,7 +8,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// branch_name / display_text : CONTRIBUTION 전용 (TIME_ATTACK 은 NULL)
+// branch_name : CONTRIBUTION 전용 (TIME_ATTACK 은 NULL)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
@@ -35,18 +35,13 @@ public class CompetitiveCommandSetItem {
 	@Column(name = "branch_name", length = 100)
 	private String branchName;
 
-	@Column(name = "display_text", length = 255)
-	private String displayText;
-
 	public static CompetitiveCommandSetItem of(UUID competitiveCommandSetId, int sequence,
-		String commandText, String branchName,
-		String displayText) {
+		String commandText, String branchName) {
 		CompetitiveCommandSetItem item = new CompetitiveCommandSetItem();
 		item.competitiveCommandSetId = competitiveCommandSetId;
 		item.sequence = sequence;
 		item.commandText = commandText;
 		item.branchName = branchName;
-		item.displayText = displayText;
 		return item;
 	}
 }
