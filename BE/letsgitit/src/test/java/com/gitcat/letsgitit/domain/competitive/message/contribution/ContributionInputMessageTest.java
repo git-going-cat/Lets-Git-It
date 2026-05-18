@@ -9,62 +9,123 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 class ContributionInputMessageTest {
 
 	private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
-	@Test
-	void 필수값이_누락되면_검증에_실패한다() {
-		// given
-		ContributionInputMessage request = new ContributionInputMessage(null, null, null, null, " ");
+	@Nested
+	class Constraints {
 
-		// when
-		Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
+		@Test
+		void 필수값이_누락되면_검증에_실패한다() {
+			// given
+			ContributionInputMessage request = new ContributionInputMessage(null, null, null, null, " ");
 
-		// then
-		assertThat(violations).isNotEmpty();
-		assertThat(violations)
-			.extracting(violation -> violation.getPropertyPath().toString())
-			.contains("type", "requestId", "gameSessionId", "commandSequence", "inputText");
-	}
+			// when
+			Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
 
-	@Test
-	void type이_CONTRIBUTION_INPUT이_아니면_검증에_실패한다() {
-		// given
-		ContributionInputMessage request = new ContributionInputMessage(
-			"READY_UPDATE",
-			UUID.randomUUID(),
-			UUID.randomUUID(),
-			0,
-			"git add .");
+			// then
+			assertThat(violations).isNotEmpty();
+			assertThat(violations)
+				.extracting(violation -> violation.getPropertyPath().toString())
+				.contains("type", "requestId", "gameSessionId", "commandSequenceRequiredForScorableCommand",
+					"inputText");
+		}
 
-		// when
-		Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
+		@Test
+		void type이_CONTRIBUTION_INPUT이_아니면_검증에_실패한다() {
+			// given
+			ContributionInputMessage request = new ContributionInputMessage(
+				"READY_UPDATE",
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				0,
+				"git add .");
 
-		// then
-		assertThat(violations)
-			.extracting(violation -> violation.getPropertyPath().toString())
-			.contains("contributionInputType");
-	}
+			// when
+			Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
 
-	@Test
-	void commandSequence가_음수이면_검증에_실패한다() {
-		// given
-		ContributionInputMessage request = new ContributionInputMessage(
-			"CONTRIBUTION_INPUT",
-			UUID.randomUUID(),
-			UUID.randomUUID(),
-			-1,
-			"git add .");
+			// then
+			assertThat(violations)
+				.extracting(violation -> violation.getPropertyPath().toString())
+				.contains("contributionInputType");
+		}
 
-		// when
-		Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
+		@Test
+		void commandSequence가_음수이면_검증에_실패한다() {
+			// given
+			ContributionInputMessage request = new ContributionInputMessage(
+				"CONTRIBUTION_INPUT",
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				-1,
+				"git add .");
 
-		// then
-		assertThat(violations)
-			.extracting(violation -> violation.getPropertyPath().toString())
-			.contains("commandSequence");
+			// when
+			Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
+
+			// then
+			assertThat(violations)
+				.extracting(violation -> violation.getPropertyPath().toString())
+				.contains("commandSequence");
+		}
+
+		@Test
+		void switch_명령어는_commandSequence가_없어도_검증에_성공한다() {
+			// given
+			ContributionInputMessage request = new ContributionInputMessage(
+				"CONTRIBUTION_INPUT",
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				null,
+				"git switch develop");
+
+			// when
+			Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
+
+			// then
+			assertThat(violations).isEmpty();
+		}
+
+		@Test
+		void checkout_명령어는_commandSequence_없는_이동_명령으로_허용하지_않는다() {
+			// given
+			ContributionInputMessage request = new ContributionInputMessage(
+				"CONTRIBUTION_INPUT",
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				null,
+				"git checkout develop");
+
+			// when
+			Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
+
+			// then
+			assertThat(violations)
+				.extracting(violation -> violation.getPropertyPath().toString())
+				.contains("commandSequenceRequiredForScorableCommand");
+		}
+
+		@Test
+		void 일반_명령어는_commandSequence가_없으면_검증에_실패한다() {
+			// given
+			ContributionInputMessage request = new ContributionInputMessage(
+				"CONTRIBUTION_INPUT",
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				null,
+				"git add .");
+
+			// when
+			Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
+
+			// then
+			assertThat(violations)
+				.extracting(violation -> violation.getPropertyPath().toString())
+				.contains("commandSequenceRequiredForScorableCommand");
+		}
 	}
 }

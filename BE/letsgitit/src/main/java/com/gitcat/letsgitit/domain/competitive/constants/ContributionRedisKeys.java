@@ -5,7 +5,7 @@ import java.util.UUID;
 public final class ContributionRedisKeys {
 
 	private static final String SESSION_PREFIX = "contribution:session:";
-	private static final String COMMAND_LOCK_PREFIX = "lock:contribution:session:";
+	private static final String LOCK_PREFIX = "lock:contribution:session:";
 
 	private ContributionRedisKeys() {}
 
@@ -34,6 +34,18 @@ public final class ContributionRedisKeys {
 	}
 
 	public static String commandLock(UUID gameSessionId, int commandSequence) {
-		return COMMAND_LOCK_PREFIX + gameSessionId + ":command:" + commandSequence;
+		return LOCK_PREFIX + gameSessionId + ":command:" + commandSequence;
+	}
+
+	public static String sessionLock(UUID gameSessionId) {
+		return LOCK_PREFIX + gameSessionId + ":state";
+	}
+
+	public static String positionLock(UUID gameSessionId, UUID playerId) {
+		return LOCK_PREFIX + gameSessionId + ":position:" + playerId;
+	}
+
+	public static String disconnectedPlayers(UUID gameSessionId) {
+		return SESSION_PREFIX + gameSessionId + ":disconnected";
 	}
 }

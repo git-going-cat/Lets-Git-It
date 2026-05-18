@@ -1150,7 +1150,7 @@ GET /api/v1/rankings/contribution?afterRank={afterRank}&beforeRank={beforeRank}&
 ```json
 {
   "status": 200,
-  "message": "스피드런 랭킹 조회 성공",
+  "message": "기여도 뺏기 랭킹 조회 성공",
   "data": {
     "year": 2025,
     "month": 4,
@@ -1172,7 +1172,7 @@ GET /api/v1/rankings/contribution?afterRank={afterRank}&beforeRank={beforeRank}&
       },
       {
         "rank": 3,
-        "playerId": "772g0622-g41d-63f6-c938-668877662222",
+        "playerId": "772e0622-f41d-43f6-a938-668877662222",
         "nickname": "bob",
         "contribution": 10900,
         "playCount": 11
@@ -1260,7 +1260,7 @@ GET /api/v1/rankings/contribution?beforeRank=13&size=20
 ```json
 {
   "status": 200,
-  "message": "스피드런 랭킹 조회 성공",
+  "message": "기여도 뺏기 랭킹 조회 성공",
   "data": {
     "rankings": [
       {
@@ -1748,7 +1748,7 @@ GET /api/v1/rankings/contribution/history?year={year}&month={month}&week={week}&
 ```json
 {
   "status": 200,
-  "message": "스피드런 랭킹 조회 성공",
+  "message": "기여도 뺏기 랭킹 조회 성공",
   "data": {
     "year": 2025,
     "month": 4,
@@ -1770,7 +1770,7 @@ GET /api/v1/rankings/contribution/history?year={year}&month={month}&week={week}&
       },
       {
         "rank": 3,
-        "playerId": "772g0622-g41d-63f6-c938-668877662222",
+        "playerId": "772e0622-f41d-43f6-a938-668877662222",
         "nickname": "bob",
         "contribution": 10900,
         "playCount": 11
@@ -1858,7 +1858,7 @@ GET /api/v1/rankings/contribution/history?year=2025&month=4&week=3&beforeRank=13
 ```json
 {
   "status": 200,
-  "message": "스피드런 랭킹 조회 성공",
+  "message": "기여도 뺏기 랭킹 조회 성공",
   "data": {
     "rankings": [
       {
