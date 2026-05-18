@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import axios from 'axios';
 import { Cat, FolderClosed, Gamepad2, LockKeyhole, LockKeyholeOpen } from 'lucide-react';
+import { ZodError } from 'zod';
 
 import {
   useJoinContributionRoom,
@@ -79,9 +80,12 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
     }
   };
 
-  /** 409: 이미 이 방의 멤버 → store 최소 세팅 후 재접속으로 처리 */
+  /**
+   * 409 또는 join 응답 파싱 실패:
+   * 서버에서 이미 멤버 추가가 끝났을 수 있으므로 대기실 복원 플로우로 처리한다.
+   */
   const handle409OrError = (room: RoomSummary, fallbackMsg: string) => (err: unknown) => {
-    if (axios.isAxiosError(err) && err.response?.status === 409) {
+    if ((axios.isAxiosError(err) && err.response?.status === 409) || err instanceof ZodError) {
       useRoomStore
         .getState()
         .setPreviewForReconnect({ roomId: room.roomId, title: room.title, mode: room.mode });

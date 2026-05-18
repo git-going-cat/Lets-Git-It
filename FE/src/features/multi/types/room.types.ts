@@ -64,6 +64,21 @@ export interface CreateCoopRoomResponse {
   };
 }
 
+export interface UpdateContributionRoomRequest {
+  title: string;
+  hasPassword: boolean;
+  password?: string | null;
+  maxPlayers: number;
+}
+
+export interface UpdateCoopRoomRequest {
+  title: string;
+  teamName: string;
+  hasPassword: boolean;
+  password?: string | null;
+  selectedMapId: string;
+}
+
 export interface RoomMember {
   playerId: string;
   nickname: string;
@@ -97,6 +112,7 @@ export interface JoinContributionRoomResponse {
   roomState: RoomState;
   currentPlayers: number;
   maxPlayers: number;
+  hasPassword: boolean;
   members: RoomMember[];
 }
 
@@ -109,9 +125,10 @@ export interface JoinCoopRoomResponse {
   roomState: RoomState;
   currentPlayers: number;
   maxPlayers: number;
+  hasPassword: boolean;
   selectedMap: SelectedMap;
   members: RoomMember[];
-  mapList: MapInfo[];
+  mapList?: MapInfo[];
 }
 
 /** ROOM_STATE snapshot: WebSocket private queue or REST GET /api/v1/rooms/{roomId}/state */

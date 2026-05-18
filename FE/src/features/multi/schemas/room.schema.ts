@@ -87,6 +87,7 @@ export const joinContributionRoomResponseSchema = z.object({
   roomState: roomStateSchema,
   currentPlayers: z.number(),
   maxPlayers: z.number(),
+  hasPassword: z.boolean(),
   members: z.array(roomMemberSchema),
 });
 
@@ -99,9 +100,10 @@ export const joinCoopRoomResponseSchema = z.object({
   roomState: roomStateSchema,
   currentPlayers: z.number(),
   maxPlayers: z.number(),
+  hasPassword: z.boolean(),
   selectedMap: selectedMapSchema,
   members: z.array(roomMemberSchema),
-  mapList: z.array(mapInfoSchema),
+  mapList: z.array(mapInfoSchema).optional(),
 });
 
 // ── WebSocket 로비 메시지 스키마 ────────────────────────────────
@@ -128,12 +130,59 @@ export const playerLeftMessageSchema = z.object({
   remainMembers: z.array(roomMemberSchema),
 });
 
+export const playerKickedMessageSchema = z.object({
+  type: z.literal('PLAYER_KICKED'),
+  playerId: z.string(),
+  nickname: z.string(),
+  remainMembers: z.array(roomMemberSchema),
+});
+
 export const hostDelegatedMessageSchema = z.object({
   type: z.literal('HOST_DELEGATED'),
   newHostId: z.string(),
   newHostNickname: z.string(),
   remainMembers: z.array(roomMemberSchema),
 });
+
+export const hostTransferredMessageSchema = z.object({
+  type: z.literal('HOST_TRANSFERRED'),
+  newHostId: z.string(),
+  newHostNickname: z.string(),
+  allMembers: z.array(roomMemberSchema),
+});
+
+export const contributionRoomInfoUpdatedSchema = z.object({
+  type: z.literal('CONTRIBUTION_ROOM_INFO_UPDATED'),
+  roomId: z.number(),
+  roomCode: z.string(),
+  title: z.string(),
+  mode: z.literal('CONTRIBUTION'),
+  roomState: roomStateSchema,
+  currentPlayers: z.number(),
+  maxPlayers: z.number(),
+  hasPassword: z.boolean(),
+  members: z.array(roomMemberSchema),
+});
+
+export const coopRoomInfoUpdatedSchema = z.object({
+  type: z.literal('COOP_ROOM_INFO_UPDATED'),
+  roomId: z.number(),
+  roomCode: z.string(),
+  title: z.string(),
+  teamName: z.string(),
+  mode: z.literal('COOP'),
+  roomState: roomStateSchema,
+  currentPlayers: z.number(),
+  maxPlayers: z.number(),
+  hasPassword: z.boolean(),
+  selectedMap: selectedMapSchema,
+  members: z.array(roomMemberSchema),
+});
+
+export const roomInfoUpdatedSchema = z.union([
+  contributionRoomInfoUpdatedSchema,
+  coopRoomInfoUpdatedSchema,
+]);
 
 // ── 재연결용 WebSocket 메시지 스키마 ────────────────────────────────
 export const contributionRoomStateMessageSchema = z.object({
@@ -169,7 +218,11 @@ export const roomTopicMessageSchema = z.discriminatedUnion('type', [
   playerJoinedMessageSchema,
   readyChangedMessageSchema,
   playerLeftMessageSchema,
+  playerKickedMessageSchema,
   hostDelegatedMessageSchema,
+  hostTransferredMessageSchema,
+  contributionRoomInfoUpdatedSchema,
+  coopRoomInfoUpdatedSchema,
 ]);
 
 // /user/queue/private 에서 수신되는 방 상태 스냅샷 메시지
@@ -188,11 +241,11 @@ export const roomStateResponseSchema = roomPrivateMessageSchema;
  * 대기실 공통 채널과 게임 시작 패킷을 검증하는 WebSocket Zod 스키마.
  */
 
-export const BaseMessageSchema = z.object({
+export const baseMessageSchema = z.object({
   type: z.string(),
 });
 
-export const PlayerSchema = z.object({
+export const playerSchema = z.object({
   playerId: z.string().uuid(),
   nickname: z.string(),
   characterHair: z.string(),
@@ -205,7 +258,7 @@ export const PlayerSchema = z.object({
   isHost: z.boolean(),
 });
 
-export const RoomStateSchema = z.object({
+export const roomStateMessageSchema = z.object({
   type: z.literal('ROOM_STATE'),
   roomId: z.string(),
   roomTitle: z.string(),
@@ -214,37 +267,37 @@ export const RoomStateSchema = z.object({
   gameMode: z.string(),
   gameState: z.string(),
   hostId: z.string().uuid(),
-  members: z.array(PlayerSchema),
+  members: z.array(playerSchema),
 });
 
-export const PlayerJoinedSchema = z.object({
+export const playerJoinedLegacySchema = z.object({
   type: z.literal('PLAYER_JOINED'),
   roomState: z.enum(['WAITING', 'IN_GAME']),
-  joinedPlayer: PlayerSchema,
-  allMembers: z.array(PlayerSchema),
+  joinedPlayer: playerSchema,
+  allMembers: z.array(playerSchema),
 });
 
-export const PlayerLeftSchema = z.object({
+export const playerLeftLegacySchema = z.object({
   type: z.literal('PLAYER_LEFT'),
   playerId: z.string().uuid(),
   nickname: z.string(),
-  remainMembers: z.array(PlayerSchema),
+  remainMembers: z.array(playerSchema),
 });
 
-export const PlayerKickedSchema = z.object({
+export const playerKickedLegacySchema = z.object({
   type: z.literal('PLAYER_KICKED'),
   playerId: z.string().uuid(),
   nickname: z.string(),
-  remainMembers: z.array(PlayerSchema),
+  remainMembers: z.array(playerSchema),
 });
 
-export const KickedSchema = z.object({
+export const kickedSchema = z.object({
   type: z.literal('KICKED'),
   playerId: z.string().uuid(),
-  roomId: z.string(),
+  roomId: z.number(),
 });
 
-export const ReadyChangedSchema = z.object({
+export const readyChangedLegacySchema = z.object({
   type: z.literal('READY_CHANGED'),
   playerId: z.string().uuid(),
   nickname: z.string(),
@@ -252,34 +305,21 @@ export const ReadyChangedSchema = z.object({
   allReady: z.boolean(),
 });
 
-export const HostDelegatedSchema = z.object({
+export const hostDelegatedLegacySchema = z.object({
   type: z.literal('HOST_DELEGATED'),
   newHostId: z.string().uuid(),
   newHostNickname: z.string(),
-  remainMembers: z.array(PlayerSchema),
+  remainMembers: z.array(playerSchema),
 });
 
-export const HostTransferredSchema = z.object({
+export const hostTransferredLegacySchema = z.object({
   type: z.literal('HOST_TRANSFERRED'),
   newHostId: z.string().uuid(),
   newHostNickname: z.string(),
-  allMembers: z.array(PlayerSchema),
+  allMembers: z.array(playerSchema),
 });
 
-export const ContributionRoomInfoUpdatedSchema = z.object({
-  type: z.literal('CONTRIBUTION_ROOM_INFO_UPDATED'),
-});
-
-export const CoopRoomInfoUpdatedSchema = z.object({
-  type: z.literal('COOP_ROOM_INFO_UPDATED'),
-});
-
-export const RoomInfoUpdatedSchema = z.union([
-  ContributionRoomInfoUpdatedSchema,
-  CoopRoomInfoUpdatedSchema,
-]);
-
-export const ChatResponseSchema = z.object({
+export const chatResponseSchema = z.object({
   type: z.literal('CHAT_RESPONSE'),
   playerId: z.string().uuid(),
   nickname: z.string(),
@@ -287,45 +327,45 @@ export const ChatResponseSchema = z.object({
   sentAt: z.number(),
 });
 
-export const ForceDisconnectSchema = z.object({
+export const forceDisconnectSchema = z.object({
   type: z.literal('FORCE_DISCONNECT'),
   code: z.string(),
   message: z.string(),
 });
 
-export const ErrorSchema = z.object({
+export const errorSchema = z.object({
   type: z.literal('ERROR'),
   code: z.string(),
   message: z.string(),
 });
 
-const GameStartCommandSchema = z.object({
+const gameStartCommandSchema = z.object({
   commandSequence: z.number(),
   text: z.string(),
   branchName: z.string(),
 });
 
-const GameStartPlayerSchema = z.object({
+const gameStartPlayerSchema = z.object({
   playerId: z.string().uuid(),
   nickname: z.string(),
 });
 
-export const ContributionStartedSchema = z.object({
+export const contributionStartedSchema = z.object({
   type: z.literal('CONTRIBUTION_STARTED'),
   serverTime: z.number(),
   startAt: z.number(),
   gameSessionId: z.string(),
   commandSetId: z.number(),
   initialBranch: z.string(),
-  commandSet: z.array(GameStartCommandSchema),
+  commandSet: z.array(gameStartCommandSchema),
   players: z.array(
-    GameStartPlayerSchema.extend({
+    gameStartPlayerSchema.extend({
       bestContribution: z.number(),
     })
   ),
 });
 
-export const CoopStartedSchema = z.object({
+export const coopStartedSchema = z.object({
   type: z.literal('COOP_STARTED'),
   serverTime: z.number(),
   startAt: z.number(),
@@ -351,15 +391,15 @@ export const CoopStartedSchema = z.object({
     ),
   }),
   players: z.array(
-    GameStartPlayerSchema.extend({
+    gameStartPlayerSchema.extend({
       bestTime: z.number(),
     })
   ),
 });
 
-export type BaseMessage = z.infer<typeof BaseMessageSchema>;
-export type ForceDisconnectMessage = z.infer<typeof ForceDisconnectSchema>;
-export type KickedMessage = z.infer<typeof KickedSchema>;
-export type SocketErrorMessage = z.infer<typeof ErrorSchema>;
-export type ContributionStartedMessage = z.infer<typeof ContributionStartedSchema>;
-export type CoopStartedMessage = z.infer<typeof CoopStartedSchema>;
+export type BaseMessage = z.infer<typeof baseMessageSchema>;
+export type ForceDisconnectMessage = z.infer<typeof forceDisconnectSchema>;
+export type KickedMessage = z.infer<typeof kickedSchema>;
+export type SocketErrorMessage = z.infer<typeof errorSchema>;
+export type ContributionStartedMessage = z.infer<typeof contributionStartedSchema>;
+export type CoopStartedMessage = z.infer<typeof coopStartedSchema>;

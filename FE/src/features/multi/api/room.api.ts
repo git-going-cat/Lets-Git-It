@@ -23,6 +23,8 @@ import type {
   RoomListResponse,
   RoomStateResponse,
   RoomSummary,
+  UpdateContributionRoomRequest,
+  UpdateCoopRoomRequest,
 } from '../types/room.types';
 
 export async function getRooms(mode: string): Promise<RoomListResponse> {
@@ -54,6 +56,21 @@ export async function getCoopMaps(): Promise<CoopMapListResponse> {
 export async function createCoopRoom(body: CreateCoopRoomRequest): Promise<CreateCoopRoomResponse> {
   const { data } = await http.post<{ data: unknown }>('/api/v1/rooms/coop', body);
   return createCoopRoomResponseSchema.parse(data.data);
+}
+
+export async function updateContributionRoom(
+  roomId: number,
+  body: UpdateContributionRoomRequest
+): Promise<void> {
+  await http.patch(`/api/v1/rooms/${roomId}/contribution`, body);
+}
+
+export async function updateCoopRoom(roomId: number, body: UpdateCoopRoomRequest): Promise<void> {
+  await http.patch(`/api/v1/rooms/${roomId}/coop`, body);
+}
+
+export async function kickRoomMember(roomId: number, playerId: string): Promise<void> {
+  await http.delete(`/api/v1/rooms/${roomId}/members/${playerId}`);
 }
 
 export async function verifyRoomPassword(roomId: number, password: string): Promise<void> {

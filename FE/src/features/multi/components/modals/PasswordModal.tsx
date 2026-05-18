@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { LockKeyhole } from 'lucide-react';
+import { ZodError } from 'zod';
 
 import {
   useJoinContributionRoom,
@@ -15,7 +16,7 @@ interface PasswordModalProps {
   mode: GameMode;
   onClose: () => void;
   onSuccess: (roomId: number) => void;
-  /** 409: 이미 이 방의 멤버 → 재접속 */
+  /** 409 또는 join 응답 파싱 실패: 이미 이 방의 멤버일 수 있으므로 재접속 */
   on409?: (roomId: number) => void;
 }
 
@@ -59,7 +60,7 @@ export default function PasswordModal({
       }
       onSuccess(roomId);
     } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 409) {
+      if ((axios.isAxiosError(err) && err.response?.status === 409) || err instanceof ZodError) {
         on409?.(roomId);
         return;
       }
