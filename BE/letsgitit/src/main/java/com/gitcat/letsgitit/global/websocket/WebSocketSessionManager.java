@@ -24,15 +24,6 @@ public class WebSocketSessionManager {
 		messageSender.sendToUser(memberId, ForceDisconnectResponse.loggedOut());
 	}
 
-	public void notifyDisconnectByReissue(String memberId) {
-		if (!sessionRegistry.hasActiveSessions(memberId)) {
-			return;
-		}
-
-		log.info("WebSocket 강제 연결 종료 알림. memberId={}, reason=TOKEN_REISSUED", memberId);
-		messageSender.sendToUser(memberId, ForceDisconnectResponse.reissued());
-	}
-
 	public void notifyDisconnectByNewLogin(String memberId) {
 		if (!sessionRegistry.hasActiveSessions(memberId)) {
 			return;
