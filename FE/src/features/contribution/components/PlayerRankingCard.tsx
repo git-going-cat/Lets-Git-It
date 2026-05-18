@@ -1,4 +1,4 @@
-import AnimatedCharacter from '@/shared/components/AnimatedCharacter';
+import PlayerCharacterPreview from '@/shared/components/PlayerCharacterPreview';
 
 import MissCatSprite from './MissCatSprite';
 
@@ -47,15 +47,13 @@ export default function PlayerRankingCard({
         <div className="flex h-16 items-center justify-center">
           {isMiss ? (
             <MissCatSprite height={MISS_CAT_HEIGHT} />
-          ) : asset ? (
-            <AnimatedCharacter
+          ) : (
+            <PlayerCharacterPreview
               asset={asset}
-              animation="idle"
-              paused
-              cropTopRatio={0.25}
-              className="w-9"
+              className="flex h-16 items-center justify-center"
+              characterClassName="w-9"
             />
-          ) : null}
+          )}
         </div>
 
         {/* 이름 */}
