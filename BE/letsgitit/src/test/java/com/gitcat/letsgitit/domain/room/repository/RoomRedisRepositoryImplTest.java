@@ -568,4 +568,39 @@ class RoomRedisRepositoryImplTest {
 			then(scanCursor).should().close();
 		}
 	}
+
+	// ===================== resetMembersReadyExceptHost =====================
+
+	@Nested
+	class ResetMembersReadyExceptHost {
+
+		private static final String HOST_ID = MEMBER_ID;
+		private static final String NON_HOST_ID = "bbbbbbbb-0000-0000-0000-000000000002";
+
+		@Test
+		void 방장은_건너뛰고_비방장_멤버의_isReady를_false로_초기화한다() {
+			String hostJson = "{\"isReady\":true,\"isHost\":true,\"nickname\":\"방장\"}";
+			String nonHostJson = "{\"isReady\":true,\"isHost\":false,\"nickname\":\"플레이어\"}";
+
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(hashOps.entries(MEMBERS_KEY))
+				.willReturn(Map.of(HOST_ID, hostJson, NON_HOST_ID, nonHostJson));
+
+			repository.resetMembersReadyExceptHost(ROOM_ID);
+
+			then(hashOps).should(never()).put(any(), eq(HOST_ID), any());
+			then(hashOps).should().put(eq(MEMBERS_KEY), eq(NON_HOST_ID),
+				argThat((Object json) -> json.toString().contains("\"isReady\":false")));
+		}
+
+		@Test
+		void 멤버가_없으면_아무것도_저장하지_않는다() {
+			given(gameStringRedisTemplate.opsForHash()).willReturn(hashOps);
+			given(hashOps.entries(MEMBERS_KEY)).willReturn(Map.of());
+
+			repository.resetMembersReadyExceptHost(ROOM_ID);
+
+			then(hashOps).should(never()).put(any(), any(), any());
+		}
+	}
 }

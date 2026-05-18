@@ -383,6 +383,21 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 	}
 
 	@Override
+	public void resetMembersReadyExceptHost(Long roomId) {
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		Map<Object, Object> members = gameStringRedisTemplate.opsForHash().entries(membersKey);
+		for (Map.Entry<Object, Object> entry : members.entrySet()) {
+			String memberId = String.valueOf(entry.getKey());
+			Map<String, Object> memberInfo = readMemberInfo(entry.getValue());
+			if (Boolean.TRUE.equals(memberInfo.get("isHost"))) {
+				continue;
+			}
+			memberInfo.put("isReady", false);
+			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, toJson(memberInfo));
+		}
+	}
+
+	@Override
 	public void dissolveRoom(Long roomId) {
 		String roomIdValue = roomId.toString();
 		String infoKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomIdValue + RoomConstants.ROOM_INFO_KEY_SUFFIX;

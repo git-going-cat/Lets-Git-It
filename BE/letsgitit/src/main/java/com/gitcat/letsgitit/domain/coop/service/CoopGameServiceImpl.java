@@ -24,7 +24,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.gitcat.letsgitit.domain.coop.dto.request.CoopInputRequest;
 import com.gitcat.letsgitit.domain.coop.dto.request.CoopResetRequest;
 import com.gitcat.letsgitit.domain.coop.dto.response.CoopGameEndResponse;
-import com.gitcat.letsgitit.domain.coop.dto.response.CoopGameEndResponse.ResultDto;
 import com.gitcat.letsgitit.domain.coop.dto.response.CoopInputCorrectResponse;
 import com.gitcat.letsgitit.domain.coop.dto.response.CoopInputWrongResponse;
 import com.gitcat.letsgitit.domain.coop.dto.response.CoopOrderWrongResponse;
@@ -43,6 +42,7 @@ import com.gitcat.letsgitit.domain.member.service.MemberService;
 import com.gitcat.letsgitit.domain.ranking.dto.CoopRankingData;
 import com.gitcat.letsgitit.domain.ranking.service.CoopRankingService;
 import com.gitcat.letsgitit.domain.ranking.util.RankingTimeUtil;
+import com.gitcat.letsgitit.domain.record.service.RecordService;
 import com.gitcat.letsgitit.domain.room.service.RoomService;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
@@ -60,6 +60,7 @@ public class CoopGameServiceImpl implements CoopGameService {
 	private final CoopResultRepository coopResultRepository;
 	private final CoopResultMemberRepository coopResultMemberRepository;
 	private final MemberService memberService;
+	private final RecordService recordService;
 	private final CoopRankingService coopRankingService;
 	private final WebSocketMessageSender messageSender;
 	private final RedissonClient redissonClient;
@@ -97,6 +98,8 @@ public class CoopGameServiceImpl implements CoopGameService {
 		try {
 			boolean acquired = lock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
 			if (!acquired) {
+				log.warn("[coop] input lock acquisition failed. gameSessionId={}, memberId={}", gameSessionId,
+					memberId);
 				throw new BusinessException(LOCK_ACQUISITION_FAILED);
 			}
 
@@ -162,6 +165,8 @@ public class CoopGameServiceImpl implements CoopGameService {
 		try {
 			boolean acquired = lock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
 			if (!acquired) {
+				log.warn("[coop] reset lock acquisition failed. gameSessionId={}, memberId={}", gameSessionId,
+					memberId);
 				throw new BusinessException(LOCK_ACQUISITION_FAILED);
 			}
 
@@ -212,19 +217,33 @@ public class CoopGameServiceImpl implements CoopGameService {
 
 	@Override
 	public void handlePlayerDisconnect(Long roomId) {
-		UUID gameSessionId = coopGameRedisRepository.findGameSessionIdByRoomId(roomId);
-
-		// gameSessionId가 null이면 100ms 윈도우 중 disconnect(아직 initAndStartGame이 실행 전)
-		// isGameActive가 false면 endGame()이 이미 완료된 케이스 — 두 경우 모두 Redis 정리는 생략
-		if (gameSessionId != null && coopGameRedisRepository.isGameActive(gameSessionId)) {
-			coopGameRedisRepository.deleteGameState(gameSessionId);
-			coopGameRedisRepository.deleteRoomGameSession(roomId);
+		String lockKey = String.format(LOCK_DISCONNECT, roomId);
+		RLock lock = redissonClient.getLock(lockKey);
+		try {
+			boolean acquired = lock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
+			if (!acquired) {
+				log.warn("[coop] disconnect lock acquisition failed. roomId={}", roomId);
+				return;
+			}
+			UUID gameSessionId = coopGameRedisRepository.findGameSessionIdByRoomId(roomId);
+			// gameSessionId가 null이면 100ms 윈도우 중 disconnect(아직 initAndStartGame이 실행 전)
+			// isGameActive가 false면 endGame()이 이미 완료된 케이스 — 두 경우 모두 Redis 정리는 생략
+			if (gameSessionId != null && coopGameRedisRepository.isGameActive(gameSessionId)) {
+				coopGameRedisRepository.deleteGameState(gameSessionId);
+				coopGameRedisRepository.deleteRoomGameSession(roomId);
+				roomService.resetRoomAfterGame(roomId);
+				messageSender.send("/topic/room/" + roomId + "/coop",
+					CoopGameEndResponse.disconnected(gameSessionId));
+			}
+			log.info("[coop] player disconnected. gameSessionId={}, roomId={}", gameSessionId, roomId);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			log.warn("[coop] disconnect lock interrupted. roomId={}", roomId);
+		} finally {
+			if (lock.isHeldByCurrentThread()) {
+				lock.unlock();
+			}
 		}
-
-		log.info("[coop] player disconnected. gameSessionId={}, roomId={}", gameSessionId, roomId);
-		roomService.resetRoomAfterGame(roomId);
-		messageSender.send("/topic/room/" + roomId + "/coop",
-			CoopGameEndResponse.disconnected(gameSessionId));
 	}
 
 	// ── private: 라운드 시작 ──────────────────────────────────────────────────────
@@ -329,6 +348,38 @@ public class CoopGameServiceImpl implements CoopGameService {
 	}
 
 	private void endGame(Long roomId, UUID gameSessionId) {
+		// LOCK_DISCONNECT를 획득해 handlePlayerDisconnect와의 동시 실행을 막는다.
+		// 선점 케이스 1: disconnect가 먼저 상태를 지운 경우 → isGameActive=false → 조기 반환
+		// 선점 케이스 2: endGame이 먼저 락을 획득한 경우 → disconnect는 isGameActive=false를 보고 조기 반환
+		String disconnectLockKey = String.format(LOCK_DISCONNECT, roomId);
+		RLock disconnectLock = redissonClient.getLock(disconnectLockKey);
+		try {
+			boolean acquired = disconnectLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
+			if (!acquired) {
+				log.warn("[coop] endGame: disconnect lock acquisition failed. gameSessionId={}, roomId={}",
+					gameSessionId, roomId);
+				return;
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			log.warn("[coop] endGame interrupted while acquiring lock. gameSessionId={}", gameSessionId);
+			return;
+		}
+
+		try {
+			if (!coopGameRedisRepository.isGameActive(gameSessionId)) {
+				log.warn("[coop] endGame: game already terminated (disconnect race). gameSessionId={}", gameSessionId);
+				return;
+			}
+			endGameInternal(roomId, gameSessionId);
+		} finally {
+			if (disconnectLock.isHeldByCurrentThread()) {
+				disconnectLock.unlock();
+			}
+		}
+	}
+
+	private void endGameInternal(Long roomId, UUID gameSessionId) {
 		long startTime = coopGameRedisRepository.getStartTime(gameSessionId);
 		int elapsedTime = (int)(System.currentTimeMillis() - startTime);
 
@@ -369,49 +420,58 @@ public class CoopGameServiceImpl implements CoopGameService {
 		int totalWrongOrder = statsList.stream().mapToInt(PlayerStats::wrongOrder).sum();
 
 		// private 메서드에는 @Transactional AOP가 적용되지 않으므로 TransactionTemplate으로 직접 트랜잭션 시작
-		// CoopResult 저장 → ID 발급 → CoopResultMember 일괄 저장을 하나의 트랜잭션으로 묶음
-		CoopResult savedResult = transactionTemplate.execute(status -> {
-			CoopResult result = coopResultRepository.save(
-				CoopResult.of(roomId, gameSessionId.toString(), mapName, difficulty,
-					teamName, elapsedTime, totalWrongType, totalWrongOrder));
-			coopResultMemberRepository.saveAll(statsList.stream()
-				.map(s -> CoopResultMember.of(result.getId(), s.id(), s.wrongType(), s.wrongOrder()))
-				.toList());
-			return result;
-		});
-
-		// 협력 랭킹 등록 (DB 커밋 후)
-		List<String> memberIdStrings = players.stream().map(UUID::toString).toList();
-		CoopRankingData rankingData = new CoopRankingData(
-			savedResult.getId().toString(),
-			teamName,
-			mapName,
-			difficulty,
-			elapsedTime,
-			totalWrongOrder,
-			totalWrongType,
-			RankingTimeUtil.currentWeekDeciseconds(),
-			memberIdStrings);
-		// 랭킹 등록 실패가 게임 종료 흐름(상태 정리 + WebSocket)을 막지 않도록 격리
-		try {
-			coopRankingService.registerCoopRanking(rankingData);
-		} catch (Exception e) {
-			log.error("[coop] ranking registration failed. gameSessionId={}, coopResultId={}",
-				gameSessionId, savedResult.getId(), e);
+		// CoopResult 저장 → CoopResultMember 저장 → 최고기록 갱신 → 플레이 시간 누적을 하나의 트랜잭션으로 묶음
+		// DB 저장 실패 시에도 Redis 정리·방 초기화·클라이언트 알림은 반드시 실행되어야 하므로 예외를 잡아둠
+		record SaveResult(CoopResult coopResult, Map<UUID, Boolean> newRecordMap) {
 		}
+		SaveResult saveResult = null;
 
-		// WebSocket 전송
-		List<ResultDto> results = statsList.stream()
-			.map(s -> new ResultDto(s.id(), memberService.getNicknameById(s.id()),
-				s.wrongType(), s.wrongOrder(), rankMap.get(s.id())))
-			.toList();
+		try {
+			saveResult = transactionTemplate.execute(status -> {
+				CoopResult result = coopResultRepository.save(
+					CoopResult.of(roomId, gameSessionId.toString(), mapName, difficulty,
+						teamName, elapsedTime, totalWrongType, totalWrongOrder));
 
-		coopGameRedisRepository.deleteGameState(gameSessionId);
-		coopGameRedisRepository.deleteRoomGameSession(roomId);
-		roomService.resetRoomAfterGame(roomId);
-		messageSender.send("/topic/room/" + roomId + "/coop",
-			CoopGameEndResponse.success(gameSessionId, elapsedTime, results));
+				coopResultMemberRepository.saveAll(statsList.stream()
+					.map(s -> CoopResultMember.of(result.getId(), s.id(), s.wrongType(), s.wrongOrder()))
+					.toList());
 
-		log.info("[coop] game ended. gameSessionId={}, elapsedTime={}ms", gameSessionId, elapsedTime);
+				Map<UUID, Boolean> newRecordMap = new HashMap<>();
+				statsList.forEach(s -> {
+					newRecordMap.put(s.id(),
+						recordService.updateCoopBestRecord(s.id(), mapName, difficulty, elapsedTime,
+							rankMap.get(s.id())));
+					memberService.addPlayTime(s.id(), elapsedTime / 1000);
+				});
+
+				return new SaveResult(result, newRecordMap);
+			});
+
+			// DB 저장 성공한 경우에만 랭킹 등록 시도
+			try {
+				List<String> memberIdStrings = players.stream()
+					.map(UUID::toString)
+					.toList();
+
+				CoopRankingData rankingData = new CoopRankingData(
+					saveResult.coopResult().getId().toString(),
+					teamName,
+					mapName,
+					difficulty,
+					elapsedTime,
+					totalWrongOrder,
+					totalWrongType,
+					RankingTimeUtil.currentWeekDeciseconds(),
+					memberIdStrings);
+
+				coopRankingService.registerCoopRanking(rankingData);
+			} catch (Exception e) {
+				log.error("[coop] ranking registration failed. gameSessionId={}, coopResultId={}",
+					gameSessionId, saveResult.coopResult().getId(), e);
+			}
+
+		} catch (Exception e) {
+			log.error("[coop] DB 저장 실패. gameSessionId={}, roomId={}", gameSessionId, roomId, e);
+		}
 	}
 }

@@ -38,6 +38,7 @@ public class CoopConstants {
 	// Distributed lock keys
 	public static final String LOCK_INPUT = "coop:lock:input:%s";
 	public static final String LOCK_RESET = "coop:lock:reset:%s";
+	public static final String LOCK_DISCONNECT = "coop:lock:disconnect:%s";
 	public static final long LOCK_WAIT_SECONDS = 3L;
 	public static final long LOCK_LEASE_SECONDS = 10L;
 
