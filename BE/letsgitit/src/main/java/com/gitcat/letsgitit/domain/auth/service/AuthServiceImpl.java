@@ -403,7 +403,6 @@ public class AuthServiceImpl implements AuthService {
 			// 9. 새 RT 발급 + Redis 저장 + Cookie 갱신 (RTR 전략)
 			String newRefreshToken = jwtProvider.createRefreshToken(email);
 			authRedisRepository.saveRefreshToken(memberId, newRefreshToken);
-			webSocketSessionManager.notifyDisconnectByReissue(memberId);
 
 			ResponseCookie cookie = ResponseCookie.from(AuthConstants.REFRESH_TOKEN_COOKIE, newRefreshToken)
 				.httpOnly(true)
