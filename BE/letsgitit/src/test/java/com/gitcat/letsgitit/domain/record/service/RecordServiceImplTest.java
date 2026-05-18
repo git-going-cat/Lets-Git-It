@@ -54,7 +54,7 @@ class RecordServiceImplTest {
 	void 협력_최고_기록이_있으면_기록을_반환한다() {
 		// given
 		UUID memberId = UUID.randomUUID();
-		MemberCoopBestRecord coopBestRecord = MemberCoopBestRecord.of(memberId, "기초 브랜치", "MAP_1", 61000, 2);
+		MemberCoopBestRecord coopBestRecord = MemberCoopBestRecord.of(memberId, "기초 브랜치", 1, 61000, 2);
 
 		given(memberCoopBestRecordRepository.findBestRecordByMemberId(memberId))
 			.willReturn(Optional.of(coopBestRecord));

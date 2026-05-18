@@ -8,6 +8,7 @@ import jakarta.validation.ConstraintViolationException;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestCookieException;
@@ -119,6 +120,24 @@ public class GlobalExceptionHandler {
 		return ErrorResponse.of(METHOD_NOT_ALLOWED);
 	}
 
+	/** 요청 본문 역직렬화 실패 예외 처리
+	 * - record compact constructor 내부 예외도 Jackson이 wrapping 해서 여기로 들어올 수 있다.
+	 */
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	protected ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(
+		final HttpMessageNotReadableException e) {
+		BusinessException businessException = findBusinessException(e);
+
+		if (businessException != null) {
+			ErrorCode errorCode = businessException.getErrorCode();
+			log.info("요청 본문 역직렬화 중 비즈니스 예외가 발생했습니다. (CODE: {})", errorCode.getCode());
+			return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+		}
+
+		log.info("잘못된 요청 본문입니다.");
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(INVALID_REQUEST));
+	}
+
 	/** 존재하지 않는 api가 호출될 경우 발생 */
 	@ResponseStatus(HttpStatus.NOT_FOUND)
 	@ExceptionHandler(NoHandlerFoundException.class)
@@ -155,5 +174,18 @@ public class GlobalExceptionHandler {
 		log.error("서버 오류가 발생했습니다.", e);
 
 		return ErrorResponse.of(INTERNAL_SERVER_ERROR);
+	}
+
+	private BusinessException findBusinessException(Throwable throwable) {
+		Throwable current = throwable;
+
+		while (current != null) {
+			if (current instanceof BusinessException businessException) {
+				return businessException;
+			}
+			current = current.getCause();
+		}
+
+		return null;
 	}
 }

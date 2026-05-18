@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
+import com.gitcat.letsgitit.domain.room.service.RoomService;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -17,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 public class WebSocketEventListener {
 
 	private final WebSocketSessionRegistry webSocketSessionRegistry;
+	private final RoomService roomService;
 
 	@EventListener
 	public void handleSessionSubscribe(SessionSubscribeEvent event) {
@@ -42,7 +45,8 @@ public class WebSocketEventListener {
 
 		MDC.put("requestId", "ws-" + sessionId);
 		try {
-			if (principal == null) {
+			String memberId = principal != null ? principal.getName() : removedMemberId;
+			if (memberId == null) {
 				log.debug(
 					"WebSocket Disconnected without authenticated principal. sessionId={}, removedMemberId={}, closeStatus={}",
 					sessionId,
@@ -51,21 +55,17 @@ public class WebSocketEventListener {
 				return;
 			}
 
-			String memberId = principal.getName();
-
 			log.info(
 				"WebSocket Disconnected. memberId={}, sessionId={}, closeStatus={}",
 				memberId,
 				sessionId,
 				event.getCloseStatus());
+
+			if (!webSocketSessionRegistry.hasActiveSessions(memberId)) {
+				roomService.leaveGameIfDisconnected(memberId);
+			}
 		} finally {
 			MDC.clear();
 		}
-
-		// TODO:
-		// memberId + sessionId로 어떤 room에 속해 있었는지 찾을 수 있는
-		// 세션-방 매핑 저장소/리포지토리가 먼저 필요함
-		// 방 퇴장 처리 및 HOST_DELEGATED 브로드캐스트 연결 예정
-		// 게임 중 disconnect 처리 (예: COOP_GAME_END 실패 처리) 연결 예정
 	}
 }

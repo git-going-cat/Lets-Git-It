@@ -1,6 +1,5 @@
 package com.gitcat.letsgitit.domain.auth.service;
 
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -30,6 +29,7 @@ import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
 import com.gitcat.letsgitit.global.jwt.JwtProvider;
 import com.gitcat.letsgitit.global.metrics.AuthMetrics;
+import com.gitcat.letsgitit.global.util.RandomCodeUtil;
 import com.gitcat.letsgitit.global.websocket.WebSocketSessionManager;
 
 import io.jsonwebtoken.ExpiredJwtException;
@@ -51,10 +51,6 @@ public class AuthServiceImpl implements AuthService {
 	private final JwtProvider jwtProvider;
 	private final AuthMetrics authMetrics;
 	private final WebSocketSessionManager webSocketSessionManager;
-
-	// Math.random() 대신 SecureRandom 사용
-	// → 암호학적으로 안전한 난수 생성기, 인증 코드 예측 불가능
-	private final SecureRandom secureRandom = new SecureRandom();
 
 	@Override
 	public AuthResponse.SendEmailCodeResponse sendEmailCode(String email, AuthPurpose purpose) {
@@ -112,12 +108,7 @@ public class AuthServiceImpl implements AuthService {
 	// 인증 코드 생성
 	// O/0, I/1 혼동 방지 문자셋에서 SecureRandom으로 6자리 추출
 	private String generateAuthCode() {
-		StringBuilder code = new StringBuilder(AuthConstants.AUTH_CODE_LENGTH);
-		for (int i = 0; i < AuthConstants.AUTH_CODE_LENGTH; i++) {
-			int index = secureRandom.nextInt(AuthConstants.AUTH_CODE_CHARS.length());
-			code.append(AuthConstants.AUTH_CODE_CHARS.charAt(index));
-		}
-		return code.toString();
+		return RandomCodeUtil.generate(AuthConstants.AUTH_CODE_LENGTH, AuthConstants.AUTH_CODE_CHARS);
 	}
 
 	@Override
@@ -412,7 +403,6 @@ public class AuthServiceImpl implements AuthService {
 			// 9. 새 RT 발급 + Redis 저장 + Cookie 갱신 (RTR 전략)
 			String newRefreshToken = jwtProvider.createRefreshToken(email);
 			authRedisRepository.saveRefreshToken(memberId, newRefreshToken);
-			webSocketSessionManager.notifyDisconnectByReissue(memberId);
 
 			ResponseCookie cookie = ResponseCookie.from(AuthConstants.REFRESH_TOKEN_COOKIE, newRefreshToken)
 				.httpOnly(true)

@@ -9,6 +9,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.gitcat.letsgitit.domain.auth.repository.AuthRedisRepository;
 import com.gitcat.letsgitit.domain.member.repository.MemberRedisRepository;
+import com.gitcat.letsgitit.domain.room.repository.RoomRedisRepository;
 import com.gitcat.letsgitit.domain.single.repository.SingleSessionRedisRepository;
 
 @ActiveProfiles("test")
@@ -27,8 +28,14 @@ class LetsgititApplicationTests {
 	@MockitoBean
 	private SingleSessionRedisRepository singleSessionRedisRepository;
 
+	@MockitoBean
+	private RoomRedisRepository roomRedisRepository;
+
 	@MockitoBean(name = "rankingStringRedisTemplate")
 	StringRedisTemplate rankingStringRedisTemplate;
+
+	@MockitoBean(name = "gameStringRedisTemplate")
+	StringRedisTemplate gameStringRedisTemplate;
 
 	@Test
 	void contextLoads() {}

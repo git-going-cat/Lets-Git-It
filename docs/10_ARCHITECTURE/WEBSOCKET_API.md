@@ -408,7 +408,7 @@
       "inputText": "git commit -m \"feat: 로그인\""
     }
 
-**Response 1: checkout 성공** → /topic/room/{roomId}/contribution (브로드캐스트)
+**Response 1: switch 성공** → /topic/room/{roomId}/contribution (브로드캐스트)
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
@@ -468,7 +468,7 @@
 | 코드 | 설명 |
 |------|------|
 | GAME_NOT_STARTED | 게임이 시작되지 않음 |
-| INVALID_BRANCH | 존재하지 않는 브랜치 (checkout 실패) |
+| INVALID_BRANCH | 존재하지 않는 브랜치 (switch 실패) |
 | INVALID_COMMAND | 존재하지 않는 명령어 seq |
 
 ---
@@ -718,7 +718,7 @@ SCORE_UPDATE 형식과 동일
       "commands": [
         {
           "commandId": 1,
-          "commandText": "git checkout -b feature/login"
+          "commandText": "git switch -c feature/login"
         }
       ]
     }

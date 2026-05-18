@@ -2,9 +2,14 @@ package com.gitcat.letsgitit.global.websocket;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.lang.reflect.Method;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.MethodParameter;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.converter.MessageConversionException;
+import org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
@@ -71,10 +76,43 @@ class WebSocketStompErrorHandlerTest {
 		assertThat(body.get("message").asText()).isEqualTo(ErrorCode.TOKEN_EXPIRED.getMessage());
 	}
 
+	@Test
+	void 메시지_변환_예외는_INVALID_REQUEST로_변환한다() throws Exception {
+		Message<byte[]> errorMessage = handler.handleClientMessageProcessingError(
+			null,
+			new MessageConversionException("invalid payload"));
+
+		JsonNode body = objectMapper.readTree(errorMessage.getPayload());
+
+		assertThat(body.get("code").asText()).isEqualTo(ErrorCode.INVALID_REQUEST.getCode());
+		assertThat(body.get("message").asText()).isEqualTo(ErrorCode.INVALID_REQUEST.getMessage());
+	}
+
+	@Test
+	void 메시지_검증_예외는_INVALID_REQUEST로_변환한다() throws Exception {
+		Message<byte[]> clientMessage = createConnectMessage(null);
+		Message<byte[]> errorMessage = handler.handleClientMessageProcessingError(
+			clientMessage,
+			new MethodArgumentNotValidException(clientMessage, methodParameter()));
+
+		JsonNode body = objectMapper.readTree(errorMessage.getPayload());
+
+		assertThat(body.get("code").asText()).isEqualTo(ErrorCode.INVALID_REQUEST.getCode());
+		assertThat(body.get("message").asText()).isEqualTo(ErrorCode.INVALID_REQUEST.getMessage());
+	}
+
 	private Message<byte[]> createConnectMessage(String receipt) {
 		StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
 		accessor.setReceipt(receipt);
 		accessor.setLeaveMutable(true);
 		return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 	}
+
+	private MethodParameter methodParameter() throws NoSuchMethodException {
+		Method method = WebSocketStompErrorHandlerTest.class.getDeclaredMethod("sampleHandler", String.class);
+		return new MethodParameter(method, 0);
+	}
+
+	@SuppressWarnings("unused")
+	private void sampleHandler(String payload) {}
 }

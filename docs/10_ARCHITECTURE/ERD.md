@@ -80,7 +80,7 @@ CONSTRAINT chk_single_ranking_grade CHECK (grade IN ('S', 'A', 'B', 'C', 'D'))
 -- =============================================
 CREATE TABLE contribution_result (
 contribution_result_id BINARY(16)   NOT NULL,
-room_id                VARCHAR(100) NOT NULL COMMENT '대기방 Redis ID (추적용)',
+room_id                BIGINT       NOT NULL COMMENT '대기방 ID',
 session_id             VARCHAR(100) NOT NULL COMMENT '게임 세션 Redis ID',
 played_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 PRIMARY KEY (contribution_result_id),
@@ -95,7 +95,6 @@ contribution_result_member_id BINARY(16) NOT NULL,
 contribution_result_id        BINARY(16) NOT NULL,
 member_id                     BINARY(16) NOT NULL,
 contribution                  INT        NOT NULL COMMENT '최종 기여도 (%)',
-rank                          INT        NOT NULL COMMENT '최종 순위',
 PRIMARY KEY (contribution_result_member_id),
 UNIQUE KEY uq_contribution_result_member (contribution_result_id, member_id),
 INDEX idx_contribution_result_member_member (member_id),
@@ -112,7 +111,7 @@ REFERENCES member (member_id)
 -- =============================================
 CREATE TABLE timeattack_result (
 timeattack_result_id BINARY(16)   NOT NULL,
-room_id              VARCHAR(100) NOT NULL COMMENT '대기방 Redis ID (추적용)',
+room_id              BIGINT       NOT NULL COMMENT '대기방 ID',
 session_id           VARCHAR(100) NOT NULL COMMENT '게임 세션 Redis ID',
 played_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 PRIMARY KEY (timeattack_result_id),
@@ -175,7 +174,7 @@ PRIMARY KEY (coop_map_id)
 -- =============================================
 CREATE TABLE coop_result (
 coop_result_id BINARY(16)   NOT NULL,
-room_id        VARCHAR(100) NOT NULL COMMENT '대기방 Redis ID (추적용)',
+room_id        BIGINT       NOT NULL COMMENT '대기방 ID',
 session_id     VARCHAR(100) NOT NULL COMMENT '게임 세션 Redis ID',
 map_name       VARCHAR(100) NOT NULL COMMENT '플레이 시점 맵 이름 스냅샷',
 map_difficulty VARCHAR(20)  NOT NULL COMMENT '플레이 시점 맵 난이도 스냅샷',
@@ -319,8 +318,9 @@ CREATE TABLE competitive_command_set (
 competitive_command_set_id BINARY(16)  NOT NULL,
 set_number                 INT         NOT NULL COMMENT '1 / 2 / 3',
 mode                       VARCHAR(50) NOT NULL COMMENT 'CONTRIBUTION / TIME_ATTACK',
+player_count               INT         NULL COMMENT '기여도 모드 플레이어 수',
 PRIMARY KEY (competitive_command_set_id),
-UNIQUE KEY uq_competitive_command_set (set_number, mode),
+UNIQUE KEY uq_competitive_command_set (set_number, mode, player_count),
 CONSTRAINT chk_competitive_command_set_mode
 CHECK (mode IN ('CONTRIBUTION', 'TIME_ATTACK'))
 );
