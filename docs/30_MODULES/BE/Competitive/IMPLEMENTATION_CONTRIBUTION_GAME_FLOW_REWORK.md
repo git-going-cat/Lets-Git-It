@@ -60,6 +60,16 @@ command lock은 기존 `lock:contribution:session:{gameSessionId}:command:{comma
 - 마지막 명령어 성공 입력은 기존처럼 `SCORE_UPDATE` 이후 `CONTRIBUTION_GAME_END`를 연달아 브로드캐스트한다.
 - 정상 종료의 final rankings 저장과 `ContributionResultSaveService` 호출은 그대로 유지한다.
 
+### 정상 종료 결과 반영
+
+`GAME_COMPLETED` 정상 종료가 확정되면 final rankings snapshot을 Redis 세션에 저장하고, 기존 결과 DB 저장을 먼저 수행한다.
+결과 DB 저장이 성공한 경우에만 각 실제 플레이어의 이번 게임 기여도를 이번 주 기여도 랭킹 Redis에 누적한다.
+
+- CAT은 `playerId == null`인 가상 참가자이므로 결과 DB 저장과 주간 랭킹 Redis 갱신 대상에서 제외한다.
+- 기여도 0점 플레이어도 실제 참가자이면 랭킹 Redis 갱신을 호출한다. 이 경우 누적 기여도는 그대로이고 총 플레이 수만 증가한다.
+- 결과 DB 저장 실패 또는 랭킹 Redis 갱신 실패는 게임 종료 브로드캐스트를 막지 않고 로그로 남긴다.
+- `PLAYER_DISCONNECTED` 조기 종료는 기존 정책대로 결과 DB 저장과 주간 랭킹 Redis 갱신을 수행하지 않는다.
+
 ### commandSet 선택
 
 `CommandService.getRandomContributionCommandSet(int playerCount)` API를 추가하고 `RoomServiceImpl.startGame()`에서 현재 방 인원수를 전달한다.
@@ -101,8 +111,9 @@ switch/checkout은 점수, progress, CAT 만료 대상에서 제외된다.
 - 서버 자동 만료 스케줄은 더 이상 존재하지 않는다. 프론트가 만료 요청을 보내지 않으면 해당 명령어는 만료되지 않는다.
 - `fallDurationMs`는 검증값이 아니라 렌더링 힌트다.
 - 중복 만료 요청은 no-op이며 개인 실패 메시지도 보내지 않는다.
-- 결과 저장 서비스는 final rankings snapshot만 저장하므로 이번 진행 개편과 분리된다.
+- 결과 DB 저장이 성공한 정상 종료에 한해 실제 플레이어별 주간 Redis 랭킹을 갱신한다.
 - CAT은 응답 rankings/scores에는 포함되지만 DB 결과 저장에서는 제외된다.
+- CAT은 주간 Redis 랭킹 갱신에서도 제외된다.
 - `competitive_command_set.player_count`가 비어 있거나 현재 인원수와 일치하는 데이터가 없으면 기여도 게임 시작은 실패한다.
 
 ## Test Plan
@@ -114,6 +125,8 @@ switch/checkout은 점수, progress, CAT 만료 대상에서 제외된다.
 - 종료 이후 만료 요청/입력은 `GAME_ALREADY_ENDED` 정책을 따르는지 확인
 - `switch/checkout`은 `POSITION_UPDATE` 처리되고 점수/만료 대상에서 제외되는지 확인
 - `RoomServiceImpl`이 playerCount를 `CommandService`에 전달하는지 확인
+- 정상 종료 시 실제 플레이어는 주간 Redis 랭킹에 누적되고 CAT은 제외되는지 확인
+- 기여도 0점 플레이어도 총 플레이 수 갱신 대상인지 확인
 - 기존 결과 저장 테스트가 그대로 통과하는지 확인
 
 검증 명령:

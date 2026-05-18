@@ -220,7 +220,7 @@ public class ContributionRankingServiceImpl implements ContributionRankingServic
 
 	@Override
 	public UpdateContributionRankingResult updateContributionScore(UUID memberId, int deltaContribution) {
-		if (deltaContribution <= 0) {
+		if (deltaContribution < 0) {
 			throw new BusinessException(ErrorCode.INVALID_CONTRIBUTION);
 		}
 

@@ -7,8 +7,10 @@ import static com.gitcat.letsgitit.global.exception.ErrorCode.PLAYER_NOT_IN_GAME
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -38,6 +40,7 @@ import com.gitcat.letsgitit.domain.competitive.message.contribution.Contribution
 import com.gitcat.letsgitit.domain.competitive.message.contribution.PositionUpdateMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ScoreUpdateMessage;
 import com.gitcat.letsgitit.domain.competitive.repository.ContributionGameRedisRepository;
+import com.gitcat.letsgitit.domain.ranking.service.ContributionRankingService;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 
 class ContributionGameServiceImplTest {
@@ -60,6 +63,9 @@ class ContributionGameServiceImplTest {
 	@Mock
 	private ContributionResultSaveService contributionResultSaveService;
 
+	@Mock
+	private ContributionRankingService contributionRankingService;
+
 	private ContributionGameServiceImpl service;
 
 	@BeforeEach
@@ -68,7 +74,8 @@ class ContributionGameServiceImplTest {
 		service = new ContributionGameServiceImpl(
 			repository,
 			redissonClient,
-			contributionResultSaveService);
+			contributionResultSaveService,
+			contributionRankingService);
 		when(redissonClient.getLock(anyString())).thenReturn(lock);
 		try {
 			when(lock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
@@ -335,6 +342,8 @@ class ContributionGameServiceImplTest {
 		assertThat(end.reason()).isEqualTo("GAME_COMPLETED");
 		assertThat(end.winnerVideoTarget()).isEqualTo(PLAYER_ID);
 		verify(contributionResultSaveService).saveCompletedResult(any(), any(), any());
+		verify(contributionRankingService).updateContributionScore(PLAYER_ID, 100);
+		verify(contributionRankingService).updateContributionScore(OTHER_PLAYER_ID, 0);
 		verify(repository).markSessionEndedIfInProgress(GAME_SESSION_ID);
 	}
 
@@ -362,6 +371,8 @@ class ContributionGameServiceImplTest {
 		assertThat(end.isSuccess()).isTrue();
 		assertThat(end.reason()).isEqualTo("GAME_COMPLETED");
 		verify(contributionResultSaveService).saveCompletedResult(any(), any(), any());
+		verify(contributionRankingService).updateContributionScore(PLAYER_ID, 0);
+		verify(contributionRankingService, never()).updateContributionScore(isNull(), anyInt());
 		verify(repository).markSessionEndedIfInProgress(GAME_SESSION_ID);
 	}
 
@@ -389,6 +400,34 @@ class ContributionGameServiceImplTest {
 		assertThat(result.payloads()).hasSize(2);
 		assertThat(result.payloads().get(1)).isInstanceOf(ContributionGameEndMessage.class);
 		verify(repository).markSessionEndedIfInProgress(GAME_SESSION_ID);
+		verify(contributionRankingService, never()).updateContributionScore(any(), anyInt());
+	}
+
+	@Test
+	void 랭킹_Redis_갱신_실패해도_GAME_END를_반환한다() {
+		// given
+		ContributionInputMessage request = input(1, "git commit -m 'fix'");
+		ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main");
+		when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(singleCommandSession()));
+		when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+		when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+		when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
+			new ContributionPlayerCache(PLAYER_ID, "dobby", 0)));
+		when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
+		when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(0);
+		when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(1);
+		doThrow(new RuntimeException("redis down"))
+			.when(contributionRankingService)
+			.updateContributionScore(PLAYER_ID, 100);
+
+		// when
+		ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+		// then
+		assertThat(result.payloads()).hasSize(2);
+		assertThat(result.payloads().get(1)).isInstanceOf(ContributionGameEndMessage.class);
+		verify(contributionResultSaveService).saveCompletedResult(any(), any(), any());
+		verify(contributionRankingService).updateContributionScore(PLAYER_ID, 100);
 	}
 
 	@Test

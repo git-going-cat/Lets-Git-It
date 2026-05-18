@@ -324,13 +324,28 @@ class ContributionRankingServiceImplTest {
 	}
 
 	@Test
-	void 점수_업데이트_시_deltaContribution이_0이하면_예외가_발생한다() {
-		// when & then
-		assertThatThrownBy(() -> contributionRankingService.updateContributionScore(memberId, 0))
-			.isInstanceOf(BusinessException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.INVALID_CONTRIBUTION);
+	void 점수_업데이트_시_deltaContribution이_0이어도_플레이_수를_갱신한다() {
+		// given
+		UpdateContributionRankingResult expectedResult = new UpdateContributionRankingResult(
+			1000, 4, 12, false, false);
 
+		given(contributionRankingRedisRepository.updateScore(
+			anyString(), anyString(), anyString(), anyString(),
+			eq(memberId), eq(0), anyLong()))
+			.willReturn(expectedResult);
+
+		// when
+		UpdateContributionRankingResult result = contributionRankingService.updateContributionScore(memberId, 0);
+
+		// then
+		assertThat(result.newContribution()).isEqualTo(1000);
+		assertThat(result.newPlayCount()).isEqualTo(4);
+		assertThat(result.rank()).isEqualTo(12);
+	}
+
+	@Test
+	void 점수_업데이트_시_deltaContribution이_음수면_예외가_발생한다() {
+		// when & then
 		assertThatThrownBy(() -> contributionRankingService.updateContributionScore(memberId, -100))
 			.isInstanceOf(BusinessException.class)
 			.extracting("errorCode")

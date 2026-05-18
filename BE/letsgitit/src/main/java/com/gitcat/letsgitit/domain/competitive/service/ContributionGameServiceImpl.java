@@ -42,6 +42,7 @@ import com.gitcat.letsgitit.domain.competitive.message.contribution.PositionUpda
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ScoreEntryMessage;
 import com.gitcat.letsgitit.domain.competitive.message.contribution.ScoreUpdateMessage;
 import com.gitcat.letsgitit.domain.competitive.repository.ContributionGameRedisRepository;
+import com.gitcat.letsgitit.domain.ranking.service.ContributionRankingService;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
 
@@ -67,6 +68,7 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	private final ContributionGameRedisRepository contributionGameRedisRepository;
 	private final RedissonClient redissonClient;
 	private final ContributionResultSaveService contributionResultSaveService;
+	private final ContributionRankingService contributionRankingService;
 
 	@Override
 	public void initializeSession(
@@ -366,15 +368,20 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			.toList();
 		List<ContributionRankingCache> finalRankings = toRankingCaches(rankings);
 		contributionGameRedisRepository.saveFinalRankings(gameSessionId, finalRankings);
+		boolean resultSaved = false;
 		try {
 			contributionResultSaveService.saveCompletedResult(
 				roomId,
 				gameSessionId,
 				finalRankings);
+			resultSaved = true;
 		} catch (RuntimeException e) {
 			log.error(
 				"[contribution][completeGame] 결과 DB 저장 실패, 게임 종료는 정상 진행. roomId={}, gameSessionId={}",
 				roomId, gameSessionId, e);
+		}
+		if (resultSaved) {
+			updateContributionRankings(gameSessionId, finalRankings);
 		}
 		UUID winnerVideoTarget = rankings.stream()
 			.anyMatch(ranking -> ranking.rank() == 1 && ranking.playerId() == null)
@@ -387,6 +394,21 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		log.info("[contribution][completeGame] gameSessionId={}, winnerVideoTarget={}",
 			gameSessionId, winnerVideoTarget);
 		return ContributionGameEndMessage.completed(gameSessionId, rankings, winnerVideoTarget);
+	}
+
+	private void updateContributionRankings(UUID gameSessionId, List<ContributionRankingCache> finalRankings) {
+		for (ContributionRankingCache ranking : finalRankings) {
+			if (ranking.playerId() == null) {
+				continue;
+			}
+			try {
+				contributionRankingService.updateContributionScore(ranking.playerId(), ranking.contribution());
+			} catch (RuntimeException e) {
+				log.error(
+					"[contribution][completeGame] 랭킹 Redis 갱신 실패. gameSessionId={}, memberId={}, contribution={}",
+					gameSessionId, ranking.playerId(), ranking.contribution(), e);
+			}
+		}
 	}
 
 	private List<ContributionRankingCache> toRankingCaches(List<ContributionRankingMessage> rankings) {
