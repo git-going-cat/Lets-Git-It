@@ -978,7 +978,7 @@ GET /api/v1/rankings/single?difficulty={difficulty}&afterRank={afterRank}&before
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response
 
@@ -1115,7 +1115,7 @@ GET /api/v1/rankings/contribution?afterRank={afterRank}&beforeRank={beforeRank}&
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response Fields
 
@@ -1365,7 +1365,7 @@ GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={si
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response Fields
 
@@ -1713,7 +1713,7 @@ GET /api/v1/rankings/contribution/history?year={year}&month={month}&week={week}&
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response Fields
 
@@ -1989,7 +1989,7 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response Fields
 
