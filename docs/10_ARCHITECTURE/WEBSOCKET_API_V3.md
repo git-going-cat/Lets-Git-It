@@ -88,6 +88,7 @@ WebSocket 응답은 공통 envelope DTO를 별도로 두지 않는다.
 
 | code | message |
 | --- | --- |
+| `AUTHENTICATION_REQUIRED` | 로그인이 필요한 서비스입니다. |
 | `UNAUTHORIZED` | 인증 실패 또는 JWT 만료 |
 | `INVALID_REQUEST` | 필수 필드 누락 또는 잘못된 요청 형식 |
 
@@ -1067,9 +1068,9 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 - `SCORE_UPDATE` / `COMMAND_EXPIRED` / `CONTRIBUTION_GAME_END`의 `scores` 및 `rankings` 배열에 고양이가 항상 포함된다.
 - 고양이 항목: `playerId: null`, `nickname: "[CAT]"`
-- **기여도 계산 기준**: 분모는 "성공 여부와 무관하게 지금까지 등장한 전체 명령어 수"
-  - 플레이어 기여도(%) = 해당 플레이어 성공 명령어 수 / 전체 등장 명령어 수 × 100
-  - 고양이 기여도(%) = 만료된 명령어 수 / 전체 등장 명령어 수 × 100
+- **기여도 계산 기준**: 분모는 "지금까지 처리된 점수 대상 명령어 수"다. `git switch` / `git checkout`은 위치 이동 전용이므로 점수, progress, CAT 만료 대상에서 제외한다.
+  - 플레이어 기여도(%) = 해당 플레이어 성공 명령어 수 / 처리된 점수 대상 명령어 수 × 100
+  - 고양이 기여도(%) = 만료된 점수 대상 명령어 수 / 처리된 점수 대상 명령어 수 × 100
   - 모든 플레이어 + 고양이의 기여도 합계는 100%
 
 ### 5-1. CONTRIBUTION_INPUT
@@ -1249,6 +1250,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 서버는 요청자 Principal이 현재 게임 참가자인지 검증하고, 해당 명령어가 아직 `READY` 상태일 때만 만료 처리한다. 이미 성공/이동/만료 처리된 명령어의 중복 만료 요청은 CAT 점수를 증가시키지 않고 브로드캐스트하지 않는다.
 
+`git switch` / `git checkout` 명령어는 위치 이동 전용이므로 바닥 도달 만료 대상이 아니다. 해당 명령어에 대한 만료 요청도 브로드캐스트 없이 no-op 처리된다.
+
 마지막 명령어가 아니면 `COMMAND_EXPIRED`를 브로드캐스트한다.
 마지막 명령어라면 `CONTRIBUTION_GAME_END`를 브로드캐스트한다.
 
@@ -1288,6 +1291,22 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 }
 ```
 
+#### 에러
+
+- 응답 경로: `/user/queue/private`
+- 이미 성공/이동/만료 처리된 명령어, 또는 switch/checkout 명령어의 만료 요청은 에러 응답 없이 no-op 처리된다.
+
+| 코드 | 설명 |
+| --- | --- |
+| `AUTHENTICATION_REQUIRED` | Principal 없음 |
+| `GAME_NOT_STARTED` | 게임이 시작되지 않았거나 진행 중이 아님 |
+| `INVALID_COMMAND` | 존재하지 않는 명령어 seq |
+| `GAME_ALREADY_ENDED` | 이미 종료된 게임에 만료 요청 |
+| `SESSION_MISMATCH` | 요청의 gameSessionId가 현재 게임과 불일치 |
+| `PLAYER_NOT_IN_GAME` | 현재 게임에 참여하지 않은 플레이어 |
+| `LOCK_ACQUISITION_FAILED` | 분산 락 획득 타임아웃 (재시도 가능) |
+| `LOCK_INTERRUPTED` | 락 대기 중 스레드 인터럽트 발생 |
+
 ---
 
 ### 5-3. CONTRIBUTION_GAME_END
@@ -1302,9 +1321,10 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 **랭킹 정렬 기준**:
 1. `contribution` 내림차순
-2. 플레이 횟수 오름차순
 - 동점이면 동일 순위를 부여하고 다음 순위는 건너뛴다.
 - 고양이(`[CAT]`)도 순위에 포함된다. 고양이가 1등이면 `winnerVideoTarget`은 `null`.
+- `GAME_COMPLETED` 정상 종료 시 서버는 final rankings snapshot을 저장하고, CAT을 제외한 실제 플레이어 결과를 DB에 저장한다. DB 저장이 성공한 경우 실제 플레이어의 이번 게임 기여도와 총 플레이 수를 주간 Redis 랭킹에 누적한다.
+- `PLAYER_DISCONNECTED` 조기 종료는 결과 DB 저장과 주간 Redis 랭킹 갱신을 수행하지 않는다.
 
 #### Response: 정상 종료
 
@@ -1332,8 +1352,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "rankings": [
     { "rank": 1, "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby",  "contribution": 40 },
     { "rank": 2, "playerId": "661f9511-f30c-52e5-b827-557766551111", "nickname": "alice",  "contribution": 35 },
-    { "rank": 3, "playerId": "772g0622-g41d-63f6-c938-668877662222", "nickname": "bob",    "contribution": 25 },
-    { "rank": 4, "playerId": "883h1733-h52e-74g7-d049-779988773333", "nickname": "carol",  "contribution": 10  },
+    { "rank": 3, "playerId": "772e0622-f41d-43f6-a938-668877662222", "nickname": "bob",    "contribution": 25 },
+    { "rank": 4, "playerId": "883e1733-a52e-44f7-b049-779988773333", "nickname": "carol",  "contribution": 10  },
     { "rank": 5, "playerId": null, "nickname": "[CAT]", "contribution": 5 }
   ],
   "winnerVideoTarget": "550e8400-e29b-41d4-a716-446655440000"
