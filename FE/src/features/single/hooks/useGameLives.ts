@@ -8,6 +8,7 @@ import { singleBus } from '../bridge/singleBus';
 import { activeBranchAtom } from '../store/activeBranchAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
 import { livesAtom } from '../store/livesAtom';
+import { livesLostAtom } from '../store/livesLostAtom';
 import { useSingleStore } from '../store/singleStore';
 
 import type { MutableRefObject } from 'react';
@@ -30,6 +31,7 @@ export function useGameLives(
   commandIndexRef: MutableRefObject<number>
 ) {
   const setLives = useSetAtom(livesAtom);
+  const setLivesLost = useSetAtom(livesLostAtom);
   const setCombo = useSetAtom(comboAtom);
   const setCommandIndex = useSetAtom(currentCommandIndexAtom);
   const setActiveBranch = useSetAtom(activeBranchAtom);
@@ -44,6 +46,7 @@ export function useGameLives(
       stateRef.current.combo = 0;
       commandIndexRef.current = index + 1;
       setLives(newLives);
+      setLivesLost(stateRef.current.livesLost);
       setCombo(0);
       setCommandIndex(index + 1);
       useSingleStore.getState().appendLog({ seq: index, event: 'miss' });
@@ -57,5 +60,13 @@ export function useGameLives(
         singleBus.emit('game:over');
       }
     });
-  }, [stateRef, commandIndexRef, setLives, setCombo, setCommandIndex, setActiveBranch]);
+  }, [
+    stateRef,
+    commandIndexRef,
+    setLives,
+    setLivesLost,
+    setCombo,
+    setCommandIndex,
+    setActiveBranch,
+  ]);
 }
