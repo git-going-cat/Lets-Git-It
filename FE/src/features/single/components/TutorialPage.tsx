@@ -4,6 +4,11 @@ import { Provider } from 'jotai';
 
 import { useBgm } from '@/shared/hooks/useBgm';
 
+import {
+  TUTORIAL_ITEM_DROPS,
+  TUTORIAL_ITEM_USE_SHOW_COMMAND_STEPS,
+  TUTORIAL_STEP_BEHAVIOR,
+} from '../constants/tutorialData';
 import { useSingleStore } from '../store/singleStore';
 
 import PauseModal from './PauseModal';
@@ -29,15 +34,23 @@ function extractCommandSet(steps: TutorialStep[]): SingleCommand[] {
   let cmdSeq = 0;
 
   for (const step of steps) {
+    const behavior = TUTORIAL_STEP_BEHAVIOR[step.order];
+    if (behavior === 'INFO') continue;
+    if (behavior === 'ITEM_USE' && !TUTORIAL_ITEM_USE_SHOW_COMMAND_STEPS.includes(step.order))
+      continue;
+
     for (const cmd of step.commands) {
       if (/^git\s+clone\s+/.test(cmd.command)) continue;
 
       const type = deriveCommandType(cmd.command);
+      const itemDrop = TUTORIAL_ITEM_DROPS[step.order];
+
       commandSet.push({
         commandSequence: cmdSeq,
         text: cmd.command,
         branchName: currentBranch,
         type,
+        ...(itemDrop ? { itemDrop } : {}),
       });
       cmdSeq++;
 

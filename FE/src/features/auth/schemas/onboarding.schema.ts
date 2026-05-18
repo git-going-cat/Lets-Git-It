@@ -23,7 +23,7 @@ export type CharacterFormValues = z.infer<typeof characterFormSchema>;
 export const tutorialCommandSchema: z.ZodType<TutorialCommand> = z.object({
   sequence: z.number(),
   command: z.string(),
-  explanation: z.string(),
+  explanation: z.string().nullish(),
 });
 
 export const tutorialStepSchema: z.ZodType<TutorialStep> = z.object({

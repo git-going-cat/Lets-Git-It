@@ -75,6 +75,7 @@ export function useCommandInput() {
 
       const trimmed = inputValue.trim();
       if (!trimmed) return;
+
       // EASY만 자동 SWITCH. NORMAL/HARD는 사용자가 직접 git switch를 입력해 브랜치를 이동해야 한다.
       const requiresManualSwitch = difficulty === 'NORMAL' || difficulty === 'HARD';
       const normalizeQuotes = (s: string) => s.replace(/'/g, '"');

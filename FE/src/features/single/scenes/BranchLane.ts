@@ -146,7 +146,7 @@ export class BranchLane extends Phaser.GameObjects.Container {
    */
   startTutorialFall(command: SingleCommand, targetY: number, fallDuration: number): void {
     this.clearAll();
-    const node = this.buildNode(command.text);
+    const node = this.buildNode(command.text, command.itemDrop);
     node.setPosition(this.laneWidth / 2, NODE.START_Y);
     this.add(node);
     this.commandNodes.push(node);
@@ -158,16 +158,19 @@ export class BranchLane extends Phaser.GameObjects.Container {
       ease: 'Cubic.easeOut',
     });
     node.setData('tween', tween);
+    node.setData('freezeY', targetY);
   }
 
   /**
-   * 튜토리얼 전용: 낙하 중인 명령어를 현재 위치에서 멈추고 점선 깜빡임 인디케이터를 표시합니다.
+   * 튜토리얼 전용: 낙하 중인 명령어를 freeze 위치로 즉시 이동시키고 점선 깜빡임 인디케이터를 표시합니다.
    */
   freezeWithBlink(): void {
     const node = this.commandNodes[0];
     if (!node) return;
     const tween = node.getData('tween') as Phaser.Tweens.Tween | undefined;
     if (tween) {
+      const freezeY = node.getData('freezeY') as number | undefined;
+      if (freezeY !== undefined) node.setY(freezeY);
       tween.stop();
       node.setData('tween', null);
     }

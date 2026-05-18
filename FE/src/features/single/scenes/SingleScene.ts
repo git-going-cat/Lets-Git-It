@@ -75,6 +75,10 @@ export class SingleScene extends Phaser.Scene {
 
     this.initLanes(commandSet);
     this.lanes.forEach((lane, branchName) => lane.setLaneActive(branchName === 'main'));
+    // 튜토리얼: 다른 레인의 노드를 미리 보여줘야 하므로 모든 레인을 처음부터 표시
+    if (this.isTutorialMode) {
+      this.lanes.forEach((lane) => lane.revealLane());
+    }
     this.tweens.resumeAll();
     this.registerEvents();
 
@@ -235,7 +239,6 @@ export class SingleScene extends Phaser.Scene {
     // miss여도 브랜치 구조 변경은 반드시 적용해야 이후 커맨드 진행이 가능
     this.applyBranchEffect(cmd);
     if (!this.isGameEnded && this.lastSpawnedIndex < this.commandIndex) {
-      // 다음 명령어가 아직 화면에 없을 때만 spawn (HARD: 이미 있을 경우 skip)
       this.showCurrentCommand();
     }
   }

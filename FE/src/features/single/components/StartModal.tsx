@@ -73,17 +73,26 @@ export default function StartModal() {
         className="nes-container is-dark with-title w-full max-w-xl"
       >
         <p id={titleId} className="title text-xl">
-          {isTutorial ? 'TUTORIAL' : 'MISSION START'}
+          {isTutorial ? `STEP 1 / ${tutorialSteps.length}` : 'MISSION START'}
         </p>
+
+        {isTutorial && tutorialSteps.length > 0 && (
+          <div className="flex gap-0.5 mb-1">
+            {Array.from({ length: tutorialSteps.length }, (_, i) => (
+              <div
+                key={i}
+                className={`h-1 flex-1 rounded-full ${i === 0 ? 'bg-yellow-400' : 'bg-white/10'}`}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-col gap-5 p-2">
           {isTutorial && tutorialSteps[0] && (
             <>
               <p className="text-2xl font-bold text-yellow-400">{tutorialSteps[0].title}</p>
               <div className="nes-container is-dark px-4 py-3">
-                <p className="text-2xl leading-relaxed text-white">
-                  {tutorialSteps[0].description}
-                </p>
+                <p className="text-xl leading-relaxed text-white">{tutorialSteps[0].description}</p>
               </div>
               <p className="text-xl text-gray-400">{cloneCommand?.explanation}</p>
             </>

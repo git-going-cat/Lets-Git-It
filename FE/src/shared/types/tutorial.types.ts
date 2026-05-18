@@ -1,7 +1,7 @@
 export interface TutorialCommand {
   sequence: number;
   command: string;
-  explanation: string;
+  explanation?: string | null;
 }
 
 export interface TutorialStep {
