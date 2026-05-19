@@ -62,7 +62,6 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	private static final String COMMAND_STATUS_EXPIRED = "EXPIRED";
 	private static final String CAT_NICKNAME = "[CAT]";
 	private static final long LOCK_WAIT_MS = 100;
-	private static final long LOCK_LEASE_MS = 2000;
 
 	private final ContributionGameRedisRepository contributionGameRedisRepository;
 	private final RedissonClient redissonClient;
@@ -234,7 +233,7 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 
 	private boolean tryLock(RLock lock) {
 		try {
-			boolean locked = lock.tryLock(LOCK_WAIT_MS, LOCK_LEASE_MS, TimeUnit.MILLISECONDS);
+			boolean locked = lock.tryLock(LOCK_WAIT_MS, TimeUnit.MILLISECONDS);
 			if (!locked) {
 				throw new BusinessException(LOCK_ACQUISITION_FAILED);
 			}
@@ -467,7 +466,11 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			if (session == null || !SESSION_STATUS_IN_PROGRESS.equals(session.status())) {
 				return null;
 			}
-			contributionGameRedisRepository.markPlayerDisconnected(gameSessionId, disconnectedPlayerId);
+			boolean newlyDisconnected = contributionGameRedisRepository.markPlayerDisconnected(gameSessionId,
+				disconnectedPlayerId);
+			if (!newlyDisconnected) {
+				return null;
+			}
 			int clearedCommandCount = contributionGameRedisRepository.countScoredClearedCommands(gameSessionId);
 			int catExpiredCount = contributionGameRedisRepository.findCatExpiredCount(gameSessionId);
 			int processedCommandCount = clearedCommandCount + catExpiredCount;

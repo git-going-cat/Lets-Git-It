@@ -46,8 +46,13 @@
 - 요청자가 참가자가 아님: `PLAYER_NOT_IN_GAME`
 - 명령어 없음: `INVALID_COMMAND`
 
-command lock은 기존 `lock:contribution:session:{gameSessionId}:command:{commandSequence}`를 공유한다.
-성공 입력과 만료 요청이 동시에 들어오면 먼저 lock을 획득해 `READY` 상태를 변경한 요청만 반영된다.
+session lock은 `processInput`, `processExpireRequest`, `handlePlayerDisconnected`, `endByPlayerDisconnected`가 공유한다.
+동일 세션의 입력, 만료, 브랜치 이동, 이탈 종료 처리는 세션 단위로 직렬화한다.
+Redisson lock은 lease time을 직접 지정하지 않고 watchdog 자동 연장 방식으로 획득한다.
+종료 처리 중 DB 저장과 랭킹 Redis 갱신이 2초 이상 걸려도 session lock이 임의 만료되어 후속 입력이 끼어드는 상황을 막기 위함이다.
+
+command lock은 기존 `lock:contribution:session:{gameSessionId}:command:{commandSequence}`를 함께 사용한다.
+성공 입력과 만료 요청이 동시에 들어오면 session lock과 command lock을 먼저 획득해 `READY` 상태를 변경한 요청만 반영된다.
 
 `READY` 상태의 점수 대상 명령어만 `EXPIRED`로 바꾸고 CAT 점수를 증가시킨다.
 이미 `CLEARED`, `SWITCHED`, `EXPIRED` 상태면 중복 요청으로 보고 아무 이벤트도 보내지 않는다.
@@ -106,6 +111,14 @@ switch는 점수, progress, CAT 만료 대상에서 제외된다.
 `commandSet[].fallDurationMs`를 렌더링 힌트로 응답에 포함한다.
 현재 서버는 이 값을 기준으로 시간 검증을 하지 않는다. 최종 만료 판단은 프론트가 바닥 도달 시 발행한 `COMMAND_EXPIRE_REQUEST`를 서버가 상태 기반으로 검증하는 방식이다.
 
+### 플레이어 이탈 동시성
+
+기여도 게임 중 방을 나가는 플레이어는 방 멤버 목록에서 제거하기 전에 contribution 세션의 disconnected set에 먼저 마킹한다.
+입력 검증은 contribution 세션의 참가자 여부와 disconnected set을 기준으로 수행하므로, 방 멤버 제거와 disconnected 마킹 사이에 이탈자의 입력이 끼어드는 경합을 막기 위한 순서다.
+
+Redis disconnected set의 `SADD` 결과를 사용해 신규 이탈 마킹일 때만 `CONTRIBUTION_PLAYER_DISCONNECTED`를 브로드캐스트한다.
+이미 이탈 마킹된 플레이어에 대한 중복 leave/disconnect 요청은 no-op으로 처리해 같은 이탈 이벤트가 반복 발행되지 않게 한다.
+
 ## Caution
 
 - 서버 자동 만료 스케줄은 더 이상 존재하지 않는다. 프론트가 만료 요청을 보내지 않으면 해당 명령어는 만료되지 않는다.
@@ -115,6 +128,8 @@ switch는 점수, progress, CAT 만료 대상에서 제외된다.
 - CAT은 응답 rankings/scores에는 포함되지만 DB 결과 저장에서는 제외된다.
 - CAT은 주간 Redis 랭킹 갱신에서도 제외된다.
 - `competitive_command_set.player_count`가 비어 있거나 현재 인원수와 일치하는 데이터가 없으면 기여도 게임 시작은 실패한다.
+- session lock은 정합성을 우선해 세션 단위로 직렬화한다. 동시 입력 처리량은 보수적이다.
+- 중복 disconnected 요청은 한 번만 브로드캐스트된다.
 
 ## Test Plan
 
@@ -128,6 +143,9 @@ switch는 점수, progress, CAT 만료 대상에서 제외된다.
 - `RoomServiceImpl`이 playerCount를 `CommandService`에 전달하는지 확인
 - 정상 종료 시 실제 플레이어는 주간 Redis 랭킹에 누적되고 CAT은 제외되는지 확인
 - 기여도 0점 플레이어도 총 플레이 수 갱신 대상인지 확인
+- session lock이 Redisson watchdog 방식으로 획득되는지 확인
+- 기여도 게임 중 퇴장 시 방 멤버 제거 전에 contribution 세션 disconnected 마킹이 수행되는지 확인
+- 중복 disconnected 요청은 `CONTRIBUTION_PLAYER_DISCONNECTED`를 다시 브로드캐스트하지 않는지 확인
 - 기존 결과 저장 테스트가 그대로 통과하는지 확인
 
 검증 명령:
