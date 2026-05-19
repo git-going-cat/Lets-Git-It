@@ -19,6 +19,8 @@ public interface ContributionGameRedisRepository {
 
 	Optional<ContributionCommandCache> findCommand(UUID gameSessionId, int commandSequence);
 
+	List<ContributionCommandCache> findCommands(UUID gameSessionId);
+
 	void saveCommand(UUID gameSessionId, ContributionCommandCache command);
 
 	void markSessionEnded(UUID gameSessionId);
