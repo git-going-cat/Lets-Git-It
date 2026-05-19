@@ -178,6 +178,8 @@ public class RoomServiceImpl implements RoomService {
 						roomId, parsedSessionId);
 					if (gameEnd != null) {
 						roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
+						roomRedisRepository.resetMembersReadyExceptHost(roomId);
+						contributionGameService.deleteSession(parsedSessionId);
 						roomWebSocketEventPublisher.publishContributionGameEnd(roomId, gameEnd);
 					}
 				}
@@ -685,8 +687,14 @@ public class RoomServiceImpl implements RoomService {
 
 	@Override
 	public void resetRoomAfterGame(Long roomId) {
-		roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
-		roomRedisRepository.resetMembersReadyExceptHost(roomId);
-		log.info("[room] room state reset to WAITING after game. roomId={}", roomId);
+		RLock lock = redissonClient.getLock("lock:room:" + roomId);
+		lock.lock();
+		try {
+			roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
+			roomRedisRepository.resetMembersReadyExceptHost(roomId);
+			log.info("[room] room state reset to WAITING after game. roomId={}", roomId);
+		} finally {
+			lock.unlock();
+		}
 	}
 }
