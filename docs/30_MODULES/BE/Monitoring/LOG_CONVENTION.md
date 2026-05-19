@@ -30,6 +30,7 @@ log.error("[coop][endGameInternal] DB save failed. roomId={}", roomId, e);
 | `[coop-ranking]` | CoopRankingServiceImpl, CoopRankingRedisRepositoryImpl |
 | `[contribution]` | ContributionGameServiceImpl, ContributionGameRedisRepositoryImpl |
 | `[auth]` | CustomOAuth2UserService, OAuth2SuccessHandler, OAuth2FailureHandler, JwtAuthenticationFilter, EmailServiceImpl |
+| `[websocket]` | WebSocketStompErrorHandler, WebSocketOutboundLoggingInterceptor, WebSocketAuthChannelInterceptor, WebSocketEventListener 등 |
 
 ---
 
@@ -76,3 +77,21 @@ log.info("[CONTRIBUTION] WebSocket SEND. destination=/room/{}/contribution/comma
 
 - 모든 로그 메시지는 **영어**로 작성
 - 한국어 로그 메시지 금지 (exception handler 제외)
+
+---
+
+## 7. 민감정보 로그 금지
+
+아래 값은 로그에 남기지 않는다.
+
+- accessToken
+- refreshToken
+- Authorization header 전체
+- Cookie 전체
+- password
+- OAuth authorization code
+- email 전체
+- phone number
+
+운영 환경에서는 정상 WebSocket payload 전체를 DEBUG/INFO로 남기지 않는다.
+에러 분석이 필요한 경우에만 WARN/ERROR 로그에 필요한 필드만 남긴다.
