@@ -22,6 +22,9 @@ const LANE = {
   LINE_ALPHA: 0.7,
   LABEL_OFFSET_Y: 20,
   LABEL_FONT_SIZE: '22px',
+  LABEL_BG_COLOR: '#ffffff',
+  LABEL_BG_PADDING_X: 8,
+  LABEL_BG_PADDING_Y: 4,
 } as const;
 
 const NODE = {
@@ -46,14 +49,29 @@ const NODE = {
  * 싱글과 달리 처음부터 모두 visible이고, 아이템 없이 텍스트 노드만 사용.
  * 플레이어 위치는 React 오버레이(MultiPlayerCharacters)가 담당한다.
  */
+interface FallingNode {
+  node: Phaser.GameObjects.Container;
+  /** spawn 시각 (performance.now()). y 위치 계산의 기준. */
+  spawnTime: number;
+  /** 명령어가 START_Y에서 END_OVERSHOOT까지 떨어지는 데 걸리는 wall-clock 시간. */
+  fallDurationMs: number;
+  /** 노드가 바닥에 닿았을 때 한 번만 호출되는 콜백. */
+  onTimeout: () => void;
+  /** onTimeout이 이미 호출됐는지. update에서 중복 호출 방지. */
+  timedOut: boolean;
+}
+
 export class ContributionLane extends Phaser.GameObjects.Container {
   private readonly laneWidth: number;
   private readonly canvasHeight: number;
   private readonly branchColor: { line: number; text: string };
   // 동시 다발 낙하 지원. 큐 head(index 0)가 가장 오래된(가장 아래) 노드.
-  private commandNodes: Phaser.GameObjects.Container[] = [];
+  // Phaser tween 대신 wall-clock 기반 manual update 사용 — hidden 탭에서 RAF가 1Hz로
+  // throttling되어도 visible 복귀 시 정확한 y 위치가 그려지도록.
+  private commandNodes: FallingNode[] = [];
   private activeGlow: Phaser.GameObjects.Graphics | null = null;
   private flashGraphic: Phaser.GameObjects.Graphics | null = null;
+  private branchLabel: Phaser.GameObjects.Text | null = null;
 
   constructor(scene: Phaser.Scene, laneIndex: number, totalLanes: number, branchName: string) {
     const canvasHeight = scene.scale.height;
@@ -77,23 +95,42 @@ export class ContributionLane extends Phaser.GameObjects.Container {
     const node = this.buildNode(text);
     node.setPosition(this.laneWidth / 2, NODE.START_Y);
     this.add(node);
-    this.commandNodes.push(node);
-
-    const tween = this.scene.tweens.add({
-      targets: node,
-      y: this.canvasHeight + NODE.END_OVERSHOOT,
-      duration: fallDuration,
-      ease: 'Linear',
-      onComplete: () => onTimeout(),
+    // 브랜치 라벨이 낙하 노드에 가려지지 않도록 항상 최상단으로 끌어올린다.
+    if (this.branchLabel) this.bringToTop(this.branchLabel);
+    this.commandNodes.push({
+      node,
+      spawnTime: performance.now(),
+      fallDurationMs: fallDuration,
+      onTimeout,
+      timedOut: false,
     });
-    node.setData('tween', tween);
+  }
+
+  /**
+   * 매 프레임 ContributionScene.update에서 호출. 각 노드의 y 위치를 wall-clock 기반으로 계산.
+   * Phaser tween을 쓰지 않는 이유: tween은 RAF에 매여 있어 hidden 탭에서 throttling되면
+   * visible 복귀 시 y가 진행도와 어긋남(예: 사용자가 돌아왔을 때 노드가 캔버스 위쪽 밖에 있어 안 보임).
+   */
+  updateNodes(): void {
+    if (this.commandNodes.length === 0) return;
+    const now = performance.now();
+    const totalRange = this.canvasHeight + NODE.END_OVERSHOOT - NODE.START_Y;
+    for (const entry of this.commandNodes) {
+      const elapsed = now - entry.spawnTime;
+      const progress = Math.min(1, elapsed / entry.fallDurationMs);
+      entry.node.y = NODE.START_Y + totalRange * progress;
+      if (progress >= 1 && !entry.timedOut) {
+        entry.timedOut = true;
+        entry.onTimeout();
+      }
+    }
   }
 
   /** 큐의 가장 오래된 노드(가장 아래)를 성공 애니메이션과 함께 제거한다. */
   flashSuccess(): void {
-    const node = this.commandNodes.shift();
-    if (!node) return;
-    (node.getData('tween') as Phaser.Tweens.Tween | undefined)?.stop();
+    const entry = this.commandNodes.shift();
+    if (!entry) return;
+    const node = entry.node;
 
     const ring = this.scene.add.graphics();
     ring.setPosition(this.laneWidth / 2, node.y);
@@ -164,20 +201,18 @@ export class ContributionLane extends Phaser.GameObjects.Container {
     }
   }
 
-  /** 모든 명령어 노드와 트윈을 정리한다. 게임 종료 시 호출. */
+  /** 모든 명령어 노드를 정리한다. 게임 종료 시 호출. */
   clearAll(): void {
-    for (const node of this.commandNodes) {
-      (node.getData('tween') as Phaser.Tweens.Tween | undefined)?.stop();
-      node.destroy();
+    for (const entry of this.commandNodes) {
+      entry.node.destroy();
     }
     this.commandNodes = [];
   }
 
   private removeOldest(): void {
-    const node = this.commandNodes.shift();
-    if (!node) return;
-    (node.getData('tween') as Phaser.Tweens.Tween | undefined)?.stop();
-    node.destroy();
+    const entry = this.commandNodes.shift();
+    if (!entry) return;
+    entry.node.destroy();
   }
 
   private drawBranchLine(): void {
@@ -194,9 +229,12 @@ export class ContributionLane extends Phaser.GameObjects.Container {
         fontSize: LANE.LABEL_FONT_SIZE,
         fontFamily: PIXEL_FONT,
         color: this.branchColor.text,
+        backgroundColor: LANE.LABEL_BG_COLOR,
+        padding: { x: LANE.LABEL_BG_PADDING_X, y: LANE.LABEL_BG_PADDING_Y },
       })
       .setOrigin(0.5, 0);
     this.add(label);
+    this.branchLabel = label;
   }
 
   private buildNode(text: string): Phaser.GameObjects.Container {

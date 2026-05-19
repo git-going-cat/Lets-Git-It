@@ -6,15 +6,17 @@ export interface ContributionCommand {
   commandSequence: number;
   text: string;
   branchName: string;
+  fallDurationMs: number;
 }
 
 /** 실시간 랭킹 엔트리. SCORE_UPDATE / COMMAND_EXPIRED / GAME_END 모두 이 형태로 렌더. */
 export interface RankingEntry {
-  playerId: string;
+  playerId: string | null;
   nickname: string;
   contribution: number;
   rank: number;
   isMe?: boolean;
+  disconnected?: boolean;
 }
 
 /** 대기방 멤버 중 인게임 위치 정보를 붙인 플레이어. POSITION_UPDATE로 branch가 갱신됨. */
@@ -22,6 +24,12 @@ export interface ContributionPlayer {
   playerId: string;
   nickname: string;
   currentBranch: string;
+  characterHair: string;
+  characterHairColor: string;
+  characterBody: string;
+  characterEye: string;
+  characterOutfit: string;
+  characterOutfitColor: string;
 }
 
 export interface ContributionProgress {

@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+import {
+  errorSchema,
+  forceDisconnectSchema,
+  kickedSchema,
+} from '@/features/multi/schemas/room.schema';
+
 /**
  * 기여도 뺏기 게임 채널 수신 패킷을 검증하는 WebSocket Zod 스키마.
  * 게임 중 수신이므로 모든 사용처에서 .safeParse()만 사용할 것.
@@ -18,6 +24,7 @@ export const ContributionStartedSchema = z.object({
       commandSequence: z.number(),
       text: z.string(),
       branchName: z.string(),
+      fallDurationMs: z.number(),
     })
   ),
   players: z.array(
@@ -30,10 +37,11 @@ export const ContributionStartedSchema = z.object({
 });
 
 const ScoreEntrySchema = z.object({
-  playerId: z.string().uuid(),
+  playerId: z.string().uuid().nullable(),
   nickname: z.string(),
   contribution: z.number(),
   rank: z.number(),
+  disconnected: z.boolean(),
 });
 
 const ScoreEntryWithMeSchema = ScoreEntrySchema.extend({
@@ -93,7 +101,7 @@ const ContributionGameEndSuccessSchema = z.object({
   isSuccess: z.literal(true),
   reason: z.string(),
   rankings: z.array(ScoreEntryWithMeSchema),
-  winnerVideoTarget: z.string().uuid(),
+  winnerVideoTarget: z.string().uuid().nullable(),
 });
 
 const ContributionGameEndEarlySchema = z.object({
@@ -110,3 +118,30 @@ export const ContributionGameEndSchema = z.union([
 ]);
 
 export type ContributionGameEndMessage = z.infer<typeof ContributionGameEndSchema>;
+
+export const ContributionPlayerDisconnectedSchema = z.object({
+  type: z.literal('CONTRIBUTION_PLAYER_DISCONNECTED'),
+  gameSessionId: z.string(),
+  serverTime: z.number(),
+  disconnectedPlayerId: z.string().uuid(),
+  scores: z.array(ScoreEntrySchema),
+});
+
+/** 게임 채널(/topic/room/{roomId}/contribution) 수신 메시지 discriminatedUnion (CONTRIBUTION_GAME_END 제외). */
+export const contributionGameTopicMessageSchema = z.discriminatedUnion('type', [
+  PositionUpdateSchema,
+  ScoreUpdateSchema,
+  CommandExpiredSchema,
+  ContributionPlayerDisconnectedSchema,
+]);
+
+/** private 큐(/user/queue/private) 수신 메시지 discriminatedUnion (시스템 이벤트 포함). */
+export const contributionPrivateMessageSchema = z.discriminatedUnion('type', [
+  ContributionInputFailedSchema,
+  forceDisconnectSchema,
+  errorSchema,
+  kickedSchema,
+]);
+
+export type ContributionGameTopicMessage = z.infer<typeof contributionGameTopicMessageSchema>;
+export type ContributionPrivateMessage = z.infer<typeof contributionPrivateMessageSchema>;

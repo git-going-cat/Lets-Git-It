@@ -25,7 +25,7 @@ export function WaitingRoomChat({ onSendMessage }: WaitingRoomChatProps) {
     (event: FormEvent) => {
       event.preventDefault();
 
-      const message = chatDraft.trim();
+      const message = chatDraft.trim().replace(/\s+/g, ' ');
       if (!message) {
         setClientError('메시지를 입력해주세요.');
         return;
