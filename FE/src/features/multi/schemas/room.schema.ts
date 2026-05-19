@@ -1,6 +1,6 @@
 ﻿import { z } from 'zod';
 
-// ?? REST API ?ㅽ궎留?????????????????????????????????????????????????
+// REST API 스키마
 const gameModeSchema = z.enum(['CONTRIBUTION', 'COOP']);
 const roomStateSchema = z.enum(['WAITING', 'IN_GAME']);
 
@@ -87,7 +87,7 @@ export const joinContributionRoomResponseSchema = z.object({
   roomState: roomStateSchema,
   currentPlayers: z.number(),
   maxPlayers: z.number(),
-  hasPassword: z.boolean(),
+  hasPassword: z.boolean().default(false),
   members: z.array(roomMemberSchema),
 });
 
@@ -106,7 +106,7 @@ export const joinCoopRoomResponseSchema = z.object({
   mapList: z.array(mapInfoSchema).default([]),
 });
 
-// ?? WebSocket 濡쒕퉬 硫붿떆吏 ?ㅽ궎留?????????????????????????????????
+// WebSocket 토픽 메시지 스키마
 
 export const playerJoinedMessageSchema = z.object({
   type: z.literal('PLAYER_JOINED'),
@@ -192,7 +192,7 @@ export const roomInfoUpdatedSchema = z.union([
   coopRoomInfoUpdatedSchema,
 ]);
 
-// ?? ?ъ뿰寃곗슜 WebSocket 硫붿떆吏 ?ㅽ궎留?????????????????????????????????
+// 개인 큐용 WebSocket 메시지 스키마
 export const contributionRoomStateMessageSchema = z.object({
   type: z.literal('CONTRIBUTION_ROOM_STATE'),
   roomId: z.number(),
@@ -221,7 +221,7 @@ export const coopRoomStateMessageSchema = z.object({
   members: z.array(roomMemberSchema),
 });
 
-// /topic/room/{roomId} ?먯꽌 ?섏떊?섎뒗 硫붿떆吏 (釉뚮줈?쒖틦?ㅽ듃 ?대깽?몃쭔)
+// /topic/room/{roomId} 에서 수신하는 메시지 (브로드캐스트 이벤트)
 export const roomTopicMessageSchema = z.discriminatedUnion('type', [
   playerJoinedMessageSchema,
   readyChangedMessageSchema,
@@ -234,20 +234,20 @@ export const roomTopicMessageSchema = z.discriminatedUnion('type', [
   chatResponseMessageSchema,
 ]);
 
-// /user/queue/private ?먯꽌 ?섏떊?섎뒗 諛??곹깭 ?ㅻ깄??硫붿떆吏
+// /user/queue/private 에서 수신하는 방 상태 복원 메시지
 export const roomPrivateMessageSchema = z.discriminatedUnion('type', [
   contributionRoomStateMessageSchema,
   coopRoomStateMessageSchema,
 ]);
 
-// ?? REST fallback ?ㅽ궎留?????????????????????????????????
-// GET /api/v1/rooms/{roomId}/state ?묐떟 data??WebSocket ROOM_STATE payload? ?숈씪
+// REST fallback 스키마
+// GET /api/v1/rooms/{roomId}/state 응답 data와 WebSocket ROOM_STATE payload가 동일
 export const roomStateResponseSchema = roomPrivateMessageSchema;
 
-// ?? WebSocket 寃뚯엫 ???ㅽ궎留?(怨듯넻 梨꾨꼸 + 寃뚯엫 ?쒖옉 ?⑦궥) ????????????????????????????????
+// WebSocket 게임 시작 스키마 (공통 연결 메시지 포함)
 
 /**
- * ?湲곗떎 怨듯넻 梨꾨꼸怨?寃뚯엫 ?쒖옉 ?⑦궥??寃利앺븯??WebSocket Zod ?ㅽ궎留?
+ * 기저 연결 메시지와 게임 시작 이벤트를 처리하는 WebSocket Zod 스키마
  */
 
 export const baseMessageSchema = z.object({
@@ -352,6 +352,7 @@ const gameStartCommandSchema = z.object({
   commandSequence: z.number(),
   text: z.string(),
   branchName: z.string(),
+  fallDurationMs: z.number(),
 });
 
 const gameStartPlayerSchema = z.object({

@@ -12,9 +12,6 @@ import type {
   RankingEntry,
 } from '../types/contribution.types';
 
-/** 서버 만료 타이머를 알 수 없으므로 시각적 낙하에 사용하는 기본값 (ms). */
-const DEFAULT_FALL_DURATION_MS = 20_000;
-
 export interface ContributionSceneData {
   commandSet: ContributionCommand[];
   branches: string[];
@@ -33,11 +30,16 @@ export class ContributionScene extends Phaser.Scene {
   private lanes = new Map<string, ContributionLane>();
   /** commandSequence → command. O(1) 조회용. */
   private commandMap = new Map<number, ContributionCommand>();
-  /** 마지막으로 시각적으로 spawn된 sequence. -1이면 아직 안 시작. */
-  private lastSpawnedSeq = -1;
+  /** 마지막으로 시각적으로 spawn된 sequence. 0이면 아직 안 시작 (서버 commandSequence는 1-based). */
+  private lastSpawnedSeq = 0;
   /** look-ahead 다음 spawn 비율 (numPlayers에 따라 계산). 0.5 = 50% 위치에서 다음 등장. */
   private spawnRatio = 0.5;
-  private lookAheadTimer: Phaser.Time.TimerEvent | null = null;
+  /**
+   * look-ahead 타이머. Phaser `time.delayedCall`이 아닌 브라우저 setTimeout을 사용 —
+   * Phaser 타이머는 RAF에 매여 있어 hidden 탭에서 ~1Hz로 throttling되어 명령어 spawn이 사실상 멈춤.
+   * setTimeout은 hidden에서도 wall-clock 기반으로 fire되므로 백그라운드 동작이 정확.
+   */
+  private lookAheadTimer: ReturnType<typeof setTimeout> | null = null;
   private isGameEnded = false;
   private myPlayerId = '';
   /** playerId → currentBranch. POSITION_UPDATE 레인 글로우 이동에 사용. */
@@ -62,15 +64,22 @@ export class ContributionScene extends Phaser.Scene {
     this.myPlayerId = data.myPlayerId;
     this.commandMap.clear();
     data.commandSet.forEach((cmd) => this.commandMap.set(cmd.commandSequence, cmd));
-    this.lastSpawnedSeq = -1;
+    this.lastSpawnedSeq = 0;
     this.isGameEnded = false;
     this.spawnRatio = calculateLookAheadRatio(data.players.length);
 
     this.initLanes(data.branches);
     this.initPlayerBranches(data.players);
     this.lanes.forEach((lane, branch) => lane.setLaneActive(branch === this.getMyBranch()));
-    this.spawnNext();
     this.registerEvents();
+    // game:start가 Phaser create() 전에 발화됐을 경우를 대비한 폴백
+    if (
+      store.clientStartAt != null &&
+      Date.now() >= store.clientStartAt &&
+      this.lastSpawnedSeq === 0
+    ) {
+      this.spawnNext();
+    }
 
     // SHUTDOWN/DESTROY는 씬 재시작(restart)마다 중복 등록되지 않도록 한 번만 바인딩.
     if (!this.lifecycleHandlersRegistered) {
@@ -81,11 +90,22 @@ export class ContributionScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    this.lookAheadTimer?.remove();
-    this.lookAheadTimer = null;
+    if (this.lookAheadTimer !== null) {
+      clearTimeout(this.lookAheadTimer);
+      this.lookAheadTimer = null;
+    }
     this.lanes.clear();
     this.busUnsubs.forEach((fn) => fn());
     this.busUnsubs = [];
+  }
+
+  /**
+   * Phaser 매 프레임 콜백. 각 레인의 명령어 노드 y 위치를 wall-clock 기반으로 갱신.
+   * Hidden 탭에서 RAF가 throttling되어도 visible 복귀 시점에 정확한 위치로 그려지도록
+   * tween이 아닌 manual update 방식을 사용한다.
+   */
+  update(): void {
+    this.lanes.forEach((lane) => lane.updateNodes());
   }
 
   private initLanes(branches: string[]): void {
@@ -109,21 +129,28 @@ export class ContributionScene extends Phaser.Scene {
     const nextSeq = this.lastSpawnedSeq + 1;
     const cmd = this.commandMap.get(nextSeq);
     if (!cmd) return;
-    this.lanes.get(cmd.branchName)?.showCommand(cmd.text, DEFAULT_FALL_DURATION_MS, () => {
-      // 시각적 낙하 완료 — 만료 판정은 서버 COMMAND_EXPIRED로 수신
+    const requestId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2);
+    this.lanes.get(cmd.branchName)?.showCommand(cmd.text, cmd.fallDurationMs, () => {
+      contributionBus.emit('command:expire', { commandSequence: cmd.commandSequence, requestId });
     });
     this.lastSpawnedSeq = nextSeq;
-    this.scheduleLookAhead();
+    this.scheduleLookAhead(cmd.fallDurationMs);
   }
 
-  private scheduleLookAhead(): void {
-    this.lookAheadTimer?.remove();
+  private scheduleLookAhead(fallDurationMs: number): void {
+    if (this.lookAheadTimer !== null) {
+      clearTimeout(this.lookAheadTimer);
+      this.lookAheadTimer = null;
+    }
     // 큐의 마지막 명령어가 끝났으면 더 이상 spawn할 게 없음
-    if (this.lastSpawnedSeq + 1 >= this.commandMap.size) return;
-    this.lookAheadTimer = this.time.delayedCall(DEFAULT_FALL_DURATION_MS * this.spawnRatio, () => {
+    if (this.lastSpawnedSeq + 1 > this.commandMap.size) return;
+    this.lookAheadTimer = setTimeout(() => {
       this.lookAheadTimer = null;
       this.spawnNext();
-    });
+    }, fallDurationMs * this.spawnRatio);
   }
 
   private getMyBranch(): string {
@@ -132,6 +159,7 @@ export class ContributionScene extends Phaser.Scene {
 
   private registerEvents(): void {
     this.busUnsubs = [
+      contributionBus.subscribe('game:start', this.handleGameStart),
       contributionBus.subscribe('score:update', this.handleScoreUpdate),
       contributionBus.subscribe('command:expired', this.handleCommandExpired),
       contributionBus.subscribe('position:update', this.handlePositionUpdate),
@@ -140,6 +168,10 @@ export class ContributionScene extends Phaser.Scene {
     ];
   }
 
+  private readonly handleGameStart = (): void => {
+    if (this.lastSpawnedSeq === 0) this.spawnNext();
+  };
+
   private readonly handleScoreUpdate = ({
     commandSequence,
   }: {
@@ -147,12 +179,10 @@ export class ContributionScene extends Phaser.Scene {
     scores: RankingEntry[];
     progress: { current: number; total: number; percent: number };
   }): void => {
-    // commandSequence는 다음 seq. 방금 완료된 건 seq-1.
-    const clearedSeq = commandSequence - 1;
-    const clearedCmd = this.commandMap.get(clearedSeq);
+    const clearedCmd = this.commandMap.get(commandSequence);
     if (clearedCmd) this.lanes.get(clearedCmd.branchName)?.flashSuccess();
     // 다음 명령어가 아직 spawn 안 됐으면 (lookahead 전에 사용자가 완료한 경우) 즉시 spawn
-    if (clearedSeq === this.lastSpawnedSeq) this.spawnNext();
+    if (commandSequence === this.lastSpawnedSeq) this.spawnNext();
   };
 
   private readonly handleCommandExpired = ({
@@ -161,10 +191,9 @@ export class ContributionScene extends Phaser.Scene {
     commandSequence: number;
     scores: RankingEntry[];
   }): void => {
-    const expiredSeq = commandSequence - 1;
-    const expiredCmd = this.commandMap.get(expiredSeq);
+    const expiredCmd = this.commandMap.get(commandSequence);
     if (expiredCmd) this.lanes.get(expiredCmd.branchName)?.flashMiss();
-    if (expiredSeq === this.lastSpawnedSeq) this.spawnNext();
+    if (commandSequence === this.lastSpawnedSeq) this.spawnNext();
   };
 
   private readonly handlePositionUpdate = ({
@@ -184,8 +213,10 @@ export class ContributionScene extends Phaser.Scene {
 
   private readonly handleGameEnd = (): void => {
     this.isGameEnded = true;
-    this.lookAheadTimer?.remove();
-    this.lookAheadTimer = null;
+    if (this.lookAheadTimer !== null) {
+      clearTimeout(this.lookAheadTimer);
+      this.lookAheadTimer = null;
+    }
     this.lanes.forEach((lane) => lane.clearAll());
   };
 }

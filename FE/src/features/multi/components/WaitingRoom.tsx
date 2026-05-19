@@ -135,13 +135,25 @@ export default function WaitingRoom() {
         sessionId: message.gameSessionId,
         roomId: numericRoomId,
         myPlayerId,
+        serverTime: message.serverTime,
+        startAt: message.startAt,
+        clientStartAt: Date.now() + (message.startAt - message.serverTime),
         commandSet: message.commandSet,
         branches,
-        players: message.players.map((player) => ({
-          playerId: player.playerId,
-          nickname: player.nickname,
-          currentBranch: message.initialBranch,
-        })),
+        players: message.players.map((player) => {
+          const member = currentMembers.find((m) => m.playerId === player.playerId);
+          return {
+            playerId: player.playerId,
+            nickname: player.nickname,
+            currentBranch: message.initialBranch,
+            characterHair: member?.characterHair ?? '',
+            characterHairColor: member?.characterHairColor ?? '',
+            characterBody: member?.characterBody ?? '',
+            characterEye: member?.characterEye ?? '',
+            characterOutfit: member?.characterOutfit ?? '',
+            characterOutfitColor: member?.characterOutfitColor ?? '',
+          };
+        }),
       });
 
       reset();

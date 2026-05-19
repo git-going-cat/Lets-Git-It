@@ -8,6 +8,8 @@ type CreateRoomMode = 'CONTRIBUTION' | 'COOP';
 
 const PAGE_SIZE = 3;
 
+const ROOM_FIELD_REGEX = /^[가-힣a-zA-Z0-9 _-]+$/;
+
 const MODE_LABELS: Record<CreateRoomMode, string> = {
   CONTRIBUTION: '기여도 뺏기',
   COOP: '협력',
@@ -50,18 +52,41 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
+    const normalizedTitle = title.trim().replace(/\s+/g, ' ');
+    const normalizedTeamName = teamName.trim().replace(/\s+/g, ' ');
+
+    if (!normalizedTitle) {
       setError('방 제목을 입력하세요.');
       return;
     }
-    if (mode === 'COOP' && !teamName.trim()) {
-      setError('팀 이름을 입력하세요.');
+    if (normalizedTitle.length < 2 || normalizedTitle.length > 12) {
+      setError('방 제목은 2자 이상 12자 이하여야 합니다.');
       return;
     }
-    if (mode === 'COOP' && !selectedMapId) {
-      setError('맵을 선택하세요.');
+    if (!ROOM_FIELD_REGEX.test(normalizedTitle)) {
+      setError('방 제목은 한글, 영문, 숫자, 공백, _, -만 사용할 수 있습니다.');
       return;
     }
+
+    if (mode === 'COOP') {
+      if (!normalizedTeamName) {
+        setError('팀 이름을 입력하세요.');
+        return;
+      }
+      if (normalizedTeamName.length < 2 || normalizedTeamName.length > 8) {
+        setError('팀 이름은 2자 이상 8자 이하여야 합니다.');
+        return;
+      }
+      if (!ROOM_FIELD_REGEX.test(normalizedTeamName)) {
+        setError('팀 이름은 한글, 영문, 숫자, 공백, _, -만 사용할 수 있습니다.');
+        return;
+      }
+      if (!selectedMapId) {
+        setError('맵을 선택하세요.');
+        return;
+      }
+    }
+
     if (hasPassword && !password.trim()) {
       setError('비밀번호를 입력하세요.');
       return;
@@ -74,8 +99,8 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
     if (mode === 'COOP') {
       createCoopRoom(
         {
-          title: title.trim(),
-          teamName: teamName.trim(),
+          title: normalizedTitle,
+          teamName: normalizedTeamName,
           hasPassword,
           selectedMapId: selectedMapId!,
           ...(hasPassword && { password }),
@@ -85,7 +110,7 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
     } else {
       createContributionRoom(
         {
-          title: title.trim(),
+          title: normalizedTitle,
           maxPlayers,
           hasPassword,
           ...(hasPassword && { password }),
@@ -128,7 +153,7 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="방 제목 입력"
-              maxLength={30}
+              maxLength={12}
               className="rounded border border-gray-300 px-2 py-1.5 text-xs text-gray-800 outline-none focus:border-[#217346]"
             />
           </div>
@@ -188,7 +213,7 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 placeholder="팀 이름 입력"
-                maxLength={20}
+                maxLength={8}
                 className="rounded border border-gray-300 px-2 py-1.5 text-xs text-gray-800 outline-none focus:border-[#217346]"
               />
             </div>

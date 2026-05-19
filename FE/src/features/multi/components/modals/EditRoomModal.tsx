@@ -28,6 +28,8 @@ interface EditRoomModalProps {
   selectedMap: SelectedMap | null;
 }
 
+const ROOM_FIELD_REGEX = /^[가-힣a-zA-Z0-9 _-]+$/;
+
 function getUpdateErrorMessage(error: unknown) {
   const responseData = (error as { response?: { data?: { code?: string; message?: string } } })
     .response?.data;
@@ -109,11 +111,19 @@ function EditRoomModalContent({
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
 
-    const nextTitle = draftTitle.trim();
+    const nextTitle = draftTitle.trim().replace(/\s+/g, ' ');
     const nextPassword = draftPassword.trim();
 
     if (!nextTitle) {
       setError('방 제목을 입력하세요.');
+      return;
+    }
+    if (nextTitle.length < 2 || nextTitle.length > 12) {
+      setError('방 제목은 2자 이상 12자 이하여야 합니다.');
+      return;
+    }
+    if (!ROOM_FIELD_REGEX.test(nextTitle)) {
+      setError('방 제목은 한글, 영문, 숫자, 공백, _, -만 사용할 수 있습니다.');
       return;
     }
 
@@ -156,10 +166,18 @@ function EditRoomModalContent({
       return;
     }
 
-    const nextTeamName = draftTeamName.trim();
+    const nextTeamName = draftTeamName.trim().replace(/\s+/g, ' ');
 
     if (!nextTeamName) {
       setError('팀 이름을 입력하세요.');
+      return;
+    }
+    if (nextTeamName.length < 2 || nextTeamName.length > 8) {
+      setError('팀 이름은 2자 이상 8자 이하여야 합니다.');
+      return;
+    }
+    if (!ROOM_FIELD_REGEX.test(nextTeamName)) {
+      setError('팀 이름은 한글, 영문, 숫자, 공백, _, -만 사용할 수 있습니다.');
       return;
     }
 
@@ -221,7 +239,7 @@ function EditRoomModalContent({
                     type="text"
                     value={draftTitle}
                     onChange={(event) => setDraftTitle(event.target.value)}
-                    maxLength={30}
+                    maxLength={12}
                     className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-800 outline-none focus:border-[#217346]"
                     placeholder="방 제목"
                     aria-label="방 제목"
@@ -267,7 +285,7 @@ function EditRoomModalContent({
                       type="text"
                       value={draftTeamName}
                       onChange={(event) => setDraftTeamName(event.target.value)}
-                      maxLength={20}
+                      maxLength={8}
                       className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-800 outline-none focus:border-[#217346]"
                       placeholder="팀 이름"
                       aria-label="팀 이름"
