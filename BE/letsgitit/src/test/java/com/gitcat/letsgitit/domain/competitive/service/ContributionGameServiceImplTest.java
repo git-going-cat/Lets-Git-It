@@ -100,6 +100,7 @@ class ContributionGameServiceImplTest {
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
 			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
 			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
 				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
 				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
@@ -140,6 +141,7 @@ class ContributionGameServiceImplTest {
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
 			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
 			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
 				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
 				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
@@ -167,6 +169,7 @@ class ContributionGameServiceImplTest {
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 			when(repository.findCommand(GAME_SESSION_ID, 3)).thenReturn(Optional.of(command));
 			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
 			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
 				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
 				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
@@ -205,6 +208,128 @@ class ContributionGameServiceImplTest {
 			assertThat(payload.errorReason()).isEqualTo("INVALID_BRANCH");
 			verify(repository, never()).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
 			verify(repository, never()).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
+		}
+
+		@Test
+		void 현재_브랜치의_가장_낮은_READY_명령어가_아니면_INVALID_COMMAND_ORDER를_반환한다() {
+			// given
+			ContributionInputMessage request = input(7, "git commit -m 'feat'");
+			ContributionCommandCache command = ContributionCommandCache.ready(7, "git commit -m 'feat'", "develop");
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(branchOrderSession()));
+			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.findCommand(GAME_SESSION_ID, 7)).thenReturn(Optional.of(command));
+			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("develop"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(
+				ContributionCommandCache.ready(3, "git add .", "develop"),
+				command,
+				ContributionCommandCache.ready(10, "git push origin develop", "develop"),
+				ContributionCommandCache.ready(6, "git pull origin main", "main")));
+
+			// when
+			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+			// then
+			assertThat(result.broadcast()).isFalse();
+			assertThat(result.payload()).isInstanceOf(ContributionInputFailedMessage.class);
+			ContributionInputFailedMessage payload = (ContributionInputFailedMessage)result.payload();
+			assertThat(payload.errorReason()).isEqualTo("INVALID_COMMAND_ORDER");
+			verify(repository, never()).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+			verify(repository, never()).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
+		}
+
+		@Test
+		void 다른_브랜치의_낮은_READY_명령어는_현재_브랜치_정답을_막지_않는다() {
+			// given
+			ContributionInputMessage request = input(3, "git add .");
+			ContributionCommandCache command = ContributionCommandCache.ready(3, "git add .", "develop");
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(branchOrderSession()));
+			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.findCommand(GAME_SESSION_ID, 3)).thenReturn(Optional.of(command));
+			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("develop"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(
+				command,
+				ContributionCommandCache.ready(6, "git pull origin main", "main"),
+				ContributionCommandCache.ready(7, "git commit -m 'feat'", "develop")));
+			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
+				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
+				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
+			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
+			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
+			when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(0);
+			when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(1);
+
+			// when
+			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+			// then
+			assertThat(result.broadcast()).isTrue();
+			assertThat(result.payload()).isInstanceOf(ScoreUpdateMessage.class);
+			verify(repository).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+			verify(repository).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
+		}
+
+		@Test
+		void 같은_브랜치의_낮은_명령어가_이미_처리됐으면_다음_READY_명령어를_정답으로_처리한다() {
+			// given
+			ContributionInputMessage request = input(7, "git commit -m 'feat'");
+			ContributionCommandCache command = ContributionCommandCache.ready(7, "git commit -m 'feat'", "develop");
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(branchOrderSession()));
+			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.findCommand(GAME_SESSION_ID, 7)).thenReturn(Optional.of(command));
+			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("develop"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(
+				ContributionCommandCache.ready(3, "git add .", "develop").cleared(OTHER_PLAYER_ID),
+				command,
+				ContributionCommandCache.ready(10, "git push origin develop", "develop"),
+				ContributionCommandCache.ready(6, "git pull origin main", "main")));
+			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
+				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
+				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
+			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
+			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(1);
+			when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(0);
+			when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(2);
+
+			// when
+			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+			// then
+			assertThat(result.broadcast()).isTrue();
+			assertThat(result.payload()).isInstanceOf(ScoreUpdateMessage.class);
+			verify(repository).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+			verify(repository).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
+		}
+
+		@Test
+		void 같은_브랜치의_낮은_명령어가_만료됐으면_다음_READY_명령어를_정답으로_처리한다() {
+			// given
+			ContributionInputMessage request = input(7, "git commit -m 'feat'");
+			ContributionCommandCache command = ContributionCommandCache.ready(7, "git commit -m 'feat'", "develop");
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(branchOrderSession()));
+			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.findCommand(GAME_SESSION_ID, 7)).thenReturn(Optional.of(command));
+			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("develop"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(
+				ContributionCommandCache.ready(3, "git add .", "develop").expired(),
+				command,
+				ContributionCommandCache.ready(10, "git push origin develop", "develop"),
+				ContributionCommandCache.ready(6, "git pull origin main", "main")));
+			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
+				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
+				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
+			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
+			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
+			when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(1);
+			when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(1);
+
+			// when
+			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+			// then
+			assertThat(result.broadcast()).isTrue();
+			assertThat(result.payload()).isInstanceOf(ScoreUpdateMessage.class);
+			verify(repository).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+			verify(repository).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
 		}
 
 		@Test
@@ -328,6 +453,7 @@ class ContributionGameServiceImplTest {
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(singleCommandSession()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
 			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
 				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
 				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
@@ -361,6 +487,7 @@ class ContributionGameServiceImplTest {
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(singleCommandSession()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
 			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
 				new ContributionPlayerCache(PLAYER_ID, "dobby", 0)));
 			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
@@ -388,6 +515,7 @@ class ContributionGameServiceImplTest {
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(singleCommandSession()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
 			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
 				new ContributionPlayerCache(PLAYER_ID, "dobby", 0)));
 			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
@@ -415,6 +543,7 @@ class ContributionGameServiceImplTest {
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(singleCommandSession()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
 			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
 				new ContributionPlayerCache(PLAYER_ID, "dobby", 0)));
 			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
@@ -440,6 +569,7 @@ class ContributionGameServiceImplTest {
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(twoCommandSession()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 			when(repository.findCommand(GAME_SESSION_ID, 2)).thenReturn(Optional.of(command));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
 			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
 				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
 				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
@@ -702,6 +832,25 @@ class ContributionGameServiceImplTest {
 				ContributionCommandCache.ready(1, "git commit -m 'fix'", "main"),
 				ContributionCommandCache.ready(2, "git switch feature/login", "main"),
 				ContributionCommandCache.ready(3, "git push", "main")),
+			List.of(
+				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
+				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
+	}
+
+	private ContributionGameSessionCache branchOrderSession() {
+		return ContributionGameSessionCache.inProgress(
+			ROOM_ID,
+			GAME_SESSION_ID,
+			1,
+			System.currentTimeMillis(),
+			"main",
+			List.of(
+				ContributionCommandCache.ready(3, "git add .", "develop"),
+				ContributionCommandCache.ready(6, "git pull origin main", "main"),
+				ContributionCommandCache.ready(7, "git commit -m 'feat'", "develop"),
+				ContributionCommandCache.ready(8, "git merge develop", "main"),
+				ContributionCommandCache.ready(9, "git push origin main", "main"),
+				ContributionCommandCache.ready(10, "git push origin develop", "develop")),
 			List.of(
 				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
 				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
