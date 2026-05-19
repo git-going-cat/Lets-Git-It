@@ -111,6 +111,8 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 
 	@Override
 	public ContributionInputResult processInput(Long roomId, UUID memberId, ContributionInputMessage request) {
+		log.info("[contribution][input] received. roomId={}, memberId={}, gameSessionId={}", roomId, memberId,
+			request.gameSessionId());
 		RLock sessionLock = redissonClient.getLock(ContributionRedisKeys.sessionLock(request.gameSessionId()));
 		boolean sessionLocked = tryLock(sessionLock);
 		try {
@@ -152,6 +154,8 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		Long roomId,
 		UUID memberId,
 		ContributionExpireRequestMessage request) {
+		log.info("[contribution][expireRequest] received. roomId={}, memberId={}, gameSessionId={}, commandSequence={}",
+			roomId, memberId, request.gameSessionId(), request.commandSequence());
 		RLock sessionLock = redissonClient.getLock(ContributionRedisKeys.sessionLock(request.gameSessionId()));
 		boolean sessionLocked = tryLock(sessionLock);
 		try {
@@ -435,7 +439,7 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			resultSaved = true;
 		} catch (RuntimeException e) {
 			log.error(
-				"[contribution][completeGame] 결과 DB 저장 실패, 게임 종료는 정상 진행. roomId={}, gameSessionId={}",
+				"[contribution][completeGame] DB save failed, game end proceeds normally. roomId={}, gameSessionId={}",
 				roomId, gameSessionId, e);
 		}
 		if (resultSaved) {
@@ -463,7 +467,7 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 				contributionRankingService.updateContributionScore(ranking.playerId(), ranking.contribution());
 			} catch (RuntimeException e) {
 				log.error(
-					"[contribution][completeGame] 랭킹 Redis 갱신 실패. gameSessionId={}, memberId={}, contribution={}",
+					"[contribution][completeGame] ranking Redis update failed. gameSessionId={}, memberId={}, contribution={}",
 					gameSessionId, ranking.playerId(), ranking.contribution(), e);
 			}
 		}

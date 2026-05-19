@@ -369,7 +369,7 @@ public class CoopRankingServiceImpl implements CoopRankingService {
 		for (int i = 0; i < dataList.size(); i++) {
 			CoopRankingData data = dataList.get(i);
 			if (data == null) {
-				log.warn("[coop-ranking] orphan entry at rank {}, skipping", startRank + i);
+				log.warn("[coop-ranking][toEntries] orphan entry at rank {}, skipping", startRank + i);
 				continue;
 			}
 			result.add(toEntryWithNicknames(data, startRank + i, nicknameMap));

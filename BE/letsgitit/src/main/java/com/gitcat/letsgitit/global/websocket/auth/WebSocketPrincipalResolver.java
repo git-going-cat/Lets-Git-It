@@ -51,7 +51,9 @@ public class WebSocketPrincipalResolver {
 				throw new BusinessException(ErrorCode.INVALID_TOKEN);
 			}
 
-			return new StompPrincipal(member.getId().toString());
+			String nickname = jwtProvider.getNickname(token);
+			return new StompPrincipal(member.getId().toString(),
+				nickname != null ? nickname : "");
 		} catch (ExpiredJwtException e) {
 			throw new BusinessException(ErrorCode.TOKEN_EXPIRED);
 		} catch (JwtException | IllegalArgumentException e) {
