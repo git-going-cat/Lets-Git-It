@@ -126,6 +126,15 @@ public class ContributionGameRedisRepositoryImpl implements ContributionGameRedi
 	}
 
 	@Override
+	public List<ContributionCommandCache> findCommands(UUID gameSessionId) {
+		Map<Object, Object> commands = gameStringRedisTemplate.opsForHash()
+			.entries(ContributionRedisKeys.commands(gameSessionId));
+		return commands.values().stream()
+			.map(value -> fromJson(value.toString(), ContributionCommandCache.class))
+			.toList();
+	}
+
+	@Override
 	public void saveCommand(UUID gameSessionId, ContributionCommandCache command) {
 		gameStringRedisTemplate.opsForHash().put(
 			ContributionRedisKeys.commands(gameSessionId),
