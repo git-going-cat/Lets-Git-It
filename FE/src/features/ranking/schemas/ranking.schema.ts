@@ -94,36 +94,42 @@ export const singleInitialResponseSchema = weekHeaderSchema
     around: z.array(singleRankingEntrySchema),
   });
 
-export const speedInitialResponseSchema = weekHeaderSchema.merge(paginationSchema).extend({
-  top3: z.array(speedRankingEntrySchema),
-  myRank: z.object({ rank: z.number(), contribution: z.number() }).nullable(),
-  around: z.array(speedRankingEntrySchema),
-});
+export const speedInitialResponseSchema = weekHeaderSchema
+  .merge(bidirectionalPaginationSchema)
+  .extend({
+    top3: z.array(speedRankingEntrySchema),
+    myRank: z.object({ rank: z.number(), contribution: z.number() }).nullable(),
+    around: z.array(speedRankingEntrySchema),
+  });
 
-export const timeAttackInitialResponseSchema = weekHeaderSchema.merge(paginationSchema).extend({
-  top3: z.array(timeAttackRankingEntrySchema),
-  myRank: z.object({ rank: z.number(), totalCount: z.number() }).nullable(),
-  around: z.array(timeAttackRankingEntrySchema),
-});
+export const timeAttackInitialResponseSchema = weekHeaderSchema
+  .merge(bidirectionalPaginationSchema)
+  .extend({
+    top3: z.array(timeAttackRankingEntrySchema),
+    myRank: z.object({ rank: z.number(), totalCount: z.number() }).nullable(),
+    around: z.array(timeAttackRankingEntrySchema),
+  });
 
-export const coopInitialResponseSchema = weekHeaderSchema.merge(paginationSchema).extend({
-  mapId: z.union([z.string(), z.number()]).optional(),
-  mapName: z.string().optional(),
-  difficulty: z.number().optional(),
-  top3: z.array(coopRankingEntrySchema),
-  myRank: z
-    .object({
-      rank: z.number(),
-      clearTime: z.number().optional(),
-      elapsedTime: z.number().optional(),
-    })
-    .transform((rank) => ({
-      rank: rank.rank,
-      clearTime: rank.clearTime ?? rank.elapsedTime ?? 0,
-    }))
-    .nullable(),
-  around: z.array(coopRankingEntrySchema),
-});
+export const coopInitialResponseSchema = weekHeaderSchema
+  .merge(bidirectionalPaginationSchema)
+  .extend({
+    mapId: z.union([z.string(), z.number()]).optional(),
+    mapName: z.string().optional(),
+    difficulty: z.number().optional(),
+    top3: z.array(coopRankingEntrySchema),
+    myRank: z
+      .object({
+        rank: z.number(),
+        clearTime: z.number().optional(),
+        elapsedTime: z.number().optional(),
+      })
+      .transform((rank) => ({
+        rank: rank.rank,
+        clearTime: rank.clearTime ?? rank.elapsedTime ?? 0,
+      }))
+      .nullable(),
+    around: z.array(coopRankingEntrySchema),
+  });
 
 export const singleInfiniteResponseSchema = bidirectionalPaginationSchema.extend({
   rankings: z.array(singleRankingEntrySchema),

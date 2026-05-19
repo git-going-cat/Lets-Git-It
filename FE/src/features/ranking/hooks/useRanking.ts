@@ -84,12 +84,12 @@ export function useRanking(
           case 'single-hard':
             return fetchSingleRankingHistory(mode, selectedWeek, toSingleCursor(pageParam));
           case 'speed':
-            return fetchSpeedRankingHistory(selectedWeek, cursor);
+            return fetchSpeedRankingHistory(selectedWeek, toSingleCursor(pageParam));
           case 'timeattack':
             return fetchTimeAttackRankingHistory(selectedWeek, cursor);
           case 'coop':
             if (!coopQuery) throw new Error('협력 랭킹 조회 조건이 없습니다.');
-            return fetchCoopRankingHistory(coopQuery, selectedWeek, cursor);
+            return fetchCoopRankingHistory(coopQuery, selectedWeek, toSingleCursor(pageParam));
         }
       }
 
@@ -99,12 +99,12 @@ export function useRanking(
         case 'single-hard':
           return fetchSingleRanking(mode, toSingleCursor(pageParam));
         case 'speed':
-          return fetchSpeedRanking(cursor);
+          return fetchSpeedRanking(toSingleCursor(pageParam));
         case 'timeattack':
           return fetchTimeAttackRanking(cursor);
         case 'coop':
           if (!coopQuery) throw new Error('협력 랭킹 조회 조건이 없습니다.');
-          return fetchCoopRanking(coopQuery, cursor);
+          return fetchCoopRanking(coopQuery, toSingleCursor(pageParam));
       }
     },
     initialPageParam: undefined as RankingPageParam | undefined,
