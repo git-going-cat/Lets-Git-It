@@ -22,6 +22,9 @@ const LANE = {
   LINE_ALPHA: 0.7,
   LABEL_OFFSET_Y: 20,
   LABEL_FONT_SIZE: '22px',
+  LABEL_BG_COLOR: '#ffffff',
+  LABEL_BG_PADDING_X: 8,
+  LABEL_BG_PADDING_Y: 4,
 } as const;
 
 const NODE = {
@@ -68,6 +71,7 @@ export class ContributionLane extends Phaser.GameObjects.Container {
   private commandNodes: FallingNode[] = [];
   private activeGlow: Phaser.GameObjects.Graphics | null = null;
   private flashGraphic: Phaser.GameObjects.Graphics | null = null;
+  private branchLabel: Phaser.GameObjects.Text | null = null;
 
   constructor(scene: Phaser.Scene, laneIndex: number, totalLanes: number, branchName: string) {
     const canvasHeight = scene.scale.height;
@@ -91,6 +95,8 @@ export class ContributionLane extends Phaser.GameObjects.Container {
     const node = this.buildNode(text);
     node.setPosition(this.laneWidth / 2, NODE.START_Y);
     this.add(node);
+    // 브랜치 라벨이 낙하 노드에 가려지지 않도록 항상 최상단으로 끌어올린다.
+    if (this.branchLabel) this.bringToTop(this.branchLabel);
     this.commandNodes.push({
       node,
       spawnTime: performance.now(),
@@ -223,9 +229,12 @@ export class ContributionLane extends Phaser.GameObjects.Container {
         fontSize: LANE.LABEL_FONT_SIZE,
         fontFamily: PIXEL_FONT,
         color: this.branchColor.text,
+        backgroundColor: LANE.LABEL_BG_COLOR,
+        padding: { x: LANE.LABEL_BG_PADDING_X, y: LANE.LABEL_BG_PADDING_Y },
       })
       .setOrigin(0.5, 0);
     this.add(label);
+    this.branchLabel = label;
   }
 
   private buildNode(text: string): Phaser.GameObjects.Container {

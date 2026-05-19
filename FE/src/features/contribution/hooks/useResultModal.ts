@@ -45,8 +45,8 @@ export function useResultModal() {
     if (roomId != null) {
       void navigate({ to: '/multi/$roomId', params: { roomId: String(roomId) } });
     } else {
-      // roomId 없는 비정상 케이스 — /multi는 mode search가 필수라 결국 /home으로 redirect되므로 직접 보낸다.
-      void navigate({ to: '/home' });
+      // roomId 없는 비정상 케이스 — 로비 모달(기여도 뺏기)이 열리도록 lobby search를 동반한다.
+      void navigate({ to: '/home', search: { lobby: 'CONTRIBUTION' } });
     }
   };
 
@@ -57,7 +57,8 @@ export function useResultModal() {
       void leaveRoom(roomId).catch(() => {});
     }
     cleanup();
-    void navigate({ to: '/home' });
+    // 로비 모달이 다시 열리도록 lobby search를 동반한다.
+    void navigate({ to: '/home', search: { lobby: 'CONTRIBUTION' } });
   };
 
   // 자동 복귀 타이머
