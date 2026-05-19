@@ -6,35 +6,27 @@ import {
   GRADE_COLOR_CLASSES,
 } from '../utils/rankingFormat';
 
-import type {
-  CoopRankingEntry,
-  RankGrade,
-  RankingEntry,
-  RankingMode,
-} from '../types/ranking.types';
+import type { RankGrade, RankingEntry, RankingMode } from '../types/ranking.types';
+
+// ── 컴포넌트 ──────────────────────────────────────────────
 
 interface RankingPodiumProps {
   mode: RankingMode;
   top3: RankingEntry[];
 }
 
-function isCoopEntry(entry: RankingEntry): entry is CoopRankingEntry {
-  return 'clearTime' in entry && 'difficulty' in entry;
-}
-
-function getPodiumName(mode: RankingMode, entry?: RankingEntry) {
-  if (!entry) return '-';
-  if (mode === 'coop' && isCoopEntry(entry)) {
-    return entry.teamName ?? entry.nickname ?? '-';
-  }
-  return 'nickname' in entry ? entry.nickname : '-';
-}
-
+/**
+ * TOP3 시상대 컴포넌트
+ *
+ * @description 2위(왼쪽) - 1위(가운데, 가장 높음) - 3위(오른쪽) 순서 배치
+ */
 export default function RankingPodium({ mode, top3 }: RankingPodiumProps) {
   if (top3.length === 0) return null;
 
+  // 표시 순서: 2위 → 1위 → 3위
   const displayOrder = [top3[1], top3[0], top3[2]];
   const medals = ['🥈', '🥇', '🥉'];
+  // 1위가 가장 높은 시상대 — 각 높이는 Tailwind 기본 스케일로 표현
   const podiumHeights = ['h-20', 'h-28', 'h-16'];
   const podiumClasses = [
     'border-[1.5px] border-[rgba(140,170,210,0.35)] bg-[linear-gradient(180deg,#DDE8F5_0%,#B8CCE8_100%)]',
@@ -56,12 +48,12 @@ export default function RankingPodium({ mode, top3 }: RankingPodiumProps) {
         const shouldShowPlayTime = mode.startsWith('single-');
 
         return (
-          <div key={`${rank}-${idx}`} className="flex flex-col items-center gap-2">
+          <div key={rank} className="flex flex-col items-center gap-2">
+            {/* 메달 + 닉네임 */}
             <span className="text-2xl">{medals[idx]}</span>
-            <span className="max-w-28 truncate text-sm font-bold text-gray-800">
-              {getPodiumName(mode, entry)}
-            </span>
+            <span className="text-sm font-bold text-gray-800">{entry?.nickname ?? '-'}</span>
 
+            {/* 점수 */}
             <span className="text-xs font-semibold text-gray-600">
               {entry ? formatScore(mode, entry) : '-'}
             </span>
@@ -71,11 +63,15 @@ export default function RankingPodium({ mode, top3 }: RankingPodiumProps) {
               </span>
             )}
 
+            {/* 등급 뱃지 (협력 모드 제외) */}
             {grade && <GradeBadge grade={grade} />}
 
+            {/* 시상대 기둥 */}
+            {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
             <div
               className={`${podiumHeights[idx]} ${podiumClasses[idx]} flex w-20 items-end justify-center rounded-t-lg text-lg font-bold`}
             >
+              {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
               <span className={`mb-2 ${rankTextClasses[idx]}`}>{rank}</span>
             </div>
           </div>
@@ -85,14 +81,21 @@ export default function RankingPodium({ mode, top3 }: RankingPodiumProps) {
   );
 }
 
+// ── 등급 뱃지 ─────────────────────────────────────────────
+
 interface GradeBadgeProps {
   grade: RankGrade;
 }
 
 function GradeBadge({ grade }: GradeBadgeProps) {
   return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${GRADE_COLOR_CLASSES[grade]}`}>
-      {grade}
-    </span>
+    <>
+      {/* Tailwind 기본 스케일로 표현 불가한 정밀 색상값/그라디언트 */}
+      <span
+        className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${GRADE_COLOR_CLASSES[grade]}`}
+      >
+        {grade}
+      </span>
+    </>
   );
 }

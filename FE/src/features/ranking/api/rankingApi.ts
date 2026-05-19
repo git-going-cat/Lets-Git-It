@@ -36,7 +36,6 @@ type SingleRankingCursor = {
   afterRank?: number;
   beforeRank?: number;
 };
-type RankingCursor = SingleRankingCursor;
 
 function buildRankingParams(params: RankingQueryParams, cursor?: number) {
   return {
@@ -79,18 +78,18 @@ export async function fetchSingleRanking(
     '/api/v1/rankings/single',
     buildSingleRankingParams({ difficulty: DIFFICULTY_MAP[difficulty] }, cursor),
     singleRankingResponseSchema,
-    '싱글 랭킹 응답 형식이 올바르지 않습니다.'
+    '올바르지 않은 싱글 랭킹 데이터 형식입니다.'
   );
 }
 
 export async function fetchSpeedRanking(
-  cursor?: RankingCursor
+  cursor?: number
 ): Promise<RankingResponse<SpeedRankingEntry, SpeedMyRank>> {
   return getRanking(
-    '/api/v1/rankings/contribution',
-    buildSingleRankingParams({}, cursor),
+    '/api/v1/rankings/speed',
+    buildRankingParams({}, cursor),
     speedRankingResponseSchema,
-    '기여도 뺏기 랭킹 응답 형식이 올바르지 않습니다.'
+    '올바르지 않은 기여도 랭킹 데이터 형식입니다.'
   );
 }
 
@@ -101,19 +100,19 @@ export async function fetchTimeAttackRanking(
     '/api/v1/rankings/timeattack',
     buildRankingParams({}, cursor),
     timeAttackRankingResponseSchema,
-    '타임어택 랭킹 응답 형식이 올바르지 않습니다.'
+    '올바르지 않은 타임어택 랭킹 데이터 형식입니다.'
   );
 }
 
 export async function fetchCoopRanking(
   query: CoopRankingQuery,
-  cursor?: RankingCursor
+  cursor?: number
 ): Promise<RankingResponse<CoopRankingEntry, CoopMyRank>> {
   return getRanking(
     '/api/v1/rankings/coop',
-    buildSingleRankingParams({ mapName: query.mapName, difficulty: query.difficulty }, cursor),
+    buildRankingParams({ mapName: query.mapName, difficulty: query.difficulty }, cursor),
     coopRankingResponseSchema,
-    '협력 랭킹 응답 형식이 올바르지 않습니다.'
+    '올바르지 않은 협력 랭킹 데이터 형식입니다.'
   );
 }
 
@@ -134,19 +133,19 @@ export async function fetchSingleRankingHistory(
       cursor
     ),
     singleRankingResponseSchema,
-    '싱글 과거 랭킹 응답 형식이 올바르지 않습니다.'
+    '올바르지 않은 싱글 과거 랭킹 데이터 형식입니다.'
   );
 }
 
 export async function fetchSpeedRankingHistory(
   weekParam: WeekParam,
-  cursor?: RankingCursor
+  cursor?: number
 ): Promise<RankingResponse<SpeedRankingEntry, SpeedMyRank>> {
   return getRanking(
-    '/api/v1/rankings/contribution/history',
-    buildSingleRankingParams({ ...weekParam }, cursor),
+    '/api/v1/rankings/speed/history',
+    buildRankingParams({ ...weekParam }, cursor),
     speedRankingResponseSchema,
-    '기여도 뺏기 과거 랭킹 응답 형식이 올바르지 않습니다.'
+    '올바르지 않은 기여도 과거 랭킹 데이터 형식입니다.'
   );
 }
 
@@ -158,22 +157,23 @@ export async function fetchTimeAttackRankingHistory(
     '/api/v1/rankings/timeattack/history',
     buildRankingParams({ ...weekParam }, cursor),
     timeAttackRankingResponseSchema,
-    '타임어택 과거 랭킹 응답 형식이 올바르지 않습니다.'
+    '올바르지 않은 타임어택 과거 랭킹 데이터 형식입니다.'
   );
 }
 
 export async function fetchCoopRankingHistory(
   query: CoopRankingQuery,
   weekParam: WeekParam,
-  cursor?: RankingCursor
+  cursor?: number
 ): Promise<RankingResponse<CoopRankingEntry, CoopMyRank>> {
+  if (query.mapId === undefined) {
+    throw new Error('협력 과거 랭킹 조회에는 mapId가 필요합니다.');
+  }
+
   return getRanking(
     '/api/v1/rankings/coop/history',
-    buildSingleRankingParams(
-      { mapName: query.mapName, difficulty: query.difficulty, ...weekParam },
-      cursor
-    ),
+    buildRankingParams({ mapId: query.mapId, ...weekParam }, cursor),
     coopRankingResponseSchema,
-    '협력 과거 랭킹 응답 형식이 올바르지 않습니다.'
+    '올바르지 않은 협력 과거 랭킹 데이터 형식입니다.'
   );
 }
