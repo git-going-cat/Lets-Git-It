@@ -17,9 +17,9 @@ docker build \
   -t fe-builder "$PROJECT_DIR"
 docker rm fe-temp 2>/dev/null || true
 docker create --name fe-temp fe-builder
-rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
-docker cp fe-temp:/app/dist/. "$DIST_DIR"
+rm -rf "$DIST_DIR"/*
+docker cp fe-temp:/app/dist/. "$DIST_DIR/"
 docker rm fe-temp
 docker rmi fe-builder
 
