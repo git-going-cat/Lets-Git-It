@@ -399,11 +399,7 @@ export const coopStartedSchema = z.object({
       })
     ),
   }),
-  players: z.array(
-    gameStartPlayerSchema.extend({
-      bestTime: z.number(),
-    })
-  ),
+  players: z.array(gameStartPlayerSchema),
 });
 
 export type BaseMessage = z.infer<typeof baseMessageSchema>;
