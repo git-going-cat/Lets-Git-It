@@ -1349,13 +1349,15 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 - 고양이(`[CAT]`)도 순위에 포함된다. 고양이가 1등이면 `winnerVideoTarget`은 `null`.
 - `GAME_COMPLETED` 정상 종료 시 서버는 final rankings snapshot을 저장하고, CAT을 제외한 실제 플레이어 결과를 DB에 저장한다. DB 저장이 성공한 경우 실제 플레이어의 이번 게임 기여도와 총 플레이 수를 주간 Redis 랭킹에 누적한다.
 - `PLAYER_DISCONNECTED` 조기 종료는 결과 DB 저장과 주간 Redis 랭킹 갱신을 수행하지 않는다.
+- 정상 종료(`GAME_COMPLETED`) 후 서버는 방 상태를 `WAITING`으로 되돌리고 방장 외 멤버 ready를 초기화한 뒤 세션 Redis 키를 삭제한다.
+- 정상 종료를 수신한 FE는 결과 화면을 표시한 뒤 기존 방의 대기방으로 복귀한다. 방 나가기 호출은 필요하지 않으며, 같은 방에서 다시 ready 후 새 게임을 시작할 수 있다.
 
 **게임 중 이탈 처리 규칙**
 
 | 상황 | 동작 |
 | --- | --- |
 | 이탈 후 참가자 2명 이상 남음 | 게임 계속 진행. 이탈자는 Redis에 마킹되며 이후 `scores`/`rankings`에서 `disconnected: true`로 표시됨. 이탈 시점까지 클리어한 명령어 수 기준으로 기여도 계산. |
-| 이탈 후 참가자 1명 이하 남음 | 서버가 즉시 비정상 종료. `PLAYER_DISCONNECTED` reason으로 `CONTRIBUTION_GAME_END` 브로드캐스트. DB 저장 및 랭킹 갱신 없음. |
+| 이탈 후 참가자 1명 이하 남음 | 서버가 즉시 비정상 종료. 방 상태를 `WAITING`으로 되돌리고 방장 외 멤버 ready를 초기화한 뒤 세션 Redis 키를 삭제한다. `PLAYER_DISCONNECTED` reason으로 `CONTRIBUTION_GAME_END` 브로드캐스트. DB 저장 및 랭킹 갱신 없음. |
 
 #### Response: 플레이어 이탈 상태
 
@@ -1430,7 +1432,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 #### FE 처리 지침 — PLAYER_DISCONNECTED 수신 시
 
-`CONTRIBUTION_GAME_END` + `reason: "PLAYER_DISCONNECTED"` 수신 직후, 서버는 연달아 `PLAYER_LEFT`(및 방장 이탈 시 `HOST_DELEGATED`)를 `/topic/room/{roomId}`로 전송한다.
+`CONTRIBUTION_GAME_END` + `reason: "PLAYER_DISCONNECTED"` 수신 직후, 서버는 방 상태를 `WAITING`으로 되돌리고 방장 외 멤버 ready를 초기화한 상태로 `PLAYER_LEFT`(및 방장 이탈 시 `HOST_DELEGATED`)를 `/topic/room/{roomId}`로 전송한다.
 
 **이벤트 수신 순서**
 
@@ -1439,6 +1441,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
    → /topic/room/{roomId}/contribution
 
 ② PLAYER_LEFT  (roomState: "WAITING", remainMembers: [...])
+   - remainMembers는 방장 외 ready=false 초기화가 반영된 상태
    → /topic/room/{roomId}
 
 ③ HOST_DELEGATED  (방장이 이탈한 경우에만)
