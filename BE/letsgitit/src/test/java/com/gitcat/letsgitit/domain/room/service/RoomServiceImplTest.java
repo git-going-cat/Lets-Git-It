@@ -24,6 +24,8 @@ import org.springframework.scheduling.TaskScheduler;
 
 import com.gitcat.letsgitit.domain.command.dto.response.CommandSetResponse;
 import com.gitcat.letsgitit.domain.command.service.CommandService;
+import com.gitcat.letsgitit.domain.competitive.dto.ContributionInputResult;
+import com.gitcat.letsgitit.domain.competitive.message.contribution.ContributionGameEndMessage;
 import com.gitcat.letsgitit.domain.competitive.service.ContributionGameService;
 import com.gitcat.letsgitit.domain.coop.dto.response.GraphDataDto;
 import com.gitcat.letsgitit.domain.coop.service.CoopGameService;
@@ -831,6 +833,41 @@ class RoomServiceImplTest {
 		}
 
 		@Test
+		void 기여도_게임_중_퇴장하면_방_멤버_제거_전에_기여도_세션을_이탈_마킹한다() {
+			UUID gameSessionId = UUID.randomUUID();
+			UUID remainMemberId = UUID.fromString("cccccccc-0000-0000-0000-000000000003");
+			Object contributionPayload = new Object();
+			PlayerInfoDto leftPlayer = player(MEMBER_ID, "member", false);
+			PlayerInfoDto host = player(OTHER_ID, "host", true);
+			PlayerInfoDto remainMember = player(remainMemberId, "remain", false);
+			Map<Object, Object> beforeMembers = Map.of("member", "before", "host", "before", "remain", "before");
+			Map<Object, Object> afterMembers = Map.of("host", "after", "remain", "after");
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(OTHER_ID.toString());
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("IN_GAME");
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
+			given(roomRedisRepository.findGameSessionId(ROOM_ID)).willReturn(gameSessionId.toString());
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, afterMembers);
+			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of(leftPlayer, host, remainMember));
+			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(host, remainMember));
+			given(contributionGameService.handlePlayerDisconnected(gameSessionId, MEMBER_ID))
+				.willReturn(ContributionInputResult.broadcast(contributionPayload));
+
+			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
+
+			InOrder inOrder = Mockito.inOrder(contributionGameService, roomRedisRepository,
+				roomWebSocketEventPublisher);
+			inOrder.verify(contributionGameService).handlePlayerDisconnected(gameSessionId, MEMBER_ID);
+			inOrder.verify(roomRedisRepository).removeMember(ROOM_ID, MEMBER_ID.toString());
+			inOrder.verify(roomWebSocketEventPublisher).publishContributionEvent(ROOM_ID, contributionPayload);
+			then(contributionGameService).should(never()).endByPlayerDisconnected(any(), any());
+			then(roomWebSocketEventPublisher).should()
+				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "member", List.of(host, remainMember), "IN_GAME");
+		}
+
+		@Test
 		void COOP_게임_진행_중_나가면_handlePlayerDisconnect를_호출한다() {
 			PlayerInfoDto leftPlayer = player(MEMBER_ID, "member", false);
 			PlayerInfoDto host = player(OTHER_ID, "host", true);
@@ -850,6 +887,36 @@ class RoomServiceImplTest {
 
 			then(coopGameService).should().handlePlayerDisconnect(ROOM_ID);
 		}
+
+		@Test
+		void CONTRIBUTION_게임_중_남은_인원이_1명_이하면_WAITING_복구_ready초기화_세션삭제_후_종료이벤트를_발행한다() {
+			UUID gameSessionId = UUID.randomUUID();
+			ContributionGameEndMessage gameEnd = ContributionGameEndMessage.playerDisconnected(gameSessionId);
+			PlayerInfoDto leftPlayer = player(MEMBER_ID, "member", false);
+			PlayerInfoDto host = player(OTHER_ID, "host", true);
+			Map<Object, Object> beforeMembers = Map.of("member", "before");
+			Map<Object, Object> afterMembers = Map.of("host", "after");
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(OTHER_ID.toString());
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("IN_GAME", "WAITING");
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
+			given(roomRedisRepository.findGameSessionId(ROOM_ID)).willReturn(gameSessionId.toString());
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, afterMembers);
+			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of(leftPlayer, host));
+			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(host));
+			given(contributionGameService.endByPlayerDisconnected(ROOM_ID, gameSessionId)).willReturn(gameEnd);
+
+			roomService.leaveRoom(ROOM_ID, MEMBER_ID);
+
+			InOrder inOrder = Mockito.inOrder(roomRedisRepository, contributionGameService,
+				roomWebSocketEventPublisher);
+			inOrder.verify(roomRedisRepository).updateRoomState(ROOM_ID, RoomState.WAITING.name());
+			inOrder.verify(roomRedisRepository).resetMembersReadyExceptHost(ROOM_ID);
+			inOrder.verify(contributionGameService).deleteSession(gameSessionId);
+			inOrder.verify(roomWebSocketEventPublisher).publishContributionGameEnd(ROOM_ID, gameEnd);
+		}
 	}
 
 	@Nested
@@ -857,10 +924,15 @@ class RoomServiceImplTest {
 
 		@Test
 		void WAITING으로_상태_변경과_비방장_멤버_준비_초기화를_함께_수행한다() {
+			given(redissonClient.getLock("lock:room:" + ROOM_ID)).willReturn(rLock);
+
 			roomService.resetRoomAfterGame(ROOM_ID);
 
-			then(roomRedisRepository).should().updateRoomState(ROOM_ID, RoomState.WAITING.name());
-			then(roomRedisRepository).should().resetMembersReadyExceptHost(ROOM_ID);
+			InOrder inOrder = Mockito.inOrder(rLock, roomRedisRepository);
+			inOrder.verify(rLock).lock();
+			inOrder.verify(roomRedisRepository).updateRoomState(ROOM_ID, RoomState.WAITING.name());
+			inOrder.verify(roomRedisRepository).resetMembersReadyExceptHost(ROOM_ID);
+			inOrder.verify(rLock).unlock();
 		}
 	}
 

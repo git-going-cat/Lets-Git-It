@@ -237,10 +237,11 @@ public class ContributionGameRedisRepositoryImpl implements ContributionGameRedi
 	}
 
 	@Override
-	public void markPlayerDisconnected(UUID gameSessionId, UUID playerId) {
+	public boolean markPlayerDisconnected(UUID gameSessionId, UUID playerId) {
 		String key = ContributionRedisKeys.disconnectedPlayers(gameSessionId);
-		gameStringRedisTemplate.opsForSet().add(key, playerId.toString());
+		Long added = gameStringRedisTemplate.opsForSet().add(key, playerId.toString());
 		gameStringRedisTemplate.expire(key, SESSION_TTL);
+		return Long.valueOf(1L).equals(added);
 	}
 
 	@Override

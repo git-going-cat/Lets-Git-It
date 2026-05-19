@@ -81,7 +81,7 @@ class ContributionGameServiceImplTest {
 			contributionRankingService);
 		when(redissonClient.getLock(anyString())).thenReturn(lock);
 		try {
-			when(lock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+			when(lock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(true);
 		} catch (InterruptedException e) {
 			throw new IllegalStateException(e);
 		}
@@ -132,6 +132,60 @@ class ContributionGameServiceImplTest {
 		}
 
 		@Test
+		void 커밋_메시지_따옴표와_줄바꿈이_달라도_정답으로_처리한다() {
+			// given
+			ContributionInputMessage request = input(1, "git commit\n-m \"fix\"\n");
+			ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main");
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
+			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
+				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
+				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
+			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
+			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
+			when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(0);
+			when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(1);
+
+			// when
+			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+			// then
+			assertThat(result.broadcast()).isTrue();
+			assertThat(result.payload()).isInstanceOf(ScoreUpdateMessage.class);
+			verify(repository).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+			verify(repository).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
+		}
+
+		@Test
+		void 일반_명령어_중간에_줄바꿈이_있어도_정답으로_처리한다() {
+			// given
+			ContributionInputMessage request = input(3, "git push origin\n  main");
+			ContributionCommandCache command = ContributionCommandCache.ready(3, "git push origin main", "main");
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.findCommand(GAME_SESSION_ID, 3)).thenReturn(Optional.of(command));
+			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
+			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
+				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
+				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
+			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
+			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
+			when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(0);
+			when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(1);
+
+			// when
+			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+			// then
+			assertThat(result.broadcast()).isTrue();
+			assertThat(result.payload()).isInstanceOf(ScoreUpdateMessage.class);
+			verify(repository).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+			verify(repository).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
+		}
+
+		@Test
 		void 일반_명령어가_현재_브랜치와_다르면_점수를_갱신하지_않고_INVALID_BRANCH를_반환한다() {
 			// given
 			ContributionInputMessage request = input(1, "git commit -m 'fix'");
@@ -156,7 +210,7 @@ class ContributionGameServiceImplTest {
 		@Test
 		void switch_명령어는_commandSequence_없이_위치를_갱신하고_POSITION_UPDATE를_반환한다() {
 			// given
-			ContributionInputMessage request = switchInput("git switch feature/login");
+			ContributionInputMessage request = switchInput("git\nswitch\n  feature/login\n");
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 			when(repository.existsBranch(GAME_SESSION_ID, "feature/login")).thenReturn(true);
@@ -255,7 +309,7 @@ class ContributionGameServiceImplTest {
 		@Test
 		void 입력_락을_획득하지_못하면_LOCK_ACQUISITION_FAILED_예외가_발생한다() throws Exception {
 			// given
-			when(lock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(false);
+			when(lock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(false);
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 
@@ -576,6 +630,7 @@ class ContributionGameServiceImplTest {
 			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
 			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
 			when(repository.isPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.markPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 
 			// when
 			ContributionInputResult result = service.handlePlayerDisconnected(GAME_SESSION_ID, PLAYER_ID);
@@ -591,6 +646,22 @@ class ContributionGameServiceImplTest {
 				.singleElement()
 				.satisfies(score -> assertThat(score.disconnected()).isTrue());
 			verify(repository).markPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID);
+		}
+
+		@Test
+		void 이미_이탈_마킹된_플레이어면_disconnected_이벤트를_브로드캐스트하지_않는다() {
+			// given
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+			when(repository.markPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID)).thenReturn(false);
+
+			// when
+			ContributionInputResult result = service.handlePlayerDisconnected(GAME_SESSION_ID, PLAYER_ID);
+
+			// then
+			assertThat(result).isNull();
+			verify(repository).markPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID);
+			verify(repository, never()).countScoredClearedCommands(any());
+			verify(repository, never()).findPlayers(any());
 		}
 	}
 
