@@ -46,12 +46,14 @@ export default function ResultModal({ onBackToRoom }: ResultModalProps) {
       return;
     }
 
-    void navigate({ to: '/home' });
+    // roomId 없는 비정상 케이스 — 로비 모달(협력)이 열리도록 lobby search를 동반한다.
+    void navigate({ to: '/home', search: { lobby: 'COOP' } });
   };
 
   const handleHome = () => {
     cleanup();
-    void navigate({ to: '/home' });
+    // 로비 모달이 다시 열리도록 lobby search를 동반한다.
+    void navigate({ to: '/home', search: { lobby: 'COOP' } });
   };
 
   return (
