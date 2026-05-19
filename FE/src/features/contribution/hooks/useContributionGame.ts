@@ -3,38 +3,45 @@ import { useSetAtom } from 'jotai';
 
 import { socketManager } from '@/core/socket/SocketManager';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { baseMessageSchema } from '@/features/multi/schemas/room.schema';
+import { isSwitchCommand } from '@/shared/game/branchParser';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { contributionBus } from '../bridge/contributionBus';
-import { MISS_SENTINEL_ID, MISS_SENTINEL_NICKNAME } from '../constants/score';
 import {
-  CommandExpiredSchema,
-  ContributionGameEndSchema,
-  ContributionInputFailedSchema,
-  PositionUpdateSchema,
-  ScoreUpdateSchema,
-} from '../schemas/contribution.schema';
+  handleContributionGameTopicMessage,
+  handleContributionPrivateMessage,
+} from '../handlers/contributionSocketHandlers';
 import { useContributionStore } from '../store/contributionStore';
 import { currentCommandSeqAtom } from '../store/currentCommandSeqAtom';
 import { gameResultAtom } from '../store/gameResultAtom';
 import { progressAtom } from '../store/progressAtom';
 import { scoresAtom } from '../store/scoresAtom';
+import { buildInitialScores } from '../utils/initialScores';
 
-import type { RankingEntry } from '../types/contribution.types';
+interface UseContributionGameOptions {
+  onForceDisconnect?: () => void;
+  onKicked?: (roomId: number) => void;
+  onPrivateError?: (code: string, message: string) => void;
+}
 
 /**
  * 기여도 뺏기 인게임 WS 이벤트 처리 훅.
  *
- * - /topic/room/{roomId}/contribution 구독: POSITION_UPDATE, SCORE_UPDATE, COMMAND_EXPIRED, CONTRIBUTION_GAME_END
- * - /user/queue/private 구독(contribution 전용 키): CONTRIBUTION_INPUT_FAILED
- * - contributionBus 'command:submit' 수신 시 CONTRIBUTION_INPUT WS 발행
+ * - /topic/room/{roomId}/contribution 구독: POSITION_UPDATE, SCORE_UPDATE, COMMAND_EXPIRED,
+ *   CONTRIBUTION_GAME_END, CONTRIBUTION_PLAYER_DISCONNECTED
+ * - /user/queue/private 구독(contribution 전용 키): CONTRIBUTION_INPUT_FAILED, FORCE_DISCONNECT,
+ *   KICKED, ERROR
+ * - contributionBus 'command:submit'/'command:expire' 수신 시 WS 발행
  */
-export function useContributionGame() {
+export function useContributionGame({
+  onForceDisconnect,
+  onKicked,
+  onPrivateError,
+}: UseContributionGameOptions = {}) {
   const roomId = useContributionStore((s) => s.roomId);
   const sessionId = useContributionStore((s) => s.sessionId);
   const myPlayerId = useContributionStore((s) => s.myPlayerId);
-  const updatePlayerBranch = useContributionStore((s) => s.updatePlayerBranch);
+  const accessToken = useAuthStore((s) => s.accessToken);
 
   const setGameStatus = useSetAtom(gameStatusAtom);
   const setGameResult = useSetAtom(gameResultAtom);
@@ -46,169 +53,139 @@ export function useContributionGame() {
   const currentSeqRef = useRef(0);
 
   // 게임 시작 상태로 전환 + 진행도/랭킹 초기화
+  // startAt까지 'idle'로 유지해 카운트다운 UI를 표시하고, startAt 도달 시 'playing'으로 전환한다.
   useEffect(() => {
     if (sessionId == null) return;
-    setGameStatus('playing');
     setGameResult(null);
-    const { commandSet, players } = useContributionStore.getState();
+    currentSeqRef.current = 1; // 서버 commandSequence는 1-based
+    setCurrentSeq(1);
+    const { commandSet, players, clientStartAt } = useContributionStore.getState();
     setProgress({ current: 0, total: commandSet.length, percent: 0 });
+    setScores(buildInitialScores(players, myPlayerId));
 
-    // 초기 랭킹: 모든 플레이어 + miss sentinel 모두 0%
-    const initialScores: RankingEntry[] = players.map((p, i) => ({
-      playerId: p.playerId,
-      nickname: p.nickname,
-      contribution: 0,
-      rank: i + 1,
-      isMe: p.playerId === myPlayerId,
-    }));
-    initialScores.push({
-      playerId: MISS_SENTINEL_ID,
-      nickname: MISS_SENTINEL_NICKNAME,
-      contribution: 0,
-      rank: initialScores.length + 1,
+    const delayMs = Math.max(0, (clientStartAt ?? Date.now()) - Date.now());
+
+    // 카운트다운 중 조기 종료(CONTRIBUTION_GAME_END) 수신 시 타이머를 취소하기 위한 플래그.
+    // game:end가 타이머보다 먼저 도착하면 setGameStatus('playing')으로 'ended'를 덮어쓰는 것을 막는다.
+    let gameEndedEarly = false;
+    const unsubGameEnd = contributionBus.subscribe('game:end', () => {
+      gameEndedEarly = true;
+      if (timerId !== null) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
     });
-    setScores(initialScores);
+
+    const triggerStart = () => {
+      if (gameEndedEarly) return;
+      setGameStatus('playing');
+      contributionBus.emit('game:start');
+    };
+
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    if (delayMs <= 0) {
+      triggerStart();
+    } else {
+      timerId = setTimeout(() => {
+        timerId = null;
+        triggerStart();
+      }, delayMs);
+    }
 
     return () => {
+      if (timerId !== null) clearTimeout(timerId);
+      unsubGameEnd();
       setGameStatus('idle');
     };
-  }, [sessionId, myPlayerId, setGameStatus, setGameResult, setProgress, setScores]);
+  }, [sessionId, myPlayerId, setGameStatus, setGameResult, setProgress, setScores, setCurrentSeq]);
 
   // 게임 채널 구독
   useEffect(() => {
     if (roomId == null || !sessionId) return;
 
-    const token = useAuthStore.getState().accessToken;
-    if (!token) return;
+    if (!accessToken) return;
 
     const GAME_KEY = `contribution:game:${roomId}`;
     const PRIVATE_KEY = 'contribution:private';
 
-    socketManager.connect(token);
+    socketManager.connect(accessToken);
 
     socketManager.subscribe(
       `/topic/room/${roomId}/contribution`,
-      (message) => {
-        const base = baseMessageSchema.safeParse(message);
-        if (!base.success) return;
-
-        switch (base.data.type) {
-          case 'POSITION_UPDATE': {
-            const r = PositionUpdateSchema.safeParse(message);
-            if (!r.success) return;
-            updatePlayerBranch(r.data.playerId, r.data.branch);
-            contributionBus.emit('position:update', {
-              playerId: r.data.playerId,
-              branch: r.data.branch,
-            });
-            if (r.data.playerId === myPlayerId) {
-              contributionBus.emit('branch:switch', {
-                branch: r.data.branch,
-                requestId: r.data.requestId,
-              });
-            }
-            break;
-          }
-
-          case 'SCORE_UPDATE': {
-            const r = ScoreUpdateSchema.safeParse(message);
-            if (!r.success) return;
-            const nextSeq = r.data.commandSequence + 1;
-            const scores: RankingEntry[] = r.data.scores.map((s) => ({
-              ...s,
-              isMe: s.playerId === myPlayerId,
-            }));
-            currentSeqRef.current = nextSeq;
-            setScores(scores);
-            setProgress(r.data.progress);
-            setCurrentSeq(nextSeq);
-            contributionBus.emit('score:update', {
-              scores,
-              progress: r.data.progress,
-              commandSequence: nextSeq,
-              winnerId: r.data.winnerId,
-              requestId: r.data.requestId,
-            });
-            break;
-          }
-
-          case 'COMMAND_EXPIRED': {
-            const r = CommandExpiredSchema.safeParse(message);
-            if (!r.success) return;
-            const nextSeq = r.data.commandSequence + 1;
-            const scores: RankingEntry[] = r.data.scores.map((s) => ({
-              ...s,
-              isMe: s.playerId === myPlayerId,
-            }));
-            currentSeqRef.current = nextSeq;
-            setScores(scores);
-            setProgress(r.data.progress);
-            setCurrentSeq(nextSeq);
-            contributionBus.emit('command:expired', { commandSequence: nextSeq, scores });
-            break;
-          }
-
-          case 'CONTRIBUTION_GAME_END': {
-            const r = ContributionGameEndSchema.safeParse(message);
-            if (!r.success) return;
-            setGameResult(r.data);
-            setGameStatus('ended');
-            contributionBus.emit('game:end');
-            break;
-          }
-        }
-      },
+      (message) =>
+        handleContributionGameTopicMessage(message, {
+          myPlayerId,
+          store: useContributionStore.getState(),
+          setScores,
+          setProgress,
+          setCurrentSeq,
+          setGameResult,
+          setGameStatus,
+          currentSeqRef,
+        }),
       GAME_KEY
     );
 
-    // CONTRIBUTION_INPUT_FAILED는 개인 채널로 수신
     socketManager.subscribe(
       '/user/queue/private',
-      (message) => {
-        const base = baseMessageSchema.safeParse(message);
-        if (!base.success || base.data.type !== 'CONTRIBUTION_INPUT_FAILED') return;
-
-        const r = ContributionInputFailedSchema.safeParse(message);
-        if (!r.success) return;
-        contributionBus.emit('command:failed', {
-          errorCode: r.data.errorReason,
-          requestId: r.data.requestId,
-        });
-      },
+      (message) =>
+        handleContributionPrivateMessage(message, {
+          onForceDisconnect,
+          onKicked,
+          onPrivateError,
+        }),
       PRIVATE_KEY
     );
 
     return () => {
       socketManager.unsubscribe(GAME_KEY);
       socketManager.unsubscribe(PRIVATE_KEY);
-      socketManager.disconnect();
+      // socketManager는 공용 자원이므로 disconnect 호출 금지 (multi/useRoomSocket 패턴).
+      // 다음 페이지(WaitingRoom 등)가 같은 소켓을 이어쓴다. disconnect는
+      // FORCE_DISCONNECT/KICKED 같은 서버 명시 이벤트에서만 호출.
     };
   }, [
     roomId,
     sessionId,
     myPlayerId,
-    updatePlayerBranch,
+    accessToken,
     setGameStatus,
     setGameResult,
     setScores,
     setProgress,
     setCurrentSeq,
+    onForceDisconnect,
+    onKicked,
+    onPrivateError,
   ]);
 
   // command:submit → WS 발행
   useEffect(() => {
     if (roomId == null || !sessionId) return;
-
     const unsub = contributionBus.subscribe('command:submit', ({ text, requestId }) => {
+      const isSwitch = isSwitchCommand(text);
       socketManager.publish(`/app/room/${roomId}/contribution/commands`, {
         type: 'CONTRIBUTION_INPUT',
         requestId,
         gameSessionId: sessionId,
-        commandSequence: currentSeqRef.current,
+        ...(isSwitch ? {} : { commandSequence: currentSeqRef.current }),
         inputText: text,
       });
     });
+    return unsub;
+  }, [roomId, sessionId]);
 
+  // command:expire → COMMAND_EXPIRE_REQUEST WS 발행
+  useEffect(() => {
+    if (roomId == null || !sessionId) return;
+    const unsub = contributionBus.subscribe('command:expire', ({ commandSequence, requestId }) => {
+      socketManager.publish(`/app/room/${roomId}/contribution/commands/expire`, {
+        type: 'COMMAND_EXPIRE_REQUEST',
+        requestId,
+        gameSessionId: sessionId,
+        commandSequence,
+      });
+    });
     return unsub;
   }, [roomId, sessionId]);
 }

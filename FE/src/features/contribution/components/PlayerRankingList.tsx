@@ -3,7 +3,7 @@ import { useAtomValue } from 'jotai';
 import { useCurrentCharacterAsset } from '@/shared/hooks/useCurrentCharacterAsset';
 
 import { OTHER_PLAYER_FALLBACK_ASSET } from '../constants/character';
-import { MISS_SENTINEL_ID } from '../constants/score';
+import { isCatEntry } from '../constants/score';
 import { scoresAtom } from '../store/scoresAtom';
 
 import PlayerRankingCard from './PlayerRankingCard';
@@ -19,10 +19,10 @@ export default function PlayerRankingList() {
       </div>
       <ol className="flex flex-col gap-3">
         {scores.map((entry) => {
-          const isMiss = entry.playerId === MISS_SENTINEL_ID;
+          const isMiss = isCatEntry(entry.playerId);
           const asset = isMiss ? null : entry.isMe ? myAsset : OTHER_PLAYER_FALLBACK_ASSET;
           return (
-            <li key={entry.playerId}>
+            <li key={entry.playerId ?? 'cat'}>
               <PlayerRankingCard
                 rank={entry.rank}
                 nickname={entry.nickname}

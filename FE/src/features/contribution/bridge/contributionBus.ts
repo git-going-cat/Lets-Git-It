@@ -35,6 +35,9 @@ export interface ContributionEventMap {
   'position:update': { playerId: string; branch: string };
   /** 내 브랜치 이동 (git switch 입력 또는 POSITION_UPDATE에서 myPlayerId 일치 시). */
   'branch:switch': { branch: string; requestId: string };
+
+  /** Phaser 씬에서 명령어 노드가 바닥에 도달했을 때 emit. useContributionGame이 구독해 COMMAND_EXPIRE_REQUEST 전송. */
+  'command:expire': { commandSequence: number; requestId: string };
 }
 
 /** 기여도 뺏기 전용 이벤트 버스. features/contribution 도메인 안에서만 사용한다. */

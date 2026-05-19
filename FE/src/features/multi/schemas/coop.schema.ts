@@ -9,6 +9,7 @@ export const CoopRoundRevealSchema = z.object({
   gameSessionId: z.string(),
   serverTime: z.number(),
   round: z.number(),
+  isReset: z.boolean(),
   revealStartsAt: z.number(),
   commands: z.array(
     z.object({
@@ -25,7 +26,7 @@ export const CoopRoundAssignSchema = z.object({
   round: z.number(),
   isReset: z.boolean(),
   myCommandText: z.string(),
-  wrongPlayerNickname: z.string(),
+  wrongPlayerNickname: z.string().nullable(),
 });
 
 export const CoopInputWrongSchema = z.object({
@@ -51,6 +52,8 @@ export const CoopInputCorrectSchema = z.object({
   serverTime: z.number(),
   requestId: z.string(),
   sequence: z.number(),
+  round: z.number(),
+  stepInRound: z.number(),
   isRoundComplete: z.boolean(),
 });
 
@@ -67,8 +70,9 @@ const CoopGameEndSuccessSchema = z.object({
   gameSessionId: z.string(),
   serverTime: z.number(),
   isSuccess: z.literal(true),
+  reason: z.string(),
   elapsedTime: z.number(),
-  finalGraph: z.unknown(),
+  finalGraph: z.unknown().optional(),
   results: z.array(
     z.object({
       playerId: z.string().uuid(),
@@ -76,6 +80,7 @@ const CoopGameEndSuccessSchema = z.object({
       wrongTypeCount: z.number(),
       wrongOrderCount: z.number(),
       ranking: z.number(),
+      newRecord: z.boolean().optional(),
       isMe: z.boolean().optional(),
     })
   ),
@@ -83,12 +88,12 @@ const CoopGameEndSuccessSchema = z.object({
 
 const CoopGameEndFailureSchema = z.object({
   type: z.literal('COOP_GAME_END'),
-  gameSessionId: z.string(),
+  gameSessionId: z.string().nullable(),
   serverTime: z.number(),
   isSuccess: z.literal(false),
   reason: z.string(),
-  playerId: z.string().uuid(),
-  nickname: z.string(),
+  playerId: z.string().uuid().optional(),
+  nickname: z.string().optional(),
 });
 
 export const CoopGameEndSchema = z.discriminatedUnion('isSuccess', [

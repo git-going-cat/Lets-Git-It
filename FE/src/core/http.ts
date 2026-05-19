@@ -15,6 +15,30 @@ export const http = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+/**
+ * 페이지 이탈 중 전송해야 하는 best-effort 요청을 보냅니다.
+ *
+ * @description axios가 지원하지 않는 keepalive 전송만 fetch를 사용하고, 호출 위치는 core/http로 제한합니다.
+ */
+export async function sendKeepAliveRequest(path: string, init?: RequestInit): Promise<void> {
+  const token = useAuthStore.getState().accessToken;
+  const headers = new Headers(init?.headers);
+
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  await fetch(`${env.API_BASE_URL}${path}`, {
+    ...init,
+    credentials: init?.credentials ?? 'include',
+    headers,
+    keepalive: true,
+  });
+}
+
 // ── 요청 인터셉터: Bearer 토큰 주입 + X-Request-Id 부착 ──────────────
 http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useAuthStore.getState().accessToken;
