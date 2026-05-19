@@ -142,7 +142,8 @@ public class RoomServiceImpl implements RoomService {
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);
 			}
 			if (!roomRedisRepository.existsMember(roomId, memberIdStr)) {
-				log.warn("[room] leave reconciled from member-room mapping without member hash. roomId={}, memberId={}",
+				log.warn(
+					"[room][leaveRoom] leave reconciled from member-room mapping without member hash. roomId={}, memberId={}",
 					roomId, memberId);
 			}
 			List<PlayerInfoDto> membersBeforeLeave = roomMemberMapper
@@ -189,7 +190,7 @@ public class RoomServiceImpl implements RoomService {
 			}
 			if (remainMembers.isEmpty()) {
 				roomRedisRepository.dissolveRoom(roomId);
-				log.info("[room][leaveRoom] 방 해산. roomId={}", roomId);
+				log.info("[room][leaveRoom] room dissolved. roomId={}", roomId);
 				return;
 			}
 
@@ -203,7 +204,7 @@ public class RoomServiceImpl implements RoomService {
 				roomRedisRepository.delegateHostAtomic(roomId.toString(), newHostId);
 
 				remainMembers = applyHostFlag(remainMembers, delegatedHostId);
-				log.info("[room][leaveRoom] 방장 위임. roomId={}, leftHostId={}, newHostId={}", roomId, memberId,
+				log.info("[room][leaveRoom] host transferred. roomId={}, leftHostId={}, newHostId={}", roomId, memberId,
 					newHostId);
 			}
 
@@ -291,7 +292,8 @@ public class RoomServiceImpl implements RoomService {
 				.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
 
 			if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
-				log.warn("[room] 강퇴 거부: 게임 중인 방. roomId={}, playerId={}", roomId, playerId);
+				log.warn("[room][kickMember] kick rejected: game in progress. roomId={}, playerId={}", roomId,
+					playerId);
 				throw new BusinessException(ROOM_IN_GAME);
 			}
 
@@ -342,19 +344,23 @@ public class RoomServiceImpl implements RoomService {
 				.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
 
 			if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
-				log.warn("[room] 준비 변경 거부: 게임 중인 방. roomId={}, memberId={}", roomId, memberId);
+				log.warn("[room][updateReadyStatus] ready change rejected: game in progress. roomId={}, memberId={}",
+					roomId, memberId);
 				throw new BusinessException(ROOM_IN_GAME);
 			}
 
 			String memberIdStr = memberId.toString();
 			if (!roomRedisRepository.existsMember(roomId, memberIdStr)) {
-				log.warn("[room] 준비 변경 거부: 방에 없는 플레이어. roomId={}, memberId={}", roomId, memberId);
+				log.warn("[room][updateReadyStatus] ready change rejected: player not in room. roomId={}, memberId={}",
+					roomId, memberId);
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);
 			}
 
 			String hostMemberId = RoomRedisReader.readString(roomInfo, "hostMemberId");
 			if (memberIdStr.equals(hostMemberId)) {
-				log.warn("[room] 준비 변경 거부: 방장은 항상 준비 완료. roomId={}, memberId={}", roomId, memberId);
+				log.warn(
+					"[room][updateReadyStatus] ready change rejected: host is always ready. roomId={}, memberId={}",
+					roomId, memberId);
 				throw new BusinessException(HOST_ALWAYS_READY);
 			}
 
@@ -374,7 +380,7 @@ public class RoomServiceImpl implements RoomService {
 				.allMatch(p -> Boolean.TRUE.equals(p.isReady()))
 				&& players.stream().anyMatch(p -> !p.playerId().toString().equals(hostMemberId));
 
-			log.info("[room] 준비 상태 변경. roomId={}, memberId={}, isReady={}, allReady={}",
+			log.info("[room][updateReadyStatus] ready status changed. roomId={}, memberId={}, isReady={}, allReady={}",
 				roomId, memberId, request.isReady(), allReady);
 			return ReadyChangedResponse.of(memberId, nickname, request.isReady(), allReady);
 		} finally {
@@ -550,7 +556,8 @@ public class RoomServiceImpl implements RoomService {
 						coopGameService.initAndStartGame(roomId, finalGameSessionId, finalMapId, finalMemberIds,
 							finalMapName, finalMapDifficulty, finalTeamName);
 					} catch (Exception e) {
-						log.error("[room][startGame] initAndStartGame 실패, 방 상태 롤백. roomId={}", roomId, e);
+						log.error("[room][startGame] initAndStartGame failed, room state rolled back. roomId={}",
+							roomId, e);
 						roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
 						messageSender.send("/topic/room/" + roomId + "/coop",
 							CoopGameEndResponse.disconnected(finalGameSessionId));
@@ -569,7 +576,8 @@ public class RoomServiceImpl implements RoomService {
 			if (RoomMode.CONTRIBUTION.name().equals(mode)) {
 				contributionGameService.deleteSession(gameSessionId);
 			}
-			log.error("[room][startGame] 데이터 조회 실패 — roomState 롤백. roomId={}, mode={}", roomId, mode, e);
+			log.error("[room][startGame] data fetch failed, room state rolled back. roomId={}, mode={}", roomId, mode,
+				e);
 			throw e;
 		}
 	}
@@ -597,7 +605,8 @@ public class RoomServiceImpl implements RoomService {
 				.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
 
 			if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
-				log.warn("[room] 방장 위임 거부: 게임 중인 방. roomId={}, nextHostId={}", roomId, nextHostId);
+				log.warn("[room][transferHost] transfer rejected: game in progress. roomId={}, nextHostId={}", roomId,
+					nextHostId);
 				throw new BusinessException(ROOM_IN_GAME);
 			}
 
@@ -638,7 +647,7 @@ public class RoomServiceImpl implements RoomService {
 			.orElseThrow(() -> new BusinessException(ROOM_NOT_FOUND));
 
 		if (!roomMemberStateRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "room-state")) {
-			log.warn("[room][getRoomState] 방 상태 조회 거부: 방에 없는 플레이어. roomId={}, memberId={}",
+			log.warn("[room][getRoomState] room state rejected: player not in room. roomId={}, memberId={}",
 				roomId, memberId);
 			throw new BusinessException(PLAYER_NOT_IN_ROOM);
 		}
@@ -681,7 +690,7 @@ public class RoomServiceImpl implements RoomService {
 			return CoopRoomStateResponse.from(response);
 		}
 
-		log.warn("[room][getRoomState] 지원하지 않는 방 모드. roomId={}, memberId={}, mode={}", roomId, memberId, mode);
+		log.warn("[room][getRoomState] unsupported room mode. roomId={}, memberId={}, mode={}", roomId, memberId, mode);
 		throw new BusinessException(ROOM_MODE_MISMATCH);
 	}
 
@@ -692,7 +701,7 @@ public class RoomServiceImpl implements RoomService {
 		try {
 			roomRedisRepository.updateRoomState(roomId, ROOM_STATE_WAITING);
 			roomRedisRepository.resetMembersReadyExceptHost(roomId);
-			log.info("[room] room state reset to WAITING after game. roomId={}", roomId);
+			log.info("[room][resetRoomAfterGame] room state reset to WAITING after game. roomId={}", roomId);
 		} finally {
 			lock.unlock();
 		}

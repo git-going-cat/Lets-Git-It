@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
+import com.gitcat.letsgitit.global.websocket.auth.StompPrincipal;
 import com.gitcat.letsgitit.global.websocket.dto.WebSocketErrorResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class WebSocketExceptionHandler {
 		}
 
 		MDC.put("requestId", "ws-" + (accessor.getSessionId() != null ? accessor.getSessionId() : "unknown"));
+		MDC.put("nickname", principal instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
 			log.warn("WebSocket 비즈니스 예외. memberId={}, errorCode={}", principal.getName(), e.getErrorCode().getCode());
 		} finally {
@@ -49,6 +51,7 @@ public class WebSocketExceptionHandler {
 		}
 
 		MDC.put("requestId", "ws-" + (accessor.getSessionId() != null ? accessor.getSessionId() : "unknown"));
+		MDC.put("nickname", principal instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
 			log.warn("WebSocket 요청 검증 실패. memberId={}, errorCode={}", principal.getName(),
 				ErrorCode.INVALID_REQUEST.getCode());
@@ -69,6 +72,7 @@ public class WebSocketExceptionHandler {
 		}
 
 		MDC.put("requestId", "ws-" + (accessor.getSessionId() != null ? accessor.getSessionId() : "unknown"));
+		MDC.put("nickname", principal instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
 			log.error("WebSocket 예상치 못한 오류. memberId={}", principal.getName(), e);
 		} finally {

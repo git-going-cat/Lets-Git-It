@@ -17,12 +17,17 @@ import com.gitcat.letsgitit.domain.room.dto.request.GameStartRequest;
 import com.gitcat.letsgitit.domain.room.dto.response.ChatResponse;
 import com.gitcat.letsgitit.domain.room.dto.response.GameStartResult;
 import com.gitcat.letsgitit.domain.room.service.RoomService;
+import com.gitcat.letsgitit.global.exception.ErrorCode;
 import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
+import com.gitcat.letsgitit.global.websocket.auth.StompPrincipal;
+import com.gitcat.letsgitit.global.websocket.dto.WebSocketErrorResponse;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 // @Controller — REST가 아닌 WebSocket 메시지를 처리하는 컨트롤러
 //               @RestController 쓰면 안 됨 (HTTP 응답 바디로 나가버림)
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 public class RoomWebSocketController {
@@ -52,7 +57,18 @@ public class RoomWebSocketController {
 		Principal principal,
 		SimpMessageHeaderAccessor headerAccessor) {
 		MDC.put("requestId", "ws-" + headerAccessor.getSessionId());
+		MDC.put("nickname", principal instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
+			log.info("[ROOM] WebSocket SEND. destination=/room/{}/chat", roomId);
+			if (principal == null) {
+				log.warn("[ROOM] missing principal. roomId={}, sessionId={}", roomId, headerAccessor.getSessionId());
+				if (headerAccessor.getSessionId() != null) {
+					messageSender.sendToSession(headerAccessor.getSessionId(),
+						WebSocketErrorResponse.of(ErrorCode.AUTHENTICATION_REQUIRED.getCode(),
+							ErrorCode.AUTHENTICATION_REQUIRED.getMessage()));
+				}
+				return;
+			}
 			// JWT에서 꺼낸 memberId를 UUID로 변환
 			UUID memberId = UUID.fromString(principal.getName());
 
@@ -83,7 +99,18 @@ public class RoomWebSocketController {
 		Principal principal,
 		SimpMessageHeaderAccessor headerAccessor) {
 		MDC.put("requestId", "ws-" + headerAccessor.getSessionId());
+		MDC.put("nickname", principal instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
+			log.info("[ROOM] WebSocket SEND. destination=/room/{}/start", roomId);
+			if (principal == null) {
+				log.warn("[ROOM] missing principal. roomId={}, sessionId={}", roomId, headerAccessor.getSessionId());
+				if (headerAccessor.getSessionId() != null) {
+					messageSender.sendToSession(headerAccessor.getSessionId(),
+						WebSocketErrorResponse.of(ErrorCode.AUTHENTICATION_REQUIRED.getCode(),
+							ErrorCode.AUTHENTICATION_REQUIRED.getMessage()));
+				}
+				return;
+			}
 			UUID memberId = UUID.fromString(principal.getName());
 			// 서비스가 검증 + 응답 조립 후 { destination, payload } 를 묶어 반환
 			GameStartResult result = roomService.startGame(roomId, memberId, request);

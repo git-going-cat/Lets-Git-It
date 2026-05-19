@@ -52,7 +52,7 @@ public class CoopGameRedisRepositoryImpl implements CoopGameRedisRepository {
 		redisTemplate.opsForList().rightPushAll(playersKey, playerStrings);
 		redisTemplate.expire(playersKey, GAME_TTL_SECONDS, TimeUnit.SECONDS);
 
-		log.info("[coop] game state initialized. gameSessionId={}", gameSessionId);
+		log.info("[coop][initGameState] game state initialized. gameSessionId={}", gameSessionId);
 	}
 
 	// ── 상태 조회 ────────────────────────────────────────────────────────────────
@@ -192,7 +192,7 @@ public class CoopGameRedisRepositoryImpl implements CoopGameRedisRepository {
 			redisTemplate.delete(commandsKey(gameSessionId, round));
 			redisTemplate.delete(assignKey(gameSessionId, round));
 		}
-		log.info("[coop] game state deleted. gameSessionId={}", gameSessionId);
+		log.info("[coop][deleteGameState] game state deleted. gameSessionId={}", gameSessionId);
 	}
 
 	// ── 플레이어별 오타/순서오류 카운터 ─────────────────────────────────────────────────

@@ -88,7 +88,8 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 
 			// 8. room:list:COOP ZSet 에 roomId를 생성 시각 score와 함께 추가한다.
 			roomRedisRepository.addRoomToList(GameMode.COOP, roomIdKey, Instant.now().toEpochMilli());
-			log.info("[room] coop room created. roomId={}, hostMemberId={}, hasPassword={}, selectedMapId={}",
+			log.info(
+				"[room][createCoopRoom] coop room created. roomId={}, hostMemberId={}, hasPassword={}, selectedMapId={}",
 				roomId, memberId, request.hasPassword(), request.selectedMapId());
 
 			// 9. 맵 정보를 포함한 CreateCoopRoomResponse 를 조립해 반환한다.
@@ -101,7 +102,7 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 				COOP_MAX_PLAYERS,
 				selectedMap);
 		} catch (RuntimeException e) {
-			log.warn("[room] coop room creation failed. roomId={}, hostMemberId={}, reason={}",
+			log.warn("[room][createCoopRoom] coop room creation failed. roomId={}, hostMemberId={}, reason={}",
 				roomId, memberId, e.getClass().getSimpleName());
 			roomRedisRepository.deleteRoom(roomId);
 			throw e;
@@ -120,7 +121,8 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			boolean acquired = lock.tryLock(JOIN_LOCK_WAIT_SECONDS, JOIN_LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
 
 			if (!acquired) {
-				log.warn("[room] coop room join lock acquisition failed. roomId={}, memberId={}", roomId, memberId);
+				log.warn("[room][joinCoopRoom] coop room join lock acquisition failed. roomId={}, memberId={}", roomId,
+					memberId);
 				throw new BusinessException(LOCK_ACQUISITION_FAILED);
 			}
 
@@ -132,21 +134,25 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 				validateCoopRoomMode(roomInfo, roomId, memberId, "join");
 
 				if (roomRedisRepository.existsMember(roomId, memberId.toString())) {
-					log.warn("[room] coop room join rejected: already in room. roomId={}, memberId={}", roomId,
+					log.warn("[room][joinCoopRoom] coop room join rejected: already in room. roomId={}, memberId={}",
+						roomId,
 						memberId);
 					throw new BusinessException(ALREADY_IN_ROOM);
 				}
 
 				boolean hasPassword = RoomRedisReader.readBoolean(roomInfo, "hasPassword");
 				if (hasPassword && !roomRedisRepository.isPasswordVerified(memberId.toString(), roomId)) {
-					log.warn("[room] coop room join rejected: password not verified. roomId={}, memberId={}",
+					log.warn(
+						"[room][joinCoopRoom] coop room join rejected: password not verified. roomId={}, memberId={}",
 						roomId, memberId);
 					throw new BusinessException(PASSWORD_NOT_VERIFIED);
 				}
 
 				// 2. roomState == IN_GAME 이면 ROOM_IN_GAME 예외를 반환한다.
 				if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
-					log.warn("[room] coop room join rejected: room already in game. roomId={}, memberId={}", roomId,
+					log.warn(
+						"[room][joinCoopRoom] coop room join rejected: room already in game. roomId={}, memberId={}",
+						roomId,
 						memberId);
 					throw new BusinessException(ROOM_IN_GAME);
 				}
@@ -156,7 +162,7 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 				int maxPlayers = RoomRedisReader.readInt(roomInfo, "maxPlayers");
 				if (currentPlayers >= maxPlayers) {
 					log.warn(
-						"[room] coop room join rejected: room full. roomId={}, memberId={}, currentPlayers={}, maxPlayers={}",
+						"[room][joinCoopRoom] coop room join rejected: room full. roomId={}, memberId={}, currentPlayers={}, maxPlayers={}",
 						roomId, memberId, currentPlayers, maxPlayers);
 					throw new BusinessException(ROOM_FULL);
 				}
@@ -173,7 +179,9 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 				if (!memberAdded) {
 					Optional<Long> joinedRoomId = roomRedisRepository.findJoinedRoomId(memberId.toString());
 					if (joinedRoomId.isPresent() && joinedRoomId.get().equals(roomId)) {
-						log.warn("[room] coop room join rejected: already in room. roomId={}, memberId={}", roomId,
+						log.warn(
+							"[room][joinCoopRoom] coop room join rejected: already in room. roomId={}, memberId={}",
+							roomId,
 							memberId);
 						throw new BusinessException(ALREADY_IN_ROOM);
 					}
@@ -185,7 +193,7 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 					}
 					if (!memberAdded) {
 						log.warn(
-							"[room] coop room join rejected: already in another room. roomId={}, memberId={}, joinedRoomId={}",
+							"[room][joinCoopRoom] coop room join rejected: already in another room. roomId={}, memberId={}, joinedRoomId={}",
 							roomId, memberId, joinedRoomId.orElse(null));
 						throw new BusinessException(ALREADY_IN_ANOTHER_ROOM);
 					}
@@ -197,7 +205,8 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 
 				// 7. room info + members 로 JoinCoopRoomResponse 를 조립한다.
 				Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
-				log.info("[room] coop room joined. roomId={}, memberId={}, currentPlayers={}", roomId, memberId,
+				log.info("[room][joinCoopRoom] coop room joined. roomId={}, memberId={}, currentPlayers={}", roomId,
+					memberId,
 					members.size());
 
 				JoinCoopRoomResponse response = buildJoinCoopRoomResponse(roomId, roomInfo, selectedMap, members);
@@ -208,13 +217,14 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 					response.members());
 				return response;
 			} catch (IllegalStateException e) {
-				log.error("[room] invalid coop room redis state during join. roomId={}, memberId={}", roomId,
+				log.error("[room][joinCoopRoom] invalid coop room redis state during join. roomId={}, memberId={}",
+					roomId,
 					memberId, e);
 				throw e;
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			log.warn("[room] coop room join interrupted. roomId={}, memberId={}", roomId, memberId);
+			log.warn("[room][joinCoopRoom] coop room join interrupted. roomId={}, memberId={}", roomId, memberId);
 			throw new BusinessException(LOCK_INTERRUPTED);
 		} finally {
 			// 현재 스레드가 점유한 락만 해제한다.
@@ -233,13 +243,17 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			validateCoopRoomMode(roomInfo, roomId, memberId, "update");
 
 			if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
-				log.warn("[room] coop room update rejected: game in progress. roomId={}, memberId={}", roomId,
+				log.warn(
+					"[room][updateCoopRoomInfo] coop room update rejected: game in progress. roomId={}, memberId={}",
+					roomId,
 					memberId);
 				throw new BusinessException(ROOM_IN_GAME);
 			}
 
 			if (!roomMemberRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "coop")) {
-				log.warn("[room] coop room update rejected: member not in room. roomId={}, memberId={}", roomId,
+				log.warn(
+					"[room][updateCoopRoomInfo] coop room update rejected: member not in room. roomId={}, memberId={}",
+					roomId,
 					memberId);
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);
 			}
@@ -247,7 +261,8 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			// 호스트 여부 검증
 			UUID hostMemberId = UUID.fromString(RoomRedisReader.readString(roomInfo, "hostMemberId"));
 			if (!hostMemberId.equals(memberId)) {
-				log.warn("[room] coop room update rejected: not host. roomId={}, memberId={}, hostMemberId={}",
+				log.warn(
+					"[room][updateCoopRoomInfo] coop room update rejected: not host. roomId={}, memberId={}, hostMemberId={}",
 					roomId, memberId, hostMemberId);
 				throw new BusinessException(NOT_HOST);
 			}
@@ -258,12 +273,14 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			// 2. 수정 가능한 필드를 room info Hash 에 반영한다.
 			roomRedisRepository.updateRoomInfo(roomId.toString(),
 				buildCoopRoomUpdateInfo(roomInfo, request, selectedMap));
-			log.info("[room] coop room updated. roomId={}, memberId={}, hasPassword={}, selectedMapId={}",
+			log.info(
+				"[room][updateCoopRoomInfo] coop room updated. roomId={}, memberId={}, hasPassword={}, selectedMapId={}",
 				roomId, memberId, request.hasPassword(), request.selectedMapId());
 
 			broadcastRoomInfoUpdated(roomId);
 		} catch (IllegalStateException e) {
-			log.error("[room] invalid coop room redis state during update. roomId={}, memberId={}", roomId,
+			log.error("[room][updateCoopRoomInfo] invalid coop room redis state during update. roomId={}, memberId={}",
+				roomId,
 				memberId, e);
 			throw e;
 		}
@@ -279,7 +296,8 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			validateCoopRoomMode(roomInfo, roomId, memberId, "info fetch");
 
 			if (!roomMemberRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "coop")) {
-				log.warn("[room] coop room info rejected: member not in room. roomId={}, memberId={}", roomId,
+				log.warn("[room][getCoopRoomInfo] coop room info rejected: member not in room. roomId={}, memberId={}",
+					roomId,
 					memberId);
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);
 			}
@@ -290,11 +308,13 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			// 3. selectedMapId 로 맵 정보를 조회한다.
 			SelectedMapDto selectedMap = coopService
 				.getSelectedMap(UUID.fromString(RoomRedisReader.readString(roomInfo, "selectedMapId")));
-			log.info("[room] coop room info fetched. roomId={}, memberId={}, currentPlayers={}", roomId, memberId,
+			log.info("[room][getCoopRoomInfo] coop room info fetched. roomId={}, memberId={}, currentPlayers={}",
+				roomId, memberId,
 				members.size());
 			return buildCoopRoomInfoResponse(roomId, roomInfo, selectedMap, members);
 		} catch (IllegalStateException e) {
-			log.error("[room] invalid coop room redis state during info fetch. roomId={}, memberId={}", roomId,
+			log.error("[room][getCoopRoomInfo] invalid coop room redis state during info fetch. roomId={}, memberId={}",
+				roomId,
 				memberId, e);
 			throw e;
 		}
@@ -305,7 +325,8 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			var roomInfoOpt = roomRedisRepository.getRoomInfo(roomId.toString());
 
 			if (roomInfoOpt.isEmpty()) {
-				log.warn("[room] ROOM_INFO_UPDATED skipped: room not found. roomId={}", roomId);
+				log.warn("[room][broadcastRoomInfoUpdated] ROOM_INFO_UPDATED skipped: room not found. roomId={}",
+					roomId);
 				return;
 			}
 
@@ -317,9 +338,9 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			CoopRoomInfoUpdatedResponse response = CoopRoomInfoUpdatedResponse.from(
 				buildCoopRoomInfoResponse(roomId, roomInfo, selectedMap, members));
 			messageSender.send("/topic/room/" + roomId, response);
-			log.info("[room] coop room info broadcast. roomId={}", roomId);
+			log.info("[room][broadcastRoomInfoUpdated] coop room info broadcast. roomId={}", roomId);
 		} catch (RuntimeException e) {
-			log.warn("[room] ROOM_INFO_UPDATED publish failed. roomId={}, reason={}",
+			log.warn("[room][broadcastRoomInfoUpdated] ROOM_INFO_UPDATED publish failed. roomId={}, reason={}",
 				roomId, e.getClass().getSimpleName(), e);
 		}
 	}
@@ -339,7 +360,7 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 			}
 		}
 
-		log.error("[room] coop room code generation exhausted retry limit. retryLimit={}",
+		log.error("[room][generateAndReserveRoomCode] coop room code generation exhausted retry limit. retryLimit={}",
 			RoomCodeGenerator.ROOM_CODE_MAX_RETRY);
 		throw new BusinessException(ROOM_CODE_GENERATION_FAILED);
 	}
@@ -434,7 +455,8 @@ public class CoopRoomServiceImpl implements CoopRoomService {
 	private void validateCoopRoomMode(Map<Object, Object> roomInfo, Long roomId, UUID memberId, String action) {
 		GameMode roomMode = GameMode.valueOf(RoomRedisReader.readString(roomInfo, "mode"));
 		if (roomMode != GameMode.COOP) {
-			log.warn("[room] coop room {} rejected: mode mismatch. roomId={}, memberId={}, roomMode={}",
+			log.warn(
+				"[room][validateCoopRoomMode] coop room {} rejected: mode mismatch. roomId={}, memberId={}, roomMode={}",
 				action, roomId, memberId, roomMode);
 			throw new BusinessException(ROOM_MODE_MISMATCH);
 		}

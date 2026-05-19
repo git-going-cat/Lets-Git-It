@@ -14,17 +14,24 @@ import org.springframework.validation.annotation.Validated;
 import com.gitcat.letsgitit.domain.coop.dto.request.CoopInputRequest;
 import com.gitcat.letsgitit.domain.coop.dto.request.CoopResetRequest;
 import com.gitcat.letsgitit.domain.coop.service.CoopGameService;
+import com.gitcat.letsgitit.global.exception.ErrorCode;
+import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
+import com.gitcat.letsgitit.global.websocket.auth.StompPrincipal;
+import com.gitcat.letsgitit.global.websocket.dto.WebSocketErrorResponse;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 // @Controller — REST가 아닌 WebSocket 메시지를 처리하는 컨트롤러
 //               @RestController 쓰면 안 됨 (HTTP 응답 바디로 나가버림)
+@Slf4j
 @Controller
 @Validated
 @RequiredArgsConstructor
 public class CoopController {
 
 	private final CoopGameService coopGameService;
+	private final WebSocketMessageSender messageSender;
 
 	// 클라이언트가 /app/room/{roomId}/coop/input 으로 발행하면 실행
 	// 자신의 차례라고 판단한 플레이어가 명령어를 입력
@@ -42,7 +49,18 @@ public class CoopController {
 		Principal principal,
 		SimpMessageHeaderAccessor headerAccessor) {
 		MDC.put("requestId", "ws-" + headerAccessor.getSessionId());
+		MDC.put("nickname", principal instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
+			log.info("[COOP] WebSocket SEND. destination=/room/{}/coop/input", roomId);
+			if (principal == null) {
+				log.warn("[COOP] missing principal. roomId={}, sessionId={}", roomId, headerAccessor.getSessionId());
+				if (headerAccessor.getSessionId() != null) {
+					messageSender.sendToSession(headerAccessor.getSessionId(),
+						WebSocketErrorResponse.of(ErrorCode.AUTHENTICATION_REQUIRED.getCode(),
+							ErrorCode.AUTHENTICATION_REQUIRED.getMessage()));
+				}
+				return;
+			}
 			UUID memberId = UUID.fromString(principal.getName());
 			coopGameService.processInput(roomId, memberId, request);
 		} finally {
@@ -66,7 +84,18 @@ public class CoopController {
 		Principal principal,
 		SimpMessageHeaderAccessor headerAccessor) {
 		MDC.put("requestId", "ws-" + headerAccessor.getSessionId());
+		MDC.put("nickname", principal instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
+			log.info("[COOP] WebSocket SEND. destination=/room/{}/coop/reset", roomId);
+			if (principal == null) {
+				log.warn("[COOP] missing principal. roomId={}, sessionId={}", roomId, headerAccessor.getSessionId());
+				if (headerAccessor.getSessionId() != null) {
+					messageSender.sendToSession(headerAccessor.getSessionId(),
+						WebSocketErrorResponse.of(ErrorCode.AUTHENTICATION_REQUIRED.getCode(),
+							ErrorCode.AUTHENTICATION_REQUIRED.getMessage()));
+				}
+				return;
+			}
 			UUID memberId = UUID.fromString(principal.getName());
 			coopGameService.processReset(roomId, memberId, request);
 		} finally {
