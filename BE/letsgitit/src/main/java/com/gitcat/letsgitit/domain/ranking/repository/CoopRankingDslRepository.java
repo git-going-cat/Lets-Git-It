@@ -69,4 +69,79 @@ public class CoopRankingDslRepository {
 			.limit(size + 1)
 			.fetch();
 	}
+
+	// ── 맵+난이도 필터 (맵별 랭킹용) ────────────────────────────────────────────
+
+	// 내 팀 랭킹 조회: mapName+difficulty 조건 추가
+	public Optional<CoopRanking> findMyCoopRankingByMemberIdAndWeekAndMapNameAndDifficulty(
+		UUID memberId, String week, String mapName, int difficulty) {
+		QCoopRanking cr = QCoopRanking.coopRanking;
+		QCoopResultMember crm = QCoopResultMember.coopResultMember;
+
+		CoopRanking result = jpaQueryFactory
+			.selectFrom(cr)
+			.join(crm).on(crm.coopResultId.eq(cr.coopResultId))
+			.where(
+				cr.week.eq(week),
+				cr.mapName.eq(mapName),
+				cr.difficulty.eq(difficulty),
+				crm.memberId.eq(memberId))
+			.orderBy(cr.rank.asc())
+			.limit(1)
+			.fetchOne();
+
+		return Optional.ofNullable(result);
+	}
+
+	// 특정 맵+난이도에서 globalRank보다 낮은(더 좋은) 기록 수 → 맵별 display rank 계산용
+	public long countByWeekAndMapNameAndDifficultyAndRankLt(
+		String week, String mapName, int difficulty, int rank) {
+		QCoopRanking cr = QCoopRanking.coopRanking;
+
+		Long count = jpaQueryFactory
+			.select(cr.count())
+			.from(cr)
+			.where(
+				cr.week.eq(week),
+				cr.mapName.eq(mapName),
+				cr.difficulty.eq(difficulty),
+				cr.rank.lt(rank))
+			.fetchOne();
+
+		return count != null ? count : 0L;
+	}
+
+	// rank ASC + OFFSET/LIMIT: top3·around·scrollAfter에 공통 사용
+	public List<CoopRanking> findByWeekAndMapNameAndDifficultyAscWithOffset(
+		String week, String mapName, int difficulty, long offset, int limit) {
+		QCoopRanking cr = QCoopRanking.coopRanking;
+
+		return jpaQueryFactory
+			.selectFrom(cr)
+			.where(
+				cr.week.eq(week),
+				cr.mapName.eq(mapName),
+				cr.difficulty.eq(difficulty))
+			.orderBy(cr.rank.asc())
+			.offset(offset)
+			.limit(limit)
+			.fetch();
+	}
+
+	// rank DESC + OFFSET/LIMIT: scrollBefore에서 역순 fetch 후 서비스에서 reverse
+	public List<CoopRanking> findByWeekAndMapNameAndDifficultyDescWithOffset(
+		String week, String mapName, int difficulty, long offset, int limit) {
+		QCoopRanking cr = QCoopRanking.coopRanking;
+
+		return jpaQueryFactory
+			.selectFrom(cr)
+			.where(
+				cr.week.eq(week),
+				cr.mapName.eq(mapName),
+				cr.difficulty.eq(difficulty))
+			.orderBy(cr.rank.desc())
+			.offset(offset)
+			.limit(limit)
+			.fetch();
+	}
 }

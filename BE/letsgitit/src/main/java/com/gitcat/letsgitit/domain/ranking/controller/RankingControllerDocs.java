@@ -258,6 +258,10 @@ public interface RankingControllerDocs {
 	ResponseEntity<?> getCoopRanking(
 		@Parameter(hidden = true)
 		CustomUserDetails userDetails,
+		@Parameter(name = "mapName", description = "맵 이름 (예: Git Forest)", required = true)
+		String mapName,
+		@Parameter(name = "difficulty", description = "난이도 (예: 1)", required = true)
+		int difficulty,
 		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상") @Min(1)
 		Integer afterRank,
 		@Parameter(name = "beforeRank", description = "위 방향 스크롤 커서 (첫 번째로 확인한 순위). 1 이상") @Min(1)
@@ -463,6 +467,10 @@ public interface RankingControllerDocs {
 		Integer month,
 		@Parameter(name = "week", description = "조회 주차 (1~6)", required = true) @Min(1) @Max(6)
 		Integer week,
+		@Parameter(name = "mapName", description = "맵 이름 (예: Git Forest)", required = true)
+		String mapName,
+		@Parameter(name = "difficulty", description = "난이도 (예: 1)", required = true)
+		int difficulty,
 		@Parameter(name = "afterRank", description = "아래 방향 스크롤 커서 (마지막으로 확인한 순위). 1 이상") @Min(1)
 		Integer afterRank,
 		@Parameter(name = "beforeRank", description = "위 방향 스크롤 커서 (첫 번째로 확인한 순위). 1 이상") @Min(1)
