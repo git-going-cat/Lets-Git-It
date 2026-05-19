@@ -531,7 +531,7 @@ export default function WaitingRoom() {
         {/* Body */}
         <div className="flex flex-1 overflow-hidden">
           {/* Left: Members + Chat */}
-          <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex shrink-0 items-center gap-1.5 border-b border-[#c8dfd0] bg-[#e8f5ee] px-3 py-1.5">
               <Users className="h-3.5 w-3.5 text-[#175c35]" />
               <span className="text-md font-medium text-[#175c35]">MEMBERS</span>
@@ -552,7 +552,9 @@ export default function WaitingRoom() {
               />
             </div>
 
-            <WaitingRoomChat onSendMessage={publishChat} />
+            <div className="min-h-0 flex-1">
+              <WaitingRoomChat onSendMessage={publishChat} />
+            </div>
           </div>
 
           {/* Right: Room Info */}
