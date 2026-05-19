@@ -4,7 +4,19 @@ import { useCurrentCharacterAsset } from '@/shared/hooks/useCurrentCharacterAsse
 import { OTHER_PLAYER_FALLBACK_ASSET } from '../constants/character';
 import { useContributionStore } from '../store/contributionStore';
 
+import type { ContributionPlayer } from '../types/contribution.types';
 import type { CharacterAsset } from '@/shared/types/user.types';
+
+function toAsset(player: ContributionPlayer): CharacterAsset {
+  return {
+    characterHair: player.characterHair,
+    characterHairColor: player.characterHairColor,
+    characterBody: player.characterBody,
+    characterEye: player.characterEye,
+    characterOutfit: player.characterOutfit,
+    characterOutfitColor: player.characterOutfitColor,
+  };
+}
 
 /**
  * 기여도 뺏기 게임 중 플레이어 캐릭터 스프라이트 오버레이.
@@ -32,10 +44,10 @@ export default function MultiPlayerCharacters() {
         if (laneIndex < 0) return null;
 
         const isMe = player.playerId === myPlayerId;
-        // 내 asset 로딩 전에는 fallback으로 표시 — 내 캐릭터도 일단 보이게 해서 빈자리 생기지 않게.
-        const asset: CharacterAsset = isMe
-          ? (myAsset ?? OTHER_PLAYER_FALLBACK_ASSET)
-          : OTHER_PLAYER_FALLBACK_ASSET;
+        // 상대방은 대기방에서 같이 넘어온 character 필드로 빌드. 빈 값이면 fallback.
+        // 내 asset은 authStore에서 가져오되 로딩 전에는 player 필드로 표시 (빈자리 방지).
+        const playerAsset = player.characterBody ? toAsset(player) : OTHER_PLAYER_FALLBACK_ASSET;
+        const asset: CharacterAsset = isMe ? (myAsset ?? playerAsset) : playerAsset;
 
         const leftPercent = ((laneIndex + (slotIndex + 0.5) / numSlots) / totalLanes) * 100;
 

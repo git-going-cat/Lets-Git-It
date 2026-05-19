@@ -458,13 +458,13 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "initialBranch": "main",
   "commandSet": [
     {
-      "commandSequence": 0,
+      "commandSequence": 1,
       "text": "git commit -m 'fix'",
       "branchName": "main",
       "fallDurationMs": 20000
     },
     {
-      "commandSequence": 1,
+      "commandSequence": 2,
       "text": "git push origin main",
       "branchName": "main",
       "fallDurationMs": 20000

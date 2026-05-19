@@ -228,43 +228,53 @@ export function useRoomSocket(
       topicKey(roomId)
     );
 
-    socketManager.subscribe(
-      `/topic/room/${roomId}/contribution`,
-      (raw) => {
-        const result = contributionStartedSchema.safeParse(raw);
-        if (!result.success) {
-          console.error('[WS] CONTRIBUTION_STARTED 파싱 실패:', result.error);
-          return;
-        }
-        needsRestoreRef.current = false;
-        clearFallbackTimer();
-        setConnectionStatus('idle');
-        gameStartHandlersRef.current.onContributionStarted?.(result.data);
-      },
-      contributionGameKey(roomId)
-    );
+    // 새로고침 직후엔 mode가 null일 수 있다(ROOM_STATE 수신 전).
+    // Effect deps에 mode가 없어 mount 시 1회만 실행되므로, 의도적으로 negative 조건을 써서
+    // mode를 모를 때 두 토픽을 방어적으로 구독한다. positive(===)로 바꾸면 mode 세팅~재구독
+    // 사이 윈도우에 GAME_STARTED를 놓칠 수 있어, 잉여 구독 1개를 감수하는 편이 더 안전하다.
+    const mode = useRoomStore.getState().mode;
 
-    socketManager.subscribe(
-      `/topic/room/${roomId}/coop`,
-      (raw) => {
-        const messageType = getMessageType(raw);
-        if (messageType !== 'COOP_STARTED' && COOP_RUNTIME_MESSAGE_TYPES.has(messageType ?? '')) {
-          useCoopStore.getState().enqueuePendingMessage(raw);
-          return;
-        }
+    if (mode !== 'COOP') {
+      socketManager.subscribe(
+        `/topic/room/${roomId}/contribution`,
+        (raw) => {
+          const result = contributionStartedSchema.safeParse(raw);
+          if (!result.success) {
+            console.error('[WS] CONTRIBUTION_STARTED 파싱 실패:', result.error);
+            return;
+          }
+          needsRestoreRef.current = false;
+          clearFallbackTimer();
+          setConnectionStatus('idle');
+          gameStartHandlersRef.current.onContributionStarted?.(result.data);
+        },
+        contributionGameKey(roomId)
+      );
+    }
 
-        const result = coopStartedSchema.safeParse(raw);
-        if (!result.success) {
-          console.error('[WS] COOP_STARTED 파싱 실패:', result.error);
-          return;
-        }
-        needsRestoreRef.current = false;
-        clearFallbackTimer();
-        setConnectionStatus('idle');
-        gameStartHandlersRef.current.onCoopStarted?.(result.data);
-      },
-      coopGameKey(roomId)
-    );
+    if (mode !== 'CONTRIBUTION') {
+      socketManager.subscribe(
+        `/topic/room/${roomId}/coop`,
+        (raw) => {
+          const messageType = getMessageType(raw);
+          if (messageType !== 'COOP_STARTED' && COOP_RUNTIME_MESSAGE_TYPES.has(messageType ?? '')) {
+            useCoopStore.getState().enqueuePendingMessage(raw);
+            return;
+          }
+
+          const result = coopStartedSchema.safeParse(raw);
+          if (!result.success) {
+            console.error('[WS] COOP_STARTED 파싱 실패:', result.error);
+            return;
+          }
+          needsRestoreRef.current = false;
+          clearFallbackTimer();
+          setConnectionStatus('idle');
+          gameStartHandlersRef.current.onCoopStarted?.(result.data);
+        },
+        coopGameKey(roomId)
+      );
+    }
 
     // REST fallback: WS ROOM_STATE가 필요한 복원 상황에서만 실행한다.
     if (needsRestoreRef.current) {

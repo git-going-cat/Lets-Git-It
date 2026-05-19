@@ -12,8 +12,17 @@ const REASON_LABEL: Record<string, string> = {
  * ESC 닫기는 의도적으로 막음 — 결과 확인 후 명시적 버튼 클릭을 강제.
  */
 export default function ResultModal() {
-  const { isVisible, isSuccess, rankings, myRank, reason, myPlayerId, onBackToRoom, onHome } =
-    useResultModal();
+  const {
+    isVisible,
+    isSuccess,
+    rankings,
+    myRank,
+    reason,
+    myPlayerId,
+    onBackToRoom,
+    onHome,
+    remainingSeconds,
+  } = useResultModal();
 
   return (
     <PixelModal isOpen={isVisible} title={isSuccess ? '게임 종료' : '조기 종료'}>
@@ -62,6 +71,13 @@ export default function ResultModal() {
             );
           })}
         </div>
+      )}
+
+      {/* 자동 복귀 카운트다운 */}
+      {remainingSeconds != null && (
+        <p className="m-0 text-center text-xs text-gray-400">
+          {remainingSeconds}초 후 자동으로 방으로 돌아갑니다
+        </p>
       )}
 
       {/* 버튼 */}

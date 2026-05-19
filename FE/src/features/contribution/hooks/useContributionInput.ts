@@ -62,10 +62,7 @@ export function useContributionInput() {
       const text = pendingTextsRef.current.get(requestId) ?? '';
       pendingTextsRef.current.delete(requestId);
       if (errorCode === 'INVALID_BRANCH') {
-        setHistory((prev) => [
-          ...prev,
-          { text: '존재하지 않는 브랜치입니다!', status: 'wrong-branch' },
-        ]);
+        setHistory((prev) => [...prev, { text: '잘못된 브랜치입니다!', status: 'wrong-branch' }]);
       } else if (errorCode === 'WRONG_COMMAND') {
         setHistory((prev) => [...prev, { text, status: 'typo' }]);
       } else {
@@ -98,8 +95,8 @@ export function useContributionInput() {
           setHistory((prev) => [...prev, { text, status: 'ok' }]);
         }
       }
-      // 라운드 종료 — 다른 사람이 가로챘거나 BE가 silent drop한 입력 전부 정리.
-      pendingTextsRef.current.clear();
+      // 이 라운드의 요청만 삭제. 다른 in-flight 요청은 각자의 응답(command:failed 등)에서 처리됨.
+      pendingTextsRef.current.delete(requestId);
     };
 
     const handleExpired = () => {
