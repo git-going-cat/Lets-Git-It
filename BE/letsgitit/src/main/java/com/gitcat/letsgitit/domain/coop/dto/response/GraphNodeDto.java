@@ -5,5 +5,7 @@ public record GraphNodeDto(
 	int x,
 	int y,
 	String label,
-	String branch) {
+	String branch,
+	int activateOnRound,
+	int activateOnStep) {
 }

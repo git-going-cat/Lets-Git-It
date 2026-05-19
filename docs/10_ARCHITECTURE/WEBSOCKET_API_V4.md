@@ -555,11 +555,13 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `sequence` | Integer | 노드 식별자 (라운드 완료 시 점등 기준) |
+| `sequence` | Integer | 노드 식별자. 그래프 내에서 unique. `edge.from` / `edge.to` 가 이 값을 참조한다. |
 | `x` | Integer | SVG x 좌표 |
 | `y` | Integer | SVG y 좌표 |
 | `label` | String | 노드 라벨 |
 | `branch` | String | 브랜치명 |
+| `activateOnRound` | Integer | 이 노드가 점등되는 라운드 번호 (1~5) |
+| `activateOnStep` | Integer | 이 노드가 점등되는 라운드 내 스텝 번호 (1~4) |
 
 **graphData.edges 배열 항목**
 
@@ -581,11 +583,11 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "graphData": {
     "viewBox": "0 0 600 300",
     "nodes": [
-      { "sequence": 1, "x": 80,  "y": 150, "label": "init", "branch": "main" },
-      { "sequence": 2, "x": 200, "y": 150, "label": "sync", "branch": "main" },
-      { "sequence": 3, "x": 320, "y": 150, "label": "feat", "branch": "main" },
-      { "sequence": 4, "x": 440, "y": 150, "label": "mrge", "branch": "main" },
-      { "sequence": 5, "x": 560, "y": 150, "label": "fix",  "branch": "main" }
+      { "sequence": 1, "x": 80,  "y": 150, "label": "init", "branch": "main", "activateOnRound": 1, "activateOnStep": 3 },
+      { "sequence": 2, "x": 200, "y": 150, "label": "sync", "branch": "main", "activateOnRound": 2, "activateOnStep": 3 },
+      { "sequence": 3, "x": 320, "y": 150, "label": "feat", "branch": "main", "activateOnRound": 3, "activateOnStep": 3 },
+      { "sequence": 4, "x": 440, "y": 150, "label": "mrge", "branch": "main", "activateOnRound": 4, "activateOnStep": 4 },
+      { "sequence": 5, "x": 560, "y": 150, "label": "fix",  "branch": "main", "activateOnRound": 5, "activateOnStep": 2 }
     ],
     "edges": [
       { "from": 1, "to": 2, "type": "solid" },
@@ -1728,7 +1730,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `stepInRound` | Integer | 라운드 내 완료된 명령어 순서 (1~4) |
 | `isRoundComplete` | Boolean | 라운드 완료 여부 |
 
-> 프론트는 `round` + `stepInRound` 기준으로 그래프 노드 점등 처리. `sequence`는 전체 진행도 표시용으로 사용.
+> 프론트는 `COOP_INPUT_CORRECT`의 `round` + `stepInRound` 값을 `graphData.nodes[].activateOnRound` / `activateOnStep` 와 비교해 일치하는 노드를 점등한다. `sequence`는 전체 진행도 표시용으로 사용.
 
 ```json
 {
@@ -1942,7 +1944,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 | 섹션 | 변경 내용 |
 | --- | --- |
-| 4-2 GAME_START (협력 응답) | `startGraphPicture` 제거 → `graphData` (viewBox / nodes / edges 구조) 추가. 프론트가 받은 데이터로 SVG 직접 렌더링. |
+| 4-2 GAME_START (협력 응답) | `startGraphPicture` 제거 → `graphData` (viewBox / nodes / edges 구조) 추가. 프론트가 받은 데이터로 SVG 직접 렌더링. `graphData.nodes`에 `activateOnRound` / `activateOnStep` 필드 추가 — 각 노드가 점등되는 라운드·스텝 번호를 서버가 직접 지정. |
 | 4-9 CHAT | Request에서 `nickname` 제거. 서버가 memberId 기준으로 닉네임을 DB에서 조회하므로 클라이언트 전송 불필요. |
 | 7-1 COOP_ROUND_REVEAL | `isReset` 필드 추가. `commandOrder` 범위 `1~20` → `1~4` 수정. |
 | 7-3 COOP_INPUT (정답 응답) | `COOP_INPUT_CORRECT`에 `round`, `stepInRound` 추가. 프론트가 라운드/스텝 기준으로 그래프 노드 점등 처리. |
