@@ -13,6 +13,7 @@ import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.socket.messaging.StompSubProtocolErrorHandler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gitcat.letsgitit.global.exception.BusinessException;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
@@ -49,8 +50,17 @@ public class WebSocketStompErrorHandler extends StompSubProtocolErrorHandler {
 		String sessionId = clientHeaderAccessor != null ? clientHeaderAccessor.getSessionId() : null;
 		MDC.put("requestId", "ws-" + (sessionId != null ? sessionId : "unknown"));
 		try {
-			log.debug("WebSocket message processing error. errorCode={}, message={}", errorCode.getCode(),
-				errorCode.getMessage());
+			String clientPayloadType = extractPayloadType(clientMessage);
+
+			if (businessException != null || isInvalidRequestException(ex)) {
+				log.warn(
+					"[websocket][handleClientMessageProcessingError] websocket message processing failed. errorCode={}, clientPayloadType={}",
+					errorCode.getCode(), clientPayloadType);
+			} else {
+				log.error(
+					"[websocket][handleClientMessageProcessingError] websocket message processing failed. errorCode={}, clientPayloadType={}",
+					errorCode.getCode(), clientPayloadType, ex);
+			}
 
 			byte[] payload = serialize(errorCode);
 			StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.ERROR);
@@ -91,6 +101,19 @@ public class WebSocketStompErrorHandler extends StompSubProtocolErrorHandler {
 			current = current.getCause();
 		}
 		return false;
+	}
+
+	private String extractPayloadType(Message<byte[]> clientMessage) {
+		if (clientMessage == null || clientMessage.getPayload() == null) {
+			return "null";
+		}
+		try {
+			JsonNode node = objectMapper.readTree(clientMessage.getPayload());
+			JsonNode typeNode = node.get("type");
+			return typeNode != null ? typeNode.asText() : "unknown";
+		} catch (Exception e) {
+			return "unparseable";
+		}
 	}
 
 	private byte[] serialize(ErrorCode errorCode) {
