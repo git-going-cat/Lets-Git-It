@@ -1,20 +1,14 @@
-// ── 주차 파라미터 ──────────────────────────────────────────
-
 export interface WeekParam {
   year: number;
   month: number;
   week: number;
 }
 
-// ── 모드 타입 ──────────────────────────────────────────────
-
 export const SINGLE_RANKING_MODES = ['single-easy', 'single-normal', 'single-hard'] as const;
 
 export type SingleRankingMode = (typeof SINGLE_RANKING_MODES)[number];
 
 export type RankingMode = SingleRankingMode | 'speed' | 'timeattack' | 'coop';
-
-// ── 엔트리 타입 (REST API 응답 기준) ──────────────────────
 
 export interface SingleRankingEntry {
   rank: number;
@@ -38,9 +32,15 @@ export interface TimeAttackRankingEntry {
 
 export interface CoopRankingEntry {
   rank: number;
-  nickname: string;
-  clearTime: number; // ms 단위
+  clearTime: number;
   difficulty: number;
+  nickname?: string;
+  teamName?: string;
+  members?: string[];
+  wrongTypeCount?: number;
+  wrongOrderCount?: number;
+  mapId?: string | number;
+  mapName?: string;
 }
 
 export type RankingEntry =
@@ -48,8 +48,6 @@ export type RankingEntry =
   | SpeedRankingEntry
   | TimeAttackRankingEntry
   | CoopRankingEntry;
-
-// ── 내 랭킹 타입 ──────────────────────────────────────────
 
 export interface SingleMyRank {
   rank: number;
@@ -75,8 +73,6 @@ export interface CoopMyRank {
 
 export type MyRank = SingleMyRank | SpeedMyRank | TimeAttackMyRank | CoopMyRank | null;
 
-// ── 초기 진입 응답 (top3 + myRank + around) ───────────────
-
 export interface RankingInitialResponse<T extends RankingEntry, M extends Exclude<MyRank, null>> {
   year: number;
   month: number;
@@ -90,8 +86,6 @@ export interface RankingInitialResponse<T extends RankingEntry, M extends Exclud
   hasNext: boolean;
 }
 
-// ── 무한 스크롤 응답 (rankings) ───────────────────────────
-
 export interface RankingInfiniteResponse<T extends RankingEntry> {
   rankings: T[];
   prevCursor?: number | null;
@@ -103,8 +97,6 @@ export interface RankingInfiniteResponse<T extends RankingEntry> {
 export type RankingResponse<T extends RankingEntry, M extends Exclude<MyRank, null>> =
   | RankingInitialResponse<T, M>
   | RankingInfiniteResponse<T>;
-
-// ── 등급 뱃지 ─────────────────────────────────────────────
 
 export type RankGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
 
