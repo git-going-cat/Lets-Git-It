@@ -159,14 +159,17 @@ public class RoomServiceImpl implements RoomService {
 			boolean contributionGameInProgress = inGame && RoomMode.CONTRIBUTION.name().equals(currentMode);
 			boolean coopGameInProgress = inGame && RoomMode.COOP.name().equals(currentMode);
 			String gameSessionId = contributionGameInProgress ? roomRedisRepository.findGameSessionId(roomId) : null;
+			ContributionInputResult disconnectedResult = null;
+			UUID parsedSessionId = null;
+			if (contributionGameInProgress && gameSessionId != null) {
+				parsedSessionId = UUID.fromString(gameSessionId);
+				disconnectedResult = contributionGameService.handlePlayerDisconnected(parsedSessionId, memberId);
+			}
 
 			roomRedisRepository.removeMember(roomId, memberIdStr);
 			List<PlayerInfoDto> remainMembers = roomMemberMapper
 				.toPlayerInfoDtos(roomRedisRepository.getMembers(roomId.toString()));
-			if (contributionGameInProgress && gameSessionId != null) {
-				UUID parsedSessionId = UUID.fromString(gameSessionId);
-				ContributionInputResult disconnectedResult = contributionGameService.handlePlayerDisconnected(
-					parsedSessionId, memberId);
+			if (parsedSessionId != null) {
 				if (disconnectedResult != null && disconnectedResult.payload() != null) {
 					roomWebSocketEventPublisher.publishContributionEvent(roomId, disconnectedResult.payload());
 				}

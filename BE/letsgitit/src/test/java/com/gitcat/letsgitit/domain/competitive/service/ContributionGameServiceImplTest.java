@@ -81,7 +81,7 @@ class ContributionGameServiceImplTest {
 			contributionRankingService);
 		when(redissonClient.getLock(anyString())).thenReturn(lock);
 		try {
-			when(lock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+			when(lock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(true);
 		} catch (InterruptedException e) {
 			throw new IllegalStateException(e);
 		}
@@ -255,7 +255,7 @@ class ContributionGameServiceImplTest {
 		@Test
 		void 입력_락을_획득하지_못하면_LOCK_ACQUISITION_FAILED_예외가_발생한다() throws Exception {
 			// given
-			when(lock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(false);
+			when(lock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(false);
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 
@@ -576,6 +576,7 @@ class ContributionGameServiceImplTest {
 			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
 			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
 			when(repository.isPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.markPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 
 			// when
 			ContributionInputResult result = service.handlePlayerDisconnected(GAME_SESSION_ID, PLAYER_ID);
@@ -591,6 +592,22 @@ class ContributionGameServiceImplTest {
 				.singleElement()
 				.satisfies(score -> assertThat(score.disconnected()).isTrue());
 			verify(repository).markPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID);
+		}
+
+		@Test
+		void 이미_이탈_마킹된_플레이어면_disconnected_이벤트를_브로드캐스트하지_않는다() {
+			// given
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+			when(repository.markPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID)).thenReturn(false);
+
+			// when
+			ContributionInputResult result = service.handlePlayerDisconnected(GAME_SESSION_ID, PLAYER_ID);
+
+			// then
+			assertThat(result).isNull();
+			verify(repository).markPlayerDisconnected(GAME_SESSION_ID, PLAYER_ID);
+			verify(repository, never()).countScoredClearedCommands(any());
+			verify(repository, never()).findPlayers(any());
 		}
 	}
 
