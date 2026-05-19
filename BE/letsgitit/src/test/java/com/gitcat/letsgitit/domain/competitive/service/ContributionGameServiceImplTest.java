@@ -2,7 +2,6 @@ package com.gitcat.letsgitit.domain.competitive.service;
 
 import static com.gitcat.letsgitit.global.exception.ErrorCode.COMMAND_ALREADY_CLEARED;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.GAME_ALREADY_ENDED;
-import static com.gitcat.letsgitit.global.exception.ErrorCode.INVALID_COMMAND;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.LOCK_ACQUISITION_FAILED;
 import static com.gitcat.letsgitit.global.exception.ErrorCode.PLAYER_NOT_IN_GAME;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -86,6 +85,8 @@ class ContributionGameServiceImplTest {
 			throw new IllegalStateException(e);
 		}
 		when(repository.markSessionEndedIfInProgress(any())).thenReturn(true);
+		when(repository.findPosition(any(), any())).thenReturn(Optional.empty());
+		when(repository.findCommands(any())).thenReturn(List.of());
 	}
 
 	@Nested
@@ -117,6 +118,7 @@ class ContributionGameServiceImplTest {
 			assertThat(result.payload()).isInstanceOf(ScoreUpdateMessage.class);
 			ScoreUpdateMessage payload = (ScoreUpdateMessage)result.payload();
 			assertThat(payload.type()).isEqualTo("SCORE_UPDATE");
+			assertThat(payload.commandSequence()).isEqualTo(1);
 			assertThat(payload.scores()).anySatisfy(score -> {
 				assertThat(score.playerId()).isEqualTo(PLAYER_ID);
 				assertThat(score.contribution()).isEqualTo(100);
@@ -128,6 +130,68 @@ class ContributionGameServiceImplTest {
 			assertThat(payload.progress().current()).isEqualTo(1);
 			assertThat(payload.progress().total()).isEqualTo(2);
 			assertThat(payload.progress().percent()).isEqualTo(50);
+			verify(repository).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+			verify(repository).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
+		}
+
+		@Test
+		void 일반_명령어는_commandSequence가_없어도_현재_브랜치_최하단이면_정답으로_처리한다() {
+			// given
+			ContributionInputMessage request = inputWithoutSequence("git commit -m 'fix'");
+			ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main");
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
+			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
+				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
+				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
+			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
+			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
+			when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(0);
+			when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(1);
+
+			// when
+			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+			// then
+			assertThat(result.broadcast()).isTrue();
+			assertThat(result.payload()).isInstanceOf(ScoreUpdateMessage.class);
+			ScoreUpdateMessage payload = (ScoreUpdateMessage)result.payload();
+			assertThat(payload.commandSequence()).isEqualTo(1);
+			verify(repository).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+			verify(repository).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
+		}
+
+		@Test
+		void 일반_명령어는_요청_commandSequence가_틀려도_현재_브랜치_최하단이면_정답으로_처리한다() {
+			// given
+			ContributionInputMessage request = input(99, "git commit -m 'fix'");
+			ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main");
+			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
+			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
+			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
+				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
+				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
+			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
+			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
+			when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(0);
+			when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(1);
+
+			// when
+			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+			// then
+			assertThat(result.broadcast()).isTrue();
+			assertThat(result.payload()).isInstanceOf(ScoreUpdateMessage.class);
+			ScoreUpdateMessage payload = (ScoreUpdateMessage)result.payload();
+			assertThat(payload.commandSequence()).isEqualTo(1);
+			verify(repository).findCommand(GAME_SESSION_ID, 1);
+			verify(repository, never()).findCommand(GAME_SESSION_ID, 99);
 			verify(repository).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
 			verify(repository).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
 		}
@@ -189,39 +253,53 @@ class ContributionGameServiceImplTest {
 		}
 
 		@Test
-		void 일반_명령어가_현재_브랜치와_다르면_점수를_갱신하지_않고_INVALID_BRANCH를_반환한다() {
+		void 요청_commandSequence가_다른_브랜치를_가리켜도_현재_브랜치_최하단으로_정답_처리한다() {
 			// given
-			ContributionInputMessage request = input(1, "git commit -m 'fix'");
-			ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "develop");
+			ContributionInputMessage request = input(7, "git commit -m 'fix'");
+			ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main");
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
 			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
 			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(
+				command,
+				ContributionCommandCache.ready(7, "git commit -m 'feat'", "develop")));
+			when(repository.findPlayers(GAME_SESSION_ID)).thenReturn(List.of(
+				new ContributionPlayerCache(PLAYER_ID, "dobby", 0),
+				new ContributionPlayerCache(OTHER_PLAYER_ID, "alice", 0)));
+			when(repository.findSuccessCount(GAME_SESSION_ID, PLAYER_ID)).thenReturn(1);
+			when(repository.findSuccessCount(GAME_SESSION_ID, OTHER_PLAYER_ID)).thenReturn(0);
+			when(repository.findCatExpiredCount(GAME_SESSION_ID)).thenReturn(0);
+			when(repository.countScoredClearedCommands(GAME_SESSION_ID)).thenReturn(1);
 
 			// when
 			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
 
 			// then
-			assertThat(result.broadcast()).isFalse();
-			assertThat(result.payload()).isInstanceOf(ContributionInputFailedMessage.class);
-			ContributionInputFailedMessage payload = (ContributionInputFailedMessage)result.payload();
-			assertThat(payload.errorReason()).isEqualTo("INVALID_BRANCH");
-			verify(repository, never()).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
-			verify(repository, never()).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
+			assertThat(result.broadcast()).isTrue();
+			assertThat(result.payload()).isInstanceOf(ScoreUpdateMessage.class);
+			ScoreUpdateMessage payload = (ScoreUpdateMessage)result.payload();
+			assertThat(payload.commandSequence()).isEqualTo(1);
+			verify(repository).findCommand(GAME_SESSION_ID, 1);
+			verify(repository, never()).findCommand(GAME_SESSION_ID, 7);
+			verify(repository).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+			verify(repository).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
 		}
 
 		@Test
-		void 현재_브랜치의_가장_낮은_READY_명령어가_아니면_INVALID_COMMAND_ORDER를_반환한다() {
+		void 현재_브랜치의_최하단_READY와_입력값이_다르면_WRONG_COMMAND를_반환한다() {
 			// given
 			ContributionInputMessage request = input(7, "git commit -m 'feat'");
-			ContributionCommandCache command = ContributionCommandCache.ready(7, "git commit -m 'feat'", "develop");
+			ContributionCommandCache lowestCommand = ContributionCommandCache.ready(3, "git add .", "develop");
+			ContributionCommandCache requestedCommand = ContributionCommandCache.ready(7, "git commit -m 'feat'",
+				"develop");
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(branchOrderSession()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
-			when(repository.findCommand(GAME_SESSION_ID, 7)).thenReturn(Optional.of(command));
+			when(repository.findCommand(GAME_SESSION_ID, 3)).thenReturn(Optional.of(lowestCommand));
 			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("develop"));
 			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(
-				ContributionCommandCache.ready(3, "git add .", "develop"),
-				command,
+				lowestCommand,
+				requestedCommand,
 				ContributionCommandCache.ready(10, "git push origin develop", "develop"),
 				ContributionCommandCache.ready(6, "git pull origin main", "main")));
 
@@ -232,8 +310,11 @@ class ContributionGameServiceImplTest {
 			assertThat(result.broadcast()).isFalse();
 			assertThat(result.payload()).isInstanceOf(ContributionInputFailedMessage.class);
 			ContributionInputFailedMessage payload = (ContributionInputFailedMessage)result.payload();
-			assertThat(payload.errorReason()).isEqualTo("INVALID_COMMAND_ORDER");
-			verify(repository, never()).saveCommand(GAME_SESSION_ID, command.cleared(PLAYER_ID));
+			assertThat(payload.errorReason()).isEqualTo("WRONG_COMMAND");
+			verify(repository).findCommand(GAME_SESSION_ID, 3);
+			verify(repository, never()).findCommand(GAME_SESSION_ID, 7);
+			verify(repository, never()).saveCommand(GAME_SESSION_ID, lowestCommand.cleared(PLAYER_ID));
+			verify(repository, never()).saveCommand(GAME_SESSION_ID, requestedCommand.cleared(PLAYER_ID));
 			verify(repository, never()).incrementSuccessCount(GAME_SESSION_ID, PLAYER_ID);
 		}
 
@@ -377,14 +458,21 @@ class ContributionGameServiceImplTest {
 		void checkout_명령어는_브랜치_이동으로_허용하지_않는다() {
 			// given
 			ContributionInputMessage request = switchInput("git checkout feature/payment");
+			ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main");
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
+			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+			when(repository.findPosition(GAME_SESSION_ID, PLAYER_ID)).thenReturn(Optional.of("main"));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(command));
 
-			// when & then
-			assertThatThrownBy(() -> service.processInput(ROOM_ID, PLAYER_ID, request))
-				.isInstanceOf(BusinessException.class)
-				.extracting("errorCode")
-				.isEqualTo(INVALID_COMMAND);
+			// when
+			ContributionInputResult result = service.processInput(ROOM_ID, PLAYER_ID, request);
+
+			// then
+			assertThat(result.broadcast()).isFalse();
+			assertThat(result.payload()).isInstanceOf(ContributionInputFailedMessage.class);
+			ContributionInputFailedMessage payload = (ContributionInputFailedMessage)result.payload();
+			assertThat(payload.errorReason()).isEqualTo("WRONG_COMMAND");
 			verify(repository, never()).updatePosition(any(), any(), anyString());
 		}
 
@@ -418,11 +506,12 @@ class ContributionGameServiceImplTest {
 		@Test
 		void 이미_완료된_명령어면_COMMAND_ALREADY_CLEARED_예외가_발생한다() {
 			// given
-			ContributionCommandCache command = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main")
-				.cleared(OTHER_PLAYER_ID);
+			ContributionCommandCache readyCommand = ContributionCommandCache.ready(1, "git commit -m 'fix'", "main");
+			ContributionCommandCache clearedCommand = readyCommand.cleared(OTHER_PLAYER_ID);
 			when(repository.findSession(GAME_SESSION_ID)).thenReturn(Optional.of(session()));
 			when(repository.existsPlayer(GAME_SESSION_ID, PLAYER_ID)).thenReturn(true);
-			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(command));
+			when(repository.findCommands(GAME_SESSION_ID)).thenReturn(List.of(readyCommand));
+			when(repository.findCommand(GAME_SESSION_ID, 1)).thenReturn(Optional.of(clearedCommand));
 
 			// when & then
 			assertThatThrownBy(() -> service.processInput(ROOM_ID, PLAYER_ID, input(1, "git commit -m 'fix'")))
@@ -801,6 +890,15 @@ class ContributionGameServiceImplTest {
 			REQUEST_ID,
 			GAME_SESSION_ID,
 			commandSequence,
+			inputText);
+	}
+
+	private ContributionInputMessage inputWithoutSequence(String inputText) {
+		return new ContributionInputMessage(
+			"CONTRIBUTION_INPUT",
+			REQUEST_ID,
+			GAME_SESSION_ID,
+			null,
 			inputText);
 	}
 

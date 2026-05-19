@@ -123,16 +123,26 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			if (isSwitchCommand(request.inputText())) {
 				return processSwitchInput(memberId, request);
 			}
-			if (request.commandSequence() == null) {
-				throw new BusinessException(INVALID_COMMAND);
+
+			String currentBranch = findCurrentBranch(request.gameSessionId(), memberId, session);
+			Optional<ContributionCommandCache> targetCommandOptional = findLowestReadyCommandInBranch(
+				request.gameSessionId(), currentBranch);
+			if (targetCommandOptional.isEmpty()) {
+				return ContributionInputResult.privateMessage(
+					ContributionInputFailedMessage.of(
+						request.gameSessionId(),
+						request.requestId(),
+						memberId,
+						"INVALID_COMMAND_ORDER"));
 			}
+			ContributionCommandCache targetCommand = targetCommandOptional.get();
 
 			RLock commandLock = redissonClient.getLock(
-				ContributionRedisKeys.commandLock(request.gameSessionId(), request.commandSequence()));
+				ContributionRedisKeys.commandLock(request.gameSessionId(), targetCommand.commandSequence()));
 			boolean commandLocked = tryLock(commandLock);
 			try {
 				ContributionCommandCache command = contributionGameRedisRepository
-					.findCommand(request.gameSessionId(), request.commandSequence())
+					.findCommand(request.gameSessionId(), targetCommand.commandSequence())
 					.orElseThrow(() -> new BusinessException(INVALID_COMMAND));
 				validateCommandStatus(command);
 
@@ -327,24 +337,6 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 					memberId,
 					"WRONG_COMMAND"));
 		}
-		String currentBranch = contributionGameRedisRepository.findPosition(request.gameSessionId(), memberId)
-			.orElse(session.initialBranch());
-		if (!command.branchName().equals(currentBranch)) {
-			return ContributionInputResult.privateMessage(
-				ContributionInputFailedMessage.of(
-					request.gameSessionId(),
-					request.requestId(),
-					memberId,
-					"INVALID_BRANCH"));
-		}
-		if (!isLowestReadyCommandInBranch(request.gameSessionId(), command)) {
-			return ContributionInputResult.privateMessage(
-				ContributionInputFailedMessage.of(
-					request.gameSessionId(),
-					request.requestId(),
-					memberId,
-					"INVALID_COMMAND_ORDER"));
-		}
 
 		contributionGameRedisRepository.saveCommand(request.gameSessionId(), command.cleared(memberId));
 		contributionGameRedisRepository.incrementSuccessCount(request.gameSessionId(), memberId);
@@ -355,11 +347,11 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		List<ScoreEntryMessage> scores = buildScores(request.gameSessionId(), clearedCommandCount, catExpiredCount);
 		ContributionProgressMessage progress = buildProgress(processedCommandCount, totalCommands);
 		log.info("[contribution][input] command success. memberId={}, gameSessionId={}, commandSequence={}",
-			memberId, request.gameSessionId(), request.commandSequence());
+			memberId, request.gameSessionId(), command.commandSequence());
 		ScoreUpdateMessage scoreUpdate = ScoreUpdateMessage.of(
 			request.gameSessionId(),
 			request.requestId(),
-			request.commandSequence(),
+			command.commandSequence(),
 			memberId,
 			scores,
 			progress);
@@ -374,17 +366,20 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		return ContributionInputResult.broadcast(scoreUpdate);
 	}
 
-	private boolean isLowestReadyCommandInBranch(UUID gameSessionId, ContributionCommandCache command) {
-		int lowestReadySequence = contributionGameRedisRepository.findCommands(gameSessionId).stream()
+	private Optional<ContributionCommandCache> findLowestReadyCommandInBranch(UUID gameSessionId, String branchName) {
+		return contributionGameRedisRepository.findCommands(gameSessionId).stream()
 			.filter(candidate -> COMMAND_STATUS_READY.equals(candidate.status()))
 			.filter(candidate -> !isSwitchCommand(candidate.text()))
-			.filter(candidate -> command.branchName().equals(candidate.branchName()))
-			.mapToInt(ContributionCommandCache::commandSequence)
-			.min()
-			.orElseThrow(() -> new IllegalStateException(
-				"브랜치 내 READY 커맨드가 없습니다. gameSessionId=" + gameSessionId
-					+ ", commandSequence=" + command.commandSequence()));
-		return command.commandSequence() == lowestReadySequence;
+			.filter(candidate -> branchName.equals(candidate.branchName()))
+			.min(Comparator.comparingInt(ContributionCommandCache::commandSequence));
+	}
+
+	private String findCurrentBranch(
+		UUID gameSessionId,
+		UUID memberId,
+		ContributionGameSessionCache session) {
+		return contributionGameRedisRepository.findPosition(gameSessionId, memberId)
+			.orElse(session.initialBranch());
 	}
 
 	private String normalizeCommandForComparison(String commandText) {

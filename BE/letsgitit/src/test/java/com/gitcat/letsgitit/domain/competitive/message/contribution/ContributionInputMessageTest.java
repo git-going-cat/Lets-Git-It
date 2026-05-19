@@ -31,8 +31,7 @@ class ContributionInputMessageTest {
 			assertThat(violations).isNotEmpty();
 			assertThat(violations)
 				.extracting(violation -> violation.getPropertyPath().toString())
-				.contains("type", "requestId", "gameSessionId", "commandSequenceRequiredForScorableCommand",
-					"inputText");
+				.contains("type", "requestId", "gameSessionId", "inputText");
 		}
 
 		@Test
@@ -91,7 +90,7 @@ class ContributionInputMessageTest {
 		}
 
 		@Test
-		void checkout_명령어는_commandSequence_없는_이동_명령으로_허용하지_않는다() {
+		void checkout_명령어도_commandSequence가_없으면_DTO_검증은_통과한다() {
 			// given
 			ContributionInputMessage request = new ContributionInputMessage(
 				"CONTRIBUTION_INPUT",
@@ -104,13 +103,11 @@ class ContributionInputMessageTest {
 			Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
 
 			// then
-			assertThat(violations)
-				.extracting(violation -> violation.getPropertyPath().toString())
-				.contains("commandSequenceRequiredForScorableCommand");
+			assertThat(violations).isEmpty();
 		}
 
 		@Test
-		void 일반_명령어는_commandSequence가_없으면_검증에_실패한다() {
+		void 일반_명령어는_commandSequence가_없어도_검증에_성공한다() {
 			// given
 			ContributionInputMessage request = new ContributionInputMessage(
 				"CONTRIBUTION_INPUT",
@@ -123,9 +120,7 @@ class ContributionInputMessageTest {
 			Set<ConstraintViolation<ContributionInputMessage>> violations = validator.validate(request);
 
 			// then
-			assertThat(violations)
-				.extracting(violation -> violation.getPropertyPath().toString())
-				.contains("commandSequenceRequiredForScorableCommand");
+			assertThat(violations).isEmpty();
 		}
 	}
 }

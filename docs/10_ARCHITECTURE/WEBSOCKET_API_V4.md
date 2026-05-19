@@ -458,13 +458,13 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "initialBranch": "main",
   "commandSet": [
     {
-      "commandSequence": 1,
+      "commandSequence": 0,
       "text": "git commit -m 'fix'",
       "branchName": "main",
       "fallDurationMs": 20000
     },
     {
-      "commandSequence": 2,
+      "commandSequence": 1,
       "text": "git push origin main",
       "branchName": "main",
       "fallDurationMs": 20000
@@ -1112,7 +1112,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `type` | String | Y | `"CONTRIBUTION_INPUT"` 고정 |
 | `requestId` | UUID | Y | 요청-응답 매칭용 클라이언트 요청 ID |
 | `gameSessionId` | UUID | Y | 현재 게임 세션 ID |
-| `commandSequence` | Integer | 조건부 | 입력 대상 명령어 seq. 일반 명령어 입력 시 필수, `git switch` 입력 시 생략 |
+| `commandSequence` | Integer | N | 레거시 클라이언트 호환용. 일반 명령어 정답 판정에는 사용하지 않으며, `git switch` 입력 시 생략 가능 |
 | `inputText` | String | Y | 입력한 텍스트 |
 
 ```json
@@ -1128,7 +1128,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 #### 일반 명령어 입력 규칙
 
 - 플레이어는 자신의 현재 브랜치와 같은 `branchName`을 가진 명령어만 정답 처리할 수 있다.
-- 같은 브랜치에 아직 처리되지 않은 `READY` 명령어가 여러 개 있으면, `commandSequence`가 가장 작은 명령어만 현재 입력 대상이다.
+- 서버는 요청의 `commandSequence`와 무관하게 현재 플레이어 브랜치에서 아직 처리되지 않은 `READY` 명령어 중 `commandSequence`가 가장 작은 명령어를 입력 대상으로 선택한다.
 - 다른 브랜치에 더 작은 `commandSequence`의 `READY` 명령어가 남아 있어도 현재 브랜치의 입력 대상 판단에는 영향을 주지 않는다.
 - 같은 브랜치의 같은 명령어를 여러 플레이어가 동시에 입력하면 서버 락을 먼저 획득해 `CLEARED` 처리한 1명만 정답이며, 이후 요청은 이미 처리된 명령어로 거절된다.
 
@@ -1226,8 +1226,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 | 코드 | 설명 |
 | --- | --- |
-| `INVALID_BRANCH` | 존재하지 않는 브랜치로 switch 시도, 또는 현재 플레이어 브랜치와 명령어 lane 불일치 |
-| `INVALID_COMMAND_ORDER` | 현재 플레이어 브랜치에서 가장 낮은 `READY` 명령어가 아닌 명령어 입력 |
+| `INVALID_BRANCH` | 존재하지 않는 브랜치로 switch 시도 |
+| `INVALID_COMMAND_ORDER` | 현재 플레이어 브랜치에 입력 가능한 `READY` 명령어가 없음 |
 | `WRONG_COMMAND` | 명령어 오타 |
 
 ```json
