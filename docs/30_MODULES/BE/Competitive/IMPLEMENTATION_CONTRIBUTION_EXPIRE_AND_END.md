@@ -9,7 +9,7 @@
 - 제한 시간 내 성공 처리되지 않은 명령어를 서버 스케줄러가 만료 처리
 - 만료 시 CAT 점수 증가 및 `COMMAND_EXPIRED` 또는 `CONTRIBUTION_GAME_END` 전송
 - 마지막 명령어 성공 시 `SCORE_UPDATE` 뒤에 `CONTRIBUTION_GAME_END` 연속 전송
-- 종료 후 세션 status를 `ENDED`로 변경하여 이후 입력을 `GAME_ALREADY_ENDED`로 거절
+- 종료 후 세션 status를 `ENDED`로 변경한 뒤 브로드캐스트 직전에 세션 키를 삭제
 - 플레이어 이탈로 남은 플레이어가 1명 이하가 되면 조기 종료
 
 ## Decision
@@ -30,7 +30,7 @@
 
 ### 종료 처리
 
-종료는 Redis meta status를 `ENDED`로 바꾼다. 이후 `processInput()`의 세션 검증에서 `GAME_ALREADY_ENDED`가 발생한다.
+종료는 Redis meta status를 `ENDED`로 바꾼다. 이후 `ContributionHandler`가 정상 종료 payload를 브로드캐스트하기 전에 방 상태를 `WAITING`으로 복구하고 세션 키를 삭제한다.
 
 정상 종료 payload는 다음 값을 갖는다.
 
@@ -65,7 +65,8 @@ REST `leaveRoom`과 WebSocket disconnect를 연결했다.
 - 이탈 마킹 후 `/topic/room/{roomId}/contribution`으로 `CONTRIBUTION_PLAYER_DISCONNECTED`를 전송한다. 이 payload의 `scores` 항목에는 `disconnected=true`가 반영된다.
 - `leaveRoom`에서 CONTRIBUTION + `IN_GAME` 상태이고 남은 플레이어가 1명 이하가 되면 `CONTRIBUTION_GAME_END`를 전송한다.
 - WebSocket disconnect는 같은 member의 다른 WebSocket 세션이 없고, Redis joined-room이 CONTRIBUTION + `IN_GAME`일 때만 `leaveRoom`으로 연결한다.
-- 조기 종료 후 room state는 `WAITING`으로 되돌린다.
+- 정상 종료 후 room state는 `WAITING`으로 되돌리고 방장 외 멤버 ready를 초기화한다.
+- 조기 종료 후 room state는 `WAITING`으로 되돌리고 방장 외 멤버 ready를 초기화한 뒤 세션 키를 삭제한다.
 
 입력/만료/switch 이동/이탈 종료는 모두 세션 단위 Redis lock(`lock:contribution:session:{gameSessionId}:state`)을 먼저 획득한다. 종료가 확정된 뒤 늦은 `SCORE_UPDATE`, `COMMAND_EXPIRED`, `POSITION_UPDATE`가 나가는 경합을 막기 위한 정책이다.
 
@@ -76,7 +77,8 @@ REST `leaveRoom`과 WebSocket disconnect를 연결했다.
 - 명령어 만료 간격은 서버 상수 20초다. 현재 `CONTRIBUTION_STARTED.commandSet`에는 명령어별 제한 시간이 없으므로, 클라이언트 낙하 속도와 별도 합의가 생기면 DTO/Redis 세션에 제한 시간 필드를 추가해야 한다.
 - `git switch {branch}`만 `POSITION_UPDATE` 전용으로 취급되어 점수와 progress에서 제외된다.
 - 이탈 마킹된 플레이어는 contribution 세션의 players hash에 남아 있어도 이후 입력에서 `PLAYER_NOT_IN_GAME`으로 거절된다.
-- 정상 종료 시 세션 키를 삭제하지 않는다. 다음 결과 저장 브랜치가 final rankings를 읽을 수 있도록 TTL 기반 Redis 보관을 유지한다.
+- 정상 종료 시 세션 키를 삭제한다. 결과 저장과 랭킹 갱신은 종료 payload 생성 과정에서 완료되므로, 브로드캐스트 이후 같은 세션을 재사용하지 않는다.
+- 조기 종료 시에도 세션 키를 삭제한다. `PLAYER_DISCONNECTED` 종료는 DB 저장과 랭킹 갱신을 수행하지 않는다.
 - 조기 종료 payload는 명세의 플레이어 이탈 종료 구조에 맞춰 rankings와 winnerVideoTarget을 채우지 않는다.
 - WebSocket disconnect 자동 퇴장은 같은 member의 다른 활성 세션이 없을 때만 동작한다.
 
@@ -88,8 +90,10 @@ REST `leaveRoom`과 WebSocket disconnect를 연결했다.
 - 마지막 명령어 만료 시 `CONTRIBUTION_GAME_END`만 반환
 - 동점 순위 계산: 동일 순위 부여, 다음 순위 건너뜀
 - CAT 1등 시 `winnerVideoTarget=null`
-- 종료 이후 입력 시 `GAME_ALREADY_ENDED`
-- Redis 세션 TTL 적용 키에 final rankings 키 포함
+- 정상 종료 후 방 상태 `WAITING` 복귀 및 ready 초기화
+- 정상 종료 후 Redis 세션 삭제
+- 조기 종료 후 방 상태 `WAITING` 복귀, ready 초기화, Redis 세션 삭제
+- 종료 이후 입력 시 세션 없음 또는 종료 상태로 거절
 - 브랜치 이동은 `git switch {branch}`만 처리됨
 - 이탈자 마킹 후 `CONTRIBUTION_PLAYER_DISCONNECTED`에 `disconnected=true` 반영
 

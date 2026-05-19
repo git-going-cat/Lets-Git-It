@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -62,7 +63,8 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	private static final String COMMAND_STATUS_EXPIRED = "EXPIRED";
 	private static final String CAT_NICKNAME = "[CAT]";
 	private static final long LOCK_WAIT_MS = 100;
-	private static final long LOCK_LEASE_MS = 2000;
+	private static final Pattern COMMIT_MESSAGE_PATTERN = Pattern.compile("^git\\s+commit\\s+-m\\s+(['\"])(.*)\\1$");
+	private static final Pattern COMMAND_LINE_BREAK_PATTERN = Pattern.compile("\\s*[\\r\\n]+\\s*");
 
 	private final ContributionGameRedisRepository contributionGameRedisRepository;
 	private final RedissonClient redissonClient;
@@ -234,7 +236,7 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 
 	private boolean tryLock(RLock lock) {
 		try {
-			boolean locked = lock.tryLock(LOCK_WAIT_MS, LOCK_LEASE_MS, TimeUnit.MILLISECONDS);
+			boolean locked = lock.tryLock(LOCK_WAIT_MS, TimeUnit.MILLISECONDS);
 			if (!locked) {
 				throw new BusinessException(LOCK_ACQUISITION_FAILED);
 			}
@@ -312,7 +314,8 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 		ContributionInputMessage request,
 		ContributionCommandCache command,
 		ContributionGameSessionCache session) {
-		if (!command.text().equals(request.inputText())) {
+		if (!normalizeCommandForComparison(command.text())
+			.equals(normalizeCommandForComparison(request.inputText()))) {
 			return ContributionInputResult.privateMessage(
 				ContributionInputFailedMessage.of(
 					request.gameSessionId(),
@@ -357,6 +360,15 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			return ContributionInputResult.broadcasts(List.of(scoreUpdate, gameEnd));
 		}
 		return ContributionInputResult.broadcast(scoreUpdate);
+	}
+
+	private String normalizeCommandForComparison(String commandText) {
+		String normalized = normalizeCommandLine(commandText);
+		Matcher matcher = COMMIT_MESSAGE_PATTERN.matcher(normalized);
+		if (matcher.matches()) {
+			return "git commit -m " + matcher.group(2);
+		}
+		return normalized;
 	}
 
 	private List<ScoreEntryMessage> buildScores(UUID gameSessionId, int clearedCommandCount, int catExpiredCount) {
@@ -467,7 +479,11 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			if (session == null || !SESSION_STATUS_IN_PROGRESS.equals(session.status())) {
 				return null;
 			}
-			contributionGameRedisRepository.markPlayerDisconnected(gameSessionId, disconnectedPlayerId);
+			boolean newlyDisconnected = contributionGameRedisRepository.markPlayerDisconnected(gameSessionId,
+				disconnectedPlayerId);
+			if (!newlyDisconnected) {
+				return null;
+			}
 			int clearedCommandCount = contributionGameRedisRepository.countScoredClearedCommands(gameSessionId);
 			int catExpiredCount = contributionGameRedisRepository.findCatExpiredCount(gameSessionId);
 			int processedCommandCount = clearedCommandCount + catExpiredCount;
@@ -513,15 +529,22 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 	}
 
 	private boolean isSwitchCommand(String commandText) {
-		return commandText != null && CompetitiveConstants.SWITCH_PATTERN.matcher(commandText.trim()).matches();
+		return commandText != null && CompetitiveConstants.SWITCH_PATTERN.matcher(normalizeCommandLine(commandText))
+			.matches();
 	}
 
 	private String parseSwitchBranch(String inputText) {
-		Matcher matcher = CompetitiveConstants.SWITCH_PATTERN.matcher(inputText.trim());
+		Matcher matcher = CompetitiveConstants.SWITCH_PATTERN.matcher(normalizeCommandLine(inputText));
 		if (!matcher.matches()) {
 			throw new BusinessException(ErrorCode.INVALID_COMMAND);
 		}
 		return matcher.group(1).trim();
+	}
+
+	private String normalizeCommandLine(String commandText) {
+		return commandText == null
+			? ""
+			: COMMAND_LINE_BREAK_PATTERN.matcher(commandText).replaceAll(" ").trim();
 	}
 
 	private record ScoreSeed(

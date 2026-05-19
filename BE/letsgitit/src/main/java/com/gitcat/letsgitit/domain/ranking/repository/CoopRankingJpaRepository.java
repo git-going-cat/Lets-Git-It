@@ -17,4 +17,7 @@ public interface CoopRankingJpaRepository extends JpaRepository<CoopRanking, UUI
 
 	// 전체 건수: around 범위 클램핑 및 hasNext 판단에 사용
 	long countByWeek(String week);
+
+	// 맵+난이도 전체 건수
+	long countByWeekAndMapNameAndDifficulty(String week, String mapName, int difficulty);
 }
