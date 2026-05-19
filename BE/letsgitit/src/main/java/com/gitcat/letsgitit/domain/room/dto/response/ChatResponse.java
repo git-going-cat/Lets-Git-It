@@ -6,7 +6,7 @@ import java.util.UUID;
 public record ChatResponse(
 	String type, // "CHAT_RESPONSE" 고정
 	UUID playerId, // JWT에서 추출한 인증된 사용자 ID
-	String nickname, // 요청에서 받은 닉네임 그대로 전달
+	String nickname, // DB에서 조회한 닉네임 (위장 방지)
 	String message, // 채팅 내용
 	long sentAt // 서버 기준 전송 시각 (밀리초 타임스탬프)
 ) {
