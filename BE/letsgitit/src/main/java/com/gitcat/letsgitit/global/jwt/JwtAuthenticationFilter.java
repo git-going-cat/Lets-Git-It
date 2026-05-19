@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.slf4j.MDC;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -74,7 +75,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 					// 1. 블랙리스트 체크 — 로그아웃된 토큰
 					if (authRedisRepository.isAccessTokenBlacklisted(token)) {
-						log.debug("블랙리스트 처리된 토큰: {}", request.getRequestURI());
+						log.debug("[auth][JwtFilter] blacklisted token. uri={}", request.getRequestURI());
 						sendUnauthorized(response, ErrorCode.TOKEN_BLACKLISTED);
 						return;
 					}
@@ -88,7 +89,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 							customUserDetails.getMemberId().toString());
 
 						if (!token.equals(storedToken)) {
-							log.debug("동시접속 차단. 다른 기기에서 로그인된 토큰: {}", request.getRequestURI());
+							log.debug("[auth][JwtFilter] concurrent login blocked. uri={}", request.getRequestURI());
 							sendUnauthorized(response, ErrorCode.INVALID_TOKEN);
 							return;
 						}
@@ -102,9 +103,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 					authentication.setDetails(
 						new WebAuthenticationDetailsSource().buildDetails(request));
 					SecurityContextHolder.getContext().setAuthentication(authentication);
+					String nickname = jwtProvider.getNickname(token);
+					MDC.put("nickname", nickname != null ? nickname : "");
 				}
 			} catch (ExpiredJwtException e) {
-				log.debug("만료된 Access Token: {}", request.getRequestURI());
+				log.debug("[auth][JwtFilter] expired access token. uri={}", request.getRequestURI());
 			}
 		}
 

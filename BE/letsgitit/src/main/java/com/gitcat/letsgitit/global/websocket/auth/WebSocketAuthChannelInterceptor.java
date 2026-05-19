@@ -60,6 +60,20 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 			return message;
 		}
 
+		if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+			java.security.Principal user = accessor.getUser();
+			String memberId = user != null ? user.getName() : "unknown";
+			MDC.put("requestId", "ws-" + accessor.getSessionId());
+			MDC.put("nickname", user instanceof StompPrincipal sp ? sp.nickname() : "");
+			try {
+				log.info("[{}] WebSocket SUBSCRIBE. destination={}, memberId={}",
+					resolveDomain(accessor.getDestination()), accessor.getDestination(), memberId);
+			} finally {
+				MDC.clear();
+			}
+			return message;
+		}
+
 		// STOMP CONNECT 요청일 때만 인증 수행
 		// (SEND, SUBSCRIBE는 이미 세션에 Principal이 등록되어 있어서 패스)
 		if (!StompCommand.CONNECT.equals(accessor.getCommand())) {
@@ -91,12 +105,25 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 			accessor.setUser(principal);
 			webSocketSessionRegistry.register(principal.getName(), accessor.getSessionId());
 
-			log.info("WebSocket CONNECT success. memberId={}, sessionId={}",
-				principal.getName(), accessor.getSessionId());
+			MDC.put("nickname", principal.nickname() != null ? principal.nickname() : "");
+			log.info("WebSocket CONNECT success. memberId={}, nickname={}, sessionId={}",
+				principal.getName(), principal.nickname(), accessor.getSessionId());
 
 			return message;
 		} finally {
 			MDC.clear();
 		}
+	}
+
+	private String resolveDomain(String destination) {
+		if (destination == null)
+			return "UNKNOWN";
+		if (destination.contains("/coop"))
+			return "COOP";
+		if (destination.contains("/contribution"))
+			return "CONTRIBUTION";
+		if (destination.contains("/room"))
+			return "ROOM";
+		return "UNKNOWN";
 	}
 }

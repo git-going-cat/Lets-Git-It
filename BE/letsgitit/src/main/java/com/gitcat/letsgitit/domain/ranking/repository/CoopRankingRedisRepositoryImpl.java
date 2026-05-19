@@ -54,7 +54,7 @@ public class CoopRankingRedisRepositoryImpl implements CoopRankingRedisRepositor
 		try {
 			json = objectMapper.writeValueAsString(data);
 		} catch (JsonProcessingException e) {
-			log.error("[coop-ranking] JSON 직렬화 실패: coopResultId={}", data.coopResultId(), e);
+			log.error("[coop-ranking][register] JSON serialization failed. coopResultId={}", data.coopResultId(), e);
 			throw new IllegalStateException("CoopRankingData JSON 직렬화 실패", e);
 		}
 
@@ -121,7 +121,7 @@ public class CoopRankingRedisRepositoryImpl implements CoopRankingRedisRepositor
 		try {
 			return objectMapper.readValue((String)json, CoopRankingData.class);
 		} catch (JsonProcessingException e) {
-			log.error("[coop-ranking] JSON 역직렬화 실패: coopResultId={}", coopResultId, e);
+			log.error("[coop-ranking][getData] JSON deserialization failed. coopResultId={}", coopResultId, e);
 			return null;
 		}
 	}
@@ -144,11 +144,12 @@ public class CoopRankingRedisRepositoryImpl implements CoopRankingRedisRepositor
 				try {
 					result.add(objectMapper.readValue((String)json, CoopRankingData.class));
 				} catch (JsonProcessingException e) {
-					log.error("[coop-ranking] JSON 역직렬화 실패: coopResultId={}", coopResultIds.get(i), e);
+					log.error("[coop-ranking][getDataBatch] JSON deserialization failed. coopResultId={}",
+						coopResultIds.get(i), e);
 					result.add(null);
 				}
 			} else {
-				log.warn("[coop-ranking] Hash miss: coopResultId={}", coopResultIds.get(i));
+				log.warn("[coop-ranking][getDataBatch] Hash miss. coopResultId={}", coopResultIds.get(i));
 				result.add(null);
 			}
 		}

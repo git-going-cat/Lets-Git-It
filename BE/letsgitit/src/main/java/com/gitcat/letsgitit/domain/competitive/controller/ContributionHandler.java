@@ -20,6 +20,7 @@ import com.gitcat.letsgitit.domain.competitive.service.ContributionGameService;
 import com.gitcat.letsgitit.domain.room.service.RoomService;
 import com.gitcat.letsgitit.global.exception.ErrorCode;
 import com.gitcat.letsgitit.global.websocket.WebSocketMessageSender;
+import com.gitcat.letsgitit.global.websocket.auth.StompPrincipal;
 import com.gitcat.letsgitit.global.websocket.dto.WebSocketErrorResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -43,9 +44,11 @@ public class ContributionHandler {
 		Principal principal,
 		SimpMessageHeaderAccessor headerAccessor) {
 		MDC.put("requestId", "ws-" + headerAccessor.getSessionId());
+		MDC.put("nickname", principal instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
+			log.info("[CONTRIBUTION] WebSocket SEND. destination=/room/{}/contribution/commands", roomId);
 			if (principal == null) {
-				log.warn("[contribution][input] missing principal. roomId={}, sessionId={}",
+				log.warn("[CONTRIBUTION] missing principal. roomId={}, sessionId={}",
 					roomId, headerAccessor.getSessionId());
 				if (headerAccessor.getSessionId() != null) {
 					messageSender.sendToSession(
@@ -73,9 +76,11 @@ public class ContributionHandler {
 		Principal principal,
 		SimpMessageHeaderAccessor headerAccessor) {
 		MDC.put("requestId", "ws-" + headerAccessor.getSessionId());
+		MDC.put("nickname", principal instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
+			log.info("[CONTRIBUTION] WebSocket SEND. destination=/room/{}/contribution/commands/expire", roomId);
 			if (principal == null) {
-				log.warn("[contribution][expire] missing principal. roomId={}, sessionId={}",
+				log.warn("[CONTRIBUTION] missing principal. roomId={}, sessionId={}",
 					roomId, headerAccessor.getSessionId());
 				if (headerAccessor.getSessionId() != null) {
 					messageSender.sendToSession(

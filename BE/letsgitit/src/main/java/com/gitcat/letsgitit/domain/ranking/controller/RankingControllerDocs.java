@@ -181,7 +181,7 @@ public interface RankingControllerDocs {
 		@Parameter(name = "size", description = "페이지 크기 (기본값 20)")
 		Integer size);
 
-	@Operation(summary = "이번주 협력 랭킹 조회", description = "elapsedTime은 낮을수록 높은 순위. 팀 단위 랭킹. afterRank/beforeRank 모두 생략 시 초기 응답, afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤.")
+	@Operation(summary = "이번주 협력 랭킹 조회", description = "elapsedTime은 낮을수록 높은 순위. 팀 단위 랭킹. mapName과 difficulty로 특정 맵의 랭킹을 조회. afterRank/beforeRank 모두 생략 시 초기 응답, afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤.")
 	@ApiResponse(responseCode = "200", description = "협력 랭킹 조회 성공", content = @Content(mediaType = "application/json", examples = {
 		@ExampleObject(name = "초기 진입", value = """
 			{
@@ -204,7 +204,7 @@ public interface RankingControllerDocs {
 			    ],
 			    "myRank": {
 			      "rank": 5, "teamName": "merge crew",
-			      "mapName": "rebase 실전", "difficulty": 3,
+			      "mapName": "기초 브랜치", "difficulty": 1,
 			      "elapsedTime": 83000, "totalWrongTypeCount": 5, "totalWrongOrderCount": 3,
 			      "members": [
 			        {"playerId": "aaaaaaaa-e29b-41d4-a716-446655440000", "nickname": "alice"},
@@ -216,7 +216,7 @@ public interface RankingControllerDocs {
 			    "around": [
 			      {
 			        "rank": 4, "teamName": "reset zero",
-			        "mapName": "브랜치 이동", "difficulty": 2,
+			        "mapName": "기초 브랜치", "difficulty": 1,
 			        "elapsedTime": 81000, "totalWrongTypeCount": 4, "totalWrongOrderCount": 2,
 			        "members": [
 			          {"playerId": "dddddddd-e29b-41d4-a716-446655440000", "nickname": "user5"},
@@ -383,7 +383,7 @@ public interface RankingControllerDocs {
 		@Parameter(name = "size", description = "페이지 크기 (기본값 20)")
 		Integer size);
 
-	@Operation(summary = "과거주 협력 랭킹 조회", description = "RDB에서 조회. 팀 단위 랭킹. afterRank/beforeRank 모두 생략 시 초기 응답, afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤. afterRank와 beforeRank를 동시에 전달하면 400.")
+	@Operation(summary = "과거주 협력 랭킹 조회", description = "RDB에서 조회. 팀 단위 랭킹. mapName과 difficulty로 특정 맵의 랭킹을 조회. afterRank/beforeRank 모두 생략 시 초기 응답, afterRank 포함 시 아래 방향 스크롤, beforeRank 포함 시 위 방향 스크롤. afterRank와 beforeRank를 동시에 전달하면 400.")
 	@ApiResponse(responseCode = "400", description = "잘못된 요청 (afterRank와 beforeRank 동시 입력, 또는 파라미터 범위 오류)")
 	@ApiResponse(responseCode = "200", description = "협력 랭킹 조회 성공", content = @Content(mediaType = "application/json", examples = {
 		@ExampleObject(name = "초기 진입", value = """
@@ -407,7 +407,7 @@ public interface RankingControllerDocs {
 			    ],
 			    "myRank": {
 			      "rank": 5, "teamName": "merge crew",
-			      "mapName": "rebase 실전", "difficulty": 3,
+			      "mapName": "기초 브랜치", "difficulty": 1,
 			      "elapsedTime": 83000, "totalWrongTypeCount": 5, "totalWrongOrderCount": 3,
 			      "members": [
 			        {"playerId": "aaaaaaaa-e29b-41d4-a716-446655440000", "nickname": "alice"},
@@ -419,7 +419,7 @@ public interface RankingControllerDocs {
 			    "around": [
 			      {
 			        "rank": 4, "teamName": "reset zero",
-			        "mapName": "브랜치 이동", "difficulty": 2,
+			        "mapName": "기초 브랜치", "difficulty": 1,
 			        "elapsedTime": 81000, "totalWrongTypeCount": 4, "totalWrongOrderCount": 2,
 			        "members": [
 			          {"playerId": "dddddddd-e29b-41d4-a716-446655440000", "nickname": "user5"},
