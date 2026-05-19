@@ -79,7 +79,7 @@ public class CoopGameServiceImpl implements CoopGameService {
 		coopGameRedisRepository.initGameState(gameSessionId, mapId, roomId, playerIds, mapName, mapDifficulty,
 			teamName);
 		coopGameRedisRepository.saveRoomGameSession(roomId, gameSessionId);
-		log.info("[coop] game initialized. gameSessionId={}, roomId={}", gameSessionId, roomId);
+		log.info("[coop][initAndStartGame] game initialized. gameSessionId={}, roomId={}", gameSessionId, roomId);
 		startRound(roomId, gameSessionId, mapId, 1, false, null);
 	}
 
@@ -91,6 +91,7 @@ public class CoopGameServiceImpl implements CoopGameService {
 		if (gameSessionId == null)
 			throw new BusinessException(GAME_ALREADY_ENDED);
 
+		log.info("[coop][processInput] input received. gameSessionId={}, memberId={}", gameSessionId, memberId);
 		String lockKey = String.format(LOCK_INPUT, gameSessionId);
 		RLock lock = redissonClient.getLock(lockKey);
 		boolean gameEnded = false;
@@ -98,7 +99,8 @@ public class CoopGameServiceImpl implements CoopGameService {
 		try {
 			boolean acquired = lock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
 			if (!acquired) {
-				log.warn("[coop] input lock acquisition failed. gameSessionId={}, memberId={}", gameSessionId,
+				log.warn("[coop][processInput] input lock acquisition failed. gameSessionId={}, memberId={}",
+					gameSessionId,
 					memberId);
 				throw new BusinessException(LOCK_ACQUISITION_FAILED);
 			}
@@ -159,13 +161,15 @@ public class CoopGameServiceImpl implements CoopGameService {
 		if (gameSessionId == null)
 			throw new BusinessException(GAME_ALREADY_ENDED);
 
+		log.info("[coop][processReset] reset received. gameSessionId={}, memberId={}", gameSessionId, memberId);
 		String lockKey = String.format(LOCK_RESET, gameSessionId);
 		RLock lock = redissonClient.getLock(lockKey);
 
 		try {
 			boolean acquired = lock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
 			if (!acquired) {
-				log.warn("[coop] reset lock acquisition failed. gameSessionId={}, memberId={}", gameSessionId,
+				log.warn("[coop][processReset] reset lock acquisition failed. gameSessionId={}, memberId={}",
+					gameSessionId,
 					memberId);
 				throw new BusinessException(LOCK_ACQUISITION_FAILED);
 			}
@@ -200,7 +204,7 @@ public class CoopGameServiceImpl implements CoopGameService {
 			coopGameRedisRepository.resetRoundProgress(gameSessionId, currentRound);
 
 			UUID mapId = coopGameRedisRepository.getMapId(gameSessionId);
-			log.info("[coop] game reset. gameSessionId={}, round={}", gameSessionId, currentRound);
+			log.info("[coop][processReset] game reset. gameSessionId={}, round={}", gameSessionId, currentRound);
 			startRound(roomId, gameSessionId, mapId, currentRound, true, wrongNickname);
 
 		} catch (InterruptedException e) {
@@ -222,7 +226,7 @@ public class CoopGameServiceImpl implements CoopGameService {
 		try {
 			boolean acquired = lock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
 			if (!acquired) {
-				log.warn("[coop] disconnect lock acquisition failed. roomId={}", roomId);
+				log.warn("[coop][handlePlayerDisconnect] disconnect lock acquisition failed. roomId={}", roomId);
 				return;
 			}
 			UUID gameSessionId = coopGameRedisRepository.findGameSessionIdByRoomId(roomId);
@@ -235,10 +239,11 @@ public class CoopGameServiceImpl implements CoopGameService {
 				messageSender.send("/topic/room/" + roomId + "/coop",
 					CoopGameEndResponse.disconnected(gameSessionId));
 			}
-			log.info("[coop] player disconnected. gameSessionId={}, roomId={}", gameSessionId, roomId);
+			log.info("[coop][handlePlayerDisconnect] player disconnected. gameSessionId={}, roomId={}", gameSessionId,
+				roomId);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			log.warn("[coop] disconnect lock interrupted. roomId={}", roomId);
+			log.warn("[coop][handlePlayerDisconnect] lock interrupted. roomId={}", roomId);
 		} finally {
 			if (lock.isHeldByCurrentThread()) {
 				lock.unlock();
@@ -269,7 +274,7 @@ public class CoopGameServiceImpl implements CoopGameService {
 		messageSender.send("/topic/room/" + roomId + "/coop",
 			CoopRoundRevealResponse.of(gameSessionId, round, isReset, commandDtos));
 
-		log.info("[coop] round reveal sent. gameSessionId={}, round={}, isReset={}",
+		log.info("[coop][startRound] round reveal sent. gameSessionId={}, round={}, isReset={}",
 			gameSessionId, round, isReset);
 
 		// 3초 후 ASSIGN 처리 — wrongNickname은 processReset()에서 unblock() 전에 이미 조회한 값
@@ -281,7 +286,7 @@ public class CoopGameServiceImpl implements CoopGameService {
 	private void assignAndSend(Long roomId, UUID gameSessionId, int round, boolean isReset,
 		String wrongNickname) {
 		if (!coopGameRedisRepository.isGameActive(gameSessionId)) {
-			log.warn("[coop] game already ended before assign. gameSessionId={}", gameSessionId);
+			log.warn("[coop][assignAndSend] game already ended before assign. gameSessionId={}", gameSessionId);
 			return;
 		}
 
@@ -302,7 +307,7 @@ public class CoopGameServiceImpl implements CoopGameService {
 				CoopRoundAssignResponse.of(gameSessionId, round, isReset, assignedText, wrongNickname));
 		}
 
-		log.info("[coop] round assign sent. gameSessionId={}, round={}", gameSessionId, round);
+		log.info("[coop][assignAndSend] round assign sent. gameSessionId={}, round={}", gameSessionId, round);
 	}
 
 	// ── private: 입력 처리 ────────────────────────────────────────────────────────
@@ -313,14 +318,14 @@ public class CoopGameServiceImpl implements CoopGameService {
 		coopGameRedisRepository.incrementWrongOrder(gameSessionId, memberId);
 		messageSender.send("/topic/room/" + roomId + "/coop",
 			CoopOrderWrongResponse.of(gameSessionId, requestId, memberId, nickname));
-		log.info("[coop] order wrong. gameSessionId={}, memberId={}", gameSessionId, memberId);
+		log.info("[coop][handleOrderWrong] order wrong. gameSessionId={}, memberId={}", gameSessionId, memberId);
 	}
 
 	private void handleInputWrong(UUID gameSessionId, UUID memberId, UUID requestId) {
 		coopGameRedisRepository.incrementWrongType(gameSessionId, memberId);
 		messageSender.sendToUser(memberId.toString(),
 			CoopInputWrongResponse.of(gameSessionId, requestId, memberId));
-		log.info("[coop] input wrong (typo). gameSessionId={}, memberId={}", gameSessionId, memberId);
+		log.info("[coop][handleInputWrong] input wrong. gameSessionId={}, memberId={}", gameSessionId, memberId);
 	}
 
 	private boolean handleInputCorrect(Long roomId, UUID gameSessionId, UUID memberId, UUID requestId,
@@ -335,7 +340,7 @@ public class CoopGameServiceImpl implements CoopGameService {
 			CoopInputCorrectResponse.of(gameSessionId, requestId, newCompleted, round, stepInRound,
 				isRoundComplete));
 
-		log.info("[coop] input correct. gameSessionId={}, sequence={}, round={}, step={}",
+		log.info("[coop][handleInputCorrect] input correct. gameSessionId={}, sequence={}, round={}, step={}",
 			gameSessionId, newCompleted, round, stepInRound);
 
 		if (isGameComplete) {
@@ -356,19 +361,19 @@ public class CoopGameServiceImpl implements CoopGameService {
 		try {
 			boolean acquired = disconnectLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
 			if (!acquired) {
-				log.warn("[coop] endGame: disconnect lock acquisition failed. gameSessionId={}, roomId={}",
+				log.warn("[coop][endGame] disconnect lock acquisition failed. gameSessionId={}, roomId={}",
 					gameSessionId, roomId);
 				return;
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			log.warn("[coop] endGame interrupted while acquiring lock. gameSessionId={}", gameSessionId);
+			log.warn("[coop][endGame] lock interrupted. gameSessionId={}", gameSessionId);
 			return;
 		}
 
 		try {
 			if (!coopGameRedisRepository.isGameActive(gameSessionId)) {
-				log.warn("[coop] endGame: game already terminated (disconnect race). gameSessionId={}", gameSessionId);
+				log.warn("[coop][endGame] game already terminated (disconnect race). gameSessionId={}", gameSessionId);
 				return;
 			}
 			endGameInternal(roomId, gameSessionId);
@@ -466,12 +471,12 @@ public class CoopGameServiceImpl implements CoopGameService {
 
 				coopRankingService.registerCoopRanking(rankingData);
 			} catch (Exception e) {
-				log.error("[coop] ranking registration failed. gameSessionId={}, coopResultId={}",
+				log.error("[coop][endGameInternal] ranking registration failed. gameSessionId={}, coopResultId={}",
 					gameSessionId, saveResult.coopResult().getId(), e);
 			}
 
 		} catch (Exception e) {
-			log.error("[coop] DB 저장 실패. gameSessionId={}, roomId={}", gameSessionId, roomId, e);
+			log.error("[coop][endGameInternal] DB save failed. gameSessionId={}, roomId={}", gameSessionId, roomId, e);
 		}
 	}
 }

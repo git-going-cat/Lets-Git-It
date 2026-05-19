@@ -37,7 +37,8 @@ public class RoomMemberRecoveryService {
 		Long previousRoomId = joinedRoomId.get();
 		try {
 			roomService.leaveRoom(previousRoomId, memberId);
-			log.info("[room] {} room auto-left previous room. memberId={}, previousRoomId={}, targetRoomId={}",
+			log.info(
+				"[room][leavePreviousRoomIfNecessary] {} room auto-left previous room. memberId={}, previousRoomId={}, targetRoomId={}",
 				context, memberId, previousRoomId, targetRoomId);
 		} catch (BusinessException e) {
 			if (e.getErrorCode() != ROOM_NOT_FOUND) {

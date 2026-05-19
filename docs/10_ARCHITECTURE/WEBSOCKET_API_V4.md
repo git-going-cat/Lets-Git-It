@@ -547,10 +547,9 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `graphData.viewBox` | String | SVG viewBox 값 |
 | `graphData.nodes` | Array | 노드 목록 |
 | `graphData.edges` | Array | 엣지 목록 |
-| `players` | Array | 참여 플레이어 목록 및 개인 최고 기록 |
+| `players` | Array | 참여 플레이어 목록 |
 | `players[].playerId` | UUID | 플레이어 ID |
 | `players[].nickname` | String | 플레이어 닉네임 |
-| `players[].bestTime` | Integer | 협력 모드 최고 기록 시간 (ms) |
 
 **graphData.nodes 배열 항목**
 
@@ -596,10 +595,10 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
     ]
   },
   "players": [
-    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "bestTime": 213 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440001", "nickname": "alice", "bestTime": 248 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440002", "nickname": "bob",   "bestTime": 226 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440003", "nickname": "carol", "bestTime": 271 }
+    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby" },
+    { "playerId": "550e8400-e29b-41d4-a716-446655440001", "nickname": "alice" },
+    { "playerId": "550e8400-e29b-41d4-a716-446655440002", "nickname": "bob" },
+    { "playerId": "550e8400-e29b-41d4-a716-446655440003", "nickname": "carol" }
   ]
 }
 ```
@@ -1472,6 +1471,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 ## 6. 타임어택 모드
 
+> ⚠️ **미구현** — 현재 BE에 구현되지 않은 섹션입니다. 핸들러, 서비스, 메시지 클래스가 모두 stub 상태이며, 이 명세는 기획 참고용입니다.
+
 ### 6-1. TIME_ATTACK_INPUT
 
 - 발행: `/app/room/{roomId}/time-attack/input`
@@ -1850,6 +1851,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `results[].wrongTypeCount` | Integer | 오타 횟수 |
 | `results[].wrongOrderCount` | Integer | 순서 오입력 횟수 |
 | `results[].ranking` | Integer | 등수 |
+| `results[].isNewRecord` | Boolean | 이번 게임이 최고 기록 경신 여부 |
 
 ```json
 {
@@ -1860,10 +1862,10 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "reason": "GAME_COMPLETED",
   "elapsedTime": 213,
   "results": [
-    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby",  "wrongTypeCount": 1, "wrongOrderCount": 0, "ranking": 1 },
-    { "playerId": "661f9511-f30c-52e5-b827-557766551111", "nickname": "alice",  "wrongTypeCount": 2, "wrongOrderCount": 1, "ranking": 1 },
-    { "playerId": "772g0622-g41d-63f6-c938-668877662222", "nickname": "bob",    "wrongTypeCount": 0, "wrongOrderCount": 2, "ranking": 1 },
-    { "playerId": "883h1733-h52e-74g7-d049-779988773333", "nickname": "carol",  "wrongTypeCount": 3, "wrongOrderCount": 1, "ranking": 4 }
+    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby",  "wrongTypeCount": 1, "wrongOrderCount": 0, "ranking": 1, "isNewRecord": true },
+    { "playerId": "661f9511-f30c-52e5-b827-557766551111", "nickname": "alice",  "wrongTypeCount": 2, "wrongOrderCount": 1, "ranking": 1, "isNewRecord": false },
+    { "playerId": "772g0622-g41d-63f6-c938-668877662222", "nickname": "bob",    "wrongTypeCount": 0, "wrongOrderCount": 2, "ranking": 1, "isNewRecord": false },
+    { "playerId": "883h1733-h52e-74g7-d049-779988773333", "nickname": "carol",  "wrongTypeCount": 3, "wrongOrderCount": 1, "ranking": 4, "isNewRecord": false }
   ]
 }
 ```
@@ -1885,6 +1887,26 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "serverTime": 1714567905000,
   "isSuccess": false,
   "reason": "PLAYER_DISCONNECTED"
+}
+```
+
+#### Response: 실패 (DB 저장 오류)
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `type` | String | `"COOP_GAME_END"` 고정 |
+| `gameSessionId` | UUID | 게임 세션 ID |
+| `serverTime` | Long | 서버 응답 생성 시각 |
+| `isSuccess` | Boolean | `false` 고정 |
+| `reason` | String | `"DB_SAVE_FAILED"` 고정 |
+
+```json
+{
+  "type": "COOP_GAME_END",
+  "gameSessionId": "7b25b5a8-df79-4b45-a0ee-76f6b9f7e9a1",
+  "serverTime": 1714567905000,
+  "isSuccess": false,
+  "reason": "DB_SAVE_FAILED"
 }
 ```
 

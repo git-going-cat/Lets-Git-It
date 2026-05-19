@@ -9,9 +9,9 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
-import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
 import com.gitcat.letsgitit.domain.room.service.RoomService;
+import com.gitcat.letsgitit.global.websocket.auth.StompPrincipal;
 import com.gitcat.letsgitit.global.websocket.dto.ForceDisconnectResponse;
 
 import lombok.extern.slf4j.Slf4j;
@@ -44,26 +44,15 @@ public class WebSocketEventListener {
 		}
 
 		MDC.put("requestId", "ws-" + newSessionId);
+		MDC.put("nickname", accessor.getUser() instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
-			log.info("WebSocket 중복 연결 감지, 기존 세션 종료 알림. memberId={}, oldSessions={}", memberId, oldSessions);
+			log.info(
+				"WebSocket duplicate connection detected, sending force disconnect to old sessions. memberId={}, oldSessions={}",
+				memberId, oldSessions);
 			oldSessions.forEach(oldSessionId -> {
 				messageSender.sendToSession(oldSessionId, ForceDisconnectResponse.replacedByNewLogin());
 				webSocketSessionRegistry.unregisterBySessionId(oldSessionId);
 			});
-		} finally {
-			MDC.clear();
-		}
-	}
-
-	@EventListener
-	public void handleSessionSubscribe(SessionSubscribeEvent event) {
-		StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
-		String sessionId = accessor.getSessionId();
-		String memberId = accessor.getUser() != null ? accessor.getUser().getName() : "unauthenticated";
-		MDC.put("requestId", "ws-" + sessionId);
-		try {
-			log.debug("WebSocket SUBSCRIBE. memberId={}, destination={}, sessionId={}",
-				memberId, accessor.getDestination(), sessionId);
 		} finally {
 			MDC.clear();
 		}
@@ -78,6 +67,7 @@ public class WebSocketEventListener {
 		String removedMemberId = webSocketSessionRegistry.unregisterBySessionId(sessionId);
 
 		MDC.put("requestId", "ws-" + sessionId);
+		MDC.put("nickname", principal instanceof StompPrincipal sp ? sp.nickname() : "");
 		try {
 			String memberId = principal != null ? principal.getName() : removedMemberId;
 			if (memberId == null) {

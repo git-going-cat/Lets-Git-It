@@ -239,7 +239,7 @@ class AuthServiceImplTest {
 		given(memberService.findByEmail(EMAIL)).willReturn(member);
 		given(authRedisRepository.getAccessToken(memberId.toString())).willReturn(null);
 		given(authRedisRepository.getRefreshToken(memberId.toString())).willReturn(null);
-		given(jwtProvider.createAccessToken(EMAIL)).willReturn(ACCESS_TOKEN);
+		given(jwtProvider.createAccessToken(eq(EMAIL), any())).willReturn(ACCESS_TOKEN);
 		given(jwtProvider.createRefreshToken(EMAIL)).willReturn(REFRESH_TOKEN);
 
 		// when
@@ -284,7 +284,7 @@ class AuthServiceImplTest {
 		given(authRedisRepository.getRefreshToken(memberId.toString())).willReturn(REFRESH_TOKEN);
 		given(authRedisRepository.getAccessToken(memberId.toString())).willReturn(ACCESS_TOKEN);
 		given(jwtProvider.getExpiration(ACCESS_TOKEN)).willReturn(-1L); // 이미 만료된 AT → 블랙리스트 등록 안 함
-		given(jwtProvider.createAccessToken(EMAIL)).willReturn(newAccessToken);
+		given(jwtProvider.createAccessToken(eq(EMAIL), any())).willReturn(newAccessToken);
 		given(jwtProvider.createRefreshToken(EMAIL)).willReturn(newRefreshToken);
 
 		// when
@@ -457,7 +457,7 @@ class AuthServiceImplTest {
 		given(memberService.findById(memberId)).willReturn(member);
 		given(authRedisRepository.getAccessToken(memberId.toString())).willReturn(null);
 		given(authRedisRepository.getRefreshToken(memberId.toString())).willReturn(null);
-		given(jwtProvider.createAccessToken(EMAIL)).willReturn(ACCESS_TOKEN);
+		given(jwtProvider.createAccessToken(eq(EMAIL), any())).willReturn(ACCESS_TOKEN);
 		given(jwtProvider.createRefreshToken(EMAIL)).willReturn(REFRESH_TOKEN);
 
 		// when
