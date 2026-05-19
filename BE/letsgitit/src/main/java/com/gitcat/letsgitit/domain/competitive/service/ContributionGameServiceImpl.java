@@ -337,6 +337,14 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 					memberId,
 					"INVALID_BRANCH"));
 		}
+		if (!isLowestReadyCommandInBranch(request.gameSessionId(), command)) {
+			return ContributionInputResult.privateMessage(
+				ContributionInputFailedMessage.of(
+					request.gameSessionId(),
+					request.requestId(),
+					memberId,
+					"INVALID_COMMAND_ORDER"));
+		}
 
 		contributionGameRedisRepository.saveCommand(request.gameSessionId(), command.cleared(memberId));
 		contributionGameRedisRepository.incrementSuccessCount(request.gameSessionId(), memberId);
@@ -364,6 +372,19 @@ public class ContributionGameServiceImpl implements ContributionGameService {
 			return ContributionInputResult.broadcasts(List.of(scoreUpdate, gameEnd));
 		}
 		return ContributionInputResult.broadcast(scoreUpdate);
+	}
+
+	private boolean isLowestReadyCommandInBranch(UUID gameSessionId, ContributionCommandCache command) {
+		int lowestReadySequence = contributionGameRedisRepository.findCommands(gameSessionId).stream()
+			.filter(candidate -> COMMAND_STATUS_READY.equals(candidate.status()))
+			.filter(candidate -> !isSwitchCommand(candidate.text()))
+			.filter(candidate -> command.branchName().equals(candidate.branchName()))
+			.mapToInt(ContributionCommandCache::commandSequence)
+			.min()
+			.orElseThrow(() -> new IllegalStateException(
+				"브랜치 내 READY 커맨드가 없습니다. gameSessionId=" + gameSessionId
+					+ ", commandSequence=" + command.commandSequence()));
+		return command.commandSequence() == lowestReadySequence;
 	}
 
 	private String normalizeCommandForComparison(String commandText) {
