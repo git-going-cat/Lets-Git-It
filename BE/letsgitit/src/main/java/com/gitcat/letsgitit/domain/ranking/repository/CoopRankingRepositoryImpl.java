@@ -51,4 +51,37 @@ public class CoopRankingRepositoryImpl implements CoopRankingRepository {
 	public void saveAll(List<CoopRanking> rankings) {
 		coopRankingJpaRepository.saveAll(rankings);
 	}
+
+	@Override
+	public long countByWeekAndMapNameAndDifficulty(String week, String mapName, int difficulty) {
+		return coopRankingJpaRepository.countByWeekAndMapNameAndDifficulty(week, mapName, difficulty);
+	}
+
+	@Override
+	public Optional<CoopRanking> findMyCoopRankingByMemberIdAndWeekAndMapNameAndDifficulty(
+		UUID memberId, String week, String mapName, int difficulty) {
+		return coopRankingDslRepository.findMyCoopRankingByMemberIdAndWeekAndMapNameAndDifficulty(
+			memberId, week, mapName, difficulty);
+	}
+
+	@Override
+	public long countByWeekAndMapNameAndDifficultyAndRankLt(
+		String week, String mapName, int difficulty, int rank) {
+		return coopRankingDslRepository.countByWeekAndMapNameAndDifficultyAndRankLt(
+			week, mapName, difficulty, rank);
+	}
+
+	@Override
+	public List<CoopRanking> findByWeekAndMapNameAndDifficultyAscWithOffset(
+		String week, String mapName, int difficulty, long offset, int limit) {
+		return coopRankingDslRepository.findByWeekAndMapNameAndDifficultyAscWithOffset(
+			week, mapName, difficulty, offset, limit);
+	}
+
+	@Override
+	public List<CoopRanking> findByWeekAndMapNameAndDifficultyDescWithOffset(
+		String week, String mapName, int difficulty, long offset, int limit) {
+		return coopRankingDslRepository.findByWeekAndMapNameAndDifficultyDescWithOffset(
+			week, mapName, difficulty, offset, limit);
+	}
 }

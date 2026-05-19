@@ -136,6 +136,10 @@ public class RankingController implements RankingControllerDocs {
 	public ResponseEntity<?> getCoopRanking(
 		@AuthenticationPrincipal
 		CustomUserDetails userDetails,
+		@RequestParam
+		String mapName,
+		@RequestParam
+		int difficulty,
 		@RequestParam(required = false)
 		Integer afterRank,
 		@RequestParam(required = false)
@@ -151,18 +155,14 @@ public class RankingController implements RankingControllerDocs {
 
 		if (afterRank == null && beforeRank == null) {
 			return ApiResponse.ok("협력 랭킹 조회 성공",
-				coopRankingService.getCoopRanking(memberId));
+				coopRankingService.getCoopRanking(memberId, mapName, difficulty));
 		}
 		if (beforeRank != null) {
 			return ApiResponse.ok("협력 랭킹 조회 성공",
-				coopRankingService.getCoopRankingScrollBefore(beforeRank, size, memberId));
-		}
-		if (afterRank != null) {
-			return ApiResponse.ok("협력 랭킹 조회 성공",
-				coopRankingService.getCoopRankingScrollAfter(afterRank, size, memberId));
+				coopRankingService.getCoopRankingScrollBefore(beforeRank, size, memberId, mapName, difficulty));
 		}
 		return ApiResponse.ok("협력 랭킹 조회 성공",
-			coopRankingService.getCoopRanking(memberId));
+			coopRankingService.getCoopRankingScrollAfter(afterRank, size, memberId, mapName, difficulty));
 	}
 
 	@Override
@@ -299,6 +299,10 @@ public class RankingController implements RankingControllerDocs {
 		Integer month,
 		@RequestParam
 		Integer week,
+		@RequestParam
+		String mapName,
+		@RequestParam
+		int difficulty,
 		@RequestParam(required = false)
 		Integer afterRank,
 		@RequestParam(required = false)
@@ -314,13 +318,15 @@ public class RankingController implements RankingControllerDocs {
 
 		if (afterRank == null && beforeRank == null) {
 			return ApiResponse.ok("협력 랭킹 조회 성공",
-				coopRankingService.getCoopRankingHistory(year, month, week, size, memberId));
+				coopRankingService.getCoopRankingHistory(year, month, week, size, memberId, mapName, difficulty));
 		}
 		if (beforeRank != null) {
 			return ApiResponse.ok("협력 랭킹 조회 성공",
-				coopRankingService.getCoopRankingHistoryScrollBefore(year, month, week, beforeRank, size, memberId));
+				coopRankingService.getCoopRankingHistoryScrollBefore(year, month, week, beforeRank, size, memberId,
+					mapName, difficulty));
 		}
 		return ApiResponse.ok("협력 랭킹 조회 성공",
-			coopRankingService.getCoopRankingHistoryScrollAfter(year, month, week, afterRank, size, memberId));
+			coopRankingService.getCoopRankingHistoryScrollAfter(year, month, week, afterRank, size, memberId,
+				mapName, difficulty));
 	}
 }
