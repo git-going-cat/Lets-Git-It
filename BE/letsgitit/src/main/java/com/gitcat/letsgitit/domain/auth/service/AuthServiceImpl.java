@@ -94,7 +94,7 @@ public class AuthServiceImpl implements AuthService {
 				.plusMinutes(AuthConstants.AUTH_CODE_TTL_MINUTES);
 
 			authMetrics.incrementEmailCodeSent(purpose.name().toLowerCase());
-			log.info("[auth][sendEmailCode] purpose={}", purpose);
+			log.info("[auth][sendEmailCode] email code sent. purpose={}", purpose);
 			success = true;
 			return new AuthResponse.SendEmailCodeResponse(expiredAt);
 		} catch (BusinessException e) {
@@ -140,7 +140,7 @@ public class AuthServiceImpl implements AuthService {
 			authRedisRepository.saveEmailVerified(email, purposeKey);
 
 			authMetrics.incrementEmailVerified(purposeKey);
-			log.info("[auth][verifyEmailCode] purpose={}", purposeKey);
+			log.info("[auth][verifyEmailCode] email code verified. purpose={}", purposeKey);
 			success = true;
 		} catch (BusinessException e) {
 			authMetrics.incrementError("verify_email", e.getErrorCode().name());
@@ -198,7 +198,7 @@ public class AuthServiceImpl implements AuthService {
 			authRedisRepository.deleteEmailVerified(email, AuthPurpose.SIGN_UP.name().toLowerCase());
 
 			authMetrics.incrementRegisterCompleted(isReactivated);
-			log.info("[auth][register] reactivated={}", isReactivated);
+			log.info("[auth][register] member registered. reactivated={}", isReactivated);
 			success = true;
 			return isReactivated;
 		} catch (BusinessException e) {
@@ -249,10 +249,11 @@ public class AuthServiceImpl implements AuthService {
 					authRedisRepository.addRefreshTokenToBlacklist(oldRefreshToken, remainingMs);
 				}
 			}
-			webSocketSessionManager.notifyDisconnectByNewLogin(memberId);
+			webSocketSessionManager.notifyDisconnectByNewLogin(memberId, member.getNickname());
 
 			// 4. 새 AT/RT 발급
-			String accessToken = jwtProvider.createAccessToken(email);
+			String accessToken = jwtProvider.createAccessToken(email,
+				member.getNickname() != null ? member.getNickname() : "");
 			String refreshToken = jwtProvider.createRefreshToken(email);
 
 			// 5. AT/RT Redis 저장
@@ -270,7 +271,7 @@ public class AuthServiceImpl implements AuthService {
 			response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
 			authMetrics.incrementLoginSuccess("local");
-			log.info("[auth][login] type=local");
+			log.info("[auth][login] login success. type=local");
 			success = true;
 			return AuthResponse.LoginResponse.from(member, accessToken, false);
 		} catch (BusinessException e) {
@@ -319,10 +320,11 @@ public class AuthServiceImpl implements AuthService {
 					authRedisRepository.addRefreshTokenToBlacklist(oldRefreshToken, remainingMs);
 				}
 			}
-			webSocketSessionManager.notifyDisconnectByNewLogin(memberId);
+			webSocketSessionManager.notifyDisconnectByNewLogin(memberId, member.getNickname());
 
 			// 5. JWT 발급
-			String accessToken = jwtProvider.createAccessToken(email);
+			String accessToken = jwtProvider.createAccessToken(email,
+				member.getNickname() != null ? member.getNickname() : "");
 			String refreshToken = jwtProvider.createRefreshToken(email);
 
 			authRedisRepository.saveAccessToken(memberId, accessToken);
@@ -339,7 +341,7 @@ public class AuthServiceImpl implements AuthService {
 			response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
 			authMetrics.incrementLoginSuccess("oauth");
-			log.info("[auth][login] type=oauth");
+			log.info("[auth][login] login success. type=oauth");
 			success = true;
 			return AuthResponse.LoginResponse.from(member, accessToken, isReactivated);
 		} catch (BusinessException e) {
@@ -397,7 +399,8 @@ public class AuthServiceImpl implements AuthService {
 			}
 
 			// 8. 새 AT 발급 + Redis 저장
-			String newAccessToken = jwtProvider.createAccessToken(email);
+			String newAccessToken = jwtProvider.createAccessToken(email,
+				member.getNickname() != null ? member.getNickname() : "");
 			authRedisRepository.saveAccessToken(memberId, newAccessToken);
 
 			// 9. 새 RT 발급 + Redis 저장 + Cookie 갱신 (RTR 전략)
@@ -414,7 +417,7 @@ public class AuthServiceImpl implements AuthService {
 			response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
 			authMetrics.incrementTokenReissued();
-			log.info("[auth][reissue]");
+			log.info("[auth][reissue] token reissued.");
 			success = true;
 			return new AuthResponse.ReissueResponse(newAccessToken);
 		} catch (BusinessException e) {
@@ -462,7 +465,7 @@ public class AuthServiceImpl implements AuthService {
 
 			// 6. Redis에서 RT 삭제
 			authRedisRepository.deleteRefreshToken(memberId);
-			webSocketSessionManager.notifyDisconnectByLogout(memberId);
+			webSocketSessionManager.notifyDisconnectByLogout(memberId, member.getNickname());
 
 			// 7. HttpOnly Cookie 만료 처리
 			ResponseCookie expiredCookie = ResponseCookie.from(AuthConstants.REFRESH_TOKEN_COOKIE, "")
@@ -475,7 +478,7 @@ public class AuthServiceImpl implements AuthService {
 			response.addHeader(HttpHeaders.SET_COOKIE, expiredCookie.toString());
 
 			authMetrics.incrementLogout();
-			log.info("[auth][logout]");
+			log.info("[auth][logout] logout success.");
 			success = true;
 		} catch (BusinessException e) {
 			authMetrics.incrementError("logout", e.getErrorCode().name());
@@ -519,7 +522,7 @@ public class AuthServiceImpl implements AuthService {
 			// 6. 인증 완료 상태 삭제
 			authRedisRepository.deleteEmailVerified(email, AuthPurpose.PASSWORD_RESET.name().toLowerCase());
 
-			log.info("[auth][resetPassword]");
+			log.info("[auth][resetPassword] password reset success.");
 			success = true;
 		} catch (BusinessException e) {
 			authMetrics.incrementError("reset_password", e.getErrorCode().name());
@@ -548,7 +551,7 @@ public class AuthServiceImpl implements AuthService {
 				throw new BusinessException(ErrorCode.PASSWORD_MISMATCH);
 			}
 
-			log.info("[auth][verifyPassword]");
+			log.info("[auth][verifyPassword] password verified.");
 			success = true;
 		} catch (BusinessException e) {
 			authMetrics.incrementError("verify_password", e.getErrorCode().name());

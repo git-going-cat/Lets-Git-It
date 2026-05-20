@@ -348,7 +348,8 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 
 		if (!members.isEmpty()) {
 			gameStringRedisTemplate.opsForSet().add(memberMappingsKey, members.toArray(String[]::new));
-			log.warn("[room] member-mappings index backfilled from members hash. roomId={}, memberCount={}",
+			log.warn(
+				"[room][findAllMemberIds] member-mappings index backfilled from members hash. roomId={}, memberCount={}",
 				roomId, members.size());
 			return members;
 		}
@@ -359,7 +360,8 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		}
 
 		gameStringRedisTemplate.opsForSet().add(memberMappingsKey, legacyMemberIds.toArray(String[]::new));
-		log.warn("[room] member-mappings index backfilled from legacy member-room mappings. roomId={}, memberCount={}",
+		log.warn(
+			"[room][findAllMemberIds] member-mappings index backfilled from legacy member-room mappings. roomId={}, memberCount={}",
 			roomId, legacyMemberIds.size());
 		return legacyMemberIds;
 	}
@@ -378,6 +380,21 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 			String memberId = String.valueOf(entry.getKey());
 			Map<String, Object> memberInfo = readMemberInfo(entry.getValue());
 			memberInfo.put("isHost", memberId.equals(newHostId));
+			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, toJson(memberInfo));
+		}
+	}
+
+	@Override
+	public void resetMembersReadyExceptHost(Long roomId) {
+		String membersKey = RoomConstants.ROOM_INFO_KEY_PREFIX + roomId + RoomConstants.ROOM_MEMBERS_KEY_SUFFIX;
+		Map<Object, Object> members = gameStringRedisTemplate.opsForHash().entries(membersKey);
+		for (Map.Entry<Object, Object> entry : members.entrySet()) {
+			String memberId = String.valueOf(entry.getKey());
+			Map<String, Object> memberInfo = readMemberInfo(entry.getValue());
+			if (Boolean.TRUE.equals(memberInfo.get("isHost"))) {
+				continue;
+			}
+			memberInfo.put("isReady", false);
 			gameStringRedisTemplate.opsForHash().put(membersKey, memberId, toJson(memberInfo));
 		}
 	}
@@ -445,7 +462,8 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 
 		Set<String> legacyMappedMemberIds = findLegacyMappedMemberIds(roomIdValue, knownMemberIds);
 		if (!legacyMappedMemberIds.isEmpty()) {
-			log.warn("[room] legacy member-room mappings found during room dissolve. roomId={}, memberCount={}",
+			log.warn(
+				"[room][dissolveRoomKeys] legacy member-room mappings found during dissolve. roomId={}, memberCount={}",
 				roomIdValue, legacyMappedMemberIds.size());
 		}
 		gameStringRedisTemplate.executePipelined(new SessionCallback<Object>() {
@@ -568,7 +586,7 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 				try {
 					return objectMapper.readTree((String)e.getValue()).path("isReady").asBoolean(false);
 				} catch (Exception ex) {
-					log.warn("[room] isAllMembersReady parse error. memberId={}", e.getKey(), ex);
+					log.warn("[room][isAllMembersReady] parse error. memberId={}", e.getKey(), ex);
 					return false;
 				}
 			});
@@ -614,7 +632,7 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		Integer maxPlayers = extractInteger(fields, "maxPlayers");
 		Boolean hasPassword = extractBoolean(fields, "hasPassword");
 		if (maxPlayers == null || hasPassword == null) {
-			log.warn("[room] 손상된 방 데이터. roomId={}", roomId);
+			log.warn("[room][toCache] corrupted room data. roomId={}", roomId);
 			return null;
 		}
 
@@ -679,7 +697,7 @@ public class RoomRedisRepositoryImpl implements RoomRedisRepository {
 		try {
 			return gameRedisTemplate.opsForHash().entries(key);
 		} catch (SerializationException e) {
-			log.warn("[room] room info hash fallback to string template. roomId={}", roomId);
+			log.warn("[room][readRoomInfoFields] room info hash fallback to string template. roomId={}", roomId);
 			return gameStringRedisTemplate.opsForHash().entries(key);
 		}
 	}

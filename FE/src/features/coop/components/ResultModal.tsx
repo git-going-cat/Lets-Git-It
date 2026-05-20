@@ -95,12 +95,12 @@ export default function ResultModal({ onBackToRoom }: ResultModalProps) {
       return;
     }
 
-    void navigate({ to: '/home' });
+    void navigate({ to: '/home', search: { lobby: 'COOP' } });
   }, [cleanup, navigate, onBackToRoom, roomId]);
 
   const handleHome = useCallback(() => {
     cleanup();
-    void navigate({ to: '/home' });
+    void navigate({ to: '/home', search: { lobby: 'COOP' } });
   }, [cleanup, navigate]);
 
   useEffect(() => {

@@ -19,6 +19,8 @@ public interface ContributionGameRedisRepository {
 
 	Optional<ContributionCommandCache> findCommand(UUID gameSessionId, int commandSequence);
 
+	List<ContributionCommandCache> findCommands(UUID gameSessionId);
+
 	void saveCommand(UUID gameSessionId, ContributionCommandCache command);
 
 	void markSessionEnded(UUID gameSessionId);
@@ -49,7 +51,7 @@ public interface ContributionGameRedisRepository {
 
 	List<ContributionRankingCache> findFinalRankings(UUID gameSessionId);
 
-	void markPlayerDisconnected(UUID gameSessionId, UUID playerId);
+	boolean markPlayerDisconnected(UUID gameSessionId, UUID playerId);
 
 	boolean isPlayerDisconnected(UUID gameSessionId, UUID playerId);
 }

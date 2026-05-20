@@ -1,21 +1,21 @@
 {
   "viewBox": "0 0 600 300",
   "nodes": [
-    { "sequence": 1, "x": 80,  "y": 80,  "label": "remote", "branch": "origin/main" },
-    { "sequence": 2, "x": 200, "y": 80,  "label": "fetch",  "branch": "origin/main" },
-    { "sequence": 3, "x": 320, "y": 80,  "label": "pull",   "branch": "origin/main" },
-    { "sequence": 4, "x": 440, "y": 80,  "label": "sync",   "branch": "origin/main" },
-    { "sequence": 1, "x": 80,  "y": 220, "label": "add",    "branch": "main" },
-    { "sequence": 2, "x": 200, "y": 220, "label": "merge",  "branch": "main" },
-    { "sequence": 3, "x": 320, "y": 220, "label": "commit", "branch": "main" },
-    { "sequence": 4, "x": 440, "y": 220, "label": "push",   "branch": "main" }
+    { "sequence": 1, "x": 80,  "y": 80,  "label": "remote", "branch": "origin/main", "activateOnRound": 1, "activateOnStep": 1 },
+    { "sequence": 2, "x": 200, "y": 80,  "label": "fetch",  "branch": "origin/main", "activateOnRound": 1, "activateOnStep": 2 },
+    { "sequence": 3, "x": 320, "y": 80,  "label": "pull",   "branch": "origin/main", "activateOnRound": 3, "activateOnStep": 1 },
+    { "sequence": 4, "x": 440, "y": 80,  "label": "sync",   "branch": "origin/main", "activateOnRound": 5, "activateOnStep": 2 },
+    { "sequence": 5, "x": 80,  "y": 220, "label": "add",    "branch": "main",        "activateOnRound": 2, "activateOnStep": 2 },
+    { "sequence": 6, "x": 200, "y": 220, "label": "merge",  "branch": "main",        "activateOnRound": 3, "activateOnStep": 3 },
+    { "sequence": 7, "x": 320, "y": 220, "label": "commit", "branch": "main",        "activateOnRound": 4, "activateOnStep": 3 },
+    { "sequence": 8, "x": 440, "y": 220, "label": "push",   "branch": "main",        "activateOnRound": 5, "activateOnStep": 4 }
   ],
   "edges": [
     { "from": 1, "to": 2, "type": "dashed" },
     { "from": 2, "to": 3, "type": "dashed" },
     { "from": 3, "to": 4, "type": "dashed" },
-    { "from": 1, "to": 2, "type": "solid" },
-    { "from": 2, "to": 3, "type": "solid" },
-    { "from": 3, "to": 4, "type": "solid" }
+    { "from": 5, "to": 6, "type": "solid" },
+    { "from": 6, "to": 7, "type": "solid" },
+    { "from": 7, "to": 8, "type": "solid" }
   ]
 }

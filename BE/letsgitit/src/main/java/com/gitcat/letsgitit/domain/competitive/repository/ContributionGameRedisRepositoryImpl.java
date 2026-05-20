@@ -126,6 +126,15 @@ public class ContributionGameRedisRepositoryImpl implements ContributionGameRedi
 	}
 
 	@Override
+	public List<ContributionCommandCache> findCommands(UUID gameSessionId) {
+		Map<Object, Object> commands = gameStringRedisTemplate.opsForHash()
+			.entries(ContributionRedisKeys.commands(gameSessionId));
+		return commands.values().stream()
+			.map(value -> fromJson(value.toString(), ContributionCommandCache.class))
+			.toList();
+	}
+
+	@Override
 	public void saveCommand(UUID gameSessionId, ContributionCommandCache command) {
 		gameStringRedisTemplate.opsForHash().put(
 			ContributionRedisKeys.commands(gameSessionId),
@@ -237,10 +246,11 @@ public class ContributionGameRedisRepositoryImpl implements ContributionGameRedi
 	}
 
 	@Override
-	public void markPlayerDisconnected(UUID gameSessionId, UUID playerId) {
+	public boolean markPlayerDisconnected(UUID gameSessionId, UUID playerId) {
 		String key = ContributionRedisKeys.disconnectedPlayers(gameSessionId);
-		gameStringRedisTemplate.opsForSet().add(key, playerId.toString());
+		Long added = gameStringRedisTemplate.opsForSet().add(key, playerId.toString());
 		gameStringRedisTemplate.expire(key, SESSION_TTL);
+		return Long.valueOf(1L).equals(added);
 	}
 
 	@Override
@@ -260,7 +270,7 @@ public class ContributionGameRedisRepositoryImpl implements ContributionGameRedi
 				value,
 				objectMapper.getTypeFactory().constructCollectionType(List.class, ContributionRankingCache.class));
 		} catch (JsonProcessingException e) {
-			log.error("[contribution][redis] 최종 랭킹 역직렬화 실패. gameSessionId={}", gameSessionId, e);
+			log.error("[contribution][redis] final ranking deserialization failed. gameSessionId={}", gameSessionId, e);
 			throw new IllegalStateException("기여도 게임 최종 랭킹 Redis 역직렬화에 실패했습니다.", e);
 		}
 	}
@@ -284,7 +294,7 @@ public class ContributionGameRedisRepositoryImpl implements ContributionGameRedi
 		try {
 			return objectMapper.readValue(value, type);
 		} catch (JsonProcessingException e) {
-			log.error("[contribution][redis] 역직렬화 실패. type={}", type.getSimpleName(), e);
+			log.error("[contribution][redis] deserialization failed. type={}", type.getSimpleName(), e);
 			throw new IllegalStateException("기여도 게임 Redis 역직렬화에 실패했습니다.", e);
 		}
 	}

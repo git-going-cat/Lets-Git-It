@@ -18,7 +18,8 @@ public record CoopGameEndResponse(
 		String nickname,
 		int wrongTypeCount,
 		int wrongOrderCount,
-		int ranking) {
+		int ranking,
+		boolean isNewRecord) {
 	}
 
 	public static CoopGameEndResponse success(
@@ -42,6 +43,17 @@ public record CoopGameEndResponse(
 			System.currentTimeMillis(),
 			false,
 			"PLAYER_DISCONNECTED",
+			null,
+			null);
+	}
+
+	public static CoopGameEndResponse failure(UUID gameSessionId) {
+		return new CoopGameEndResponse(
+			"COOP_GAME_END",
+			gameSessionId,
+			System.currentTimeMillis(),
+			false,
+			"DB_SAVE_FAILED",
 			null,
 			null);
 	}

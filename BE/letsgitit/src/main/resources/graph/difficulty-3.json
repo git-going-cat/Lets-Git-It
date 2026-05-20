@@ -1,11 +1,11 @@
 {
   "viewBox": "0 0 600 300",
   "nodes": [
-    { "sequence": 1, "x": 80,  "y": 220, "label": "pull",   "branch": "main" },
-    { "sequence": 2, "x": 200, "y": 80,  "label": "feat1",  "branch": "feature/login" },
-    { "sequence": 3, "x": 320, "y": 80,  "label": "feat2",  "branch": "feature/login" },
-    { "sequence": 4, "x": 440, "y": 220, "label": "merge",  "branch": "main" },
-    { "sequence": 5, "x": 560, "y": 220, "label": "push",   "branch": "main" }
+    { "sequence": 1, "x": 80,  "y": 220, "label": "pull",  "branch": "main",          "activateOnRound": 1, "activateOnStep": 1 },
+    { "sequence": 2, "x": 200, "y": 80,  "label": "feat1", "branch": "feature/login", "activateOnRound": 1, "activateOnStep": 4 },
+    { "sequence": 3, "x": 320, "y": 80,  "label": "feat2", "branch": "feature/login", "activateOnRound": 2, "activateOnStep": 4 },
+    { "sequence": 4, "x": 440, "y": 220, "label": "merge", "branch": "main",          "activateOnRound": 4, "activateOnStep": 3 },
+    { "sequence": 5, "x": 560, "y": 220, "label": "push",  "branch": "main",          "activateOnRound": 4, "activateOnStep": 4 }
   ],
   "edges": [
     { "from": 1, "to": 2, "type": "curve" },

@@ -43,9 +43,9 @@ public class CoopGraphDataStore {
 					"graph/difficulty-" + difficulty + ".json").getInputStream();
 				GraphDataDto graphData = objectMapper.readValue(is, GraphDataDto.class);
 				cache.put(difficulty, graphData);
-				log.info("[coop] graphData loaded. difficulty={}", difficulty);
+				log.info("[coop][init] graphData loaded. difficulty={}", difficulty);
 			} catch (Exception e) {
-				log.error("[coop] graphData load failed. difficulty={}, reason={}", difficulty,
+				log.error("[coop][init] graphData load failed. difficulty={}, reason={}", difficulty,
 					e.getMessage());
 			}
 		}
@@ -67,7 +67,7 @@ public class CoopGraphDataStore {
 	public GraphDataDto getByDifficulty(int difficulty) {
 		GraphDataDto graphData = cache.get(difficulty);
 		if (graphData == null) {
-			log.warn("[coop] graphData not found for difficulty={}. returning empty.", difficulty);
+			log.warn("[coop][getByDifficulty] graphData not found for difficulty={}. returning empty.", difficulty);
 			return EMPTY;
 		}
 		return graphData;

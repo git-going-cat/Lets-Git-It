@@ -3,6 +3,7 @@ package com.gitcat.letsgitit.domain.coop.repository;
 import static com.gitcat.letsgitit.domain.coop.constants.CoopConstants.*;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -51,7 +52,7 @@ public class CoopGameRedisRepositoryImpl implements CoopGameRedisRepository {
 		redisTemplate.opsForList().rightPushAll(playersKey, playerStrings);
 		redisTemplate.expire(playersKey, GAME_TTL_SECONDS, TimeUnit.SECONDS);
 
-		log.info("[coop] game state initialized. gameSessionId={}", gameSessionId);
+		log.info("[coop][initGameState] game state initialized. gameSessionId={}", gameSessionId);
 	}
 
 	// ── 상태 조회 ────────────────────────────────────────────────────────────────
@@ -115,8 +116,9 @@ public class CoopGameRedisRepositoryImpl implements CoopGameRedisRepository {
 
 	@Override
 	public void unblock(UUID gameSessionId) {
-		redisTemplate.opsForHash().put(stateKey(gameSessionId), FIELD_BLOCKED, "false");
-		redisTemplate.opsForHash().put(stateKey(gameSessionId), FIELD_RESET_TARGET, "");
+		redisTemplate.opsForHash().putAll(stateKey(gameSessionId), Map.of(
+			FIELD_BLOCKED, "false",
+			FIELD_RESET_TARGET, ""));
 	}
 
 	@Override
@@ -130,7 +132,9 @@ public class CoopGameRedisRepositoryImpl implements CoopGameRedisRepository {
 	@Override
 	public void saveRoundCommands(UUID gameSessionId, int round, Map<Integer, String> commands) {
 		String key = commandsKey(gameSessionId, round);
-		commands.forEach((order, text) -> redisTemplate.opsForHash().put(key, String.valueOf(order), text));
+		Map<String, String> hashCommands = new HashMap<>();
+		commands.forEach((order, text) -> hashCommands.put(String.valueOf(order), text));
+		redisTemplate.opsForHash().putAll(key, hashCommands);
 		redisTemplate.expire(key, GAME_TTL_SECONDS, TimeUnit.SECONDS);
 	}
 
@@ -188,7 +192,7 @@ public class CoopGameRedisRepositoryImpl implements CoopGameRedisRepository {
 			redisTemplate.delete(commandsKey(gameSessionId, round));
 			redisTemplate.delete(assignKey(gameSessionId, round));
 		}
-		log.info("[coop] game state deleted. gameSessionId={}", gameSessionId);
+		log.info("[coop][deleteGameState] game state deleted. gameSessionId={}", gameSessionId);
 	}
 
 	// ── 플레이어별 오타/순서오류 카운터 ─────────────────────────────────────────────────

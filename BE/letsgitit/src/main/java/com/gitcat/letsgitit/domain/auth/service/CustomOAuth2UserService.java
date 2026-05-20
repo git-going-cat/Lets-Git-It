@@ -51,7 +51,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 				new OAuth2Error(e.getErrorCode().getCode(), e.getErrorCode().getMessage(), null));
 		}
 
-		log.debug("OAuth2 유저 로드 완료. email: {}, provider: GOOGLE", email);
+		log.debug("[auth][loadUser] OAuth2 user loaded. provider=GOOGLE, email={}", email);
 
 		// 3. memberId, isReactivated를 attributes에 추가
 		//    memberId → SuccessHandler에서 Redis 임시코드 저장 시 사용

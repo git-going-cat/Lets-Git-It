@@ -82,7 +82,8 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			// 7. room:list:CONTRIBUTION ZSet 에 roomId를 생성 시각 score와 함께 추가한다.
 			roomRedisRepository.addRoomToList(GameMode.CONTRIBUTION, roomIdKey, Instant.now().toEpochMilli());
 
-			log.info("[room] contribution room created. roomId={}, hostMemberId={}, hasPassword={}, maxPlayers={}",
+			log.info(
+				"[room][createContributionRoom] contribution room created. roomId={}, hostMemberId={}, hasPassword={}, maxPlayers={}",
 				roomId, memberId, request.hasPassword(), request.maxPlayers());
 
 			return new CreateContributionRoomResponse(
@@ -92,7 +93,8 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 				request.hasPassword(),
 				request.maxPlayers());
 		} catch (RuntimeException e) {
-			log.warn("[room] contribution room creation failed. roomId={}, hostMemberId={}, reason={}",
+			log.warn(
+				"[room][createContributionRoom] contribution room creation failed. roomId={}, hostMemberId={}, reason={}",
 				roomId, memberId, e.getClass().getSimpleName());
 			roomRedisRepository.deleteRoom(roomId);
 			throw e;
@@ -111,7 +113,9 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			boolean acquired = lock.tryLock(JOIN_LOCK_WAIT_SECONDS, JOIN_LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
 
 			if (!acquired) {
-				log.warn("[room] contribution room join lock acquisition failed. roomId={}, memberId={}", roomId,
+				log.warn(
+					"[room][joinContributionRoom] contribution room join lock acquisition failed. roomId={}, memberId={}",
+					roomId,
 					memberId);
 				throw new BusinessException(LOCK_ACQUISITION_FAILED);
 			}
@@ -124,21 +128,24 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 				validateContributionRoomMode(roomInfo, roomId, memberId, "join");
 
 				if (roomRedisRepository.existsMember(roomId, memberId.toString())) {
-					log.warn("[room] contribution room join rejected: already in room. roomId={}, memberId={}",
+					log.warn(
+						"[room][joinContributionRoom] contribution room join rejected: already in room. roomId={}, memberId={}",
 						roomId, memberId);
 					throw new BusinessException(ALREADY_IN_ROOM);
 				}
 
 				boolean hasPassword = RoomRedisReader.readBoolean(roomInfo, "hasPassword");
 				if (hasPassword && !roomRedisRepository.isPasswordVerified(memberId.toString(), roomId)) {
-					log.warn("[room] contribution room join rejected: password not verified. roomId={}, memberId={}",
+					log.warn(
+						"[room][joinContributionRoom] contribution room join rejected: password not verified. roomId={}, memberId={}",
 						roomId, memberId);
 					throw new BusinessException(PASSWORD_NOT_VERIFIED);
 				}
 
 				// 2. roomState == IN_GAME 이면 ROOM_IN_GAME 예외를 반환한다.
 				if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
-					log.warn("[room] contribution room join rejected: room already in game. roomId={}, memberId={}",
+					log.warn(
+						"[room][joinContributionRoom] contribution room join rejected: room already in game. roomId={}, memberId={}",
 						roomId, memberId);
 					throw new BusinessException(ROOM_IN_GAME);
 				}
@@ -148,7 +155,7 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 				int maxPlayers = RoomRedisReader.readInt(roomInfo, "maxPlayers");
 				if (currentPlayers >= maxPlayers) {
 					log.warn(
-						"[room] contribution room join rejected: room full. roomId={}, memberId={}, currentPlayers={}, maxPlayers={}",
+						"[room][joinContributionRoom] contribution room join rejected: room full. roomId={}, memberId={}, currentPlayers={}, maxPlayers={}",
 						roomId, memberId, currentPlayers, maxPlayers);
 					throw new BusinessException(ROOM_FULL);
 				}
@@ -165,7 +172,8 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 				if (!memberAdded) {
 					Optional<Long> joinedRoomId = roomRedisRepository.findJoinedRoomId(memberId.toString());
 					if (joinedRoomId.isPresent() && joinedRoomId.get().equals(roomId)) {
-						log.warn("[room] contribution room join rejected: already in room. roomId={}, memberId={}",
+						log.warn(
+							"[room][joinContributionRoom] contribution room join rejected: already in room. roomId={}, memberId={}",
 							roomId, memberId);
 						throw new BusinessException(ALREADY_IN_ROOM);
 					}
@@ -177,7 +185,7 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 					}
 					if (!memberAdded) {
 						log.warn(
-							"[room] contribution room join rejected: already in another room. roomId={}, memberId={}, joinedRoomId={}",
+							"[room][joinContributionRoom] contribution room join rejected: already in another room. roomId={}, memberId={}, joinedRoomId={}",
 							roomId, memberId, joinedRoomId.orElse(null));
 						throw new BusinessException(ALREADY_IN_ANOTHER_ROOM);
 					}
@@ -185,7 +193,8 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 
 				// 6. room info 와 members Hash 전체를 읽어 JoinContributionRoomResponse 를 조립한다.
 				Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
-				log.info("[room] contribution room joined. roomId={}, memberId={}, currentPlayers={}",
+				log.info(
+					"[room][joinContributionRoom] contribution room joined. roomId={}, memberId={}, currentPlayers={}",
 					roomId, memberId, members.size());
 				JoinContributionRoomResponse response = buildJoinContributionRoomResponse(roomId, roomInfo, members);
 				roomWebSocketEventPublisher.publishPlayerJoined(
@@ -195,13 +204,15 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 					response.members());
 				return response;
 			} catch (IllegalStateException e) {
-				log.error("[room] invalid contribution room redis state during join. roomId={}, memberId={}",
+				log.error(
+					"[room][joinContributionRoom] invalid contribution room redis state during join. roomId={}, memberId={}",
 					roomId, memberId, e);
 				throw e;
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			log.warn("[room] contribution room join interrupted. roomId={}, memberId={}", roomId, memberId);
+			log.warn("[room][joinContributionRoom] contribution room join interrupted. roomId={}, memberId={}", roomId,
+				memberId);
 			throw new BusinessException(LOCK_INTERRUPTED);
 		} finally {
 			// 현재 스레드가 점유한 락만 해제한다.
@@ -220,21 +231,26 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			validateContributionRoomMode(roomInfo, roomId, memberId, "update");
 
 			if (RoomState.valueOf(RoomRedisReader.readString(roomInfo, "roomState")) == RoomState.IN_GAME) {
-				log.warn("[room] contribution room update rejected: game in progress. roomId={}, memberId={}", roomId,
+				log.warn(
+					"[room][updateContributionRoomInfo] contribution room update rejected: game in progress. roomId={}, memberId={}",
+					roomId,
 					memberId);
 				throw new BusinessException(ROOM_IN_GAME);
 			}
 
 			// 플레이어가 해당 방에 들어와있는지 검증
 			if (!roomMemberRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "contribution")) {
-				log.warn("[room] contribution room update rejected: member not in room. roomId={}, memberId={}", roomId,
+				log.warn(
+					"[room][updateContributionRoomInfo] contribution room update rejected: member not in room. roomId={}, memberId={}",
+					roomId,
 					memberId);
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);
 			}
 
 			UUID hostMemberId = UUID.fromString(RoomRedisReader.readString(roomInfo, "hostMemberId"));
 			if (!hostMemberId.equals(memberId)) {
-				log.warn("[room] contribution room update rejected: not host. roomId={}, memberId={}, hostMemberId={}",
+				log.warn(
+					"[room][updateContributionRoomInfo] contribution room update rejected: not host. roomId={}, memberId={}, hostMemberId={}",
 					roomId, memberId, hostMemberId);
 				throw new BusinessException(NOT_HOST);
 			}
@@ -242,18 +258,20 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			long currentPlayers = roomRedisRepository.getMembersCount(roomId.toString());
 			if (request.maxPlayers() < currentPlayers) {
 				log.warn(
-					"[room] contribution room update rejected: maxPlayers below current players. roomId={}, memberId={}, currentPlayers={}, requestedMaxPlayers={}",
+					"[room][updateContributionRoomInfo] contribution room update rejected: maxPlayers below current players. roomId={}, memberId={}, currentPlayers={}, requestedMaxPlayers={}",
 					roomId, memberId, currentPlayers, request.maxPlayers());
 				throw new BusinessException(CANNOT_REDUCE_MAX_PLAYERS_BELOW_CURRENT);
 			}
 
 			roomRedisRepository.updateRoomInfo(roomId.toString(), buildContributionRoomUpdateInfo(roomInfo, request));
-			log.info("[room] contribution room updated. roomId={}, memberId={}, hasPassword={}, maxPlayers={}",
+			log.info(
+				"[room][updateContributionRoomInfo] contribution room updated. roomId={}, memberId={}, hasPassword={}, maxPlayers={}",
 				roomId, memberId, request.hasPassword(), request.maxPlayers());
 
 			broadcastRoomInfoUpdated(roomId);
 		} catch (IllegalStateException e) {
-			log.error("[room] invalid contribution room redis state during update. roomId={}, memberId={}",
+			log.error(
+				"[room][updateContributionRoomInfo] invalid contribution room redis state during update. roomId={}, memberId={}",
 				roomId, memberId, e);
 			throw e;
 		}
@@ -270,14 +288,17 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 
 			// 플레이어가 해당 방에 들어와있는지 검증
 			if (!roomMemberRecoveryService.ensureMemberInRoom(roomId, memberId, roomInfo, "contribution")) {
-				log.warn("[room] contribution room info rejected: member not in room. roomId={}, memberId={}", roomId,
+				log.warn(
+					"[room][getContributionRoomInfo] contribution room info rejected: member not in room. roomId={}, memberId={}",
+					roomId,
 					memberId);
 				throw new BusinessException(PLAYER_NOT_IN_ROOM);
 			}
 
 			// 2. room:{roomId}:members Hash 전체를 조회한다.
 			Map<Object, Object> members = roomRedisRepository.getMembers(roomId.toString());
-			log.info("[room] contribution room info fetched. roomId={}, memberId={}, currentPlayers={}",
+			log.info(
+				"[room][getContributionRoomInfo] contribution room info fetched. roomId={}, memberId={}, currentPlayers={}",
 				roomId, memberId, members.size());
 
 			// 3. room info + members 를 기반으로 ContributionRoomInfoResponse 를 조립한다.
@@ -285,7 +306,8 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			// 5. members[].isMe 는 현재 요청자(memberId)와 비교해서 계산한다. (응답 조립 내부)
 			return buildContributionRoomInfoResponse(roomId, roomInfo, members);
 		} catch (IllegalStateException e) {
-			log.error("[room] invalid contribution room redis state during info fetch. roomId={}, memberId={}",
+			log.error(
+				"[room][getContributionRoomInfo] invalid contribution room redis state during info fetch. roomId={}, memberId={}",
 				roomId, memberId, e);
 			throw e;
 		}
@@ -296,7 +318,8 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			var roomInfoOpt = roomRedisRepository.getRoomInfo(roomId.toString());
 
 			if (roomInfoOpt.isEmpty()) {
-				log.warn("[room] ROOM_INFO_UPDATED skipped: room not found. roomId={}", roomId);
+				log.warn("[room][broadcastRoomInfoUpdated] ROOM_INFO_UPDATED skipped: room not found. roomId={}",
+					roomId);
 				return;
 			}
 
@@ -308,9 +331,9 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 				buildContributionRoomInfoResponse(roomId, roomInfo, members));
 
 			messageSender.send("/topic/room/" + roomId, response);
-			log.info("[room] contribution room info broadcast. roomId={}", roomId);
+			log.info("[room][broadcastRoomInfoUpdated] contribution room info broadcast. roomId={}", roomId);
 		} catch (RuntimeException e) {
-			log.warn("[room] ROOM_INFO_UPDATED publish failed. roomId={}, reason={}",
+			log.warn("[room][broadcastRoomInfoUpdated] ROOM_INFO_UPDATED publish failed. roomId={}, reason={}",
 				roomId, e.getClass().getSimpleName(), e);
 		}
 	}
@@ -323,7 +346,8 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 			}
 		}
 
-		log.error("[room] contribution room code generation exhausted retry limit. retryLimit={}",
+		log.error(
+			"[room][generateAndReserveRoomCode] contribution room code generation exhausted retry limit. retryLimit={}",
 			RoomCodeGenerator.ROOM_CODE_MAX_RETRY);
 		throw new BusinessException(ROOM_CODE_GENERATION_FAILED);
 	}
@@ -400,7 +424,8 @@ public class ContributionRoomServiceImpl implements ContributionRoomService {
 	private void validateContributionRoomMode(Map<Object, Object> roomInfo, Long roomId, UUID memberId, String action) {
 		GameMode roomMode = GameMode.valueOf(RoomRedisReader.readString(roomInfo, "mode"));
 		if (roomMode != GameMode.CONTRIBUTION) {
-			log.warn("[room] contribution room {} rejected: mode mismatch. roomId={}, memberId={}, roomMode={}",
+			log.warn(
+				"[room][validateContributionRoomMode] contribution room {} rejected: mode mismatch. roomId={}, memberId={}, roomMode={}",
 				action, roomId, memberId, roomMode);
 			throw new BusinessException(ROOM_MODE_MISMATCH);
 		}

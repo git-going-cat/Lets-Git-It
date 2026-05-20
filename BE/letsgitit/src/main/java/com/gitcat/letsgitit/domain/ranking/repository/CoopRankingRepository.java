@@ -27,4 +27,21 @@ public interface CoopRankingRepository {
 	List<CoopRanking> findScrollResultBefore(String week, int beforeRank, int size);
 
 	void saveAll(List<CoopRanking> rankings);
+
+	// ── 맵+난이도 필터 (맵별 랭킹용) ──────────────────────────────────────────────
+
+	long countByWeekAndMapNameAndDifficulty(String week, String mapName, int difficulty);
+
+	Optional<CoopRanking> findMyCoopRankingByMemberIdAndWeekAndMapNameAndDifficulty(
+		UUID memberId, String week, String mapName, int difficulty);
+
+	long countByWeekAndMapNameAndDifficultyAndRankLt(String week, String mapName, int difficulty, int rank);
+
+	// rank ASC + OFFSET/LIMIT (top3·around·scrollAfter 공용)
+	List<CoopRanking> findByWeekAndMapNameAndDifficultyAscWithOffset(
+		String week, String mapName, int difficulty, long offset, int limit);
+
+	// rank DESC + OFFSET/LIMIT (scrollBefore용)
+	List<CoopRanking> findByWeekAndMapNameAndDifficultyDescWithOffset(
+		String week, String mapName, int difficulty, long offset, int limit);
 }

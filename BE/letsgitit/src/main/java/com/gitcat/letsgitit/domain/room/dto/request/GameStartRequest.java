@@ -1,4 +1,11 @@
 package com.gitcat.letsgitit.domain.room.dto.request;
 
-public record GameStartRequest(String type) {
+import jakarta.validation.constraints.NotBlank;
+
+public record GameStartRequest(
+
+	@NotBlank(message = "type은 필수입니다.")
+	String type
+
+) {
 }

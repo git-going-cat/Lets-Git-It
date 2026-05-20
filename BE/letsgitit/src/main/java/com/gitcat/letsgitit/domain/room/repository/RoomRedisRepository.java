@@ -115,6 +115,9 @@ public interface RoomRedisRepository {
 	// room:{roomId}:members Hash의 특정 playerId 의 isReady 필드를 갱신
 	void updateMemberIsReady(String roomId, String memberId, boolean isReady);
 
+	// 게임 종료 후 방장을 제외한 모든 멤버의 isReady를 false로 초기화
+	void resetMembersReadyExceptHost(Long roomId);
+
 	// 방장 위임 원자 처리 (transferHost용)
 	// prevHost: isHost=false, isReady=false / newHost: isHost=true, isReady=true / hostMemberId 변경
 	void transferHostAtomic(String roomId, String prevHostId, String newHostId);

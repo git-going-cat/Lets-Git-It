@@ -1,4 +1,5 @@
 export type Phase = 'idle' | 'scored';
+export type IncidentPhase = Phase;
 
 export type CatMood = 'idle' | 'perfect' | 'partial' | 'forbidden';
 
