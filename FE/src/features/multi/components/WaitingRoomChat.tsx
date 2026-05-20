@@ -27,7 +27,7 @@ export function WaitingRoomChat({ onSendMessage }: WaitingRoomChatProps) {
 
       const message = chatDraft.trim().replace(/\s+/g, ' ');
       if (!message) {
-        setClientError('메시지를 입력해주세요.');
+        setClientError('메시지를 입력해 주세요.');
         return;
       }
 
@@ -44,14 +44,15 @@ export function WaitingRoomChat({ onSendMessage }: WaitingRoomChatProps) {
   );
 
   return (
-    <div className="flex flex-1 flex-col border-t border-[#c8dfd0]">
+    <div className="mb-2 flex h-52 shrink-0 flex-col border-t border-[#c8dfd0]">
       <div className="flex shrink-0 items-center gap-1.5 border-b border-gray-700 bg-[#1a1a1a] px-3 py-1">
         <span className="font-mono text-md font-bold uppercase tracking-wider text-green-400">
           CHAT_TERMINAL
         </span>
         {clientError && <span className="ml-auto text-xs text-red-400">{clientError}</span>}
       </div>
-      <div className="flex-1 overflow-y-auto bg-[#0d0d0d] px-3 py-2 font-mono text-md">
+
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[#0d0d0d] px-3 py-2 font-mono text-md">
         <p className="text-[#217346]">[SYSTEM] 대기실에 입장했습니다.</p>
         <p className="text-gray-500">[SYSTEM] 방 코드를 공유하여 친구를 초대하세요.</p>
         {chatMessages.map((chat, index) => (
@@ -64,6 +65,7 @@ export function WaitingRoomChat({ onSendMessage }: WaitingRoomChatProps) {
         ))}
         <div ref={chatEndRef} />
       </div>
+
       <form
         onSubmit={handleSendChat}
         className="flex shrink-0 items-center border-t border-gray-700 bg-[#1a1a1a] px-2 py-1"

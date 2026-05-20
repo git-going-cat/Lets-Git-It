@@ -217,6 +217,7 @@ export default function WaitingRoom() {
   const { publishReady, publishStart, publishHostTransfer, publishChat, connectionStatus } =
     useRoomSocket(
       numericRoomId,
+      mode,
       handleReconnectComplete,
       {
         onForceDisconnect: handleForceDisconnect,

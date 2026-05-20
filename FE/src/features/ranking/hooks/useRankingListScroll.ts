@@ -1,4 +1,4 @@
-import { type RefObject, useEffect } from 'react';
+import { type RefObject, useEffect, useRef } from 'react';
 
 type RankingDirection = 'up' | 'down';
 
@@ -13,7 +13,10 @@ interface UseRankingListScrollParams {
   hasUpper: boolean;
   hasLower: boolean;
   visibleUpperListLength: number;
+  visibleListLength: number;
   shouldPreloadLowerRankings: boolean;
+  isFetchingNextPage: boolean;
+  isFetchingPreviousPage: boolean;
   loadUpperRankings: () => void;
   loadLowerRankings: () => void;
 }
@@ -35,15 +38,38 @@ export function useRankingListScroll({
   hasUpper,
   hasLower,
   visibleUpperListLength,
+  visibleListLength,
   shouldPreloadLowerRankings,
+  isFetchingNextPage,
+  isFetchingPreviousPage,
   loadUpperRankings,
   loadLowerRankings,
 }: UseRankingListScrollParams) {
+  const isFetchingNextPageRef = useRef(isFetchingNextPage);
+  const isFetchingPreviousPageRef = useRef(isFetchingPreviousPage);
+
   useEffect(() => {
-    if (!shouldPreloadLowerRankings) return;
+    isFetchingNextPageRef.current = isFetchingNextPage;
+  }, [isFetchingNextPage]);
+
+  useEffect(() => {
+    isFetchingPreviousPageRef.current = isFetchingPreviousPage;
+  }, [isFetchingPreviousPage]);
+
+  useEffect(() => {
+    if (!shouldPreloadLowerRankings || isFetchingNextPage) return;
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+    if (scrollContainer.scrollHeight > scrollContainer.clientHeight) return;
 
     loadLowerRankings();
-  }, [loadLowerRankings, shouldPreloadLowerRankings]);
+  }, [
+    isFetchingNextPage,
+    loadLowerRankings,
+    scrollContainerRef,
+    shouldPreloadLowerRankings,
+    visibleListLength,
+  ]);
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
@@ -61,17 +87,21 @@ export function useRankingListScroll({
 
       if (
         direction === 'down' &&
+        !isFetchingNextPageRef.current &&
         lowerObserverTarget.current &&
         isElementVisible(lowerObserverTarget.current, scrollContainer)
       ) {
+        scrollDirectionRef.current = null;
         loadLowerRankings();
       }
 
       if (
         direction === 'up' &&
+        !isFetchingPreviousPageRef.current &&
         upperObserverTarget.current &&
         isElementVisible(upperObserverTarget.current, scrollContainer)
       ) {
+        scrollDirectionRef.current = null;
         loadUpperRankings();
       }
     };
@@ -82,7 +112,12 @@ export function useRankingListScroll({
       upperObserverTarget.current && hasUpper
         ? new IntersectionObserver(
             (entries) => {
-              if (entries[0].isIntersecting && scrollDirectionRef.current === 'up') {
+              if (
+                entries[0].isIntersecting &&
+                scrollDirectionRef.current === 'up' &&
+                !isFetchingPreviousPageRef.current
+              ) {
+                scrollDirectionRef.current = null;
                 loadUpperRankings();
               }
             },
@@ -94,7 +129,12 @@ export function useRankingListScroll({
       lowerObserverTarget.current && hasLower
         ? new IntersectionObserver(
             (entries) => {
-              if (entries[0].isIntersecting && scrollDirectionRef.current === 'down') {
+              if (
+                entries[0].isIntersecting &&
+                scrollDirectionRef.current === 'down' &&
+                !isFetchingNextPageRef.current
+              ) {
+                scrollDirectionRef.current = null;
                 loadLowerRankings();
               }
             },
