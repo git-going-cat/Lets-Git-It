@@ -92,7 +92,7 @@ export default function RankingList({
   const nameLabel = getNameLabel(mode);
   const showMapColumn = mode === 'coop';
   const showCoopWrongColumns = mode === 'coop';
-  const showGrade = mode !== 'coop';
+  const showGrade = mode !== 'coop' && mode !== 'speed';
   const nextPageEntries = mergeRankingEntries(
     data?.pages.flatMap((page, index) => {
       if (index <= initialPageIndex || !('rankings' in page)) return [];
