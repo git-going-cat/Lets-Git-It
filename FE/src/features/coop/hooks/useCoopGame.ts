@@ -15,10 +15,13 @@ import {
 import { useRoomStore } from '@/features/multi/store/roomStore';
 
 import { coopBus } from '../bridge/coopBus';
+import { COOP_COMMANDS_PER_ROUND, COOP_TOTAL_COMMANDS } from '../constants/game';
 import {
   coopCommandsAtom,
   coopMyCommandAtom,
+  coopMyCommandCompletedAtom,
   coopMyCommandOrderAtom,
+  coopPendingInputRequestIdsAtom,
 } from '../store/coopCommandsAtom';
 import {
   coopCompletedCountAtom,
@@ -37,7 +40,11 @@ import { coopElapsedSecondsAtom } from '../store/coopTimerAtom';
 
 import type { CoopCommandCard, CoopPlayer } from '../types/coop.types';
 
-const COMMANDS_PER_ROUND = 4;
+interface CoopGraphActivationNode {
+  sequence: number;
+  activateOnRound: number;
+  activateOnStep: number;
+}
 
 function createInitialPlayerStats(players: CoopPlayer[]) {
   return Object.fromEntries(
@@ -53,6 +60,91 @@ function getMessageType(message: unknown) {
 function getErrorCode(message: unknown) {
   if (typeof message !== 'object' || message === null || !('code' in message)) return null;
   return typeof message.code === 'string' ? message.code : null;
+}
+
+function isGraphActivationNode(node: unknown): node is CoopGraphActivationNode {
+  if (typeof node !== 'object' || node === null) return false;
+  const candidate = node as Record<string, unknown>;
+  return (
+    typeof candidate.sequence === 'number' &&
+    typeof candidate.activateOnRound === 'number' &&
+    typeof candidate.activateOnStep === 'number'
+  );
+}
+
+function getGraphActivationNodes(graphData: unknown): CoopGraphActivationNode[] {
+  if (typeof graphData !== 'object' || graphData === null) return [];
+  const nodes = (graphData as Record<string, unknown>).nodes;
+  return Array.isArray(nodes) ? nodes.filter(isGraphActivationNode) : [];
+}
+
+function getGraphNodeSequences(graphData: unknown): number[] {
+  if (typeof graphData !== 'object' || graphData === null) return [];
+  const nodes = (graphData as Record<string, unknown>).nodes;
+  if (!Array.isArray(nodes)) return [];
+
+  const sequences = nodes
+    .map((node) => {
+      if (typeof node !== 'object' || node === null) return null;
+      const sequence = (node as Record<string, unknown>).sequence;
+      return typeof sequence === 'number' ? sequence : null;
+    })
+    .filter((sequence): sequence is number => sequence !== null);
+
+  return [...new Set(sequences)].sort((a, b) => a - b);
+}
+
+function getNodeSequencesByCommandProgress(
+  graphData: unknown,
+  completedCommands: number
+): number[] {
+  const nodeSequences = getGraphNodeSequences(graphData);
+  if (nodeSequences.length === 0) return [];
+
+  const completedNodeCount = Math.ceil(
+    (Math.min(COOP_TOTAL_COMMANDS, Math.max(0, completedCommands)) / COOP_TOTAL_COMMANDS) *
+      nodeSequences.length
+  );
+
+  return nodeSequences.slice(0, completedNodeCount);
+}
+
+function getCompletedNodeSequencesForProgress(
+  graphData: unknown,
+  round: number,
+  stepInRound: number,
+  sequence: number
+): number[] {
+  const activationNodes = getGraphActivationNodes(graphData);
+
+  if (activationNodes.length > 0) {
+    return [
+      ...new Set(
+        activationNodes
+          .filter(
+            (node) =>
+              node.activateOnRound < round ||
+              (node.activateOnRound === round && node.activateOnStep <= stepInRound)
+          )
+          .map((node) => node.sequence)
+      ),
+    ].sort((a, b) => a - b);
+  }
+
+  return getNodeSequencesByCommandProgress(graphData, sequence);
+}
+
+function getNodeSequencesBeforeRound(graphData: unknown, round: number): Set<number> {
+  const activationNodes = getGraphActivationNodes(graphData);
+  if (activationNodes.length > 0) {
+    return new Set(
+      activationNodes.filter((node) => node.activateOnRound < round).map((node) => node.sequence)
+    );
+  }
+
+  return new Set(
+    getNodeSequencesByCommandProgress(graphData, (round - 1) * COOP_COMMANDS_PER_ROUND)
+  );
 }
 
 function toCoopPlayers(): CoopPlayer[] {
@@ -84,13 +176,12 @@ function toCoopPlayers(): CoopPlayer[] {
   }));
 }
 
-function toRevealTiming(revealStartsAt: number) {
+function toRevealTiming(revealStartsAt: number, serverTime: number) {
   const revealDurationMs = 3000;
-  const now = Date.now();
-  const revealDelayMs = Math.max(0, revealStartsAt - now);
-  const elapsedMs = Math.max(0, now - revealStartsAt);
+  const revealDelayMs = Math.max(0, revealStartsAt - serverTime);
+  const elapsedMs = Math.max(0, serverTime - revealStartsAt);
   return {
-    revealKey: Date.now(),
+    revealKey: revealStartsAt,
     revealDelayMs,
     revealDurationMs: Math.max(0, revealDurationMs - elapsedMs),
   };
@@ -98,8 +189,19 @@ function toRevealTiming(revealStartsAt: number) {
 
 export function useCoopGame() {
   const commandsRef = useRef<CoopCommandCard[]>([]);
+  const pendingAssignedCommandTextRef = useRef<string | null>(null);
+  const gameEndFallbackTimerRef = useRef<number | null>(null);
+  const pendingInputRequestIdsRef = useRef<Set<string>>(new Set());
+  const playersRef = useRef<CoopPlayer[]>([]);
+  const playerStatsRef = useRef<Record<string, { typoCount: number; resetCount: number }>>({});
+  const elapsedSecondsRef = useRef(0);
+  const sessionIdRef = useRef<string | null>(null);
+  const graphDataRef = useRef<unknown>(null);
   const accessToken = useAuthStore((state) => state.accessToken);
   const phase = useAtomValue(coopPhaseAtom);
+  const players = useAtomValue(coopPlayersAtom);
+  const playerStats = useAtomValue(coopPlayerStatsAtom);
+  const elapsedSeconds = useAtomValue(coopElapsedSecondsAtom);
   const setPhase = useSetAtom(coopPhaseAtom);
   const setRound = useSetAtom(coopRoundAtom);
   const setCompletedCount = useSetAtom(coopCompletedCountAtom);
@@ -112,18 +214,39 @@ export function useCoopGame() {
   const setCommands = useSetAtom(coopCommandsAtom);
   const setMyCommand = useSetAtom(coopMyCommandAtom);
   const setMyCommandOrder = useSetAtom(coopMyCommandOrderAtom);
+  const setMyCommandCompleted = useSetAtom(coopMyCommandCompletedAtom);
+  const pendingInputRequestIds = useAtomValue(coopPendingInputRequestIdsAtom);
+  const setPendingInputRequestIds = useSetAtom(coopPendingInputRequestIdsAtom);
   const setElapsedSeconds = useSetAtom(coopElapsedSecondsAtom);
   const setGraphCompletedSequences = useSetAtom(coopGraphCompletedSequencesAtom);
   const setGraphActiveSequence = useSetAtom(coopGraphActiveSequenceAtom);
-  const {
-    sessionId,
-    roomId,
-    pendingMessages,
-    consumePendingMessages,
-    setPlayerSnapshots,
-    setResult,
-    setSessionMeta,
-  } = useCoopStore();
+  const sessionId = useCoopStore((state) => state.sessionId);
+  const roomId = useCoopStore((state) => state.roomId);
+  const startAt = useCoopStore((state) => state.startAt);
+  const graphData = useCoopStore((state) => state.graphData);
+  const pendingMessages = useCoopStore((state) => state.pendingMessages);
+  const consumePendingMessages = useCoopStore((state) => state.consumePendingMessages);
+  const setPlayerSnapshots = useCoopStore((state) => state.setPlayerSnapshots);
+  const setResult = useCoopStore((state) => state.setResult);
+  const setSessionMeta = useCoopStore((state) => state.setSessionMeta);
+
+  useEffect(() => {
+    pendingInputRequestIdsRef.current = pendingInputRequestIds;
+    playersRef.current = players;
+    playerStatsRef.current = playerStats;
+    elapsedSecondsRef.current = elapsedSeconds;
+    sessionIdRef.current = sessionId;
+    graphDataRef.current = graphData;
+  }, [elapsedSeconds, graphData, pendingInputRequestIds, playerStats, players, sessionId]);
+
+  useEffect(
+    () => () => {
+      if (gameEndFallbackTimerRef.current !== null) {
+        window.clearTimeout(gameEndFallbackTimerRef.current);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const players = toCoopPlayers();
@@ -131,9 +254,12 @@ export function useCoopGame() {
     setPlayerStats(createInitialPlayerStats(players));
     setPlayerSnapshots(players);
     commandsRef.current = [];
+    pendingAssignedCommandTextRef.current = null;
     setCommands([]);
     setMyCommand(null);
     setMyCommandOrder(null);
+    setMyCommandCompleted(false);
+    setPendingInputRequestIds(new Set());
     setGraphCompletedSequences([]);
     setGraphActiveSequence(null);
     setSessionMeta({
@@ -144,7 +270,9 @@ export function useCoopGame() {
     setGraphActiveSequence,
     setGraphCompletedSequences,
     setMyCommand,
+    setMyCommandCompleted,
     setMyCommandOrder,
+    setPendingInputRequestIds,
     setPlayerSnapshots,
     setPlayerStats,
     setPlayers,
@@ -153,13 +281,31 @@ export function useCoopGame() {
 
   useEffect(() => {
     if (phase === 'ended') return;
+    if (startAt === null) return;
 
     const timerId = window.setInterval(() => {
-      setElapsedSeconds((seconds) => seconds + 1);
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startAt) / 1000)));
     }, 1000);
 
     return () => window.clearInterval(timerId);
-  }, [phase, setElapsedSeconds]);
+  }, [phase, setElapsedSeconds, startAt]);
+
+  const applyAssignedCommand = useCallback(
+    (myCommandText: string) => {
+      const order =
+        commandsRef.current.find((command) => command.commandText === myCommandText)
+          ?.commandOrder ?? null;
+
+      setMyCommand(myCommandText);
+      setMyCommandOrder(order);
+      setMyCommandCompleted(false);
+      setPendingInputRequestIds(new Set());
+      if (order !== null) {
+        coopBus.emit('coop:assign-reveal', { myCommandOrder: order });
+      }
+    },
+    [setMyCommand, setMyCommandCompleted, setMyCommandOrder, setPendingInputRequestIds]
+  );
 
   const handleRoundReveal = useCallback(
     (message: unknown, shouldLogError = false) => {
@@ -185,15 +331,26 @@ export function useCoopGame() {
       setCommands(commands);
       setMyCommand(null);
       setMyCommandOrder(null);
-      const firstSequenceInRound = (result.data.round - 1) * COMMANDS_PER_ROUND + 1;
-      setGraphCompletedSequences((sequences) =>
-        sequences.filter((sequence) => sequence < firstSequenceInRound)
+      setMyCommandCompleted(false);
+      setPendingInputRequestIds(new Set());
+      if (pendingAssignedCommandTextRef.current !== null) {
+        const pendingCommandText = pendingAssignedCommandTextRef.current;
+        pendingAssignedCommandTextRef.current = null;
+        applyAssignedCommand(pendingCommandText);
+      }
+      const previousRoundSequences = getNodeSequencesBeforeRound(
+        graphDataRef.current,
+        result.data.round
       );
-      setGraphActiveSequence(firstSequenceInRound);
-      setSessionMeta(toRevealTiming(result.data.revealStartsAt));
+      setGraphCompletedSequences((sequences) =>
+        sequences.filter((sequence) => previousRoundSequences.has(sequence))
+      );
+      setGraphActiveSequence(null);
+      setSessionMeta(toRevealTiming(result.data.revealStartsAt, result.data.serverTime));
       setPhase('reveal');
     },
     [
+      applyAssignedCommand,
       setCommands,
       setCompletedCount,
       setCurrentOrder,
@@ -201,7 +358,9 @@ export function useCoopGame() {
       setGraphCompletedSequences,
       setInputBlocked,
       setMyCommand,
+      setMyCommandCompleted,
       setMyCommandOrder,
+      setPendingInputRequestIds,
       setPhase,
       setResetTargetPlayerId,
       setRound,
@@ -220,21 +379,285 @@ export function useCoopGame() {
         return;
       }
 
-      const order =
-        commandsRef.current.find((command) => command.commandText === result.data.myCommandText)
-          ?.commandOrder ?? null;
+      if (commandsRef.current.length === 0) {
+        pendingAssignedCommandTextRef.current = result.data.myCommandText;
+        return;
+      }
 
-      setMyCommand(result.data.myCommandText);
-      setMyCommandOrder(order);
-      if (order !== null) {
-        coopBus.emit('coop:assign-reveal', { myCommandOrder: order });
+      applyAssignedCommand(result.data.myCommandText);
+    },
+    [applyAssignedCommand]
+  );
+
+  const handleGameEnd = useCallback(
+    (message: unknown) => {
+      if (gameEndFallbackTimerRef.current !== null) {
+        window.clearTimeout(gameEndFallbackTimerRef.current);
+        gameEndFallbackTimerRef.current = null;
+      }
+      const result = CoopGameEndSchema.safeParse(message);
+      if (!result.success) {
+        console.error('[coop] Invalid COOP_GAME_END packet dropped.', result.error);
+        return;
+      }
+
+      const gameEnd = result.data;
+      if (gameEnd.isSuccess === true && 'results' in gameEnd) {
+        setPlayerStats((stats) => {
+          const next = { ...stats };
+          gameEnd.results.forEach((playerResult) => {
+            next[playerResult.playerId] = {
+              typoCount: playerResult.wrongTypeCount,
+              resetCount: playerResult.wrongOrderCount,
+            };
+          });
+          return next;
+        });
+      }
+
+      setResult(gameEnd);
+      setInputBlocked(true);
+      setPhase('ended');
+    },
+    [setInputBlocked, setPhase, setPlayerStats, setResult]
+  );
+
+  const scheduleGameEndFallback = useCallback(() => {
+    if (gameEndFallbackTimerRef.current !== null) return;
+
+    gameEndFallbackTimerRef.current = window.setTimeout(() => {
+      gameEndFallbackTimerRef.current = null;
+      if (useCoopStore.getState().result !== null) return;
+
+      console.warn('[COOP] GAME_END 미수신: 최종 입력 완료 상태로 결과 모달을 표시합니다.');
+      setResult({
+        type: 'COOP_GAME_END',
+        gameSessionId: sessionIdRef.current,
+        serverTime: Date.now(),
+        isSuccess: true,
+        reason: 'CLIENT_FALLBACK',
+        elapsedTime: elapsedSecondsRef.current * 1000,
+        results: playersRef.current
+          .map((player) => {
+            const stat = playerStatsRef.current[player.playerId] ?? {
+              typoCount: 0,
+              resetCount: 0,
+            };
+            return {
+              playerId: player.playerId,
+              nickname: player.nickname,
+              wrongTypeCount: stat.typoCount,
+              wrongOrderCount: stat.resetCount,
+              ranking: 0,
+              isMe: player.isMe,
+            };
+          })
+          .sort((a, b) => {
+            const aWrongCount = a.wrongTypeCount + a.wrongOrderCount;
+            const bWrongCount = b.wrongTypeCount + b.wrongOrderCount;
+            if (aWrongCount !== bWrongCount) return aWrongCount - bWrongCount;
+            return a.nickname.localeCompare(b.nickname);
+          })
+          .map((result, index) => ({ ...result, ranking: index + 1 })),
+      });
+      setInputBlocked(true);
+      setPhase('ended');
+    }, 1500);
+  }, [setInputBlocked, setPhase, setResult]);
+
+  const handleInputCorrect = useCallback(
+    (message: unknown, shouldLogError = false) => {
+      const result = CoopInputCorrectSchema.safeParse(message);
+      if (!result.success) {
+        if (shouldLogError) {
+          console.error('[coop] Invalid COOP_INPUT_CORRECT packet dropped.', result.error);
+        }
+        return;
+      }
+
+      if (pendingInputRequestIdsRef.current.has(result.data.requestId)) {
+        setMyCommandCompleted(true);
+        setPendingInputRequestIds((requestIds: Set<string>) => {
+          const next = new Set(requestIds);
+          next.delete(result.data.requestId);
+          return next;
+        });
+      }
+
+      setRound(result.data.round);
+      setCompletedCount(Math.min(COOP_COMMANDS_PER_ROUND, result.data.stepInRound));
+      setCurrentOrder(result.data.stepInRound + 1);
+      setGraphCompletedSequences(
+        getCompletedNodeSequencesForProgress(
+          graphDataRef.current,
+          result.data.round,
+          result.data.stepInRound,
+          result.data.sequence
+        )
+      );
+      setGraphActiveSequence(null);
+
+      if (result.data.isRoundComplete && result.data.sequence >= COOP_TOTAL_COMMANDS) {
+        scheduleGameEndFallback();
       }
     },
-    [setMyCommand, setMyCommandOrder]
+    [
+      scheduleGameEndFallback,
+      setCompletedCount,
+      setCurrentOrder,
+      setGraphActiveSequence,
+      setGraphCompletedSequences,
+      setMyCommandCompleted,
+      setPendingInputRequestIds,
+      setRound,
+    ]
+  );
+
+  const handleOrderWrong = useCallback(
+    (message: unknown, shouldLogError = false) => {
+      const result = CoopOrderWrongSchema.safeParse(message);
+      if (!result.success) {
+        if (shouldLogError) {
+          console.error('[coop] Invalid COOP_ORDER_WRONG packet dropped.', result.error);
+        }
+        return;
+      }
+
+      const isMe = playersRef.current.some(
+        (player) => player.isMe && player.playerId === result.data.resetTargetPlayerId
+      );
+
+      if (pendingInputRequestIdsRef.current.has(result.data.requestId)) {
+        setPendingInputRequestIds((requestIds: Set<string>) => {
+          const next = new Set(requestIds);
+          next.delete(result.data.requestId);
+          return next;
+        });
+      }
+
+      setPlayerStats((stats) => {
+        const current = stats[result.data.resetTargetPlayerId] ?? {
+          typoCount: 0,
+          resetCount: 0,
+        };
+        return {
+          ...stats,
+          [result.data.resetTargetPlayerId]: {
+            ...current,
+            resetCount: current.resetCount + 1,
+          },
+        };
+      });
+      setInputBlocked(true);
+      setResetTargetPlayerId(result.data.resetTargetPlayerId);
+      setWrongPlayerNickname(result.data.nickname);
+      setPhase(isMe ? 'reset_wait' : 'wrong');
+      coopBus.emit('coop:screen-shake');
+      if (isMe) {
+        coopBus.emit('coop:input-wrong-shake');
+      }
+    },
+    [
+      setInputBlocked,
+      setPendingInputRequestIds,
+      setPhase,
+      setPlayerStats,
+      setResetTargetPlayerId,
+      setWrongPlayerNickname,
+    ]
+  );
+
+  const handleInputWrong = useCallback(
+    (message: unknown, shouldLogError = false) => {
+      const result = CoopInputWrongSchema.safeParse(message);
+      if (!result.success) {
+        if (shouldLogError) {
+          console.error('[coop] Invalid COOP_INPUT_WRONG packet dropped.', result.error);
+        }
+        return;
+      }
+
+      if (pendingInputRequestIdsRef.current.has(result.data.requestId)) {
+        setPendingInputRequestIds((requestIds: Set<string>) => {
+          const next = new Set(requestIds);
+          next.delete(result.data.requestId);
+          return next;
+        });
+      }
+
+      setPlayerStats((stats) => {
+        const current = stats[result.data.playerId] ?? {
+          typoCount: 0,
+          resetCount: 0,
+        };
+        return {
+          ...stats,
+          [result.data.playerId]: {
+            ...current,
+            typoCount: current.typoCount + 1,
+          },
+        };
+      });
+      coopBus.emit('coop:input-wrong-shake');
+    },
+    [setPendingInputRequestIds, setPlayerStats]
+  );
+
+  const handleResetWrong = useCallback(
+    (message: unknown, shouldLogError = false) => {
+      const result = CoopResetWrongSchema.safeParse(message);
+      if (!result.success) {
+        if (shouldLogError) {
+          console.error('[coop] Invalid COOP_RESET_WRONG packet dropped.', result.error);
+        }
+        return;
+      }
+
+      const wrongPlayer = playersRef.current.find(
+        (player) => player.playerId === result.data.playerId
+      );
+      const isMe = playersRef.current.some(
+        (player) => player.isMe && player.playerId === result.data.playerId
+      );
+
+      setPlayerStats((stats) => {
+        const current = stats[result.data.playerId] ?? {
+          typoCount: 0,
+          resetCount: 0,
+        };
+        return {
+          ...stats,
+          [result.data.playerId]: {
+            ...current,
+            typoCount: current.typoCount + 1,
+          },
+        };
+      });
+      setInputBlocked(true);
+      setResetTargetPlayerId(result.data.playerId);
+      setWrongPlayerNickname(wrongPlayer?.nickname ?? null);
+      setPhase(isMe ? 'reset_wait' : 'wrong');
+      coopBus.emit('coop:screen-shake');
+    },
+    [setInputBlocked, setPhase, setPlayerStats, setResetTargetPlayerId, setWrongPlayerNickname]
+  );
+
+  const handlePrivateError = useCallback(
+    (message: unknown) => {
+      const code = getErrorCode(message);
+      if (code === 'GAME_ALREADY_ENDED') {
+        setInputBlocked(true);
+        return;
+      }
+
+      coopBus.emit('coop:input-wrong-shake');
+    },
+    [setInputBlocked]
   );
 
   useEffect(() => {
     if (!sessionId || roomId == null) return;
+    if (pendingMessages.length === 0) return;
 
     const messages = consumePendingMessages();
     messages.forEach((message) => {
@@ -249,15 +672,45 @@ export function useCoopGame() {
           return;
         }
 
+        case 'COOP_INPUT_CORRECT': {
+          handleInputCorrect(message);
+          return;
+        }
+
+        case 'COOP_ORDER_WRONG': {
+          handleOrderWrong(message);
+          return;
+        }
+
+        case 'COOP_INPUT_WRONG': {
+          handleInputWrong(message);
+          return;
+        }
+
+        case 'COOP_RESET_WRONG': {
+          handleResetWrong(message);
+          return;
+        }
+
+        case 'COOP_GAME_END': {
+          handleGameEnd(message);
+          return;
+        }
+
         default:
           return;
       }
     });
   }, [
     consumePendingMessages,
+    handleGameEnd,
+    handleInputCorrect,
+    handleInputWrong,
+    handleOrderWrong,
+    handleResetWrong,
     handleRoundAssign,
     handleRoundReveal,
-    pendingMessages,
+    pendingMessages.length,
     roomId,
     sessionId,
   ]);
@@ -281,81 +734,17 @@ export function useCoopGame() {
           }
 
           case 'COOP_INPUT_CORRECT': {
-            const result = CoopInputCorrectSchema.safeParse(message);
-            if (!result.success) {
-              console.error('[coop] Invalid COOP_INPUT_CORRECT packet dropped.', result.error);
-              return;
-            }
-
-            setRound(result.data.round);
-            setCompletedCount(Math.min(4, result.data.stepInRound));
-            setCurrentOrder(result.data.stepInRound + 1);
-            setGraphCompletedSequences((sequences) =>
-              sequences.includes(result.data.sequence)
-                ? sequences
-                : [...sequences, result.data.sequence]
-            );
-            setGraphActiveSequence(result.data.isRoundComplete ? null : result.data.sequence + 1);
+            handleInputCorrect(message, true);
             return;
           }
 
           case 'COOP_ORDER_WRONG': {
-            const result = CoopOrderWrongSchema.safeParse(message);
-            if (!result.success) {
-              console.error('[coop] Invalid COOP_ORDER_WRONG packet dropped.', result.error);
-              return;
-            }
-
-            const isMe = useAuthStore.getState().user?.memberId === result.data.resetTargetPlayerId;
-            setPlayerStats((stats) => {
-              const current = stats[result.data.resetTargetPlayerId] ?? {
-                typoCount: 0,
-                resetCount: 0,
-              };
-              return {
-                ...stats,
-                [result.data.resetTargetPlayerId]: {
-                  ...current,
-                  resetCount: current.resetCount + 1,
-                },
-              };
-            });
-            setInputBlocked(true);
-            setResetTargetPlayerId(result.data.resetTargetPlayerId);
-            setWrongPlayerNickname(result.data.nickname);
-            setPhase(isMe ? 'reset_wait' : 'wrong');
-            coopBus.emit('coop:screen-shake');
+            handleOrderWrong(message, true);
             return;
           }
 
           case 'COOP_GAME_END': {
-            const result = CoopGameEndSchema.safeParse(message);
-            if (!result.success) {
-              console.error('[coop] Invalid COOP_GAME_END packet dropped.', result.error);
-              return;
-            }
-
-            const gameEnd = result.data;
-            if (gameEnd.isSuccess === true && 'results' in gameEnd) {
-              setPlayerStats((stats) => {
-                const next = { ...stats };
-                gameEnd.results.forEach((playerResult) => {
-                  next[playerResult.playerId] = {
-                    typoCount: playerResult.wrongTypeCount,
-                    resetCount: playerResult.wrongOrderCount,
-                  };
-                });
-                return next;
-              });
-              setResult(gameEnd);
-              setInputBlocked(true);
-              setPhase('ended');
-              return;
-            }
-
-            setResult(gameEnd);
-            setInputBlocked(true);
-            setPhase('ended');
+            handleGameEnd(message);
             return;
           }
 
@@ -376,70 +765,17 @@ export function useCoopGame() {
           }
 
           case 'COOP_INPUT_WRONG': {
-            const result = CoopInputWrongSchema.safeParse(message);
-            if (!result.success) {
-              console.error('[coop] Invalid COOP_INPUT_WRONG packet dropped.', result.error);
-              return;
-            }
-
-            setPlayerStats((stats) => {
-              const current = stats[result.data.playerId] ?? {
-                typoCount: 0,
-                resetCount: 0,
-              };
-              return {
-                ...stats,
-                [result.data.playerId]: {
-                  ...current,
-                  typoCount: current.typoCount + 1,
-                },
-              };
-            });
-            coopBus.emit('coop:input-wrong-shake');
+            handleInputWrong(message, true);
             return;
           }
 
           case 'COOP_RESET_WRONG': {
-            const result = CoopResetWrongSchema.safeParse(message);
-            if (!result.success) {
-              console.error('[coop] Invalid COOP_RESET_WRONG packet dropped.', result.error);
-              return;
-            }
-
-            const wrongPlayer = toCoopPlayers().find(
-              (player) => player.playerId === result.data.playerId
-            );
-            const isMe = useAuthStore.getState().user?.memberId === result.data.playerId;
-
-            setPlayerStats((stats) => {
-              const current = stats[result.data.playerId] ?? {
-                typoCount: 0,
-                resetCount: 0,
-              };
-              return {
-                ...stats,
-                [result.data.playerId]: {
-                  ...current,
-                  typoCount: current.typoCount + 1,
-                },
-              };
-            });
-            setInputBlocked(true);
-            setResetTargetPlayerId(result.data.playerId);
-            setWrongPlayerNickname(wrongPlayer?.nickname ?? null);
-            setPhase(isMe ? 'reset_wait' : 'wrong');
-            coopBus.emit('coop:screen-shake');
+            handleResetWrong(message, true);
             return;
           }
 
           case 'ERROR': {
-            const code = getErrorCode(message);
-            if (code === 'GAME_ALREADY_ENDED') {
-              setInputBlocked(true);
-              return;
-            }
-
-            coopBus.emit('coop:input-wrong-shake');
+            handlePrivateError(message);
             return;
           }
 
@@ -456,20 +792,15 @@ export function useCoopGame() {
     };
   }, [
     accessToken,
+    handleGameEnd,
+    handleInputCorrect,
+    handleInputWrong,
+    handleOrderWrong,
+    handlePrivateError,
+    handleResetWrong,
     handleRoundAssign,
     handleRoundReveal,
     roomId,
     sessionId,
-    setCompletedCount,
-    setCurrentOrder,
-    setGraphActiveSequence,
-    setGraphCompletedSequences,
-    setInputBlocked,
-    setPlayerStats,
-    setResult,
-    setPhase,
-    setResetTargetPlayerId,
-    setRound,
-    setWrongPlayerNickname,
   ]);
 }

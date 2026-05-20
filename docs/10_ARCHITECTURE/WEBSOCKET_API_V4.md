@@ -547,20 +547,21 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `graphData.viewBox` | String | SVG viewBox 값 |
 | `graphData.nodes` | Array | 노드 목록 |
 | `graphData.edges` | Array | 엣지 목록 |
-| `players` | Array | 참여 플레이어 목록 및 개인 최고 기록 |
+| `players` | Array | 참여 플레이어 목록 |
 | `players[].playerId` | UUID | 플레이어 ID |
 | `players[].nickname` | String | 플레이어 닉네임 |
-| `players[].bestTime` | Integer | 협력 모드 최고 기록 시간 (ms) |
 
 **graphData.nodes 배열 항목**
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `sequence` | Integer | 노드 식별자 (라운드 완료 시 점등 기준) |
+| `sequence` | Integer | 노드 식별자. 그래프 내에서 unique. `edge.from` / `edge.to` 가 이 값을 참조한다. |
 | `x` | Integer | SVG x 좌표 |
 | `y` | Integer | SVG y 좌표 |
 | `label` | String | 노드 라벨 |
 | `branch` | String | 브랜치명 |
+| `activateOnRound` | Integer | 이 노드가 점등되는 라운드 번호 (1~5) |
+| `activateOnStep` | Integer | 이 노드가 점등되는 라운드 내 스텝 번호 (1~4) |
 
 **graphData.edges 배열 항목**
 
@@ -582,11 +583,11 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "graphData": {
     "viewBox": "0 0 600 300",
     "nodes": [
-      { "sequence": 1, "x": 80,  "y": 150, "label": "init", "branch": "main" },
-      { "sequence": 2, "x": 200, "y": 150, "label": "sync", "branch": "main" },
-      { "sequence": 3, "x": 320, "y": 150, "label": "feat", "branch": "main" },
-      { "sequence": 4, "x": 440, "y": 150, "label": "mrge", "branch": "main" },
-      { "sequence": 5, "x": 560, "y": 150, "label": "fix",  "branch": "main" }
+      { "sequence": 1, "x": 80,  "y": 150, "label": "init", "branch": "main", "activateOnRound": 1, "activateOnStep": 3 },
+      { "sequence": 2, "x": 200, "y": 150, "label": "sync", "branch": "main", "activateOnRound": 2, "activateOnStep": 3 },
+      { "sequence": 3, "x": 320, "y": 150, "label": "feat", "branch": "main", "activateOnRound": 3, "activateOnStep": 3 },
+      { "sequence": 4, "x": 440, "y": 150, "label": "mrge", "branch": "main", "activateOnRound": 4, "activateOnStep": 4 },
+      { "sequence": 5, "x": 560, "y": 150, "label": "fix",  "branch": "main", "activateOnRound": 5, "activateOnStep": 2 }
     ],
     "edges": [
       { "from": 1, "to": 2, "type": "solid" },
@@ -596,10 +597,10 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
     ]
   },
   "players": [
-    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby", "bestTime": 213 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440001", "nickname": "alice", "bestTime": 248 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440002", "nickname": "bob",   "bestTime": 226 },
-    { "playerId": "550e8400-e29b-41d4-a716-446655440003", "nickname": "carol", "bestTime": 271 }
+    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby" },
+    { "playerId": "550e8400-e29b-41d4-a716-446655440001", "nickname": "alice" },
+    { "playerId": "550e8400-e29b-41d4-a716-446655440002", "nickname": "bob" },
+    { "playerId": "550e8400-e29b-41d4-a716-446655440003", "nickname": "carol" }
   ]
 }
 ```
@@ -1349,13 +1350,15 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 - 고양이(`[CAT]`)도 순위에 포함된다. 고양이가 1등이면 `winnerVideoTarget`은 `null`.
 - `GAME_COMPLETED` 정상 종료 시 서버는 final rankings snapshot을 저장하고, CAT을 제외한 실제 플레이어 결과를 DB에 저장한다. DB 저장이 성공한 경우 실제 플레이어의 이번 게임 기여도와 총 플레이 수를 주간 Redis 랭킹에 누적한다.
 - `PLAYER_DISCONNECTED` 조기 종료는 결과 DB 저장과 주간 Redis 랭킹 갱신을 수행하지 않는다.
+- 정상 종료(`GAME_COMPLETED`) 후 서버는 방 상태를 `WAITING`으로 되돌리고 방장 외 멤버 ready를 초기화한 뒤 세션 Redis 키를 삭제한다.
+- 정상 종료를 수신한 FE는 결과 화면을 표시한 뒤 기존 방의 대기방으로 복귀한다. 방 나가기 호출은 필요하지 않으며, 같은 방에서 다시 ready 후 새 게임을 시작할 수 있다.
 
 **게임 중 이탈 처리 규칙**
 
 | 상황 | 동작 |
 | --- | --- |
 | 이탈 후 참가자 2명 이상 남음 | 게임 계속 진행. 이탈자는 Redis에 마킹되며 이후 `scores`/`rankings`에서 `disconnected: true`로 표시됨. 이탈 시점까지 클리어한 명령어 수 기준으로 기여도 계산. |
-| 이탈 후 참가자 1명 이하 남음 | 서버가 즉시 비정상 종료. `PLAYER_DISCONNECTED` reason으로 `CONTRIBUTION_GAME_END` 브로드캐스트. DB 저장 및 랭킹 갱신 없음. |
+| 이탈 후 참가자 1명 이하 남음 | 서버가 즉시 비정상 종료. 방 상태를 `WAITING`으로 되돌리고 방장 외 멤버 ready를 초기화한 뒤 세션 Redis 키를 삭제한다. `PLAYER_DISCONNECTED` reason으로 `CONTRIBUTION_GAME_END` 브로드캐스트. DB 저장 및 랭킹 갱신 없음. |
 
 #### Response: 플레이어 이탈 상태
 
@@ -1430,7 +1433,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 #### FE 처리 지침 — PLAYER_DISCONNECTED 수신 시
 
-`CONTRIBUTION_GAME_END` + `reason: "PLAYER_DISCONNECTED"` 수신 직후, 서버는 연달아 `PLAYER_LEFT`(및 방장 이탈 시 `HOST_DELEGATED`)를 `/topic/room/{roomId}`로 전송한다.
+`CONTRIBUTION_GAME_END` + `reason: "PLAYER_DISCONNECTED"` 수신 직후, 서버는 방 상태를 `WAITING`으로 되돌리고 방장 외 멤버 ready를 초기화한 상태로 `PLAYER_LEFT`(및 방장 이탈 시 `HOST_DELEGATED`)를 `/topic/room/{roomId}`로 전송한다.
 
 **이벤트 수신 순서**
 
@@ -1439,6 +1442,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
    → /topic/room/{roomId}/contribution
 
 ② PLAYER_LEFT  (roomState: "WAITING", remainMembers: [...])
+   - remainMembers는 방장 외 ready=false 초기화가 반영된 상태
    → /topic/room/{roomId}
 
 ③ HOST_DELEGATED  (방장이 이탈한 경우에만)
@@ -1468,6 +1472,8 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 ---
 
 ## 6. 타임어택 모드
+
+> ⚠️ **미구현** — 현재 BE에 구현되지 않은 섹션입니다. 핸들러, 서비스, 메시지 클래스가 모두 stub 상태이며, 이 명세는 기획 참고용입니다.
 
 ### 6-1. TIME_ATTACK_INPUT
 
@@ -1724,7 +1730,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `stepInRound` | Integer | 라운드 내 완료된 명령어 순서 (1~4) |
 | `isRoundComplete` | Boolean | 라운드 완료 여부 |
 
-> 프론트는 `round` + `stepInRound` 기준으로 그래프 노드 점등 처리. `sequence`는 전체 진행도 표시용으로 사용.
+> 프론트는 `COOP_INPUT_CORRECT`의 `round` + `stepInRound` 값을 `graphData.nodes[].activateOnRound` / `activateOnStep` 와 비교해 일치하는 노드를 점등한다. `sequence`는 전체 진행도 표시용으로 사용.
 
 ```json
 {
@@ -1847,6 +1853,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 | `results[].wrongTypeCount` | Integer | 오타 횟수 |
 | `results[].wrongOrderCount` | Integer | 순서 오입력 횟수 |
 | `results[].ranking` | Integer | 등수 |
+| `results[].isNewRecord` | Boolean | 이번 게임이 최고 기록 경신 여부 |
 
 ```json
 {
@@ -1857,10 +1864,10 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "reason": "GAME_COMPLETED",
   "elapsedTime": 213,
   "results": [
-    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby",  "wrongTypeCount": 1, "wrongOrderCount": 0, "ranking": 1 },
-    { "playerId": "661f9511-f30c-52e5-b827-557766551111", "nickname": "alice",  "wrongTypeCount": 2, "wrongOrderCount": 1, "ranking": 1 },
-    { "playerId": "772g0622-g41d-63f6-c938-668877662222", "nickname": "bob",    "wrongTypeCount": 0, "wrongOrderCount": 2, "ranking": 1 },
-    { "playerId": "883h1733-h52e-74g7-d049-779988773333", "nickname": "carol",  "wrongTypeCount": 3, "wrongOrderCount": 1, "ranking": 4 }
+    { "playerId": "550e8400-e29b-41d4-a716-446655440000", "nickname": "dobby",  "wrongTypeCount": 1, "wrongOrderCount": 0, "ranking": 1, "isNewRecord": true },
+    { "playerId": "661f9511-f30c-52e5-b827-557766551111", "nickname": "alice",  "wrongTypeCount": 2, "wrongOrderCount": 1, "ranking": 1, "isNewRecord": false },
+    { "playerId": "772g0622-g41d-63f6-c938-668877662222", "nickname": "bob",    "wrongTypeCount": 0, "wrongOrderCount": 2, "ranking": 1, "isNewRecord": false },
+    { "playerId": "883h1733-h52e-74g7-d049-779988773333", "nickname": "carol",  "wrongTypeCount": 3, "wrongOrderCount": 1, "ranking": 4, "isNewRecord": false }
   ]
 }
 ```
@@ -1882,6 +1889,26 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
   "serverTime": 1714567905000,
   "isSuccess": false,
   "reason": "PLAYER_DISCONNECTED"
+}
+```
+
+#### Response: 실패 (DB 저장 오류)
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `type` | String | `"COOP_GAME_END"` 고정 |
+| `gameSessionId` | UUID | 게임 세션 ID |
+| `serverTime` | Long | 서버 응답 생성 시각 |
+| `isSuccess` | Boolean | `false` 고정 |
+| `reason` | String | `"DB_SAVE_FAILED"` 고정 |
+
+```json
+{
+  "type": "COOP_GAME_END",
+  "gameSessionId": "7b25b5a8-df79-4b45-a0ee-76f6b9f7e9a1",
+  "serverTime": 1714567905000,
+  "isSuccess": false,
+  "reason": "DB_SAVE_FAILED"
 }
 ```
 
@@ -1917,7 +1944,7 @@ REST API 호출 후 서버가 WebSocket 이벤트를 브로드캐스트하는 �
 
 | 섹션 | 변경 내용 |
 | --- | --- |
-| 4-2 GAME_START (협력 응답) | `startGraphPicture` 제거 → `graphData` (viewBox / nodes / edges 구조) 추가. 프론트가 받은 데이터로 SVG 직접 렌더링. |
+| 4-2 GAME_START (협력 응답) | `startGraphPicture` 제거 → `graphData` (viewBox / nodes / edges 구조) 추가. 프론트가 받은 데이터로 SVG 직접 렌더링. `graphData.nodes`에 `activateOnRound` / `activateOnStep` 필드 추가 — 각 노드가 점등되는 라운드·스텝 번호를 서버가 직접 지정. |
 | 4-9 CHAT | Request에서 `nickname` 제거. 서버가 memberId 기준으로 닉네임을 DB에서 조회하므로 클라이언트 전송 불필요. |
 | 7-1 COOP_ROUND_REVEAL | `isReset` 필드 추가. `commandOrder` 범위 `1~20` → `1~4` 수정. |
 | 7-3 COOP_INPUT (정답 응답) | `COOP_INPUT_CORRECT`에 `round`, `stepInRound` 추가. 프론트가 라운드/스텝 기준으로 그래프 노드 점등 처리. |

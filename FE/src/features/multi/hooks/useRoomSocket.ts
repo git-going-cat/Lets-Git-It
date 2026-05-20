@@ -152,6 +152,12 @@ export function useRoomSocket(
     socketManager.subscribe(
       '/user/queue/private',
       (raw) => {
+        const messageType = getMessageType(raw);
+        if (COOP_RUNTIME_MESSAGE_TYPES.has(messageType ?? '')) {
+          useCoopStore.getState().enqueuePendingMessage(raw);
+          return;
+        }
+
         const baseMessage = baseMessageSchema.safeParse(raw);
         if (!baseMessage.success) {
           console.error('[WS] 개인 큐 메시지 파싱 실패:', baseMessage.error);
@@ -210,9 +216,6 @@ export function useRoomSocket(
           }
 
           default:
-            if (COOP_RUNTIME_MESSAGE_TYPES.has(baseMessage.data.type)) {
-              useCoopStore.getState().enqueuePendingMessage(raw);
-            }
             return;
         }
       },

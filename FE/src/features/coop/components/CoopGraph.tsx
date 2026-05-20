@@ -12,6 +12,8 @@ interface CoopGraphNode {
   y: number;
   label: string;
   branch?: string;
+  activateOnRound?: number;
+  activateOnStep?: number;
 }
 
 interface CoopGraphEdge {
@@ -67,6 +69,12 @@ function getNodeColor(sequence: number, completedSet: Set<number>, activeSequenc
   return GRAPH_COLORS.inactive;
 }
 
+function getNodeState(sequence: number, completedSet: Set<number>, activeSequence: number | null) {
+  if (sequence === activeSequence) return 'active';
+  if (completedSet.has(sequence)) return 'completed';
+  return 'inactive';
+}
+
 export default function CoopGraph({
   graphData,
   completedSequences,
@@ -81,9 +89,42 @@ export default function CoopGraph({
     <svg
       viewBox={graphData.viewBox}
       role="img"
-      aria-label="협력 모드 Git 형상 그래프"
+      aria-label="Coop mode Git graph"
       className="h-full w-full overflow-visible"
     >
+      <defs>
+        <filter id="coop-graph-glow" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <style>{`
+        @keyframes coop-node-light-on {
+          0% { opacity: 0; transform: scale(0.45); }
+          60% { opacity: 0.95; transform: scale(1.35); }
+          100% { opacity: 0.28; transform: scale(1); }
+        }
+
+        .coop-graph-node {
+          transform-box: fill-box;
+          transform-origin: center;
+          transition:
+            fill 240ms ease,
+            opacity 240ms ease,
+            filter 240ms ease;
+        }
+
+        .coop-graph-node-glow {
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: coop-node-light-on 520ms ease-out;
+        }
+      `}</style>
+
       <g>
         {graphData.edges.map((edge, index) => {
           const fromNode = nodeMap.get(edge.from);
@@ -111,9 +152,21 @@ export default function CoopGraph({
       <g>
         {graphData.nodes.map((node, index) => {
           const nodeColor = getNodeColor(node.sequence, completedSet, activeSequence);
+          const nodeState = getNodeState(node.sequence, completedSet, activeSequence);
+          const isLit = nodeState !== 'inactive';
 
           return (
             <g key={`${node.sequence}-${index}`}>
+              {isLit && (
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r="22"
+                  fill={nodeState === 'active' ? GRAPH_COLORS.active : GRAPH_COLORS.completed}
+                  opacity="0.28"
+                  className="coop-graph-node-glow"
+                />
+              )}
               <circle
                 cx={node.x}
                 cy={node.y}
@@ -121,6 +174,8 @@ export default function CoopGraph({
                 fill={nodeColor}
                 stroke="#ffffff"
                 strokeWidth="2"
+                filter={isLit ? 'url(#coop-graph-glow)' : undefined}
+                className="coop-graph-node"
               />
               <text
                 x={node.x}

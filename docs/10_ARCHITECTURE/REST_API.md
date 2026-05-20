@@ -978,7 +978,7 @@ GET /api/v1/rankings/single?difficulty={difficulty}&afterRank={afterRank}&before
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response
 
@@ -1115,7 +1115,7 @@ GET /api/v1/rankings/contribution?afterRank={afterRank}&beforeRank={beforeRank}&
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response Fields
 
@@ -1354,18 +1354,20 @@ GET /api/v1/rankings/timeattack?cursor={cursor}&size={size}
 - `members` 목록은 닉네임 가나다순으로 정렬된다.
 
 ```
-GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={size}
+GET /api/v1/rankings/coop?mapName={mapName}&difficulty={difficulty}&afterRank={afterRank}&beforeRank={beforeRank}&size={size}
 ```
 
 #### Query Parameters
 
 | 파라미터 | 필수 | 설명 |
 | --- | --- | --- |
+| `mapName` | ✅ | 조회할 맵 이름, 예: `기초 브랜치` |
+| `difficulty` | ✅ | 조회할 난이도 (1~5), 예: `1` |
 | `afterRank` | ❌ | 아래 방향 스크롤 커서 (마지막으로 확인한 순위). 생략 시 초기 응답 |
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response Fields
 
@@ -1442,8 +1444,8 @@ GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={si
     "myRank": {
       "rank": 5,
       "teamName": "merge crew",
-      "mapName": "rebase 실전",
-      "difficulty": 3,
+      "mapName": "기초 브랜치",
+      "difficulty": 2,
       "elapsedTime": 83000,
       "totalWrongTypeCount": 5,
       "totalWrongOrderCount": 3,
@@ -1458,7 +1460,7 @@ GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={si
       {
         "rank": 4,
         "teamName": "reset zero",
-        "mapName": "브랜치 이동",
+        "mapName": "기초 브랜치",
         "difficulty": 2,
         "elapsedTime": 81000,
         "totalWrongTypeCount": 4,
@@ -1482,13 +1484,13 @@ GET /api/v1/rankings/coop?afterRank={afterRank}&beforeRank={beforeRank}&size={si
 #### 아래 방향 스크롤 Request
 
 ```
-GET /api/v1/rankings/coop?afterRank=6&size=20
+GET /api/v1/rankings/coop?mapName=기초+브랜치&difficulty=2&afterRank=6&size=20
 ```
 
 #### 위 방향 스크롤 Request
 
 ```
-GET /api/v1/rankings/coop?beforeRank=4&size=20
+GET /api/v1/rankings/coop?mapName=기초+브랜치&difficulty=2&beforeRank=4&size=20
 ```
 
 #### 스크롤 Response Fields
@@ -1713,7 +1715,7 @@ GET /api/v1/rankings/contribution/history?year={year}&month={month}&week={week}&
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response Fields
 
@@ -1975,7 +1977,7 @@ GET /api/v1/rankings/timeattack/history?year=2025&month=4&week=17&cursor=9&size=
 - `members` 목록은 닉네임 가나다순으로 정렬된다.
 
 ```
-GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRank={afterRank}&beforeRank={beforeRank}&size={size}
+GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&mapName={mapName}&difficulty={difficulty}&afterRank={afterRank}&beforeRank={beforeRank}&size={size}
 ```
 
 #### Query Parameters
@@ -1985,11 +1987,13 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
 | `year` | ✅ | 조회할 연도, 예: `2025` |
 | `month` | ✅ | 조회할 월, 예: `4` |
 | `week` | ✅ | 조회할 주차, 예: `3` |
+| `mapName` | ✅ | 조회할 맵 이름, 예: `기초 브랜치` |
+| `difficulty` | ✅ | 조회할 난이도 (1~5), 예: `1` |
 | `afterRank` | ❌ | 아래 방향 스크롤 커서 (마지막으로 확인한 순위). 생략 시 초기 응답 |
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response Fields
 
@@ -2066,8 +2070,8 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
     "myRank": {
       "rank": 5,
       "teamName": "merge crew",
-      "mapName": "rebase 실전",
-      "difficulty": 3,
+      "mapName": "기초 브랜치",
+      "difficulty": 2,
       "elapsedTime": 83000,
       "totalWrongTypeCount": 5,
       "totalWrongOrderCount": 3,
@@ -2082,7 +2086,7 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
       {
         "rank": 4,
         "teamName": "reset zero",
-        "mapName": "브랜치 이동",
+        "mapName": "기초 브랜치",
         "difficulty": 2,
         "elapsedTime": 81000,
         "totalWrongTypeCount": 4,
@@ -2106,13 +2110,13 @@ GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&afterRan
 #### 아래 방향 스크롤 Request
 
 ```
-GET /api/v1/rankings/coop/history?year=2025&month=4&week=3&afterRank=6&size=20
+GET /api/v1/rankings/coop/history?year=2025&month=4&week=3&mapName=기초+브랜치&difficulty=2&afterRank=6&size=20
 ```
 
 #### 위 방향 스크롤 Request
 
 ```
-GET /api/v1/rankings/coop/history?year=2025&month=4&week=3&beforeRank=4&size=20
+GET /api/v1/rankings/coop/history?year=2025&month=4&week=3&mapName=기초+브랜치&difficulty=2&beforeRank=4&size=20
 ```
 
 #### 스크롤 Response Fields
