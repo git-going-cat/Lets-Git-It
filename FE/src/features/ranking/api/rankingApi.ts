@@ -1,8 +1,8 @@
-import { z } from 'zod';
-
 import { http } from '@/core/http';
+import { apiResponseSchema } from '@/shared/schemas/response.schema';
 
 import {
+  coopRankingMapListResponseSchema,
   coopRankingResponseSchema,
   singleRankingResponseSchema,
   speedRankingResponseSchema,
@@ -12,6 +12,7 @@ import {
 import type {
   CoopMyRank,
   CoopRankingEntry,
+  CoopRankingMapListResponse,
   CoopRankingQuery,
   RankingResponse,
   SingleMyRank,
@@ -22,6 +23,7 @@ import type {
   TimeAttackRankingEntry,
   WeekParam,
 } from '../types/ranking.types';
+import type { z } from 'zod';
 
 const DIFFICULTY_MAP = {
   'single-easy': 'EASY',
@@ -32,20 +34,12 @@ const DIFFICULTY_MAP = {
 const DEFAULT_PAGE_SIZE = 20;
 
 type RankingQueryParams = Record<string, string | number | undefined>;
-type SingleRankingCursor = {
+type RankCursor = {
   afterRank?: number;
   beforeRank?: number;
 };
 
-function buildRankingParams(params: RankingQueryParams, cursor?: number) {
-  return {
-    ...params,
-    cursor,
-    size: cursor === undefined ? undefined : DEFAULT_PAGE_SIZE,
-  };
-}
-
-function buildSingleRankingParams(params: RankingQueryParams, cursor?: SingleRankingCursor) {
+function buildCursorParams(params: RankingQueryParams, cursor?: RankCursor) {
   return {
     ...params,
     afterRank: cursor?.afterRank,
@@ -54,51 +48,66 @@ function buildSingleRankingParams(params: RankingQueryParams, cursor?: SingleRan
   };
 }
 
-async function getRanking<T>(
+function buildLegacyCursorParams(params: RankingQueryParams, cursor?: number) {
+  return {
+    ...params,
+    cursor,
+    size: cursor === undefined ? undefined : DEFAULT_PAGE_SIZE,
+  };
+}
+
+async function getApiData<T>(
   path: string,
   params: RankingQueryParams,
   schema: z.ZodType<T>,
   errorMessage: string
 ): Promise<T> {
   const { data } = await http.get<unknown>(path, { params });
-  const parsed = z.object({ message: z.string(), data: schema }).safeParse(data);
-
-  if (!parsed.success) {
+  try {
+    return apiResponseSchema(schema).parse(data).data;
+  } catch {
     throw new Error(errorMessage);
   }
+}
 
-  return parsed.data.data;
+export async function fetchCoopRankingMaps(): Promise<CoopRankingMapListResponse> {
+  return getApiData(
+    '/api/v1/rooms/coop/maps',
+    {},
+    coopRankingMapListResponseSchema,
+    '올바르지 않은 협력 맵 목록 데이터 형식입니다.'
+  );
 }
 
 export async function fetchSingleRanking(
   difficulty: keyof typeof DIFFICULTY_MAP,
-  cursor?: SingleRankingCursor
+  cursor?: RankCursor
 ): Promise<RankingResponse<SingleRankingEntry, SingleMyRank>> {
-  return getRanking(
+  return getApiData(
     '/api/v1/rankings/single',
-    buildSingleRankingParams({ difficulty: DIFFICULTY_MAP[difficulty] }, cursor),
+    buildCursorParams({ difficulty: DIFFICULTY_MAP[difficulty] }, cursor),
     singleRankingResponseSchema,
     '올바르지 않은 싱글 랭킹 데이터 형식입니다.'
   );
 }
 
 export async function fetchSpeedRanking(
-  cursor?: number
+  cursor?: RankCursor
 ): Promise<RankingResponse<SpeedRankingEntry, SpeedMyRank>> {
-  return getRanking(
-    '/api/v1/rankings/speed',
-    buildRankingParams({}, cursor),
+  return getApiData(
+    '/api/v1/rankings/contribution',
+    buildCursorParams({}, cursor),
     speedRankingResponseSchema,
-    '올바르지 않은 기여도 랭킹 데이터 형식입니다.'
+    '올바르지 않은 기여도 뺏기 랭킹 데이터 형식입니다.'
   );
 }
 
 export async function fetchTimeAttackRanking(
   cursor?: number
 ): Promise<RankingResponse<TimeAttackRankingEntry, TimeAttackMyRank>> {
-  return getRanking(
+  return getApiData(
     '/api/v1/rankings/timeattack',
-    buildRankingParams({}, cursor),
+    buildLegacyCursorParams({}, cursor),
     timeAttackRankingResponseSchema,
     '올바르지 않은 타임어택 랭킹 데이터 형식입니다.'
   );
@@ -106,11 +115,14 @@ export async function fetchTimeAttackRanking(
 
 export async function fetchCoopRanking(
   query: CoopRankingQuery,
-  cursor?: number
+  cursor?: RankCursor
 ): Promise<RankingResponse<CoopRankingEntry, CoopMyRank>> {
-  return getRanking(
+  return getApiData(
     '/api/v1/rankings/coop',
-    buildRankingParams({ mapName: query.mapName, difficulty: query.difficulty }, cursor),
+    buildCursorParams(
+      { mapName: query.mapName, difficulty: query.difficulty, mapId: query.mapId },
+      cursor
+    ),
     coopRankingResponseSchema,
     '올바르지 않은 협력 랭킹 데이터 형식입니다.'
   );
@@ -119,11 +131,11 @@ export async function fetchCoopRanking(
 export async function fetchSingleRankingHistory(
   difficulty: keyof typeof DIFFICULTY_MAP,
   weekParam: WeekParam,
-  cursor?: SingleRankingCursor
+  cursor?: RankCursor
 ): Promise<RankingResponse<SingleRankingEntry, SingleMyRank>> {
-  return getRanking(
+  return getApiData(
     '/api/v1/rankings/single/history',
-    buildSingleRankingParams(
+    buildCursorParams(
       {
         difficulty: DIFFICULTY_MAP[difficulty],
         year: weekParam.year,
@@ -139,13 +151,13 @@ export async function fetchSingleRankingHistory(
 
 export async function fetchSpeedRankingHistory(
   weekParam: WeekParam,
-  cursor?: number
+  cursor?: RankCursor
 ): Promise<RankingResponse<SpeedRankingEntry, SpeedMyRank>> {
-  return getRanking(
-    '/api/v1/rankings/speed/history',
-    buildRankingParams({ ...weekParam }, cursor),
+  return getApiData(
+    '/api/v1/rankings/contribution/history',
+    buildCursorParams({ ...weekParam }, cursor),
     speedRankingResponseSchema,
-    '올바르지 않은 기여도 과거 랭킹 데이터 형식입니다.'
+    '올바르지 않은 기여도 뺏기 과거 랭킹 데이터 형식입니다.'
   );
 }
 
@@ -153,9 +165,9 @@ export async function fetchTimeAttackRankingHistory(
   weekParam: WeekParam,
   cursor?: number
 ): Promise<RankingResponse<TimeAttackRankingEntry, TimeAttackMyRank>> {
-  return getRanking(
+  return getApiData(
     '/api/v1/rankings/timeattack/history',
-    buildRankingParams({ ...weekParam }, cursor),
+    buildLegacyCursorParams({ ...weekParam }, cursor),
     timeAttackRankingResponseSchema,
     '올바르지 않은 타임어택 과거 랭킹 데이터 형식입니다.'
   );
@@ -164,15 +176,19 @@ export async function fetchTimeAttackRankingHistory(
 export async function fetchCoopRankingHistory(
   query: CoopRankingQuery,
   weekParam: WeekParam,
-  cursor?: number
+  cursor?: RankCursor
 ): Promise<RankingResponse<CoopRankingEntry, CoopMyRank>> {
-  if (query.mapId === undefined) {
-    throw new Error('협력 과거 랭킹 조회에는 mapId가 필요합니다.');
-  }
-
-  return getRanking(
+  return getApiData(
     '/api/v1/rankings/coop/history',
-    buildRankingParams({ mapId: query.mapId, ...weekParam }, cursor),
+    buildCursorParams(
+      {
+        ...weekParam,
+        mapName: query.mapName,
+        difficulty: query.difficulty,
+        mapId: query.mapId,
+      },
+      cursor
+    ),
     coopRankingResponseSchema,
     '올바르지 않은 협력 과거 랭킹 데이터 형식입니다.'
   );

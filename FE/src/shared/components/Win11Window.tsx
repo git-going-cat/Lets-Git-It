@@ -11,6 +11,8 @@ export interface Win11WindowProps {
   className?: string;
   containerRef?: RefObject<HTMLDivElement | null>;
   ariaLabel?: string;
+  // 본문 메시지/설명 요소의 id. 스크린리더가 dialog 라벨에 더해 본문도 함께 읽도록 연결한다.
+  ariaDescribedBy?: string;
 }
 
 export function Win11Window({
@@ -21,6 +23,7 @@ export function Win11Window({
   className = '',
   containerRef,
   ariaLabel,
+  ariaDescribedBy,
 }: Win11WindowProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const titleId = useId();
@@ -41,6 +44,7 @@ export function Win11Window({
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : ariaLabel}
+        aria-describedby={ariaDescribedBy}
         tabIndex={-1}
         // h/w-[calc(...)]: Win11 스타일 최대화 상태에서 화면 여백을 유지하며 모달을 확장합니다.
         className={`flex min-w-window-min flex-col overflow-hidden rounded-lg ${windowBg} ${className} ${

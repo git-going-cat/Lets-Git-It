@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -54,7 +55,7 @@ class RecordServiceImplTest {
 	void 협력_최고_기록이_있으면_기록을_반환한다() {
 		// given
 		UUID memberId = UUID.randomUUID();
-		MemberCoopBestRecord coopBestRecord = MemberCoopBestRecord.of(memberId, "기초 브랜치", "MAP_1", 61000, 2);
+		MemberCoopBestRecord coopBestRecord = MemberCoopBestRecord.of(memberId, "기초 브랜치", 1, 61000, 2);
 
 		given(memberCoopBestRecordRepository.findBestRecordByMemberId(memberId))
 			.willReturn(Optional.of(coopBestRecord));
@@ -81,6 +82,45 @@ class RecordServiceImplTest {
 		// then
 		assertThat(result).isNull();
 		then(memberCoopBestRecordRepository).should().findBestRecordByMemberId(memberId);
+	}
+
+	@Test
+	void 맵_기준_협력_최고_기록이_있으면_기록을_반환한다() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		String mapName = "기초 브랜치";
+		int difficulty = 1;
+		MemberCoopBestRecord coopBestRecord = MemberCoopBestRecord.of(memberId, mapName, difficulty, 61000, 2);
+
+		given(memberCoopBestRecordRepository.findBestRecordByMemberIdAndMap(memberId, mapName, difficulty))
+			.willReturn(Optional.of(coopBestRecord));
+
+		// when
+		MemberCoopBestRecord result = recordService.getBestCoopRecordByMap(memberId, mapName, difficulty);
+
+		// then
+		assertThat(result).isSameAs(coopBestRecord);
+		then(memberCoopBestRecordRepository).should()
+			.findBestRecordByMemberIdAndMap(memberId, mapName, difficulty);
+	}
+
+	@Test
+	void 맵_기준_협력_최고_기록이_없으면_null을_반환한다() {
+		// given
+		UUID memberId = UUID.randomUUID();
+		String mapName = "기초 브랜치";
+		int difficulty = 1;
+
+		given(memberCoopBestRecordRepository.findBestRecordByMemberIdAndMap(memberId, mapName, difficulty))
+			.willReturn(Optional.empty());
+
+		// when
+		MemberCoopBestRecord result = recordService.getBestCoopRecordByMap(memberId, mapName, difficulty);
+
+		// then
+		assertThat(result).isNull();
+		then(memberCoopBestRecordRepository).should()
+			.findBestRecordByMemberIdAndMap(memberId, mapName, difficulty);
 	}
 
 	@Test
@@ -138,5 +178,59 @@ class RecordServiceImplTest {
 		assertThat(record.getBestScore()).isEqualTo(6000);
 		assertThat(record.getBestRank()).isEqualTo(10);
 		then(memberBestRecordRepository).should().save(record);
+	}
+
+	@Nested
+	class UpdateCoopBestRecord {
+
+		@Test
+		void 협력_기록이_없으면_새로_생성해서_저장하고_true를_반환한다() {
+			UUID memberId = UUID.randomUUID();
+			String mapName = "기초 브랜치";
+			int difficulty = 1;
+
+			given(memberCoopBestRecordRepository.findBestRecordByMemberIdAndMap(memberId, mapName, difficulty))
+				.willReturn(Optional.empty());
+
+			boolean result = recordService.updateCoopBestRecord(memberId, mapName, difficulty, 60000, 1);
+
+			assertThat(result).isTrue();
+			then(memberCoopBestRecordRepository).should()
+				.save(argThat(r -> r.getMemberId().equals(memberId)
+					&& r.getMapName().equals(mapName)
+					&& r.getDifficulty() == difficulty
+					&& r.getBestTime() == 60000
+					&& r.getBestRank() == 1));
+		}
+
+		@Test
+		void 기존_기록보다_느리거나_같으면_저장하지_않고_false를_반환한다() {
+			UUID memberId = UUID.randomUUID();
+			MemberCoopBestRecord existing = MemberCoopBestRecord.of(memberId, "기초 브랜치", 1, 50000, 1);
+
+			given(memberCoopBestRecordRepository.findBestRecordByMemberIdAndMap(memberId, "기초 브랜치", 1))
+				.willReturn(Optional.of(existing));
+
+			boolean result = recordService.updateCoopBestRecord(memberId, "기초 브랜치", 1, 50000, 1);
+
+			assertThat(result).isFalse();
+			then(memberCoopBestRecordRepository).should(never()).save(any(MemberCoopBestRecord.class));
+		}
+
+		@Test
+		void 기존_기록보다_빠르면_갱신하고_true를_반환한다() {
+			UUID memberId = UUID.randomUUID();
+			MemberCoopBestRecord existing = MemberCoopBestRecord.of(memberId, "기초 브랜치", 1, 70000, 2);
+
+			given(memberCoopBestRecordRepository.findBestRecordByMemberIdAndMap(memberId, "기초 브랜치", 1))
+				.willReturn(Optional.of(existing));
+
+			boolean result = recordService.updateCoopBestRecord(memberId, "기초 브랜치", 1, 60000, 1);
+
+			assertThat(result).isTrue();
+			assertThat(existing.getBestTime()).isEqualTo(60000);
+			assertThat(existing.getBestRank()).isEqualTo(1);
+			then(memberCoopBestRecordRepository).should().save(existing);
+		}
 	}
 }

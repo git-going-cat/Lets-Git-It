@@ -15,10 +15,12 @@ import { Route as SingleRouteImport } from './routes/single'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as MultiRouteImport } from './routes/multi'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as IncidentRouteImport } from './routes/incident'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as CoopRouteImport } from './routes/coop'
 import { Route as ContributionRouteImport } from './routes/contribution'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MultiIndexRouteImport } from './routes/multi.index'
 import { Route as MultiRoomIdRouteImport } from './routes/multi.$roomId'
 import { Route as AuthCallbackGoogleRouteImport } from './routes/auth.callback.google'
 
@@ -52,6 +54,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IncidentRoute = IncidentRouteImport.update({
+  id: '/incident',
+  path: '/incident',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/incident.lazy').then((d) => d.Route))
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -72,6 +79,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MultiIndexRoute = MultiIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MultiRoute,
+} as any)
 const MultiRoomIdRoute = MultiRoomIdRouteImport.update({
   id: '/$roomId',
   path: '/$roomId',
@@ -88,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/contribution': typeof ContributionRoute
   '/coop': typeof CoopRoute
   '/home': typeof HomeRoute
+  '/incident': typeof IncidentRoute
   '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
   '/onboarding': typeof OnboardingRoute
@@ -95,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/timeattack': typeof TimeattackRoute
   '/tutorial': typeof TutorialRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
+  '/multi/': typeof MultiIndexRoute
   '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
 export interface FileRoutesByTo {
@@ -102,13 +116,14 @@ export interface FileRoutesByTo {
   '/contribution': typeof ContributionRoute
   '/coop': typeof CoopRoute
   '/home': typeof HomeRoute
+  '/incident': typeof IncidentRoute
   '/login': typeof LoginRoute
-  '/multi': typeof MultiRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/single': typeof SingleRoute
   '/timeattack': typeof TimeattackRoute
   '/tutorial': typeof TutorialRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
+  '/multi': typeof MultiIndexRoute
   '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
 export interface FileRoutesById {
@@ -117,6 +132,7 @@ export interface FileRoutesById {
   '/contribution': typeof ContributionRoute
   '/coop': typeof CoopRoute
   '/home': typeof HomeRoute
+  '/incident': typeof IncidentRoute
   '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
   '/onboarding': typeof OnboardingRoute
@@ -124,6 +140,7 @@ export interface FileRoutesById {
   '/timeattack': typeof TimeattackRoute
   '/tutorial': typeof TutorialRoute
   '/multi/$roomId': typeof MultiRoomIdRoute
+  '/multi/': typeof MultiIndexRoute
   '/auth/callback/google': typeof AuthCallbackGoogleRoute
 }
 export interface FileRouteTypes {
@@ -133,6 +150,7 @@ export interface FileRouteTypes {
     | '/contribution'
     | '/coop'
     | '/home'
+    | '/incident'
     | '/login'
     | '/multi'
     | '/onboarding'
@@ -140,6 +158,7 @@ export interface FileRouteTypes {
     | '/timeattack'
     | '/tutorial'
     | '/multi/$roomId'
+    | '/multi/'
     | '/auth/callback/google'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -147,13 +166,14 @@ export interface FileRouteTypes {
     | '/contribution'
     | '/coop'
     | '/home'
+    | '/incident'
     | '/login'
-    | '/multi'
     | '/onboarding'
     | '/single'
     | '/timeattack'
     | '/tutorial'
     | '/multi/$roomId'
+    | '/multi'
     | '/auth/callback/google'
   id:
     | '__root__'
@@ -161,6 +181,7 @@ export interface FileRouteTypes {
     | '/contribution'
     | '/coop'
     | '/home'
+    | '/incident'
     | '/login'
     | '/multi'
     | '/onboarding'
@@ -168,6 +189,7 @@ export interface FileRouteTypes {
     | '/timeattack'
     | '/tutorial'
     | '/multi/$roomId'
+    | '/multi/'
     | '/auth/callback/google'
   fileRoutesById: FileRoutesById
 }
@@ -176,6 +198,7 @@ export interface RootRouteChildren {
   ContributionRoute: typeof ContributionRoute
   CoopRoute: typeof CoopRoute
   HomeRoute: typeof HomeRoute
+  IncidentRoute: typeof IncidentRoute
   LoginRoute: typeof LoginRoute
   MultiRoute: typeof MultiRouteWithChildren
   OnboardingRoute: typeof OnboardingRoute
@@ -229,6 +252,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/incident': {
+      id: '/incident'
+      path: '/incident'
+      fullPath: '/incident'
+      preLoaderRoute: typeof IncidentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/home': {
       id: '/home'
       path: '/home'
@@ -257,6 +287,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/multi/': {
+      id: '/multi/'
+      path: '/'
+      fullPath: '/multi/'
+      preLoaderRoute: typeof MultiIndexRouteImport
+      parentRoute: typeof MultiRoute
+    }
     '/multi/$roomId': {
       id: '/multi/$roomId'
       path: '/$roomId'
@@ -276,10 +313,12 @@ declare module '@tanstack/react-router' {
 
 interface MultiRouteChildren {
   MultiRoomIdRoute: typeof MultiRoomIdRoute
+  MultiIndexRoute: typeof MultiIndexRoute
 }
 
 const MultiRouteChildren: MultiRouteChildren = {
   MultiRoomIdRoute: MultiRoomIdRoute,
+  MultiIndexRoute: MultiIndexRoute,
 }
 
 const MultiRouteWithChildren = MultiRoute._addFileChildren(MultiRouteChildren)
@@ -289,6 +328,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContributionRoute: ContributionRoute,
   CoopRoute: CoopRoute,
   HomeRoute: HomeRoute,
+  IncidentRoute: IncidentRoute,
   LoginRoute: LoginRoute,
   MultiRoute: MultiRouteWithChildren,
   OnboardingRoute: OnboardingRoute,

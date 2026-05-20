@@ -112,9 +112,9 @@ class MemberServiceImplTest {
 
 		List<MemberBestRecord> bestRecords = List.of(
 			MemberBestRecord.of(memberId, SINGLE_NORMAL, 7200, 45),
-			MemberBestRecord.of(memberId, CONTRIBUTION_RUN, 88000, 7),
+			MemberBestRecord.of(memberId, CONTRIBUTION, 88000, 7),
 			MemberBestRecord.of(memberId, TIME_ATTACK, 10500, 3));
-		MemberCoopBestRecord coopBestRecord = MemberCoopBestRecord.of(memberId, "기초 브랜치", "MAP_1", 61000, 2);
+		MemberCoopBestRecord coopBestRecord = MemberCoopBestRecord.of(memberId, "기초 브랜치", 1, 61000, 2);
 
 		given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
 		given(recordService.getBestRecords(memberId)).willReturn(bestRecords);
@@ -129,7 +129,7 @@ class MemberServiceImplTest {
 		assertThat(response.onboardingStatus()).isEqualTo(TUTORIAL_DONE);
 		assertThat(response.records())
 			.extracting(MemberProfileResponse.RecordResponse::mode)
-			.containsExactly("SINGLE_EASY", "SINGLE_NORMAL", "SINGLE_HARD", "CONTRIBUTION_RUN", "TIME_ATTACK", "COOP");
+			.containsExactly("SINGLE_EASY", "SINGLE_NORMAL", "SINGLE_HARD", "CONTRIBUTION", "TIME_ATTACK", "COOP");
 		assertThat(response.records().get(0).bestScore()).isEqualTo(0);
 		assertThat(response.records().get(1).bestScore()).isEqualTo(7200);
 		assertThat(response.records().get(2).bestScore()).isEqualTo(0);

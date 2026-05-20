@@ -4,5 +4,6 @@ public enum CommandType {
 	CREATE,
 	MERGE,
 	SWITCH,
-	COMMON
+	COMMON,
+	CONFLICT
 }

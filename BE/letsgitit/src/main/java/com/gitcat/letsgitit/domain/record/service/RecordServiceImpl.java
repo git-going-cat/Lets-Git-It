@@ -36,6 +36,13 @@ public class RecordServiceImpl implements RecordService {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
+	public MemberCoopBestRecord getBestCoopRecordByMap(UUID memberId, String mapName, int difficulty) {
+		return memberCoopBestRecordRepository.findBestRecordByMemberIdAndMap(memberId, mapName, difficulty)
+			.orElse(null);
+	}
+
+	@Override
 	@Transactional
 	public boolean updateSingleBestRecord(UUID memberId, Difficulty difficulty, int score, int rank) {
 		BestRecordMode mode = toSingleBestRecordMode(difficulty);
@@ -49,6 +56,44 @@ public class RecordServiceImpl implements RecordService {
 		}
 
 		record.update(score, rank);
+		memberBestRecordRepository.save(record);
+		return true;
+	}
+
+	@Override
+	@Transactional
+	public boolean updateCoopBestRecord(UUID memberId, String mapName, int difficulty, int elapsedTime, int rank) {
+		MemberCoopBestRecord record = memberCoopBestRecordRepository
+			.findBestRecordByMemberIdAndMap(memberId, mapName, difficulty)
+			.orElse(null);
+
+		if (record == null) {
+			memberCoopBestRecordRepository
+				.save(MemberCoopBestRecord.of(memberId, mapName, difficulty, elapsedTime, rank));
+			return true;
+		}
+
+		if (elapsedTime >= record.getBestTime()) {
+			return false;
+		}
+
+		record.update(elapsedTime, rank);
+		memberCoopBestRecordRepository.save(record);
+		return true;
+	}
+
+	@Override
+	@Transactional
+	public boolean updateContributionBestRecord(UUID memberId, int contribution, int rank) {
+		MemberBestRecord record = memberBestRecordRepository
+			.findByMemberIdAndMode(memberId, BestRecordMode.CONTRIBUTION)
+			.orElseGet(() -> MemberBestRecord.of(memberId, BestRecordMode.CONTRIBUTION, 0, 0));
+
+		if (contribution <= record.getBestScore()) {
+			return false;
+		}
+
+		record.update(contribution, rank);
 		memberBestRecordRepository.save(record);
 		return true;
 	}

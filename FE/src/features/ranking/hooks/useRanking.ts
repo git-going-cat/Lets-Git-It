@@ -12,13 +12,15 @@ import {
 } from '../api/rankingApi';
 import { rankingQueryKey } from '../utils/rankingQueryKey';
 
-import type {
-  CoopRankingQuery,
-  MyRank,
-  RankingEntry,
-  RankingMode,
-  RankingResponse,
-  WeekParam,
+import {
+  type CoopRankingQuery,
+  type MyRank,
+  type RankingEntry,
+  type RankingMode,
+  type RankingResponse,
+  SINGLE_RANKING_MODES,
+  type SingleRankingMode,
+  type WeekParam,
 } from '../types/ranking.types';
 import type { InfiniteData } from '@tanstack/react-query';
 
@@ -27,39 +29,27 @@ type RankingPageParam = {
   direction?: 'next' | 'previous';
 };
 
-/** 싱글 랭킹 모드 여부를 판별합니다. */
-function isSingleMode(mode: RankingMode) {
-  return mode === 'single-easy' || mode === 'single-normal' || mode === 'single-hard';
+/** 싱글 랭킹 모드인지 판별합니다. */
+function isSingleMode(mode: RankingMode): mode is SingleRankingMode {
+  return SINGLE_RANKING_MODES.includes(mode as SingleRankingMode);
 }
 
-function isAvailableSingleMode(mode: RankingMode) {
-  return mode === 'single-easy' || mode === 'single-normal';
-}
-
-/** React Query pageParam을 싱글 랭킹 양방향 커서 파라미터로 변환합니다. */
-function toSingleCursor(pageParam: RankingPageParam | undefined) {
+/** rank 기반 양방향 커서를 REST API 파라미터로 변환합니다. */
+function toRankCursor(pageParam: RankingPageParam | undefined) {
   if (!pageParam?.cursor) return undefined;
   return pageParam.direction === 'previous'
     ? { beforeRank: pageParam.cursor }
     : { afterRank: pageParam.cursor };
 }
 
-function getNoRecordNextCursor(page: RankingResponse<RankingEntry, Exclude<MyRank, null>>) {
-  if (!('top3' in page) || page.myRank !== null || page.around.length > 0) return null;
-  return page.top3[page.top3.length - 1]?.rank ?? null;
-}
-
-/**
- * 선택한 랭킹 모드와 주차에 맞는 랭킹 목록을 무한 스크롤 쿼리로 조회합니다.
- */
+/** 선택한 랭킹 모드와 주차에 맞는 랭킹 목록을 무한 스크롤 쿼리로 조회합니다. */
 export function useRanking(
   mode: RankingMode,
   selectedWeek: WeekParam | null,
   coopQuery?: CoopRankingQuery
 ) {
   const hasCoopQuery = Boolean(coopQuery?.mapName.trim() && coopQuery.difficulty);
-  const isCoopHistoryReady = selectedWeek === null || coopQuery?.mapId !== undefined;
-  const enabled = isAvailableSingleMode(mode) && (!hasCoopQuery || isCoopHistoryReady);
+  const enabled = isSingleMode(mode) || mode === 'speed' || (mode === 'coop' && hasCoopQuery);
 
   return useInfiniteQuery<
     RankingResponse<RankingEntry, Exclude<MyRank, null>>,
@@ -77,14 +67,14 @@ export function useRanking(
           case 'single-easy':
           case 'single-normal':
           case 'single-hard':
-            return fetchSingleRankingHistory(mode, selectedWeek, toSingleCursor(pageParam));
+            return fetchSingleRankingHistory(mode, selectedWeek, toRankCursor(pageParam));
           case 'speed':
-            return fetchSpeedRankingHistory(selectedWeek, cursor);
+            return fetchSpeedRankingHistory(selectedWeek, toRankCursor(pageParam));
           case 'timeattack':
             return fetchTimeAttackRankingHistory(selectedWeek, cursor);
           case 'coop':
             if (!coopQuery) throw new Error('협력 랭킹 조회 조건이 없습니다.');
-            return fetchCoopRankingHistory(coopQuery, selectedWeek, cursor);
+            return fetchCoopRankingHistory(coopQuery, selectedWeek, toRankCursor(pageParam));
         }
       }
 
@@ -92,27 +82,37 @@ export function useRanking(
         case 'single-easy':
         case 'single-normal':
         case 'single-hard':
-          return fetchSingleRanking(mode, toSingleCursor(pageParam));
+          return fetchSingleRanking(mode, toRankCursor(pageParam));
         case 'speed':
-          return fetchSpeedRanking(cursor);
+          return fetchSpeedRanking(toRankCursor(pageParam));
         case 'timeattack':
           return fetchTimeAttackRanking(cursor);
         case 'coop':
           if (!coopQuery) throw new Error('협력 랭킹 조회 조건이 없습니다.');
-          return fetchCoopRanking(coopQuery, cursor);
+          return fetchCoopRanking(coopQuery, toRankCursor(pageParam));
       }
     },
     initialPageParam: undefined as RankingPageParam | undefined,
-    getNextPageParam: (lastPage) =>
-      lastPage.hasNext && lastPage.nextCursor !== null
-        ? { cursor: lastPage.nextCursor, direction: 'next' }
-        : lastPage.hasNext && getNoRecordNextCursor(lastPage) !== null
-          ? { cursor: getNoRecordNextCursor(lastPage) ?? undefined, direction: 'next' }
-          : undefined,
-    getPreviousPageParam: (firstPage) =>
-      isSingleMode(mode) && firstPage.hasPrev && typeof firstPage.prevCursor === 'number'
-        ? { cursor: firstPage.prevCursor, direction: 'previous' }
-        : undefined,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      if (!lastPage.hasNext || typeof lastPage.nextCursor !== 'number') return undefined;
+      if (lastPageParam?.direction === 'next' && lastPageParam.cursor === lastPage.nextCursor) {
+        return undefined;
+      }
+      return { cursor: lastPage.nextCursor, direction: 'next' };
+    },
+    getPreviousPageParam: (firstPage, _allPages, firstPageParam) => {
+      const supportsPrev = isSingleMode(mode) || mode === 'speed' || mode === 'coop';
+      if (!supportsPrev || !firstPage.hasPrev || typeof firstPage.prevCursor !== 'number') {
+        return undefined;
+      }
+      if (
+        firstPageParam?.direction === 'previous' &&
+        firstPageParam.cursor === firstPage.prevCursor
+      ) {
+        return undefined;
+      }
+      return { cursor: firstPage.prevCursor, direction: 'previous' };
+    },
     refetchOnWindowFocus: false,
     enabled,
   });

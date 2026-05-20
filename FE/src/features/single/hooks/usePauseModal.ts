@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import { analytics } from '@/lib/analytics';
 import { gameStatusAtom, prePauseStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { singleApi } from '../api/singleApi';
+import { singleBus } from '../bridge/singleBus';
 import { gameResultAtom } from '../store/gameResultAtom';
 import { useSingleStore } from '../store/singleStore';
 
@@ -31,13 +31,13 @@ export function usePauseModal() {
   const onResume = () => {
     setGameStatus(prePauseStatus);
     // idle에서 pause된 경우 Phaser는 아직 미시작 상태이므로 resume 이벤트 불필요
-    if (prePauseStatus === 'playing') EventBus.emit('game:resume');
+    if (prePauseStatus === 'playing') singleBus.emit('game:resume');
   };
 
   const onRestart = async () => {
     if (isRestarting) return;
     if (!difficulty) {
-      navigate({ to: '/home', replace: true });
+      void navigate({ to: '/home', replace: true });
       return;
     }
 
@@ -52,7 +52,7 @@ export function usePauseModal() {
       const targetStatus = prePauseStatus === 'idle' ? 'idle' : 'playing';
       setGameStatus(targetStatus);
       if (targetStatus === 'playing') {
-        EventBus.emit('game:restart', {
+        singleBus.emit('game:restart', {
           sessionId: nextSession.sessionId,
           difficulty: nextSession.difficulty,
           commandSet: useSingleStore.getState().commandSet,
@@ -60,7 +60,8 @@ export function usePauseModal() {
         });
       }
     } catch {
-      navigate({ to: '/home', replace: true });
+      // SinglePage가 startSessionError를 구독해 Win11Dialog로 표시한다.
+      useSingleStore.getState().setStartSessionError(true);
     } finally {
       setIsRestarting(false);
     }
@@ -68,7 +69,7 @@ export function usePauseModal() {
 
   const onExit = () => {
     analytics.gameAbandoned();
-    navigate({ to: '/home', replace: true });
+    void navigate({ to: '/home', replace: true });
   };
 
   return { isVisible, onResume, onRestart, onExit };

@@ -11,12 +11,12 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// map_name / map_difficulty → 기록 시점 스냅샷 (coop_map FK 없음, String 저장)
+// map_name / difficulty → 기록 시점 스냅샷 (coop_map FK 없음)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "member_coop_best_record", uniqueConstraints = {
-	@UniqueConstraint(name = "uq_member_coop_best_record", columnNames = {"member_id", "map_name", "map_difficulty"})
+	@UniqueConstraint(name = "uq_member_coop_best_record", columnNames = {"member_id", "map_name", "difficulty"})
 })
 public class MemberCoopBestRecord {
 
@@ -31,8 +31,8 @@ public class MemberCoopBestRecord {
 	@Column(name = "map_name", nullable = false, length = 100)
 	private String mapName;
 
-	@Column(name = "map_difficulty", nullable = false, length = 20)
-	private String mapDifficulty;
+	@Column(name = "difficulty", nullable = false)
+	private int difficulty;
 
 	@Column(name = "best_time", nullable = false)
 	private int bestTime;
@@ -45,11 +45,11 @@ public class MemberCoopBestRecord {
 	private LocalDateTime updatedAt;
 
 	public static MemberCoopBestRecord of(UUID memberId, String mapName,
-		String mapDifficulty, int bestTime, int bestRank) {
+		int difficulty, int bestTime, int bestRank) {
 		MemberCoopBestRecord record = new MemberCoopBestRecord();
 		record.memberId = memberId;
 		record.mapName = mapName;
-		record.mapDifficulty = mapDifficulty;
+		record.difficulty = difficulty;
 		record.bestTime = bestTime;
 		record.bestRank = bestRank;
 		return record;

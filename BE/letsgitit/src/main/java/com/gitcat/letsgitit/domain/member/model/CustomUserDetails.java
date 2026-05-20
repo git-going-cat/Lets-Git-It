@@ -14,22 +14,24 @@ import lombok.Getter;
 @Getter
 public class CustomUserDetails implements UserDetails {
 
-	private final UUID memberId; // Redis AT 조회에 사용
-	private final String email; // JWT subject, username으로 사용
-	private final String password; // BCrypt 검증에 사용
+	private final UUID memberId;
+	private final String email;
+	private final String password;
+	private final String nickname;
 
-	// Member 엔티티 → CustomUserDetails 변환 팩토리 메서드
 	public static CustomUserDetails from(Member member) {
 		return new CustomUserDetails(
 			member.getId(),
 			member.getEmail(),
-			member.getPassword() != null ? member.getPassword() : "");
+			member.getPassword() != null ? member.getPassword() : "",
+			member.getNickname() != null ? member.getNickname() : "");
 	}
 
-	private CustomUserDetails(UUID memberId, String email, String password) {
+	private CustomUserDetails(UUID memberId, String email, String password, String nickname) {
 		this.memberId = memberId;
 		this.email = email;
 		this.password = password;
+		this.nickname = nickname;
 	}
 
 	// Spring Security가 인증 시 사용하는 식별자 — email로 설정

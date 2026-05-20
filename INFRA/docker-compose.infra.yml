@@ -18,8 +18,8 @@ services:
   redis-auth:
     image: redis:7-alpine
     container_name: redis-auth
-    expose:
-      - "6379"
+    ports:
+      - "10.0.0.1:6379:6379"
     volumes:
       - redis-auth-dev-data:/data
     command: >
@@ -35,8 +35,8 @@ services:
   redis-game:
     image: redis:7-alpine
     container_name: redis-game
-    expose:
-      - "6380"
+    ports:
+      - "10.0.0.1:6380:6380"
     command: >
       redis-server
       --save ""
@@ -51,8 +51,8 @@ services:
   redis-ranking:
     image: redis:7-alpine
     container_name: redis-ranking
-    expose:
-      - "6381"
+    ports:
+      - "10.0.0.1:6381:6381"
     volumes:
       - redis-ranking-dev-data:/data
     command: >

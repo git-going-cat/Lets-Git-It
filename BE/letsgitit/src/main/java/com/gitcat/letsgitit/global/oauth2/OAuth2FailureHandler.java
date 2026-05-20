@@ -50,7 +50,7 @@ public class OAuth2FailureHandler implements AuthenticationFailureHandler {
 			.queryParam("error", "oauth_failed")
 			.build().toUriString();
 
-		log.error("OAuth2 로그인 실패: {}", exception.getMessage());
+		log.error("[auth][OAuth2FailureHandler] login failed. reason={}", exception.getMessage());
 		response.sendRedirect(redirectUrl);
 	}
 
@@ -85,9 +85,10 @@ public class OAuth2FailureHandler implements AuthenticationFailureHandler {
 			authRedisRepository.deleteRefreshToken(memberId);
 
 		} catch (BusinessException e) {
-			log.debug("OAuth 실패 핸들러: Redis 세션 정리 중 회원 조회 실패 (신규 사용자이거나 이미 만료된 세션)");
+			log.debug(
+				"[auth][OAuth2FailureHandler] member lookup failed during Redis cleanup (new user or expired session).");
 		} catch (Exception e) {
-			log.warn("OAuth 실패 핸들러: Redis 세션 정리 중 예외 발생", e);
+			log.warn("[auth][OAuth2FailureHandler] exception during Redis cleanup.", e);
 		}
 	}
 
