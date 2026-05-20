@@ -1,15 +1,18 @@
-"""Phase 3: 벡터 검색 동작 확인."""
+"""벡터 검색 동작 확인."""
 import asyncio
-import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
+from app.rag.vector_store import load_index
 from app.rag.search import search
+
+load_index()
 
 
 async def main():

@@ -11,6 +11,11 @@ def make_cache_key(query: str) -> str:
     return "rag:cache:" + hashlib.sha256(query.strip().lower().encode()).hexdigest()
 
 
+def make_coaching_cache_key(card_id: str, user_input: str) -> str:
+    normalized = f"{card_id}:{user_input.strip().lower()}"
+    return "rag:coaching:" + hashlib.sha256(normalized.encode()).hexdigest()
+
+
 async def get_cached(key: str) -> dict[str, Any] | None:
     value = await get_redis().get(key)
     if value is None:

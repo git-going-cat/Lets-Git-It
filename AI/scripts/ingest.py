@@ -1,9 +1,9 @@
-"""Phase 2~3: progit2-ko 데이터 수집 + 청킹 + Pinecone 인덱싱.
+"""Phase 2~3: progit2-ko 데이터 수집 + 청킹 + 인메모리 벡터 인덱싱.
 
 실행:
     python scripts/ingest.py --clone     # progit2-ko clone (gitignore됨)
     python scripts/ingest.py --chunk     # AsciiDoc 파싱 + 청킹 → data/chunks.json
-    python scripts/ingest.py --index     # Pinecone 인덱싱 (Phase 3)
+    python scripts/ingest.py --index     # 임베딩 + L2 정규화 → data/embeddings.npy
     python scripts/ingest.py --all       # 전체 실행
 """
 
@@ -15,23 +15,23 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import tiktoken
 from dotenv import load_dotenv
 from openai import OpenAI
-from pinecone import Pinecone
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 REPO_URL = "https://github.com/progit/progit2-ko.git"
 REPO_DIR = Path("progit2-ko")
 DATA_DIR = Path("data")
 CHUNKS_FILE = DATA_DIR / "chunks.json"
+EMBEDDINGS_FILE = DATA_DIR / "embeddings.npy"
 
 CHUNK_TARGET = 650  # 목표 토큰 수
 CHUNK_MAX = 800     # 청크 최대 토큰 수
 OVERLAP = 80        # 청크 간 오버랩 토큰 수
 
 EMBED_BATCH = 100   # OpenRouter 임베딩 배치 크기
-UPSERT_BATCH = 100  # Pinecone upsert 배치 크기
 
 
 # ---------------------------------------------------------------------------
@@ -330,7 +330,7 @@ def build_chunks() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: Pinecone 인덱싱
+# Phase 3: 임베딩 → 인메모리 인덱스 저장
 # ---------------------------------------------------------------------------
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=15))
@@ -342,10 +342,14 @@ def _embed_batch(client: OpenAI, texts: list[str]) -> list[list[float]]:
     return [item.embedding for item in response.data]
 
 
-def index_pinecone() -> None:
+def save_embeddings() -> None:
     if not CHUNKS_FILE.exists():
         print("[ERROR] chunks.json not found. Run --chunk first.")
         sys.exit(1)
+
+    if EMBEDDINGS_FILE.exists():
+        print(f"[SKIP] {EMBEDDINGS_FILE} already exists. Delete it to re-index.")
+        return
 
     load_dotenv()
 
@@ -356,41 +360,25 @@ def index_pinecone() -> None:
         api_key=os.environ["OPENROUTER_API_KEY"],
         base_url="https://openrouter.ai/api/v1",
     )
-    pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
-    index = pc.Index(
-        name=os.environ["PINECONE_INDEX_NAME"],
-        host=os.environ["PINECONE_HOST"],
-    )
 
-    stats = index.describe_index_stats()
-    if stats.total_vector_count >= len(chunks):
-        print(f"[SKIP] Already indexed: {stats.total_vector_count} vectors")
-        return
-
-    print("Embedding + upserting to Pinecone ...")
+    all_embeddings: list[list[float]] = []
     total = len(chunks)
+    print("Embedding chunks ...")
     for i in range(0, total, EMBED_BATCH):
         batch = chunks[i : i + EMBED_BATCH]
         texts = [c["text"] for c in batch]
-
-        embeddings = _embed_batch(embed_client, texts)
-
-        vectors = [
-            {
-                "id": c["id"],
-                "values": emb,
-                "metadata": {**c["metadata"], "text": c["text"]},
-            }
-            for c, emb in zip(batch, embeddings)
-        ]
-        for j in range(0, len(vectors), UPSERT_BATCH):
-            index.upsert(vectors=vectors[j : j + UPSERT_BATCH])
-
+        all_embeddings.extend(_embed_batch(embed_client, texts))
         done = min(i + EMBED_BATCH, total)
-        print(f"  → {done}/{total} chunks indexed")
+        print(f"  → {done}/{total} chunks embedded")
 
-    stats = index.describe_index_stats()
-    print(f"[OK] Pinecone: {stats.total_vector_count} vectors indexed")
+    arr = np.array(all_embeddings, dtype=np.float32)
+    norms = np.linalg.norm(arr, axis=1, keepdims=True)
+    norms = np.where(norms == 0, 1.0, norms)
+    arr = arr / norms  # L2 정규화 → dot product = cosine similarity
+
+    DATA_DIR.mkdir(exist_ok=True)
+    np.save(str(EMBEDDINGS_FILE), arr)
+    print(f"[OK] Saved {len(arr)} embeddings ({arr.nbytes / 1024 / 1024:.1f} MB) → {EMBEDDINGS_FILE}")
 
 
 # ---------------------------------------------------------------------------
@@ -401,7 +389,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Pro Git RAG ingest pipeline")
     parser.add_argument("--clone", action="store_true", help="Clone progit2-ko")
     parser.add_argument("--chunk", action="store_true", help="Parse + chunk → data/chunks.json")
-    parser.add_argument("--index", action="store_true", help="Embed + upsert to Pinecone")
+    parser.add_argument("--index", action="store_true", help="Embed chunks → data/embeddings.npy")
     parser.add_argument("--all", action="store_true", help="Run all steps")
     args = parser.parse_args()
 
@@ -410,7 +398,7 @@ def main() -> None:
     if args.all or args.chunk:
         build_chunks()
     if args.all or args.index:
-        index_pinecone()
+        save_embeddings()
 
     if not any([args.clone, args.chunk, args.index, args.all]):
         parser.print_help()
