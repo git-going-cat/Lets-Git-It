@@ -19,7 +19,7 @@ const USAGE_FILTER_OPTIONS: { label: string; value: DictionaryUsageFilter }[] = 
 ];
 
 export default function DictionaryModal({ onClose }: DictionaryModalProps) {
-  const { containerRef } = useModal({ isOpen: true, onClose });
+  const { containerRef } = useModal({ isOpen: true });
   const titleId = useId();
 
   const {

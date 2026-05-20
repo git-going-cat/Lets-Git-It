@@ -31,6 +31,23 @@
   --color-nes-success: #92cc41;
   --color-nes-success-hover: #7fb832;
   --color-nes-success-active: #6fa326;
+  /* NES 팔레트 확장 — 사고처리반 게임 UI */
+  --color-nes-blue: #5fbef0; /* HEAD / 현재 브랜치 포인터 */
+  --color-nes-yellow: #f0c64a; /* 원격 브랜치 / untracked 파일 */
+  --color-nes-green-light: #cce8aa; /* 새 커밋 텍스트 하이라이트 */
+  --color-nes-pink: #ffb4a3; /* danger 파일명 */
+  --color-nes-dark: #0b0f18; /* MENTOR 배지 텍스트 */
+  --color-nes-darker: #1a1a2e; /* 코드 블록 배경 */
+  --color-nes-gray: #48505c; /* 비활성 커밋 노드·연결선 */
+  --color-nes-gray-mid: #7a8290; /* 비활성 커밋 해시 텍스트 */
+  --color-nes-gray-dark: #5a626e; /* 점수 미취득 텍스트 */
+  --color-nes-fg: #e8ecf2; /* 기본 파일명 텍스트 */
+  --color-game-bg: #212529; /* 게임 패널 배경 */
+  --color-nes-danger-tint: #2a1212; /* 위험 파일 pane 배경 */
+  --color-nes-blue-tint: #e8f4fd; /* 내러티브 i 배지 배경 */
+  /* 커밋 그래프 그림자 토큰 */
+  --shadow-commit-new: 0 0 0 4px rgba(146, 204, 65, 0.3);
+  --shadow-commit-current: 0 0 0 3px rgba(95, 190, 240, 0.25);
   --radius-ranking-modal: 16px;
   --z-index-window: 100;
   --z-index-confirm-modal: 120;
@@ -193,4 +210,136 @@
 /* nes.css button reset을 사용하는 화면에서 버튼 모서리 반경을 보장합니다. */
 .nes-rounded-button {
   border-radius: 10px !important;
+}
+
+/* ================================================================
+ * 고양이 사고처리반 — 인게임 애니메이션
+ * ============================================================= */
+
+@keyframes warn-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(231, 110, 85, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(231, 110, 85, 0.22);
+  }
+}
+.pane-warn {
+  animation: warn-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes danger-blink {
+  0%,
+  100% {
+    background: rgba(231, 110, 85, 0.18);
+  }
+  50% {
+    background: rgba(231, 110, 85, 0.3);
+  }
+}
+.file-danger {
+  animation: danger-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes score-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.score-pop {
+  animation: score-pop 0.5s ease-out forwards;
+}
+
+@keyframes fly-back {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(-100px) translateY(-30px) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-260px) translateY(0) scale(1);
+    opacity: 0;
+  }
+}
+.file-fly {
+  animation: fly-back 0.7s ease-in forwards;
+}
+
+@keyframes fly-forward {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(100px) translateY(-20px) scale(1.05);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(260px) translateY(0) scale(0.85);
+    opacity: 0;
+  }
+}
+.file-fly-forward {
+  animation: fly-forward 0.8s ease-in forwards;
+}
+
+@keyframes commit-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.commit-pop {
+  animation: commit-pop 0.5s ease-out forwards;
+}
+
+@keyframes arrow-flow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.arrow-flow {
+  animation: arrow-flow 2.2s ease-in-out infinite;
+}
+
+.file-row {
+  transition: transform 120ms;
+}
+
+@keyframes cat-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.cat-bob {
+  animation: cat-bob 1.6s ease-in-out infinite;
 }

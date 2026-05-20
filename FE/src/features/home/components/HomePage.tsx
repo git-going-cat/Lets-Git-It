@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import bgImage from '@/assets/bg/screen.png';
-import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
 import LobbyPage from '@/features/multi/components/LobbyPage';
 import MyPageModal from '@/features/mypage/components/MyPageModal';
 import RankingModal from '@/features/ranking/components/RankingModal';
@@ -22,8 +21,10 @@ import SideMenuButtons from './SideMenuButtons';
 import TutorialNpc from './TutorialNpc';
 
 import type { HomeModalType } from '../types/home.types';
+import type { Scenario } from '@/features/incident/types/incident.types';
 import type { GameMode } from '@/features/multi/types/room.types';
 import type { Difficulty } from '@/shared/types/game.types';
+import type { ReactNode } from 'react';
 
 interface HomePageProps {
   // 다른 페이지에서 ?modal=... 로 복귀한 경우 첫 렌더에 열어둘 모달. routes 레이어가 주입.
@@ -34,6 +35,10 @@ interface HomePageProps {
   onUrlCleanup: () => void;
   // 싱글 모드 '게임 시작' 시 routes 레이어가 startSession + setSession을 수행. 실패 시 throw.
   onStartSingle: (difficulty: Difficulty) => Promise<void>;
+  // routes/-HomeRoute에서 주입: incident cross-feature wiring
+  incidentScenarios: Scenario[];
+  isIncidentCleared: (scenarioId: number) => boolean;
+  renderDictionaryModal: (onClose: () => void) => ReactNode;
 }
 
 /**
@@ -45,6 +50,9 @@ export function HomePage({
   initialLobbyMode,
   onUrlCleanup,
   onStartSingle,
+  incidentScenarios,
+  isIncidentCleared,
+  renderDictionaryModal,
 }: HomePageProps) {
   useBgm();
   // setState in effect를 피하기 위해 useState initializer로 처리.
@@ -140,6 +148,8 @@ export function HomePage({
           initialTab="single"
           onClose={handleCloseModal}
           onStartSingle={onStartSingle}
+          incidentScenarios={incidentScenarios}
+          isIncidentCleared={isIncidentCleared}
         />
       )}
       {activeModal === 'explorer-multi' && (
@@ -148,13 +158,15 @@ export function HomePage({
           onClose={handleCloseModal}
           onLobbyOpen={(m) => setLobbyMode(m)}
           onStartSingle={onStartSingle}
+          incidentScenarios={incidentScenarios}
+          isIncidentCleared={isIncidentCleared}
         />
       )}
 
       {lobbyMode !== null && <LobbyPage mode={lobbyMode} onClose={() => setLobbyMode(null)} />}
 
       {activeModal === 'ranking' && <RankingModal onClose={handleCloseModal} />}
-      {activeModal === 'dictionary' && <DictionaryModal onClose={handleCloseModal} />}
+      {activeModal === 'dictionary' && renderDictionaryModal(handleCloseModal)}
     </div>
   );
 }

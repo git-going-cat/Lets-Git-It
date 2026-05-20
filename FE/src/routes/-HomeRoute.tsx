@@ -1,13 +1,17 @@
 import { useCallback } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 
+import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
 import { HomePage } from '@/features/home/components/HomePage';
+import { SCENARIOS } from '@/features/incident/constants/scenarios';
+import { useIncidentProgress } from '@/features/incident/store/incidentProgressStore';
 import { singleApi } from '@/features/single/api/singleApi';
 import { useSingleStore } from '@/features/single/store/singleStore';
 
 import type { Difficulty } from '@/shared/types/game.types';
 
-// features/home에서 features/single API/store를 직접 부르면 cross-feature 직접 의존이 된다.
+// features/home에서 features/single API/store, features/incident, features/dictionary를
+// 직접 import하면 cross-feature 직접 의존이 된다.
 // FE_CONVENTION §15 wiring 예외에 따라 routes/ 레이어에서 결합한다.
 export default function HomeRoute() {
   const { modal, lobby } = useSearch({ from: '/home' });
@@ -25,12 +29,17 @@ export default function HomeRoute() {
     useSingleStore.getState().setSession(data);
   }, []);
 
+  const { isCleared } = useIncidentProgress();
+
   return (
     <HomePage
       initialModal={modal ?? null}
       initialLobbyMode={lobby ?? null}
       onUrlCleanup={onUrlCleanup}
       onStartSingle={onStartSingle}
+      incidentScenarios={SCENARIOS}
+      isIncidentCleared={isCleared}
+      renderDictionaryModal={(onClose) => <DictionaryModal onClose={onClose} />}
     />
   );
 }

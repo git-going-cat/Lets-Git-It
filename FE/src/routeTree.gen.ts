@@ -15,6 +15,7 @@ import { Route as SingleRouteImport } from './routes/single'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as MultiRouteImport } from './routes/multi'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as IncidentRouteImport } from './routes/incident'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as CoopRouteImport } from './routes/coop'
 import { Route as ContributionRouteImport } from './routes/contribution'
@@ -53,6 +54,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IncidentRoute = IncidentRouteImport.update({
+  id: '/incident',
+  path: '/incident',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/incident.lazy').then((d) => d.Route))
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/contribution': typeof ContributionRoute
   '/coop': typeof CoopRoute
   '/home': typeof HomeRoute
+  '/incident': typeof IncidentRoute
   '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
   '/onboarding': typeof OnboardingRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/contribution': typeof ContributionRoute
   '/coop': typeof CoopRoute
   '/home': typeof HomeRoute
+  '/incident': typeof IncidentRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/single': typeof SingleRoute
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/contribution': typeof ContributionRoute
   '/coop': typeof CoopRoute
   '/home': typeof HomeRoute
+  '/incident': typeof IncidentRoute
   '/login': typeof LoginRoute
   '/multi': typeof MultiRouteWithChildren
   '/onboarding': typeof OnboardingRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/contribution'
     | '/coop'
     | '/home'
+    | '/incident'
     | '/login'
     | '/multi'
     | '/onboarding'
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
     | '/contribution'
     | '/coop'
     | '/home'
+    | '/incident'
     | '/login'
     | '/onboarding'
     | '/single'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/contribution'
     | '/coop'
     | '/home'
+    | '/incident'
     | '/login'
     | '/multi'
     | '/onboarding'
@@ -186,6 +198,7 @@ export interface RootRouteChildren {
   ContributionRoute: typeof ContributionRoute
   CoopRoute: typeof CoopRoute
   HomeRoute: typeof HomeRoute
+  IncidentRoute: typeof IncidentRoute
   LoginRoute: typeof LoginRoute
   MultiRoute: typeof MultiRouteWithChildren
   OnboardingRoute: typeof OnboardingRoute
@@ -237,6 +250,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/incident': {
+      id: '/incident'
+      path: '/incident'
+      fullPath: '/incident'
+      preLoaderRoute: typeof IncidentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home': {
@@ -308,6 +328,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContributionRoute: ContributionRoute,
   CoopRoute: CoopRoute,
   HomeRoute: HomeRoute,
+  IncidentRoute: IncidentRoute,
   LoginRoute: LoginRoute,
   MultiRoute: MultiRouteWithChildren,
   OnboardingRoute: OnboardingRoute,
