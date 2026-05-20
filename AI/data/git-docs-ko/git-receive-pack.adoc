@@ -1,0 +1,170 @@
+git-receive-pack(1)
+===================
+
+NAME
+----
+git-receive-pack - Receive what is pushed into the repository
+
+
+SYNOPSIS
+--------
+[verse]
+'git receive-pack' <git-dir>
+
+DESCRIPTION
+-----------
+`git send-pack`에 의해 호출되어 원격 끝에서 받은 정보로 저장소를 업데이트합니다.
+
+이 명령어는 일반적으로 최종 사용자가 직접 호출하지 않습니다. 프로토콜의 UI는 'git send-pack' 측에 있으며, 프로그램 쌍은 원격 저장소로 업데이트를 푸시하는 데 사용됩니다. 풀(pull) 작업의 경우 linkgit:git-fetch-pack[1]을 참조하십시오.
+
+이 명령어는 원격 끝에서 sha1 ref (heads/tags)의 생성 및 패스트포워딩을 허용합니다. (엄밀히 말하면 'git-receive-pack'이 실행되는 로컬 끝이지만, send-pack 끝에 있는 사용자에게는 원격을 업데이트하는 것입니다. 혼란스러우신가요?)
+
+Documentation/howto 디렉터리에서 update 및 post-update 훅의 실제 사용 예제를 찾을 수 있습니다.
+
+'git-receive-pack'은 receive.denyNonFastForwards 설정 옵션을 존중하며, 이 옵션은 ref에 대한 업데이트가 패스트포워드가 아닌 경우 거부해야 하는지 여부를 지시합니다.
+
+다른 receive.* 설정 옵션들도 동작을 미세 조정하는 데 사용할 수 있습니다. linkgit:git-config[1]을 참조하십시오.
+
+OPTIONS
+-------
+<git-dir>::
+	동기화할 저장소입니다.
+
+--http-backend-info-refs::
+	linkgit:git-http-backend[1]에서 `$GIT_URL/info/refs?service=git-receive-pack` 요청을 제공하는 데 사용됩니다. linkgit:git-upload-pack[1]의 `--http-backend-info-refs`를 참조하십시오.
+
+--skip-connectivity-check::
+	접근 가능한 객체의 추이적 폐포에서 모든 객체의 존재를 검증하는 연결성 검사를 우회합니다. 이 옵션은 Git 외부에서 자체 객체 연결성 검증을 구현하려는 서버 운영자를 위한 것입니다. 이는 서버 측에서 Git 자체에서 보장할 수 없는 특정 보증에 의존하여 객체 연결성을 더 효율적으로 계산할 수 있는 추가 정보를 알고 있는 경우 유용합니다. 이 옵션을 신뢰할 수 있는 외부 메커니즘 없이 사용하는 것은 저장소를 손상시킬 위험이 있으며 일반적인 경우에는 사용해서는 안 됩니다.
+
+PRE-RECEIVE HOOK
+----------------
+어떤 ref라도 업데이트되기 전에, $GIT_DIR/hooks/pre-receive 파일이 존재하고 실행 가능한 경우, 매개변수 없이 한 번 호출됩니다. 훅의 표준 입력은 업데이트될 각 ref에 대한 한 줄이 됩니다:
+
+       sha1-old SP sha1-new SP refname LF
+
+refname 값은 $GIT_DIR에 상대적입니다. 예를 들어 master head의 경우 "refs/heads/master"입니다. refname 앞의 두 sha1 값은 업데이트 전후의 refname에 대한 객체 이름입니다. 생성될 ref는 sha1-old가 0\{40}이고, 삭제될 ref는 sha1-new가 0\{40}이며, 그렇지 않으면 sha1-old와 sha1-new는 저장소의 유효한 객체여야 합니다.
+
+서명된 푸시(linkgit:git-push[1] 참조)를 수락할 때, 서명된 푸시 인증서가 blob에 저장되고 `GIT_PUSH_CERT` 환경 변수에서 해당 객체 이름을 참조할 수 있습니다. 예는 `post-receive` 훅 설명을 참조하십시오. 또한, 인증서는 GPG를 사용하여 검증되며 결과는 다음 환경 변수로 내보내집니다:
+
+`GIT_PUSH_CERT_SIGNER`::
+	푸시 인증서에 서명한 키의 소유자 이름 및 이메일 주소입니다.
+
+`GIT_PUSH_CERT_KEY`::
+	푸시 인증서에 서명한 키의 GPG 키 ID입니다.
+
+`GIT_PUSH_CERT_STATUS`::
+	푸시 인증서의 GPG 검증 상태로, `git log` 계열 명령의 `%G?` 형식과 동일한 니모닉을 사용합니다 (linkgit:git-log[1] 참조).
+
+`GIT_PUSH_CERT_NONCE`::
+	프로세스가 서명자에게 푸시 인증서에 포함하도록 요청한 nonce 문자열입니다. 이 값이 푸시 인증서의 "nonce" 헤더에 기록된 값과 일치하지 않으면, 별도의 "git push" 세션에서 유효한 인증서가 재사용되고 있음을 나타낼 수 있습니다.
+
+`GIT_PUSH_CERT_NONCE_STATUS`::
+`UNSOLICITED`;;
+	"git push --signed"가 nonce를 요청하지 않았는데도 nonce를 보냈습니다.
+`MISSING`;;
+	"git push --signed"가 nonce 헤더를 보내지 않았습니다.
+`BAD`;;
+	"git push --signed"가 잘못된 nonce를 보냈습니다.
+`OK`;;
+	"git push --signed"가 요청한 nonce를 보냈습니다.
+`SLOP`;;
+	"git push --signed"가 현재 요청한 nonce와 다른 nonce를 보냈으나, 이전 세션의 것입니다. `GIT_PUSH_CERT_NONCE_SLOP` 환경 변수를 참조하십시오.
+
+`GIT_PUSH_CERT_NONCE_SLOP`::
+	"git push --signed"가 현재 요청한 nonce와 다른 nonce를 보냈으나, 현재 세션과 이만큼의 초 차이가 나는 다른 세션의 것입니다. `GIT_PUSH_CERT_NONCE_STATUS`가 `SLOP`일 때만 의미가 있습니다. linkgit:git-config[1]의 `receive.certNonceSlop` 변수에 대해서도 읽어보십시오.
+
+이 훅은 어떤 refname도 업데이트되기 전, 그리고 어떤 패스트포워드 검사도 수행되기 전에 호출됩니다.
+
+pre-receive 훅이 0이 아닌 종료 상태로 종료되면 어떤 업데이트도 수행되지 않으며, update, post-receive 및 post-update 훅도 호출되지 않습니다. 이는 업데이트가 지원되지 않는 경우 빠르게 중단하는 데 유용할 수 있습니다.
+
+아래의 쿼런틴 환경에 대한 메모를 참조하십시오.
+
+UPDATE HOOK
+-----------
+각 ref가 업데이트되기 전에, $GIT_DIR/hooks/update 파일이 존재하고 실행 가능한 경우, 각 ref당 한 번, 세 개의 매개변수와 함께 호출됩니다:
+
+       $GIT_DIR/hooks/update refname sha1-old sha1-new
+
+refname 매개변수는 $GIT_DIR에 상대적입니다. 예를 들어 master head의 경우 "refs/heads/master"입니다. 두 sha1 인수는 업데이트 전후 refname에 대한 객체 이름입니다. 훅은 refname이 업데이트되기 전에 호출되므로, sha1-old가 0\{40}이거나 (해당 ref가 아직 없음을 의미) refname에 기록된 것과 일치해야 합니다.
+
+훅은 명명된 ref의 업데이트를 거부하려면 0이 아닌 종료 상태로 종료해야 합니다. 그렇지 않으면 0으로 종료해야 합니다.
+
+이 훅의 성공적인 실행(0 종료 상태)은 ref가 실제로 업데이트된다는 것을 보장하지 않으며, 단지 전제 조건일 뿐입니다. 따라서 이 훅에서 알림(예: 이메일)을 보내는 것은 좋은 생각이 아닙니다. 대신 post-receive 훅을 사용하는 것을 고려하십시오.
+
+POST-RECEIVE HOOK
+-----------------
+모든 ref가 업데이트된 후(또는 업데이트를 시도한 후), ref 업데이트가 성공한 경우, 그리고 $GIT_DIR/hooks/post-receive 파일이 존재하고 실행 가능한 경우, 매개변수 없이 한 번 호출됩니다. 훅의 표준 입력은 성공적으로 업데이트된 각 ref에 대한 한 줄이 됩니다:
+
+       sha1-old SP sha1-new SP refname LF
+
+refname 값은 $GIT_DIR에 상대적입니다. 예를 들어 master head의 경우 "refs/heads/master"입니다. refname 앞의 두 sha1 값은 업데이트 전후 refname에 대한 객체 이름입니다. 생성된 ref는 sha1-old가 0\{40}이고, 삭제된 ref는 sha1-new가 0\{40}이며, 그렇지 않으면 sha1-old와 sha1-new는 저장소의 유효한 객체여야 합니다.
+
+`GIT_PUSH_CERT*` 환경 변수는 `pre-receive` 훅과 동일하게 서명된 푸시를 수락한 후 검사할 수 있습니다.
+
+이 훅을 사용하면 저장소 업데이트에 대한 메일을 쉽게 생성할 수 있습니다. 다음 예제 스크립트는 각 ref에 대해 커밋을 나열하는 메일 메시지를 보내고, 서명된 푸시의 푸시 인증서를 좋은 서명이 있는 경우 로거 서비스에 기록합니다:
+
+----
+#!/bin/sh
+# mail out commit update information.
+while read oval nval ref
+do
+	if expr "$oval" : '0*$' >/dev/null
+	then
+		echo "Created a new ref, with the following commits:"
+		git rev-list --pretty "$nval"
+	else
+		echo "New commits:"
+		git rev-list --pretty "$nval" "^$oval"
+	fi |
+	mail -s "Changes to ref $ref" commit-list@mydomain
+done
+# log signed push certificate, if any
+if test -n "${GIT_PUSH_CERT-}" && test ${GIT_PUSH_CERT_STATUS} = G
+then
+	(
+		echo expected nonce is ${GIT_NONCE}
+		git cat-file blob ${GIT_PUSH_CERT}
+	) | mail -s "push certificate from $GIT_PUSH_CERT_SIGNER" push-log@mydomain
+fi
+exit 0
+----
+
+이 훅 호출의 종료 코드는 무시됩니다. 그러나 0이 아닌 종료 코드는 오류 메시지를 생성합니다.
+
+이 훅이 실행될 때 refname에 sha1-new가 없을 수 있다는 점에 유의하십시오. 이는 다른 사용자가 'git-receive-pack'에 의해 ref가 업데이트된 후 훅이 평가하기 전에 ref를 수정하는 경우 쉽게 발생할 수 있습니다. 훅이 refname의 현재 값보다 sha1-new에 의존하는 것이 좋습니다.
+
+POST-UPDATE HOOK
+----------------
+다른 모든 처리가 끝난 후, 하나 이상의 ref가 업데이트되었다면, $GIT_DIR/hooks/post-update 파일이 존재하고 실행 가능한 경우, post-update는 업데이트된 ref 목록과 함께 호출됩니다. 이는 저장소 전체의 정리 작업을 구현하는 데 사용될 수 있습니다.
+
+이 훅 호출의 종료 코드는 무시됩니다. 'git-receive-pack'이 할 수 있는 마지막 작업은 어차피 종료하는 것입니다.
+
+이 훅은 예를 들어, 저장소가 패킹되어 있고 dumb 전송을 통해 제공되는 경우 `git update-server-info`를 실행하는 데 사용될 수 있습니다.
+
+----
+#!/bin/sh
+exec git update-server-info
+----
+
+
+QUARANTINE ENVIRONMENT
+----------------------
+
+`receive-pack`이 객체를 받을 때, 객체는 `$GIT_DIR/objects` 디렉토리 내의 임시 "quarantine" 디렉토리에 배치되며, `pre-receive` 훅이 완료된 후에만 메인 객체 저장소로 마이그레이션됩니다. 푸시가 그 전에 실패하면, 임시 디렉토리는 완전히 제거됩니다.
+
+이는 몇 가지 사용자에게 보이는 효과와 주의사항이 있습니다:
+
+  1. 수신된 팩, 누락된 객체 또는 `pre-receive` 훅으로 인해 발생하는 문제로 푸시가 실패하는 경우 디스크에 어떤 데이터도 남기지 않습니다. 이는 일반적으로 반복되는 실패한 푸시로 디스크가 채워지는 것을 방지하는 데 도움이 되지만, 디버깅을 더 어렵게 만들 수 있습니다.
+
+  2. `pre-receive` 훅에 의해 생성된 모든 객체는 쿼런틴 디렉토리에 생성됩니다(성공하는 경우에만 마이그레이션됨).
+
+  3. `pre-receive` 훅은 쿼런틴된 객체를 가리키는 ref를 업데이트해서는 안 됩니다. 저장소에 접근하는 다른 프로그램은 해당 객체를 볼 수 없으며 (pre-receive 훅이 실패하면 해당 ref는 손상될 수 있습니다). 안전을 위해 `pre-receive` 내부의 모든 ref 업데이트는 자동으로 거부됩니다.
+
+
+SEE ALSO
+--------
+linkgit:git-send-pack[1], linkgit:gitnamespaces[7]
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

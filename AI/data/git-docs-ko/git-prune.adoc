@@ -1,0 +1,76 @@
+git-prune(1)
+============
+
+NAME
+----
+git-prune - 객체 데이터베이스에서 도달할 수 없는 모든 객체 정리
+
+SYNOPSIS
+--------
+[verse]
+'git prune' [-n] [-v] [--progress] [--expire <time>] [--] [<head>...]
+
+DESCRIPTION
+-----------
+
+NOTE: 대부분의 경우, 사용자는 'git gc'를 실행해야 하며, 이는 'git prune'을 호출합니다. 아래 "NOTES" 섹션을 참조하십시오.
+
+이는 `refs/`에서 사용 가능한 모든 ref를 사용하여 'git fsck --unreachable'을 실행하고, 커맨드 라인에서 지정된 추가 객체 세트를 옵션으로 사용하여, 객체 데이터베이스에서 이러한 헤드 객체 중 어느 것에서도 도달할 수 없는 압축되지 않은 객체를 정리합니다. 또한, 'git prune-packed'를 실행하여 팩에서도 발견되는 압축되지 않은 객체를 정리합니다.
+또한, 도달할 수 없는 `.git/shallow`의 항목을 제거합니다.
+
+도달할 수 없는, 팩으로 된 객체는 그대로 유지됩니다. 이것이 원하지 않는 경우, linkgit:git-repack[1]을 참조하십시오.
+
+OPTIONS
+-------
+
+-n::
+--dry-run::
+   아무것도 제거하지 않고, 무엇을 제거할지 보고합니다.
+
+-v::
+--verbose::
+   제거된 모든 객체를 보고합니다.
+
+--progress::
+   진행 상황을 표시합니다.
+
+--expire <time>::
+   <time>보다 오래된 분리된 객체만 만료시킵니다.
+
+\--::
+   더 이상의 인수를 옵션으로 해석하지 않습니다.
+
+<head>...::
+   우리의 참조에서 도달할 수 있는 객체 외에도,
+   나열된 <head>s에서 도달할 수 있는 객체를 유지합니다.
+
+EXAMPLES
+--------
+
+저장소가 사용하지 않거나 `.git/objects/info/alternates`를 통해
+저장소에서 빌려온 객체를 정리하려면:
+
+------------
+$ git prune $(cd ../another && git rev-parse --all)
+------------
+
+NOTES
+-----
+
+대부분의 경우, 사용자는 'git prune'을 직접 호출할 필요가 없으며,
+대신 'git gc'를 호출해야 합니다. 'git gc'는 많은 다른 유지보수 작업과 함께
+정리를 처리합니다.
+
+정리를 위해 고려되는 객체가 무엇인지에 대한 설명은
+'git fsck''의 --unreachable 옵션을 참조하십시오.
+
+SEE ALSO
+--------
+
+linkgit:git-fsck[1],
+linkgit:git-gc[1],
+linkgit:git-reflog[1]
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

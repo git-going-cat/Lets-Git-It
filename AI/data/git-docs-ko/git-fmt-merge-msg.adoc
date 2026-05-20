@@ -1,0 +1,68 @@
+git-fmt-merge-msg(1)
+====================
+
+NAME
+----
+git-fmt-merge-msg - 머지 커밋 메시지 생성
+
+SYNOPSIS
+--------
+[verse]
+'git fmt-merge-msg' [-m <message>] [--into-name <branch>] [--log[=<n>] | --no-log]
+'git fmt-merge-msg' [-m <message>] [--log[=<n>] | --no-log] -F <file>
+
+DESCRIPTION
+-----------
+표준 입력으로 전달된 병합된 객체 목록을 받아, 머지 커밋에 사용하기에 적절한 커밋 메시지를 생성합니다. 이 메시지는 일반적으로 'git merge'의 '<merge-message>' 인수에 전달됩니다.
+
+이 명령어는 주로 'git merge'를 자동으로 호출하는 스크립트에서 내부적으로 사용하도록 의도되었습니다.
+
+OPTIONS
+-------
+
+--log[=<n>]::
+	브랜치 이름 외에, 실제 병합되는 커밋들의 한 줄 설명을 로그 메시지에 포함합니다. 각 머지 부모에서 최대 <n>개의 커밋이 사용됩니다 (<n>이 생략되면 20이 사용됩니다). 이 설정은 `merge.log` 설정 변수를 재정의합니다.
+
+--no-log::
+	실제 병합되는 커밋들의 한 줄 설명을 포함하지 않습니다.
+
+--summary::
+--no-summary::
+	--log 및 --no-log의 동의어입니다. 이들은 더 이상 사용되지 않으며 향후 제거될 예정입니다.
+
+-m <message>::
+--message <message>::
+	로그 메시지의 첫 번째 줄에 브랜치 이름 대신 <message>를 사용합니다. `--log`와 함께 사용됩니다.
+
+--into-name <branch>::
+	실제로 머지가 이루어지는 브랜치 이름 대신, `<branch>` 브랜치로 머지되는 것처럼 보이도록 머지 메시지를 준비합니다.
+
+-F <file>::
+--file <file>::
+	표준 입력 대신 <file>에서 병합된 객체 목록을 가져옵니다.
+
+CONFIGURATION
+-------------
+include::config/fmt-merge-msg.adoc[]
+
+merge.summary::
+	`merge.log`의 동의어입니다. 이들은 더 이상 사용되지 않으며 향후 제거될 예정입니다.
+
+EXAMPLES
+--------
+
+---------
+$ git fetch origin master
+$ git fmt-merge-msg --log <$GIT_DIR/FETCH_HEAD
+---------
+
+"origin" 원격 저장소의 "master" 브랜치 병합을 설명하는 로그 메시지를 출력합니다.
+
+
+SEE ALSO
+--------
+linkgit:git-merge[1]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부입니다.

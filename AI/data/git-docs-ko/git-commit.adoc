@@ -1,0 +1,370 @@
+git-commit(1)
+=============
+
+NAME
+----
+git-commit - 저장소에 변경사항 기록
+
+SYNOPSIS
+--------
+[synopsis]
+git commit [-a | --interactive | --patch] [-s] [-v] [-u[<mode>]] [--amend]
+	   [--dry-run] [(-c | -C | --squash) <commit> | --fixup [(amend|reword):]<commit>]
+	   [-F <file> | -m <msg>] [--reset-author] [--allow-empty]
+	   [--allow-empty-message] [--no-verify] [-e] [--author=<author>]
+	   [--date=<date>] [--cleanup=<mode>] [--[no-]status]
+	   [-i | -o] [--pathspec-from-file=<file> [--pathspec-file-nul]]
+	   [(--trailer <token>[(=|:)<value>])...] [-S[<keyid>]]
+	   [--] [<pathspec>...]
+
+DESCRIPTION
+-----------
+변경된사항을 설명하는 로그 메시지와 함께 현재 인덱스 상태를 기반으로 새 커밋을 생성합니다. 새 커밋은 HEAD의 직접적인 자식이며, 일반적으로 현재 브랜치의 최신 커밋이 됩니다. 브랜치는 이 새 커밋을 가리키도록 업데이트됩니다 (워킹 트리에 연결된 브랜치가 없는 경우, linkgit:git-checkout[1]에 설명된 대로 `HEAD`가 "분리"됩니다).
+
+커밋할 내용은 여러 방식으로 지정할 수 있습니다.
+
+1. linkgit:git-add[1] 명령어를 사용하여 스테이징 영역(인덱스)에 변경사항을 점진적으로 "추가"한 후 `commit` 명령어를 사용합니다 (참고: 수정된 파일도 "추가"해야 합니다).
+
+2. linkgit:git-rm[1] 명령어를 사용하여 워킹 트리와 인덱에서 파일을 제거한 후 `commit` 명령어를 사용합니다.
+
+3. `commit` 명령어에 파일 목록을 인수로 전달합니다 (`--interactive` 또는 `--patch` 스위치 없이). 이 경우 커밋은 스테이징 영역의 변경사항을 무시하고, 지정된 파일의 현재 내용을 기록합니다 (이 파일들은 이미 Git에 의해 추적되고 있어야 합니다).
+
+4. `commit` 명령어에 `-a` 스위치를 사용하여 이미 Git에서 추적 중인 모든 알려진 파일의 변경사항을 자동으로 "추가"하고, 워킹 트리에서 제거된 파일을 인덱에서도 자동으로 "제거"한 후 실제 커밋을 수행합니다.
+
+5. `commit` 명령어에 `--interactive` 또는 `--patch` 스위치를 사용하여 인덱의 내용 외에 어떤 파일 또는 변경 덩어리(hunk)를 커밋에 포함할지 하나씩 결정한 후 작업을 완료합니다. 이 모드들을 사용하는 방법에 대해서는 linkgit:git-add[1]의 "Interactive Mode" 섹션을 참조하십시오.
+
+`--dry-run` 옵션을 사용하면 위에 설명된 방식 중 하나로 다음 커밋에 포함될 내용을 요약하여 확인할 수 있습니다. 동일한 매개변수 세트(옵션 및 경로)를 제공하면 됩니다.
+
+만약 커밋을 잘못하고 즉시 이를 인지했다면, `git reset`으로 복구할 수 있습니다.
+
+:git-commit: 1
+
+OPTIONS
+-------
+`-a`::
+`--all`::
+	수정되고 삭제된 파일들을 자동으로 스테이징합니다. 단, Git에 아직 알려지지 않은 새 파일은 영향을 받지 않습니다.
+
+`-p`::
+`--patch`::
+	인터랙티브 패치 선택 인터페이스를 사용하여 커밋할 변경사항을 선택합니다. 자세한 내용은 linkgit:git-add[1]을 참조하십시오.
+
+include::diff-context-options.adoc[]
+
+`-C <commit>`::
+`--reuse-message=<commit>`::
+	기존 _<commit>_ 객체를 가져와서 커밋을 생성할 때 동일한 로그 메시지와 작성자 정보(타임스탬프 포함)를 재사용합니다.
+
+`-c <commit>`::
+`--reedit-message=<commit>`::
+	`-C`와 유사하지만, `-c`를 사용하면 에디터가 실행되어 사용자가 커밋 메시지를 추가로 편집할 수 있습니다.
+
+`--fixup=[(amend|reword):]<commit>`::
+	`git rebase --autosquash`로 적용될 때 _<commit>_을 "수정"하는 새 커밋을 생성합니다. 단순히 `--fixup=<commit>`는 _<commit>_의 내용을 변경하지만 로그 메시지는 그대로 유지하는 "fixup!" 커밋을 생성합니다. `--fixup=amend:<commit>`는 유사하지만 "amend!" 커밋을 생성하며 _<commit>_의 로그 메시지를 "amend!" 커밋의 로그 메시지로 대체합니다. `--fixup=reword:<commit>`는 _<commit>_의 로그 메시지를 자기 자신의 로그 메시지로 대체하지만 _<commit>_의 내용에는 변경을 가하지 않는 "amend!" 커밋을 생성합니다.
++
+단순 `--fixup=<commit>`으로 생성된 커밋은 "fixup!"이라는 접두사와 _<commit>_의 제목으로 구성된 제목을 가지며, `git rebase --autosquash`에 의해 특별하게 인식됩니다. `-m` 옵션을 사용하여 생성된 커밋의 로그 메시지를 보충할 수 있지만, "fixup!" 커밋이 `git rebase --autosquash`에 의해 _<commit>_에 병합될 때 추가적인 내용은 버려집니다.
++
+`--fixup=amend:<commit>`으로 생성된 커밋도 유사하지만, 제목은 "amend!"라는 접두사가 붙습니다. _<commit>_의 로그 메시지는 "amend!" 커밋의 로그 메시지로 복사되어 편집기에서 수정할 수 있게 됩니다. `git rebase --autosquash`가 "amend!" 커밋을 _<commit>_에 병합할 때, _<commit>_의 로그 메시지는 "amend!" 커밋에서 수정한 로그 메시지로 교체됩니다. `--allow-empty-message`가 지정되지 않은 한, "amend!" 커밋의 로그 메시지가 비어 있으면 오류가 발생합니다.
++
+`--fixup=reword:<commit>`은 `--fixup=amend:<commit> --only`의 약자입니다. 이는 로그 메시지만 가지고 (스테이징된 변경사항 무시) "amend!" 커밋을 생성합니다. `git rebase --autosquash`에 의해 병합될 때, _<commit>_의 로그 메시지만 변경하고 다른 내용은 변경하지 않습니다.
++
+"fixup!" 또는 "amend!" 커밋은 `git rebase --autosquash`에 의해 적용될 때 _<commit>_의 작성자 정보를 변경하지 않습니다. 자세한 내용은 linkgit:git-rebase[1]을 참조하십시오.
+
+`--squash=<commit>`::
+	`git rebase --autosquash`와 함께 사용할 커밋 메시지를 구성합니다. 커밋 메시지 제목은 지정된 커밋에서 가져오며 "squash! "라는 접두사가 붙습니다. 추가적인 커밋 메시지 옵션(`-m`/`-c`/`-C`/`-F`)과 함께 사용할 수 있습니다. 자세한 내용은 linkgit:git-rebase[1]을 참조하십시오.
+
+`--reset-author`::
+	`-C`/`-c`/`--amend` 옵션과 함께 사용하거나 충돌하는 cherry-pick 후 커밋할 때, 결과 커밋의 작성자 정보가 커미터에게 있음을 선언합니다. 또한 작성자 타임스탬프를 갱신합니다.
+
+`--short`::
+	dry-run 시, 짧은 형식으로 출력합니다. 자세한 내용은 linkgit:git-status[1]을 참조하십시오. `--dry-run`을 내포합니다.
+
+`--branch`::
+	short 형식에서도 브랜치 및 추적 정보를 표시합니다. 자세한 내용은 linkgit:git-status[1]을 참조하십시오.
+
+`--porcelain`::
+	dry-run 시, porcelain 형식으로 출력합니다. 자세한 내용은 linkgit:git-status[1]을 참조하십시오. `--dry-run`을 내포합니다.
+
+`--long`::
+	dry-run 시, 긴 형식으로 출력합니다. 이것이 linkgit:git-status[1]의 기본 출력입니다. `--dry-run`을 내포합니다.
+
+`-z`::
+`--null`::
+	`short` 또는 `porcelain` linkgit:git-status[1] 출력을 표시할 때, 파일 이름을 그대로 출력하고 각 항목을 _LF_ 대신 _NUL_ 문자로 끝냅니다. 형식이 지정되지 않은 경우, `--porcelain` 출력 형식을 내포합니다.
+	`-z` 옵션이 없으면, 파일 이름에 "특이한" 문자가 포함된 경우 `core.quotePath` 설정 변수에 설명된 대로 따옴표로 묶입니다 (linkgit:git-config[1] 참조).
+
+`-F <file>`::
+`--file=<file>`::
+	커밋 메시지를 _<file>_에서 가져옵니다. '-'를 사용하여 표준 입력에서 메시지를 읽습니다.
+
+`--author=<author>`::
+	커밋 작성자를 재정의합니다. 표준 `A U Thor <author@example.com>` 형식으로 명시적인 작성자를 지정합니다. 그렇지 않으면 _<author>_는 패턴으로 간주되며 해당 작성자의 기존 커밋을 검색하는 데 사용됩니다 (`git rev-list --all -i --author=<author>` 실행). 그런 다음 처음 발견된 커밋의 작성자 정보가 복사됩니다.
+
+`--date=<date>`::
+	커밋에 사용될 작성자 날짜를 재정의합니다.
+
+`-m <msg>`::
+`--message=<msg>`::
+	_<msg>_를 커밋 메시지로 사용합니다.
+	여러 개의 `-m` 옵션을 제공하면, 각각 별도의 단락으로 연결됩니다.
++
+`-m` 옵션은 `-c`, `-C`, `-F` 옵션과 상호 배타적입니다.
+
+`-t <file>`::
+`--template=<file>`::
+	커밋 메시지를 편집할 때, _<file>_의 내용을 시작점으로 사용합니다. `commit.template` 설정 변수는 이 옵션을 암시적으로 명령어에 제공하는 데 자주 사용됩니다. 이 메커니즘은 프로젝트 참여자들에게 메시지를 작성하는 방법에 대한 힌트를 제공하는 데 사용될 수 있습니다. 사용자가 메시지를 편집하지 않고 에디터를 종료하면 커밋이 중단됩니다. `-m` 또는 `-F`와 같은 다른 수단으로 메시지가 제공될 때는 이 옵션이 적용되지 않습니다.
+
+include::signoff-option.adoc[]
+
+`--trailer <token>[(=|:)<value>]`::
+	트레일러로 적용될 (_<token>_, _<value>_) 쌍을 지정합니다. (예: `git commit --trailer "Signed-off-by:C O Mitter \
+	<committer@example.com>" --trailer "Helped-by:C O Mitter \
+	<committer@example.com>"`는 커밋 메시지에 `Signed-off-by`와 `Helped-by` 트레일러를 추가합니다.)
+	`trailer.*` 설정 변수 (linkgit:git-interpret-trailers[1])는 중복된 트레일러를 생략할지 여부, 각 트레일러가 나타날 위치 등 세부 정보를 정의하는 데 사용될 수 있습니다.
+
+`-n`::
+`--verify`::
+`--no-verify`::
+	`pre-commit` 및 `commit-msg` 훅을 건너뜁니다.
+	linkgit:githooks[5]도 참조하십시오.
+
+`--allow-empty`::
+	일반적으로 부모 커밋과 완전히 동일한 트리 내용을 가진 커밋을 기록하는 것은 실수이므로, 명령은 그러한 커밋을 방지합니다. 이 옵션은 안전 장치를 우회하며, 주로 외부 SCM 인터페이스 스크립트에서 사용됩니다.
+
+`--allow-empty-message`::
+	플러밍(plumbing) 명령어(예: linkgit:git-commit-tree[1])를 사용하지 않고 빈 커밋 메시지로 커밋을 생성합니다. `--allow-empty`와 마찬가지로, 이 명령어는 주로 외부 SCM 인터페이스 스크립트에서 사용됩니다.
+
+`--cleanup=<mode>`::
+	제공된 커밋 메시지가 커밋되기 전에 어떻게 정리될지 결정합니다. '<mode>'는 `strip`, `whitespace`, `verbatim`, `scissors` 또는 `default`일 수 있습니다.
++
+--
+`strip`::
+	선행 및 후행 빈 줄, 후행 공백, 주석을 제거하고 연속된 빈 줄을 축소합니다.
+`whitespace`::
+	`strip`과 동일하지만 `#` 주석은 제거되지 않습니다.
+`verbatim`::
+	메시지를 전혀 변경하지 않습니다.
+`scissors`::
+	`whitespace`와 동일하지만, 메시지를 편집해야 하는 경우 아래 줄부터 (포함) 모든 내용이 잘립니다.
+	"`#`"은 `core.commentChar`로 사용자 정의할 수 있습니다.
+
+		# ------------------------ >8 ------------------------
+
+`default`::
+	메시지를 편집해야 하는 경우 `strip`과 동일합니다.
+	그렇지 않으면 `whitespace`입니다.
+--
++
+기본값은 `commit.cleanup` 설정 변수(linkgit:git-config[1] 참조)로 변경할 수 있습니다.
+
+`-e`::
+`--edit`::
+	`-F <file>`에서 가져온 메시지, 명령행에서 `-m <message>`로 전달된 메시지, `-C <commit>`에서 가져온 메시지를 사용자가 추가로 편집할 수 있도록 합니다.
+
+`--no-edit`::
+	편집기를 실행하지 않고 선택된 커밋 메시지를 사용합니다.
+	예를 들어, `git commit --amend --no-edit`는 커밋 메시지를 변경하지 않고 마지막 커밋을 수정합니다.
+
+`--amend`::
+	새 커밋을 생성하여 현재 브랜치의 최신 커밋을 교체합니다. 기록될 트리는 일반적으로 준비되며 ( `-i` 및 `-o` 옵션의 효과와 명시적인 pathspec 포함), 커맨드 라인에서 `-m`, `-F`, `-c`와 같은 옵션으로 다른 메시지가 지정되지 않은 경우, 빈 메시지 대신 원래 커밋의 메시지가 시작점으로 사용됩니다. 새 커밋은 현재 커밋과 동일한 부모와 작성자를 가집니다 (`--reset-author` 옵션으로 이를 무효화할 수 있습니다).
++
+--
+이는 다음과 거의 동등합니다:
+
+------
+	$ git reset --soft HEAD^
+	$ ... 올바른 트리를 만들기 위해 다른 작업 수행 ...
+	$ git commit -c ORIG_HEAD
+
+------
+하지만 병합 커밋을 수정하는 데 사용할 수 있습니다.
+--
++
+이미 게시된 커밋을 수정하는 경우 히스토리를 다시 작성하는 것의 의미를 이해해야 합니다. (linkgit:git-rebase[1]의 "RECOVERING FROM UPSTREAM REBASE" 섹션 참조.)
+
+`--no-post-rewrite`::
+	`post-rewrite` 훅을 건너뜁니다.
+
+`-i`::
+`--include`::
+	지금까지 스테이징된 내용을 커밋으로 만들기 전에, 커맨드 라인에서 지정된 경로의 내용을 또한 스테이징합니다. 이것은 일반적으로 원하지 않는 동작이며, 충돌하는 머지(merge)를 마무리할 때 주로 사용됩니다.
+
+`-o`::
+`--only`::
+	커맨드 라인에서 지정된 경로의 업데이트된 워킹 트리 내용을 가져와서 커밋합니다. 다른 경로에 대해 스테이징된 내용은 무시됩니다. 만약 커맨드 라인에 경로가 지정되었다면 이것이 `git commit`의 기본 동작 모드이며, 이 경우 이 옵션은 생략될 수 있습니다.
+	`--amend` 옵션과 함께 이 옵션을 지정하면, 경로를 지정할 필요가 없으며, 이미 스테이징된 변경사항을 커밋하지 않고 마지막 커밋을 수정하는 데 사용할 수 있습니다. `--allow-empty`와 함께 사용하면 경로가 필요 없으며, 빈 커밋이 생성됩니다.
+
+`--pathspec-from-file=<file>`::
+	커맨드라인 인수 대신 _<file>_에 있는 pathspec을 전달합니다. _<file>_이 정확히 `-`이면 표준 입력을 사용합니다. Pathspec 요소는 _LF_ 또는 _CR_/_LF_로 구분됩니다. Pathspec 요소는 `core.quotePath` 설정 변수에 설명된 대로 따옴표로 묶일 수 있습니다 (linkgit:git-config[1] 참조). `--pathspec-file-nul` 및 전역 `--literal-pathspecs`도 참조하십시오.
+
+`--pathspec-file-nul`::
+	`--pathspec-from-file`에서만 의미가 있습니다. pathspec 요소는 _NUL_ 문자로 구분되며 다른 모든 문자는 문자 그대로 취급됩니다 (줄바꿈 및 따옴표 포함).
+
+`-u[<mode>]`::
+`--untracked-files[=<mode>]`::
+	추적되지 않은 파일을 표시합니다.
++
+--
+_<mode>_ 매개변수는 선택 사항이며 (기본값은 `all`), 추적되지 않은 파일의 처리 방식을 지정하는 데 사용됩니다. `-u`가 사용되지 않으면, 기본값은 `normal`이며, 추적되지 않은 파일 및 디렉토리를 표시합니다.
+
+가능한 옵션은 다음과 같습니다:
+
+`no`:: 추적되지 않은 파일을 표시하지 않습니다.
+`normal`:: 추적되지 않은 파일 및 디렉토리를 표시합니다.
+`all`:: 추적되지 않은 디렉토리 내의 개별 파일도 표시합니다.
+
+Boolean 값 `true`에 대한 모든 일반적인 철자는 `normal`로, `false`는 `no`로 간주됩니다.
+이 기본값은 linkgit:git-config[1]에 설명된 `status.showUntrackedFiles` 설정 변수를 사용하여 변경할 수 있습니다.
+--
+
+`-v`::
+`--verbose`::
+	`HEAD` 커밋과 커밋될 내용 사이의 통합 diff를 커밋 메시지 템플릿 하단에 표시하여 사용자가 커밋이 어떤 변경사항을 포함하는지 설명하는 데 도움을 줍니다.
+	참고로 이 diff 출력에는 선행 `#` 문자가 없습니다. 이 diff는 커밋 메시지의 일부가 아닙니다. linkgit:git-config[1]의 `commit.verbose` 설정 변수를 참조하십시오.
++
+두 번 지정하면, 커밋될 내용과 워킹 트리 파일 (즉, 추적된 파일의 스테이징되지 않은 변경사항) 간의 통합 diff도 추가로 표시합니다.
+
+`-q`::
+`--quiet`::
+	커밋 요약 메시지를 억제합니다.
+
+`--dry-run`::
+	커밋을 생성하지 않고, 커밋될 경로, 커밋되지 않고 남겨질 로컬 변경사항이 있는 경로, 추적되지 않은 경로의 목록을 표시합니다.
+
+`--status`::
+	편집기를 사용하여 커밋 메시지를 준비할 때, linkgit:git-status[1]의 출력을 커밋 메시지 템플릿에 포함시킵니다. 기본적으로 활성화되어 있지만, `commit.status` 구성 변수를 재정의하는 데 사용할 수 있습니다.
+
+`--no-status`::
+	편집기를 사용하여 기본 커밋 메시지를 준비할 때, linkgit:git-status[1]의 출력을 커밋 메시지 템플릿에 포함시키지 않습니다.
+
+`-S[<key-id>]`::
+`--gpg-sign[=<key-id>]`::
+`--no-gpg-sign`::
+	GPG로 커밋에 서명합니다. _<key-id>_는 선택 사항이며
+	기본적으로 커미터 식별자를 사용합니다. 지정된 경우, 공백 없이 옵션에 붙여야 합니다. `--no-gpg-sign`은 `commit.gpgSign` 설정 변수와 이전의 `--gpg-sign`을 모두 무효화하는 데 유용합니다.
+
+`--`::
+	이후의 인수를 옵션으로 해석하지 않습니다.
+
+`<pathspec>...`::
+	_<pathspec>_이 커맨드 라인에 주어지면, 인덱에 이미 스테이징된 변경사항을 기록하지 않고, pathspec과 일치하는 파일의 내용을 커밋합니다. 이 파일들의 내용은 이전에 스테이징된 것 위에 다음 커밋을 위해 스테이징됩니다.
++
+더 자세한 내용은 linkgit:gitglossary[7]의 'pathspec' 항목을 참조하십시오.
+
+EXAMPLES
+--------
+자신의 작업을 기록할 때, 워킹 트리의 수정된 파일 내용은 `git add`를 사용하여 "스테이징 영역"이라는 곳에 임시로 저장됩니다. 파일은 마지막 커밋 상태로 되돌릴 수 있으며, 이것은 인덱에서만 해당되고 워킹 트리에는 영향을 주지 않습니다. `git restore --staged <file>` 명령어를 사용하면 `git add`가 효과적으로 취소되고 해당 파일의 변경사항이 다음 커밋에 포함되지 않도록 합니다. 이러한 명령어로 커밋할 상태를 점진적으로 구축한 후, `git commit` (경로명 없이)을 사용하여 지금까지 스테이징된 내용을 기록합니다. 이것이 명령어의 가장 기본적인 형태입니다. 예시:
+
+------------
+$ edit hello.c
+$ git rm goodbye.c
+$ git add hello.c
+$ git commit
+------------
+
+각 개별 변경 후 파일을 스테이징하는 대신, `git commit`에게 워킹 트리에 추적 중인 파일들의 변경사항을 감지하고 해당 `git add` 및 `git rm` 작업을 대신 수행하도록 지시할 수 있습니다. 즉, 워킹 트리에 다른 변경사항이 없다면 이 예제는 이전 예제와 동일한 작업을 수행합니다:
+
+------------
+$ edit hello.c
+$ rm goodbye.c
+$ git commit -a
+------------
+
+`git commit -a` 명령어는 먼저 워킹 트리를 살펴보고, `hello.c`가 수정되었고 `goodbye.c`가 제거되었음을 감지하고 필요한 `git add` 및 `git rm` 작업을 자동으로 수행합니다.
+
+많은 파일을 스테이징한 후, `git commit`에 경로명을 지정하여 변경사항이 기록되는 순서를 변경할 수 있습니다. 경로명이 지정되면, 해당 경로명으로 지정된 파일들의 변경사항만 기록하는 커밋을 만듭니다:
+
+------------
+$ edit hello.c hello.h
+$ git add hello.c hello.h
+$ edit Makefile
+$ git commit Makefile
+------------
+
+이것은 `Makefile`의 변경사항을 기록하는 커밋을 생성합니다. `hello.c` 및 `hello.h`에 대해 스테이징된 변경사항은 결과 커밋에 포함되지 않습니다. 하지만 변경사항이 사라지는 것은 아닙니다 - 여전히 스테이징되어 있으며 단순히 보류 중입니다. 위 시퀀스 후, 만약 다음을 실행하면:
+
+------------
+$ git commit
+------------
+
+두 번째 커밋은 예상대로 `hello.c` 및 `hello.h`의 변경사항을 기록할 것입니다.
+
+머지(merge) ( `git merge` 또는 `git pull`로 시작)가 충돌로 인해 중단된 후, 깔끔하게 머지된 경로는 이미 커밋하도록 스테이징되어 있으며, 충돌한 경로는 병합되지 않은 상태로 남습니다. 먼저 `git status`로 어떤 경로가 충돌했는지 확인해야 하며, 워킹 트리에서 수동으로 수정한 후에, 평소처럼 `git add`로 결과를 스테이징해야 합니다:
+
+------------
+$ git status | grep unmerged
+unmerged: hello.c
+$ edit hello.c
+$ git add hello.c
+------------
+
+충돌을 해결하고 결과를 스테이징한 후, `git ls-files -u`는 충돌이 발생한 경로를 더 이상 언급하지 않을 것입니다. 완료되면, `git commit`을 실행하여 머지를 최종적으로 기록합니다:
+
+------------
+$ git commit
+------------
+
+자신의 변경사항을 기록하는 경우와 마찬가지로, `-a` 옵션을 사용하여 타이핑을 줄일 수 있습니다. 한 가지 차이점은 머지 충돌 해결 중에 경로명을 가진 `git commit`을 사용하여 변경사항이 커밋되는 순서를 변경할 수 없다는 것입니다. 왜냐하면 머지는 단일 커밋으로 기록되어야 하기 때문입니다. 사실, 명령은 경로명을 받을 때 실행을 거부합니다 (하지만 `-i` 옵션 참조).
+
+COMMIT INFORMATION
+------------------
+
+작성자 및 커미터 정보는 다음 환경 변수에서 가져옵니다. 설정된 경우:
+
+ * `GIT_AUTHOR_NAME`
+ * `GIT_AUTHOR_EMAIL`
+ * `GIT_AUTHOR_DATE`
+ * `GIT_COMMITTER_NAME`
+ * `GIT_COMMITTER_EMAIL`
+ * `GIT_COMMITTER_DATE`
+
+(nb "<", ">" 및 "\n"은 제거됩니다)
+
+작성자 및 커미터 이름은 관례적으로 개인 이름의 어떤 형태입니다 (즉, 다른 사람이 당신을 지칭할 때 사용하는 이름). Git은 특정 형식을 강제하거나 요구하지 않습니다. 위의 제약 조건에 따라 임의의 유니코드 문자를 사용할 수 있습니다. 이 이름은 인증에 영향을 미치지 않습니다. 인증에 대해서는 linkgit:git-config[1]의 `credential.username` 변수를 참조하십시오.
+
+이러한 환경 변수 중 일부가 설정되지 않은 경우, 정보는 `user.name` 및 `user.email` 구성 항목에서 가져옵니다. 또는, 이들이 존재하지 않으면, `EMAIL` 환경 변수에서 가져옵니다. 또는, 그게 설정되지 않았다면, 시스템 사용자 이름과 발신 메일에 사용되는 호스트 이름 ( `/etc/mailname` 에서 가져오고 해당 파일이 존재하지 않으면 완전한 호스트 이름으로 대체됩니다)이 사용됩니다.
+
+`author.name` 및 `committer.name`과 해당 이메일 옵션은 설정된 경우 `user.name` 및 `user.email`을 재정의하지만, 환경 변수에 의해 다시 재정의됩니다.
+
+일반적인 사용법은 `user.name` 및 `user.email` 변수만 설정하는 것입니다. 다른 옵션은 더 복잡한 사용 사례를 위해 제공됩니다.
+
+:git-commit: 1
+include::date-formats.adoc[]
+
+DISCUSSION
+----------
+
+필수는 아니지만, 커밋 메시지를 변경 사항을 요약하는 단일 짧은 줄(50자 이하)로 시작하고, 빈 줄, 그리고 더 자세한 설명으로 이어가는 것이 좋습니다. 커밋 메시지의 첫 번째 빈 줄까지의 텍스트는 커밋 제목으로 취급되며, 이 제목은 Git 전반에 걸쳐 사용됩니다. 예를 들어, linkgit:git-format-patch[1]은 커밋을 이메일로 변환하며, 제목은 Subject 줄에 사용하고 커밋의 나머지 부분은 본문에 사용합니다.
+
+include::i18n.adoc[]
+
+ENVIRONMENT AND CONFIGURATION VARIABLES
+---------------------------------------
+커밋 로그 메시지를 편집하는 데 사용되는 편집기는 `GIT_EDITOR` 환경 변수, `core.editor` 구성 변수, `VISUAL` 환경 변수, 또는 `EDITOR` 환경 변수 (이 순서대로)에서 선택됩니다. 자세한 내용은 linkgit:git-var[1]을 참조하십시오.
+
+include::includes/cmd-config-section-rest.adoc[]
+
+include::config/commit.adoc[]
+
+HOOKS
+-----
+이 명령어는 `commit-msg`, `prepare-commit-msg`, `pre-commit`, `post-commit` 및 `post-rewrite` 훅을 실행할 수 있습니다. 자세한 내용은 linkgit:githooks[5]를 참조하십시오.
+
+FILES
+-----
+
+`$GIT_DIR/COMMIT_EDITMSG`::
+	이 파일은 진행 중인 커밋의 커밋 메시지를 포함합니다.
+	`git commit`이 커밋을 생성하기 전에 오류로 인해 종료되는 경우, 사용자가 제공한 커밋 메시지 (예: 편집기 세션에서)는 이 파일에서 사용할 수 있지만, 다음 `git commit` 호출 시 덮어쓰여집니다.
+
+SEE ALSO
+--------
+linkgit:git-add[1],
+linkgit:git-rm[1],
+linkgit:git-mv[1],
+linkgit:git-merge[1],
+linkgit:git-commit-tree[1]
+
+GIT
+---
+linkgit:git[1] 모음의 일부

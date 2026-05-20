@@ -1,0 +1,28 @@
+git-get-tar-commit-id(1)
+========================
+
+NAME
+----
+git-get-tar-commit-id - git-archive로 생성된 아카이브에서 커밋 ID 추출
+
+
+SYNOPSIS
+--------
+[verse]
+'git get-tar-commit-id'
+
+
+DESCRIPTION
+-----------
+
+표준 입력에서 'git archive'에 의해 생성된 tar 아카이브를 읽고,
+그 안에 저장된 커밋 ID를 추출합니다. 입력의 첫 1024바이트만
+읽으므로, 런타임은 tar 아카이브의 크기에 크게 영향을 받지 않습니다.
+
+커밋 ID를 찾지 못하면, 'git get-tar-commit-id'는 반환 코드 1로 조용히 종료됩니다.
+이것은 아카이브가 'git archive'를 사용하여 생성되지 않았거나,
+'git archive'의 첫 번째 매개변수가 커밋 ID나 태그 대신 트리에 ID였다면 발생할 수 있습니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

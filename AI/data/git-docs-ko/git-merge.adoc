@@ -1,0 +1,277 @@
+git-merge(1)
+============
+
+NAME
+----
+git-merge - 두 개 이상의 개발 히스토리를 하나로 합친다
+
+
+SYNOPSIS
+--------
+[synopsis]
+git merge [-n] [--stat] [--compact-summary] [--no-commit] [--squash] [--[no-]edit]
+	[--no-verify] [-s <strategy>] [-X <strategy-option>] [-S[<keyid>]]
+	[--[no-]allow-unrelated-histories]
+	[--[no-]rerere-autoupdate] [-m <msg>] [-F <file>]
+	[--into-name <branch>] [<commit>...]
+git merge (--continue | --abort | --quit)
+
+DESCRIPTION
+-----------
+현재 브랜치로 명명된 커밋(히스토리가 현재 브랜치에서 갈라졌던 시점부터)의 변경 사항을 통합합니다. 이 명령어는 `git pull`이 다른 저장소의 변경 사항을 통합하는 데 사용되며, 수동으로 한 브랜치의 변경 사항을 다른 브랜치로 병합하는 데도 사용할 수 있습니다.
+
+다음과 같은 히스토리가 존재하고 현재 브랜치가 `master`라고 가정합니다:
+
+------------
+          A---B---C topic
+         /
+    D---E---F---G master
+------------
+
+그러면 `git merge topic`은 `topic` 브랜치가 `master`에서 갈라진 이후(`E`) 현재 커밋(`C`)까지의 변경 사항을 `master` 위에 다시 적용하고, 결과와 두 부모 커밋의 이름, 변경 사항을 설명하는 사용자 로그 메시지를 새로운 커밋으로 기록합니다. 작업 전에 `ORIG_HEAD`는 현재 브랜치의 끝(`G`)으로 설정됩니다.
+
+------------
+          A---B---C topic
+         /         \
+    D---E---F---G---H master
+------------
+
+병합은 자동으로 해결할 수 없는 충돌이 발생하거나 병합 시작 시 `--no-commit`이 제공된 경우 중지됩니다. 이때 `git merge --abort` 또는 `git merge --continue`를 실행할 수 있습니다.
+
+`git merge --abort`는 병합 과정을 중단하고 병합 이전 상태를 복구하려고 시도합니다. 하지만 병합이 시작될 때 커밋되지 않은 변경 사항이 있었고(특히 병합이 시작된 후 해당 변경 사항이 더 수정된 경우), `git merge --abort`가 원래(병합 이전) 변경 사항을 복구하지 못하는 경우도 있습니다. 따라서:
+
+경고: 커밋되지 않은 의미 있는 변경 사항이 있을 때 `git merge`를 실행하는 것은 권장되지 않습니다. 가능하지만, 충돌 발생 시 복구가 어려운 상태에 처할 수 있습니다.
+
+OPTIONS
+-------
+:git-merge: 1
+
+include::merge-options.adoc[]
+
+`-m <msg>`::
+	병합 커밋(생성되는 경우)에 사용될 커밋 메시지를 설정합니다.
++
+`--log`가 지정되면, 병합되는 커밋들의 짧은 로그가 지정된 메시지에 추가됩니다.
++
+`git fmt-merge-msg` 명령은 자동화된 `git merge` 호출에 대한 좋은 기본값을 제공하는 데 사용될 수 있습니다. 자동화된 메시지는 브랜치 설명을 포함할 수 있습니다.
+
+`--into-name <branch>`::
+	실제로 병합이 이루어지는 브랜치의 이름 대신, _<branch>_ 브랜치로 병합하는 것처럼 기본 병합 메시지를 준비합니다.
+
+`-F <file>`::
+`--file=<file>`::
+	병합 커밋(생성되는 경우)에 사용될 커밋 메시지를 읽습니다.
++
+`--log`가 지정되면, 병합되는 커밋들의 짧은 로그가 지정된 메시지에 추가됩니다.
+
+include::rerere-options.adoc[]
+
+`--overwrite-ignore`::
+`--no-overwrite-ignore`::
+	병합 결과에서 무시된 파일을 조용히 덮어씁니다. 이것이 기본 동작입니다. 중단하려면 `--no-overwrite-ignore`를 사용합니다.
+
+`--abort`::
+	현재 충돌 해결 과정을 중단하고 병합 이전 상태를 복구하려고 시도합니다. 자동 스태시 항목이 있으면 작업 트리(`worktree`)에 적용합니다.
++
+병합이 시작될 때 작업 트리에 커밋되지 않은 변경 사항이 있었다면, `git merge --abort`는 경우에 따라 이러한 변경 사항을 복구하지 못할 수도 있습니다. 따라서 병합을 실행하기 전에 항상 변경 사항을 커밋하거나 스태시하는 것이 좋습니다.
++
+`git merge --abort`는 `MERGE_HEAD`가 존재할 때 `git reset --merge`와 동등하지만, `MERGE_AUTOSTASH`도 존재하는 경우에는 `git merge --abort`가 스태시 항목을 작업 트리에 적용하는 반면, `git reset --merge`는 스태시된 변경 사항을 스태시 목록에 저장합니다.
+
+`--quit`::
+	현재 진행 중인 병합을 잊어버립니다. 인덱스와 작업 트리를 그대로 둡니다. `MERGE_AUTOSTASH`가 존재하면 스태시 항목이 스태시 목록에 저장됩니다.
+
+`--continue`::
+	`git merge`가 충돌로 인해 중단된 후, `git merge --continue`를 실행하여 병합을 완료할 수 있습니다 (아래 "충돌 해결 방법" 섹션 참조).
+
+`<commit>...`::
+	우리 브랜치로 병합할 커밋, 일반적으로 다른 브랜치 헤드입니다. 하나 이상의 커밋을 지정하면 두 개 이상의 부모를 가진 병합(별명으로 "Octopus merge"라고 함)이 생성됩니다.
++
+명령줄에서 커밋이 주어지지 않으면, 현재 브랜치가 업스트림으로 사용하도록 구성된 원격 추적 브랜치를 병합합니다. 이 매뉴얼 페이지의 구성 섹션도 참조하십시오.
++
+`FETCH_HEAD`(그리고 다른 커밋이 없을 때)가 지정되면, 이전 `git fetch` 호출에 의해 `.git/FETCH_HEAD` 파일에 기록된 브랜치가 현재 브랜치로 병합됩니다.
+
+
+PRE-MERGE CHECKS
+----------------
+
+외부 변경 사항을 적용하기 전에, 자신의 작업을 좋게 정리하고 로컬로 커밋해야 합니다. 충돌이 발생할 경우 덮어쓰이지 않도록 합니다. `linkgit:git-stash[1]`도 참조하십시오.
+`git pull`과 `git merge`는 로컬 커밋되지 않은 변경 사항이 `git pull`/`git merge`가 업데이트해야 할 파일과 겹치면 아무것도 하지 않고 중지합니다.
+
+병합 커밋에 관련 없는 변경 사항이 기록되는 것을 방지하기 위해, 인덱스에 `HEAD` 커밋에 비해 변경된 사항이 있으면 `git pull`과 `git merge`도 중단됩니다. (이 규칙에 대한 특수한 예외가 있을 수 있지만, 일반적으로 인덱스는 `HEAD`와 일치해야 합니다.)
+
+명명된 모든 커밋이 `HEAD`의 조상인 경우, `git merge`는 "Already up to date."라는 메시지와 함께 일찍 종료됩니다.
+
+FAST-FORWARD MERGE
+------------------
+
+종종 현재 브랜치 헤드가 명명된 커밋의 조상일 수 있습니다. 특히 `git pull`에서 호출될 때 이것이 가장 일반적인 경우입니다: 업스트림 저장소를 추적하고 있고, 로컬 변경 사항을 커밋하지 않았으며, 이제 더 최신 업스트림 리비전으로 업데이트하려고 합니다. 이 경우, 추가 병합 커밋을 생성하지 않고 `HEAD`(및 인덱스)를 명명된 커밋으로 업데이트함으로써 통합된 히스토리를 저장하기 위한 새로운 커밋이 필요하지 않습니다.
+
+이 동작은 `--no-ff` 옵션으로 억제할 수 있습니다.
+
+TRUE MERGE
+----------
+
+Fast-forward 병합(위 참조)을 제외하고, 병합될 브랜치는 두 브랜드를 부모로 갖는 병합 커밋으로 연결되어야 합니다.
+
+병합될 모든 브랜치의 변경 사항을 조정하는 병합된 버전이 커밋되며, `HEAD`, 인덱스 및 작업 트리가 해당 버전으로 업데이트됩니다. 작업 트리에는 겹치지 않는 수정 사항이 있을 수 있습니다. 업데이트는 해당 수정 사항을 보존합니다.
+
+변경 사항을 조정하는 방법이 명확하지 않은 경우, 다음이 발생합니다:
+
+1. `HEAD` 포인터는 그대로 유지됩니다.
+2. `MERGE_HEAD` ref는 다른 브랜치 헤드를 가리키도록 설정됩니다.
+3. 깔끔하게 병합된 경로는 인덱스 파일과 작업 트리 모두에서 업데이트됩니다.
+4. 충돌하는 경로의 경우, 인덱스 파일은 최대 세 가지 버전을 기록합니다: 스테이지 1은 공통 조상 버전, 스테이지 2는 `HEAD` 버전, 스테이지 3은 `MERGE_HEAD` 버전을 저장합니다 (`git ls-files -u`로 스테이지를 검사할 수 있습니다). 작업 트리 파일에는 병합 작업의 결과가 포함됩니다. 즉, 익숙한 충돌 표시기 +<<<+ `===` +>>>+를 포함한 3-way 병합 결과입니다.
+5. `AUTO_MERGE`라는 ref가 작성되어 현재 작업 트리 내용(텍스트 충돌이 있는 경우 포함)에 해당하는 트리로 이어집니다. 참고로 이 ref는 `ort` 병합 전략(기본값)이 사용될 때만 작성됩니다.
+6. 다른 변경 사항은 적용되지 않습니다. 특히, 병합을 시작하기 전에 가지고 있던 로컬 수정 사항은 그대로 유지되며 해당 항목은 `HEAD`와 일치하는 상태로 유지됩니다.
+
+복잡한 충돌을 초래한 병합을 시도했지만 처음부터 다시 시작하고 싶다면, `git merge --abort`로 복구할 수 있습니다.
+
+MERGING TAG
+-----------
+
+주석이 달린(및 선택적으로 서명된) 태그를 병합할 때, Git은 fast-forward 병합이 가능한 경우에도 항상 병합 커밋을 생성하며, 커밋 메시지 템플릿은 태그 메시지로 준비됩니다. 또한, 태그가 서명된 경우, 서명 확인이 메시지 템플릿에 주석으로 보고됩니다. `linkgit:git-tag[1]`도 참조하십시오.
+
+태그가 달린 커밋으로 이어지는 작업만 통합하고 싶을 때, 예를 들어 업스트림 릴리스 지점과 동기화할 때, 불필요한 병합 커밋을 만들고 싶지 않을 수 있습니다.
+
+이런 경우, `git merge`에 전달하기 전에 태그를 직접 "압축 해제"하거나, 작업이 없는 경우 `--ff-only`를 전달할 수 있습니다. 예:
+
+----
+git fetch origin
+git merge v1.2.3^0
+git merge --ff-only v1.2.3
+----
+
+충돌이 표시되는 방식
+---------------------
+
+병합 중 작업 트리 파일은 병합 결과를 반영하도록 업데이트됩니다. 공통 조상 버전에서 이루어진 변경 사항 중 겹치지 않는 부분(즉, 상대방이 해당 부분을 그대로 둔 상태에서 파일을 변경했거나 그 반대의 경우)은 최종 결과에 그대로 포함됩니다. 그러나 양쪽이 같은 부분에 변경 사항을 적용한 경우, Git은 어느 한쪽을 임의로 선택할 수 없으며, 해당 부분을 해결하도록 요청합니다.
+
+기본적으로 Git은 RCS 스위트의 "merge" 프로그램과 동일한 스타일을 사용하여 충돌하는 덩어리를 다음과 같이 표시합니다:
+
+------------
+Here are lines that are either unchanged from the common
+ancestor, or cleanly resolved because only one side changed,
+or cleanly resolved because both sides changed the same way.
+<<<<<<< yours:sample.txt
+Conflict resolution is hard;
+let's go shopping.
+=======
+Git makes conflict resolution easy.
+>>>>>>> theirs:sample.txt
+And here is another line that is cleanly resolved or unmodified.
+------------
+
+충돌하는 변경 사항 쌍이 있는 영역은 +<<<<<<<+, `=======`, 및 +>>>>>>>+와 같은 마커로 표시됩니다. `=======` 앞부분은 일반적으로 우리 쪽이며, 뒷부분은 상대방 쪽입니다.
+
+기본 형식은 충돌 영역의 원본 내용을 보여주지 않습니다. 우리 쪽에서 바비 인형의 발언으로 얼마나 많은 줄이 삭제되고 대체되었는지 알 수 없습니다. 우리가 말하려는 것이 어렵고 쇼핑을 하고 싶다는 것만 알 수 있으며, 상대방은 그것이 쉽다고 주장하고 싶어합니다.
+
+`merge.conflictStyle` 구성 변수를 `diff3` 또는 `zdiff3`으로 설정하여 대안 스타일을 사용할 수 있습니다. `diff3` 스타일에서는 위의 충돌이 다음과 같이 보일 수 있습니다:
+
+------------
+Here are lines that are either unchanged from the common
+ancestor, or cleanly resolved because only one side changed,
+<<<<<<< yours:sample.txt
+or cleanly resolved because both sides changed the same way.
+Conflict resolution is hard;
+let's go shopping.
+||||||| base:sample.txt
+or cleanly resolved because both sides changed identically.
+Conflict resolution is hard.
+=======
+or cleanly resolved because both sides changed the same way.
+Git makes conflict resolution easy.
+>>>>>>> theirs:sample.txt
+And here is another line that is cleanly resolved or unmodified.
+------------
+
+while in `zdiff3` style, it may look like this:
+
+------------
+Here are lines that are either unchanged from the common
+ancestor, or cleanly resolved because only one side changed,
+or cleanly resolved because both sides changed the same way.
+<<<<<<< yours:sample.txt
+Conflict resolution is hard;
+let's go shopping.
+||||||| base:sample.txt
+or cleanly resolved because both sides changed identically.
+Conflict resolution is hard.
+=======
+Git makes conflict resolution easy.
+>>>>>>> theirs:sample.txt
+And here is another line that is cleanly resolved or unmodified.
+------------
+
++<<<<<<<+, `=======`, 및 +>>>>>>>+ 마커 외에도 원본 텍스트 뒤에 오는 +|||||||+ 마커를 사용합니다. 원본은 사실을 진술했으며, 우리 쪽은 단순히 그 진술에 굴복하여 포기했지만, 상대방은 더 긍정적인 태도를 취하려고 했다는 것을 알 수 있습니다. 원본을 보면 더 나은 해결 방법을 찾을 수 있습니다.
+
+
+충돌 해결 방법
+------------------------
+
+충돌을 발견하면 두 가지 작업을 할 수 있습니다:
+
+ * 병합하지 않기로 결정합니다. 필요한 정리 작업은 인덱스 파일을 `HEAD` 커밋으로 재설정하여 2.를 되돌리고 2. 및 3.에 의해 수행된 작업 트리 변경 사항을 정리하는 것입니다. `git merge --abort`를 사용할 수 있습니다.
+
+ * 충돌을 해결합니다. Git은 작업 트리에서 충돌을 표시합니다. 파일을 수정하여 모양을 만들고 인덱스에 `git add`합니다. `git commit` 또는 `git merge --continue`를 사용하여 완료합니다. 후자의 명령어는 `git commit`을 호출하기 전에 (중단된) 병합이 진행 중인지 확인합니다.
+
+다음과 같은 여러 도구를 사용하여 충돌을 해결할 수 있습니다:
+
+ * mergetool을 사용합니다. `git mergetool`을 실행하면 그래픽 mergetool이 실행되어 병합을 함께 처리합니다.
+
+ * diff를 살펴봅니다. `git diff`는 3-way diff를 보여주고 `HEAD` 및 `MERGE_HEAD` 버전의 변경 사항을 강조 표시합니다. `git diff AUTO_MERGE`는 텍스트 충돌을 해결하기 위해 지금까지 만든 변경 사항을 보여줍니다.
+
+ * 각 브랜치의 diff를 살펴봅니다. `git log --merge -p <path>`는 먼저 `HEAD` 버전, 다음으로 `MERGE_HEAD` 버전의 diff를 보여줍니다.
+
+ * 원본을 살펴봅니다. `git show :1:filename`은 공통 조상을 보여주고, `git show :2:filename`은 `HEAD` 버전을 보여주고, `git show :3:filename`은 `MERGE_HEAD` 버전을 보여줍니다.
+
+
+EXAMPLES
+--------
+
+* octopus merge를 수행하며 현재 브랜치 위에 `fixes` 및 `enhancements` 브랜치를 병합합니다:
++
+------------------------------------------------
+$ git merge fixes enhancements
+------------------------------------------------
+
+* `ours` 병합 전략을 사용하여 현재 브랜치로 `obsolete` 브랜치를 병합합니다:
++
+------------------------------------------------
+$ git merge -s ours obsolete
+------------------------------------------------
+
+* 현재 브랜치로 `maint` 브랜치를 병합하지만, 자동으로 새 커밋을 만들지 않습니다:
++
+------------------------------------------------
+$ git merge --no-commit maint
+------------------------------------------------
++
+이는 추가 변경 사항을 병합에 포함시키고 싶거나, 자신만의 병합 커밋 메시지를 작성하고 싶을 때 사용할 수 있습니다.
++
+병합 커밋에 상당한 변경 사항을 몰래 포함시키기 위해 이 옵션을 남용하지 마십시오. 릴리스/버전 이름 변경과 같은 작은 수정은 허용될 수 있습니다.
+
+
+include::merge-strategies.adoc[]
+
+CONFIGURATION
+-------------
+
+`branch.<name>.mergeOptions`::
+	_<name>_ 브랜치로 병합할 때 기본 옵션을 설정합니다. 문법과 지원되는 옵션은 `git merge`와 동일하지만, 현재 공백 문자를 포함하는 옵션 값은 지원되지 않습니다.
+
+include::includes/cmd-config-section-rest.adoc[]
+
+include::config/merge.adoc[]
+
+SEE ALSO
+--------
+linkgit:git-fmt-merge-msg[1], linkgit:git-pull[1],
+linkgit:gitattributes[5],
+linkgit:git-reset[1],
+linkgit:git-diff[1], linkgit:git-ls-files[1],
+linkgit:git-add[1], linkgit:git-rm[1],
+linkgit:git-mergetool[1]
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

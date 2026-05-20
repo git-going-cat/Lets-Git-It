@@ -1,0 +1,28 @@
+git-verify-tag(1)
+=================
+
+NAME
+----
+git-verify-tag - 태그의 GPG 서명을 확인
+
+SYNOPSIS
+--------
+[synopsis]
+git verify-tag [-v | --verbose] [--format=<format>] [--raw] <tag>...
+
+DESCRIPTION
+-----------
+명령줄에 나열된 태그 객체의 `git tag`에 의해 생성된 gpg 서명을 검증합니다.
+
+OPTIONS
+-------
+`--raw`::
+	일반적인 사람이 읽을 수 있는 출력 대신 표준 오류로 원시 gpg 상태 출력을 인쇄합니다.
+
+`-v`::
+`--verbose`::
+	태그 객체를 검증하기 전에 해당 내용을 인쇄합니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

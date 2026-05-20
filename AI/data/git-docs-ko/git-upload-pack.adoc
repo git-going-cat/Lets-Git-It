@@ -1,0 +1,90 @@
+git-upload-pack(1)
+==================
+
+NAME
+----
+git-upload-pack - git-fetch-pack 으로 객체를 패킹하여 보낸다.
+
+
+SYNOPSIS
+--------
+[verse]
+'git-upload-pack' [--[no-]strict] [--timeout=<n>] [--stateless-rpc]
+		  [--advertise-refs] <directory>
+
+DESCRIPTION
+-----------
+'git fetch-pack' 에 의해 호출되며, 상대방이 누락된
+객체가 무엇인지 파악하여, 패킹 후 이를 보낸다.
+
+이 명령어는 일반적으로 최종 사용자에게 직접 호출되지 않는다.
+프로토콜 UI는 'git fetch-pack' 쪽에 있으며,
+이 프로그램 쌍은 원격 저장소에서 업데이트를 가져오는 데 사용된다.
+푸시 작업에 대해서는 'git send-pack'을 참조하라.
+
+OPTIONS
+-------
+
+--strict::
+--no-strict::
+	<directory>가 Git 저장소가 아닌 경우 <directory>/.git/를 시도하지 않는다.
+
+--timeout=<n>::
+	<n>초 동안 활동이 없으면 전송을 중단한다.
+
+--stateless-rpc::
+	표준 입력과 표준 출력으로 단일 읽기-쓰기 사이클만 수행한다.
+	이것은 HTTP POST 요청 처리 모델에 적합하며,
+	프로그램이 요청을 읽고, 응답을 쓰고, 종료해야 한다.
+
+--http-backend-info-refs::
+	linkgit:git-http-backend[1] 에서
+	`$GIT_URL/info/refs?service=git-upload-pack` 요청을 제공하는 데 사용된다.
+	"Smart Clients" in linkgit:gitprotocol-http[5] 와 "HTTP
+	Transport" in the linkgit:gitprotocol-v2[5]
+	문서를 참조하라. linkgit:git-receive-pack[1] 에서도 이해한다.
+
+<directory>::
+	동기화할 저장소.
+
+ENVIRONMENT
+-----------
+
+`GIT_PROTOCOL`::
+	전송 프로토콜 핸드셰이킹에 사용되는 내부 변수. 서버
+	관리자는 이 변수가 전달되도록 일부 전송을 구성해야 할 수 있다.
+	linkgit:git[1] 의 논의를 참조하라.
+
+`GIT_NO_LAZY_FETCH`::
+	부분적인 저장소(즉, `--filter`를 사용하여 복제된 저장소)에서
+	클론하거나 가져오는 경우, 서버 측 `upload-pack`은
+	요청을 완료하기 위해 업스트림에서 추가 객체를 가져와야 할 수 있다.
+	기본적으로 `upload-pack`은 이러한 지연 가져오기를 수행하는 것을 거부하는데,
+	왜냐하면 `git fetch`는 구성 및 소스 저장소의 훅에 지정된 임의의 명령을 실행할 수 있기 때문이다.
+	(`upload-pack`은 신뢰할 수 없는 `.git` 디렉토리에서도 안전하게 실행되도록 노력한다.)
++
+이는 `upload-pack`이 내부적으로 `GIT_NO_LAZY_FETCH` 변수를
+`1`로 설정하여 구현된다. 이 값을 재정의하고 싶다면 (부분 복제에서 가져오고 있으며,
+신뢰한다고 확신하는 경우), 명시적으로 `GIT_NO_LAZY_FETCH`를
+`0`으로 설정할 수 있다.
+
+SECURITY
+--------
+
+대부분의 Git 명령어는 신뢰할 수 없는 `.git` 디렉토리에서 실행해서는 안 된다.
+(linkgit:git[1] 의 `SECURITY` 섹션 참조). `upload-pack`은
+제공하는 저장소의 위험한 구성 옵션이나 훅을 피하려고 노력하여,
+신뢰할 수 없는 디렉토리를 복제하고 결과 복제본에서 명령을 실행해도 안전하다.
+
+추가적인 안전 장치를 위해 `upload-pack`을 다른 사용자로서 실행할 수 있다.
+자세한 내용은 플랫폼에 따라 다르지만, 많은 시스템에서는 다음을 실행할 수 있다.
+
+    git clone --no-local --upload-pack='sudo -u nobody git-upload-pack' ...
+
+SEE ALSO
+--------
+linkgit:gitnamespaces[7]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부
