@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { socketManager } from '@/core/socket/SocketManager';
+import { socketManager, TERMINAL_AUTH_ERROR_CODES } from '@/core/socket/SocketManager';
 import {
   baseMessageSchema,
   errorSchema,
@@ -18,7 +18,6 @@ import {
  */
 const PRIVATE_CHANNEL_DESTINATION = '/user/queue/private';
 const PRIVATE_CHANNEL_SUBSCRIPTION_KEY = 'multi:private-channel';
-const FORCE_DISCONNECT_CODES = new Set(['LOGGED_OUT', 'REPLACED_BY_NEW_LOGIN']);
 
 type UseSocketPrivateChannelOptions = {
   onForceDisconnect: () => void;
@@ -57,7 +56,7 @@ export function useSocketPrivateChannel({
               return;
             }
 
-            if (!FORCE_DISCONNECT_CODES.has(result.data.code)) return;
+            if (!TERMINAL_AUTH_ERROR_CODES.has(result.data.code)) return;
             socketManager.disconnect();
             onForceDisconnect();
             return;

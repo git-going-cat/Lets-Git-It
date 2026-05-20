@@ -9,6 +9,7 @@ interface CoopEventMap {
   'coop:assign-complete': void;
   'coop:cards-hide': void;
   'coop:screen-shake': void;
+  'coop:input-clear': void;
   'coop:input-wrong-shake': void;
   'coop:mock-order-wrong': void;
   'coop:mock-input-correct': void;
