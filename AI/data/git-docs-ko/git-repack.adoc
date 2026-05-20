@@ -1,0 +1,280 @@
+git-repack(1)
+=============
+
+NAME
+----
+git-repack - repository의 압축되지 않은 객체들을 pack으로 만듭니다
+
+SYNOPSIS
+--------
+[verse]
+'git repack' [-a] [-A] [-d] [-f] [-F] [-l] [-n] [-q] [-b] [-m]
+	[--window=<n>] [--depth=<n>] [--threads=<n>] [--keep-pack=<pack-name>]
+	[--write-midx] [--name-hash-version=<n>] [--path-walk]
+
+DESCRIPTION
+-----------
+
+이 명령어는 현재 "pack"에 포함되지 않은 모든 객체를 pack으로 결합하는 데 사용됩니다.
+또한 기존 pack들을 더 효율적인 단일 pack으로 재구성하는 데에도 사용될 수 있습니다.
+
+pack은 개별적으로 압축되고 델타 압축이 적용되었으며, 단일 파일에 저장되고
+관련된 인덱스 파일이 있는 객체들의 모음입니다.
+
+pack은 미러 시스템, 백업 엔진, 디스크 저장 공간 등에 대한 부하를 줄이는 데 사용됩니다.
+
+OPTIONS
+-------
+
+-a::
+	압축되지 않은 객체들을 점진적으로 pack하는 대신,
+	참조되는 모든 것을 단일 pack으로 pack합니다.
+	특히 개인 개발용 저장소 pack 시 유용합니다.
+	`-d` 옵션과 함께 사용하십시오. 이 옵션은 `git prune`이 남겨두는
+	객체들을 정리하지만, `git fsck --full --dangling`에서
+	dangling으로 표시되는 객체들도 정리합니다.
++
+	dumb 프로토콜을 통해 fetch하는 사용자는 해당 pack에 포함된 객체를
+	이미 로컬에 가지고 있더라도 해당 객체를 얻기 위해 전체 pack을
+	다시 fetch해야 한다는 점에 유의하십시오.
++
+	Promisor packfile은 별도로 다시 pack됩니다: ".promisor" 파일과
+	연관된 packfile이 있는 경우, 이 packfile들은 다른 별도의 pack으로
+	다시 pack되며, 새로운 별도의 pack에 해당하는 빈 ".promisor" 파일이
+	작성됩니다.
+
+-A::
+	`-a`와 동일하지만, `-d` 옵션이 사용되지 않는 경우에만 다릅니다.
+	그러면 이전 pack의 도달 불가능한(unreachable) 객체들은
+	Loose, 압축되지 않은 객체로 남게 됩니다.
+	도달 불가능한 객체들은 pack에 의도적으로 추가되지 않으며,
+	재 pack 시에도 마찬가지입니다.
+	이 옵션은 도달 불가능한 객체들이 이전 pack에 남아 있다가
+	제거되는 방식으로 즉시 삭제되는 것을 방지합니다.
+	대신, loose한 도달 불가능한 객체들은
+	다음 'git gc' 호출 시 일반적인 만료 규칙에 따라 정리될 것입니다.
+	linkgit:git-gc[1]을 참조하십시오.
+
+-d::
+	pack 후, 새로 생성된 pack들이 기존 pack들을 불필요하게 만들면,
+	불필요한 pack들을 제거합니다.
+	또한 'git prune-packed'를 실행하여 불필요한 loose 객체 파일들을
+	제거합니다.
+
+--cruft::
+	`-a`와 동일하지만, `-d` 옵션이 사용되지 않는 경우에만 다릅니다.
+	그러면 도달 불가능한 객체들은 별도의 cruft pack으로 pack됩니다.
+	도달 불가능한 객체들은 다음 `git gc` 호출 시 일반적인 만료 규칙을
+	사용하여 정리될 수 있습니다 (linkgit:git-gc[1] 참조).
+	`-k` 옵션과 호환되지 않습니다.
+
+--cruft-expiration=<approxidate>::
+	다음 `git gc` 호출을 기다리지 않고, `<approxidate>`보다 오래된
+	도달 불가능한 객체들을 즉시 만료시킵니다.
+	`--cruft -d` 옵션과 함께 사용할 때만 유용합니다.
+
+--max-cruft-size=<n>::
+	cruft pack에 대한 `--max-pack-size`를 재정의합니다.
+	기본적으로 `--max-pack-size`의 값(있는 경우)을 상속합니다.
+	`--max-pack-size`에 대한 설명을 참조하십시오.
+
+--combine-cruft-below-size=<n>::
+	pruning 없이 cruft pack을 생성할 때, 크기가 `<n>` 바이트보다
+	엄격하게 작은 기존 cruft pack들만 다시 pack합니다.
+	`<n>`은 "k", "m", 또는 "g" 접미사를 가질 수 있습니다.
+	크기가 `<n>`보다 크거나 같은 cruft pack들은 그대로 유지되며 다시 pack되지 않습니다.
+	많은 수의/큰 수의 도달 불가능한 객체를 가진 저장소에서
+	큰 cruft pack(들)을 다시 pack하지 않으려는 경우 유용합니다.
+
+--expire-to=<dir>::
+	정리된 객체(있는 경우)를 포함하는 cruft pack을
+	`<dir>` 디렉토리에 씁니다. 이 옵션은 정리된 객체 복사본을
+	별도의 디렉토리에 백업으로 유지하는 데 유용합니다.
+	`--cruft -d` 옵션과 함께 사용할 때만 유용합니다.
+	**경고:** 정리된 객체를 포함하는 packfile에 접근할 수 없으면,
+	해당 packfile의 객체에 접근할 수 없게 되어 저장소가 손상될 수 있습니다.
+	linkgit:gitrepository-layout[5]의 `objects` 및 `objects/info/alternates` 섹션을 참조하십시오.
+
+-l::
+	`git pack-objects`에 `--local` 옵션을 전달합니다.
+	linkgit:git-pack-objects[1]을 참조하십시오.
+
+-f::
+	`git-pack-objects`에 `--no-reuse-delta` 옵션을 전달합니다.
+	linkgit:git-pack-objects[1]을 참조하십시오.
+
+-F::
+	`git-pack-objects`에 `--no-reuse-object` 옵션을 전달합니다.
+	linkgit:git-pack-objects[1]을 참조하십시오.
+
+-q::
+--quiet::
+	표준 오류 스트림에 진행 상황을 표시하지 않고 'git pack-objects'에
+	`-q` 옵션을 전달합니다. linkgit:git-pack-objects[1]을 참조하십시오.
+
+-n::
+	'git update-server-info'로 서버 정보를 업데이트하지 않습니다.
+	이 옵션은 이 저장소(또는 이를 직접 복사한 것)를
+	HTTP 또는 FTP를 통해 게시하는 데 필요한 로컬 카탈로그 파일을
+	업데이트하는 것을 건너뜁니다.
+	linkgit:git-update-server-info[1]을 참조하십시오.
+
+--window=<n>::
+--depth=<n>::
+	이 두 옵션은 pack에 포함된 객체들이
+	델타 압축을 사용하여 저장되는 방식을 제어합니다.
+	객체들은 먼저 내부적으로 타입, 크기, 그리고 선택적으로 이름별로 정렬되고
+	`--window` 내의 다른 객체들과 비교되어 델타 압축이 공간을 절약하는지 확인합니다.
+	`--depth`는 최대 델타 깊이를 제한합니다; 너무 깊게 설정하면
+	언팩커 측의 성능에 영향을 미칠 수 있습니다. 왜냐하면 필요한 객체에 도달하기 위해
+	델타 데이터를 여러 번 적용해야 하기 때문입니다.
++
+	`--window`의 기본값은 10이고 `--depth`의 기본값은 50입니다. 최대
+	깊이는 4095입니다.
+
+--threads=<n>::
+	이 옵션은 `git pack-objects`로 전달됩니다.
+
+--window-memory=<n>::
+	이 옵션은 `--window` 위에 추가적인 제한을 제공합니다;
+	창 크기는 메모리를 '<n>' 바이트 이상 차지하지 않도록 동적으로 조정됩니다.
+	이것은 크고 작은 객체가 혼합된 저장소에서 큰 창으로 인해
+	메모리가 부족해지는 것을 방지하면서도 작은 객체에 대해서는
+	큰 창의 이점을 활용할 수 있도록 합니다.
+	크기는 "k", "m", 또는 "g" 접미사를 가질 수 있습니다.
+	`--window-memory=0`은 메모리 사용량을 무제한으로 만듭니다.
+	기본값은 `pack.windowMemory` 구성 변수에서 가져옵니다.
+	실제 메모리 사용량은 linkgit:git-pack-objects[1]에 사용된 스레드 수에
+	한도 값을 곱한 값이 될 수 있다는 점에 유의하십시오.
+
+--max-pack-size=<n>::
+	각 출력 pack 파일의 최대 크기입니다. 크기는
+	"k", "m", 또는 "g" 접미사를 가질 수 있습니다. 허용되는 최소 크기는 1 MiB로 제한됩니다.
+	지정하는 경우, 여러 packfile이 생성될 수 있으며, 이는
+	비트맵 인덱스 생성을 방지하기도 합니다.
+	기본값은 무제한이지만, `pack.packSizeLimit` 설정 변수가
+	설정된 경우는 제외입니다. 이 옵션을 사용하면
+	저장소가 더 커지고 느려질 수 있으며, `pack.packSizeLimit`
+	의 논의를 참조하십시오.
+
+--filter=<filter-spec>::
+	필터 사양과 일치하는 객체들을 결과 packfile에서 제거하고
+	별도의 packfile에 넣습니다. 워킹 디렉토리에서 사용되는 객체는
+	필터링되지 않는다는 점에 유의하십시오. 따라서 분할이 완전히 작동하려면,
+	bare 저장소에서 이 옵션을 사용하고 `-a` 및 `-d` 옵션과 함께
+	사용하는 것이 가장 좋습니다. 또한 `--no-write-bitmap-index` (또는
+	`repack.writebitmaps` 구성 옵션을 `false`로 설정)를 사용해야
+	합니다. 그렇지 않으면 비트맵 인덱스 쓰기가 실패합니다. 왜냐하면
+	모든 객체를 포함하는 단일 packfile을 가정하기 때문입니다.
+	유효한 `<filter-spec>` 형식은 linkgit:git-rev-list[1]을 참조하십시오.
+
+--filter-to=<dir>::
+	필터링된 객체를 포함하는 pack을 `<dir>` 디렉토리에 씁니다.
+	`--filter` 옵션과 함께 사용할 때만 유용합니다.
+	이것은 필터링된 객체를 Git alternates 메커니즘을 통해 접근되는
+	별도의 객체 디렉토리에 pack을 배치하는 데 사용될 수 있습니다.
+	**경고:** 필터링된 객체를 포함하는 packfile에 접근할 수 없으면,
+	해당 packfile의 객체에 접근할 수 없게 되어 저장소가 손상될 수 있습니다.
+	linkgit:gitrepository-layout[5]의 `objects` 및 `objects/info/alternates` 섹션을 참조하십시오.
+
+-b::
+--write-bitmap-index::
+	repack의 일부로 reachability bitmap index를 씁니다.
+	이것은 `-a`, `-A` 또는 `-m` 옵션과 함께 사용할 때만 의미가 있습니다.
+	왜냐하면 bitmap은 모든 도달 가능한 객체를 참조할 수 있어야 하기 때문입니다.
+	이 옵션은 `repack.writeBitmaps` 설정을 재정의합니다.
+	여러 packfile이 생성되는 경우(MIDX를 쓰는 경우를 제외하고) 이 옵션은 효과가 없습니다.
+	(MIDX를 쓰는 경우 다중 pack bitmap이 생성됩니다.)
+
+--pack-kept-objects::
+	repack 시 `.keep` 파일의 객체를 포함합니다.
+	`pack-objects` 완료 후에도 `.keep` pack을 삭제하지 않는다는 점에 유의하십시오.
+	이것은 객체가 중복될 수 있음을 의미하지만, 동시 push 또는 fetch가 있을 때
+	옵션을 안전하게 사용할 수 있도록 합니다.
+	일반적으로 이 옵션은 `-b` 또는 `repack.writeBitmaps`로 bitmap을
+	쓰는 경우에만 유용합니다. 왜냐하면 bitmapped packfile에 필요한 객체를
+	포함하도록 보장하기 때문입니다.
+
+--keep-pack=<pack-name>::
+	주어진 pack을 다시 pack하지 않습니다. 이것은 pack에
+	`.keep` 파일을 두는 것과 동일합니다. `<pack-name>`은
+	앞쪽 디렉토리를 제외한 pack 파일 이름입니다 (예: `pack-123.pack`).
+	여러 pack을 유지하기 위해 이 옵션을 여러 번 지정할 수 있습니다.
+
+--unpack-unreachable=<when>::
+	도달 불가능한 객체들을 loose 객체로 만들 때, `<when>`보다 오래된
+	어떤 객체라도 loose 객체로 만드는 것을 건너뜁니다.
+	이것은 후속 `git prune`에 의해 즉시 정리될 객체들의 쓰기를
+	최적화하는 데 사용될 수 있습니다.
+
+-k::
+--keep-unreachable::
+	`-ad` 옵션과 함께 사용될 때, 기존 pack들의 도달 불가능한 객체들은
+	제거되는 대신 packfile 끝에 추가됩니다.
+	또한, 도달 불가능한 loose 객체들은 (해당 loose 객체들은 제거하면서)
+	pack됩니다.
+
+-i::
+--delta-islands::
+	`git-pack-objects`에 `--delta-islands` 옵션을 전달합니다.
+	linkgit:git-pack-objects[1]을 참조하십시오.
+
+-g<factor>::
+--geometric=<factor>::
+	결과 pack 구조를 배열하여 각 successive pack이
+	다음으로 큰 pack보다 최소 `<factor>` 배의 객체를 포함하도록 합니다.
++
+	`git repack`은 기하급수적인 진행을 보장하기 위해
+	다시 pack되어야 하는 packfile들의 "cut"를 결정하여 이를 보장합니다.
+	가장 큰 packfile의 수를 기준으로 가능한 한 많은 큰 packfile들을
+	그대로 유지할 수 있도록 하는 가장 작은 packfile 세트를 선택합니다.
++
+	다른 repack 모드와 달리, pack될 객체 집합은 "roll-up" 되는 pack 집합에 의해
+	고유하게 결정됩니다. 즉, 기하급수적인 진행을 복원하기 위해
+	결합되어야 하는 것으로 결정된 pack들입니다.
++
+	loose 객체들은 도달 가능성과 관계없이 이 "roll-up"에 암묵적으로 포함됩니다.
+	이것은 향후 변경될 수 있습니다.
++
+	다중 pack bitmap을 작성할 때, `git repack`은 MIDX(linkgit:git-multi-pack-index[1] 참조)에
+	대한 객체 선택을 위해 가장 큰 결과 pack을 선호되는 pack으로 선택합니다.
+
+-m::
+--write-midx::
+	redundant하지 않은 pack들을 포함하는 multi-pack index (linkgit:git-multi-pack-index[1] 참조)를 씁니다.
+
+--name-hash-version=<n>::
+	하위 `git pack-objects` 프로세스에 이 인수를 제공합니다.
+	자세한 내용은 linkgit:git-pack-objects[1]을 참조하십시오.
+
+--path-walk::
+	하위 `git pack-objects` 프로세스에 `--path-walk` 옵션을 전달합니다.
+	자세한 내용은 linkgit:git-pack-objects[1]을 참조하십시오.
+
+CONFIGURATION
+-------------
+
+다양한 구성 변수가 packing에 영향을 미칩니다.
+linkgit:git-config[1] ( "pack" 및 "delta" 검색)을 참조하십시오.
+
+기본적으로 이 명령어는 'git pack-objects'에 `--delta-base-offset` 옵션을
+전달합니다. 이 옵션은 일반적으로 더 작은 pack을 생성하지만,
+생성된 pack은 버전 1.4.4보다 오래된 Git 버전과 호환되지 않습니다.
+이러한 오래된 Git 버전과 저장소를 직접 또는 dumb http 프로토콜을 통해
+공유해야 하는 경우, 구성 변수 `repack.UseDeltaBaseOffset`을
+"false"로 설정하고 다시 pack해야 합니다. 네이티브 프로토콜을 통한
+오래된 Git 버전의 접근은 이 옵션의 영향을 받지 않습니다. 왜냐하면
+이 경우 필요한 시점에 즉석에서 변환이 수행되기 때문입니다.
+
+`core.bigFileThreshold` 구성 변수보다 큰 객체에는
+델타 압축이 사용되지 않으며, `delta` 속성이 false로 설정된 파일에도
+사용되지 않습니다.
+
+SEE ALSO
+--------
+linkgit:git-pack-objects[1]
+linkgit:git-prune-packed[1]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

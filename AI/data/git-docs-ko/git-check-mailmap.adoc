@@ -1,0 +1,62 @@
+git-check-mailmap(1)
+====================
+
+NAME
+----
+git-check-mailmap - 메일맵 연락처의 표준 이름과 이메일 주소 표시
+
+
+SYNOPSIS
+--------
+[verse]
+'git check-mailmap' [<options>] <contact>...
+
+
+DESCRIPTION
+-----------
+
+명령줄에서 제공되거나 `--stdin` 옵션을 사용할 때 표준 입력에서 읽어들인
+``Name $$<user@host>$$'', ``$$<user@host>$$'', 또는 ``$$user@host$$'' 형식의 각 연락처에 대해,
+해당 인물의 표준 이름과 이메일 주소를 찾습니다 (아래 "저자 매핑" 참조).
+찾은 경우 출력하고, 찾지 못한 경우 입력된 내용을 그대로 출력합니다.
+
+
+OPTIONS
+-------
+--stdin::
+	명령줄에서 제공된 연락처를 모두 처리한 후, 표준 입력에서 한 줄에 하나씩
+	연락처를 읽어들입니다.
+
+--mailmap-file=<file>::
+	구성된 모든 메일맵 파일 외에, 지정된 메일맵 파일을 읽어들입니다.
+	이 파일의 항목은 기본 메일맵 파일이나 구성된 메일맵 파일의 항목보다 우선합니다.
+
+--mailmap-blob=<blob>::
+	`--mailmap-file`과 유사하지만, 값을 저장소 내의 블롭(blob)에 대한
+	참조로 간주합니다. `--mailmap-file`과 `--mailmap-blob`이 모두 지정되면,
+	`--mailmap-file`의 항목이 우선합니다.
+
+OUTPUT
+------
+
+각 연락처에 대해, 줄바꿈으로 끝나는 한 줄의 출력이 생성됩니다.
+이름이 제공되었거나 `mailmap`에서 알려진 경우, ``Name $$<user@host>$$''가 출력됩니다.
+그렇지 않은 경우 ``$$<user@host>$$''만 출력됩니다.
+
+
+CONFIGURATION
+-------------
+
+사용자 정의 `.mailmap` 대상 파일 또는 객체를 지정하는 방법에 대해서는
+linkgit:git-config[1]의 `mailmap.file`과 `mailmap.blob`을 참조하십시오.
+
+
+MAPPING AUTHORS
+---------------
+
+linkgit:gitmailmap[5]를 참조하십시오.
+
+
+GIT
+---
+linkgit:git[1] 제품군의 일부입니다.

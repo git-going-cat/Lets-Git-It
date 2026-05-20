@@ -1,0 +1,38 @@
+git-sh-i18n(1)
+==============
+
+NAME
+----
+git-sh-i18n - Git의 쉘 스크립트용 i18n 설정 코드
+
+SYNOPSIS
+--------
+[verse]
+'. "$(git --exec-path)/git-sh-i18n"'
+
+DESCRIPTION
+-----------
+
+이것은 일반 사용자가 실행하고 싶어 할 만한 명령이 아닙니다. 절대로요.
+이 문서는 Porcalein-ish 스크립트를 연구하거나 새로 작성하는 사람들을 위한 것입니다.
+
+'git sh-i18n' 스크립틀릿은 Git의 쉘 스크립트로 구현된 porcelain 프로그램에서
+`.` (source)를 사용하여 불러오도록 설계되었습니다. 이는 `gettext.sh` 스크립트를 통해 접근 가능한
+GNU `gettext` 및 `eval_gettext` 함수에 대한 래퍼를 제공하며, GNU gettext가 없는 시스템에서는
+패스스루 폴백을 제공합니다.
+
+FUNCTIONS
+---------
+
+gettext::
+	현재는 `printf(1)` 주변의 래퍼로 구현된 더미 폴스루 함수입니다.
+	이후 버전에서 실제 gettext 구현으로 대체될 것입니다.
+
+eval_gettext::
+	현재는 `printf(1)` 주변의 래퍼로 구현된 더미 폴스루 함수이며,
+	linkgit:git-sh-i18n{litdd}envsubst[1] 헬퍼에 의해 변수가 확장됩니다.
+	이후 버전에서 실제 gettext 구현으로 대체될 것입니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

@@ -1,0 +1,87 @@
+git-check-ref-format(1)
+=======================
+
+NAME
+----
+git-check-ref-format - 참조 이름이 올바르게 구성되었는지 확인합니다
+
+SYNOPSIS
+--------
+[verse]
+'git check-ref-format' [--normalize]
+       [--[no-]allow-onelevel] [--refspec-pattern]
+       <refname>
+'git check-ref-format' --branch <branchname-shorthand>
+
+DESCRIPTION
+-----------
+주어진 'refname'이 허용 가능한지 확인하고, 허용되지 않으면 0이 아닌 상태 코드로 종료합니다.
+
+Git에서 참조는 브랜치와 태그를 지정하는 데 사용됩니다. 브랜치 헤드는 `refs/heads` 계층 구조에 저장되고, 태그는 참조 네임스페이스의 `refs/tags` 계층 구조에 저장됩니다 (일반적으로 `$GIT_DIR/refs/heads` 및 `$GIT_DIR/refs/tags` 디렉토리 또는 참조가 `git gc`에 의해 패킹된 경우 `$GIT_DIR/packed-refs` 파일의 항목으로).
+
+Git은 참조 이름에 다음과 같은 규칙을 적용합니다:
+
+. 계층적 (디렉토리) 그룹화를 위해 슬래시 `/`를 포함할 수 있지만, 슬래시로 구분된 어떤 구성 요소도 점 `.`으로 시작하거나 `.lock` 시퀀스로 끝나서는 안 됩니다.
+
+. 최소한 하나의 `/`를 포함해야 합니다. 이는 `heads/`, `tags/` 등과 같은 카테고리의 존재를 강제하지만, 실제 이름은 제한되지 않습니다. `--allow-onelevel` 옵션이 사용되면 이 규칙은 면제됩니다.
+
+. 어느 곳에서도 연속된 두 개의 점 `..`을 포함할 수 없습니다.
+
+. ASCII 제어 문자 (즉, 값이 \040 또는 \177 `DEL`보다 작은 바이트), 공백, 물결표 `~`, 캐럿 `^`, 또는 콜론 `:`을 포함할 수 없습니다.
+
+. 물음표 `?`, 별표 `*`, 또는 여는 대괄호 `[`를 포함할 수 없습니다. 이 규칙에 대한 예외는 아래 `--refspec-pattern` 옵션을 참조하십시오.
+
+. 슬래시 `/`로 시작하거나 끝나거나, 연속된 슬래시를 여러 개 포함할 수 없습니다 (이 규칙에 대한 예외는 아래 `--normalize` 옵션을 참조하십시오).
+
+. 점 `.`으로 끝나서는 안 됩니다.
+
+. `@{` 시퀀스를 포함할 수 없습니다.
+
+. 단일 문자 `@`가 될 수 없습니다.
+
+. 백슬래시 `\`를 포함할 수 없습니다.
+
+이러한 규칙은 쉘 스크립트 기반 도구가 참조 이름을 구문 분석하고, 참조 이름이 (실수로) 따옴표 없이 사용될 때 쉘에 의한 경로명 확장을 쉽게 하며, 특정 참조 이름 표현의 모호성을 피하는 데 도움이 됩니다 (linkgit:gitrevisions[7] 참조):
+
+. 이중 점 `..`은 종종 `ref1..ref2`와 같이 사용되며, 일부 컨텍스트에서 이 표기법은 `^ref1 ref2` (즉, `ref1`에는 없고 `ref2`에는 있음)를 의미합니다.
+
+. 물결표 `~`와 캐럿 `^`는 'nth 부모' 및 '양파 껍질 벗기기' 작업에 대한 포스트픽스로 사용됩니다.
+
+. 콜론 `:`은 `srcref:dstref`와 같이 "srcref의 값을 사용하고 dstref에 저장"한다는 의미로 fetch 및 push 작업에서 사용됩니다. 또한 'git cat-file'과 같이 특정 객체를 선택하는 데 사용될 수도 있습니다: "git cat-file blob v1.3.3:refs.c".
+
+. at-open-brace `@{`는 reflog 항목에 액세스하기 위한 표기법으로 사용됩니다.
+
+`--branch` 옵션을 사용하면, 명령은 이름과 함께 제공되어 유효한 브랜치 이름으로 사용할 수 있는지 확인합니다 (예: 새 브랜치를 생성할 때). 하지만 이전 checkout 구문은 분리된 HEAD 상태를 참조할 수 있으므로 주의해야 합니다. `git check-ref-format --branch $name`이 구현하는 규칙은 `git check-ref-format refs/heads/$name`이 말하는 것보다 더 엄격할 수 있습니다 (예: 대시는 ref 구성 요소의 시작 부분에 나타날 수 있지만, 브랜치 이름의 시작 부분에는 명시적으로 금지됩니다). 저장소에서 `--branch` 옵션을 사용하여 실행될 때, 입력은 먼저 ``이전 checkout 구문'' `@{-n}`에 대해 확장됩니다. 예를 들어, `@{-1}`은 "git switch" 또는 "git checkout" 작업을 사용하여 마지막으로 checkout된 것을 참조하는 방법입니다. 이 옵션은 브랜치 이름이 예상되는 곳 어디에서든 이 구문을 수락하도록 porcelain에서 사용해야 하므로, 브랜치 이름을 입력한 것처럼 작동할 수 있습니다. 예외적으로, N번째로 마지막 checkout된 것이 브랜치가 아닌 경우 ``이전 checkout 작업''은 커밋 객체 이름으로 이어질 수 있습니다.
+
+OPTIONS
+-------
+--allow-onelevel::
+--no-allow-onelevel::
+	한 레벨 refname (즉, 여러 `/`로 구분된 구성 요소를 포함하지 않는 refname)을 수락할지 여부를 제어합니다. 기본값은 `--no-allow-onelevel`입니다.
+
+--refspec-pattern::
+	<refname>을 refspec (원격 저장소와 함께 사용되는 것)에 대한 참조 이름 패턴으로 해석합니다. 이 옵션이 활성화되면, <refname>은 refspec에서 단일 `*`를 포함할 수 있습니다 (예: `foo/bar*/baz` 또는 `foo/bar*baz/`이지만 `foo/bar*/baz*`는 안 됨).
+
+--normalize::
+	앞에 오는 슬래시 (`/`) 문자를 제거하고 이름 구성 요소 사이의 연속된 슬래시를 단일 슬래시로 압축하여 'refname'을 정규화합니다. 정규화된 refname이 유효하면 표준 출력으로 출력하고 0으로 종료합니다. 그렇지 않으면 0이 아닌 상태로 종료합니다. (`--print`는 `--normalize`의 폐기된 철자입니다.)
+
+
+EXAMPLES
+--------
+
+* 마지막으로 checkout된 것의 이름을 출력합니다:
++
+------------
+$ git check-ref-format --branch @{-1}
+------------
+
+* 새 브랜치에 사용할 참조 이름을 결정합니다:
++
+------------
+$ ref=$(git check-ref-format --normalize "refs/heads/$newbranch")||
+{ echo "we do not like '$newbranch' as a branch name." >&2 ; exit 1 ; }
+------------
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

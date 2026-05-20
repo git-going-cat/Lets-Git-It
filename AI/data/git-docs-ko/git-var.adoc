@@ -1,0 +1,96 @@
+git-var(1)
+==========
+
+NAME
+----
+git-var - Git 논리 변수 표시
+
+
+SYNOPSIS
+--------
+[synopsis]
+git var (-l | <variable>)
+
+DESCRIPTION
+-----------
+Git 논리 변수를 출력합니다. 변수에 값이 없으면 1을 반환하며 종료합니다.
+
+OPTIONS
+-------
+`-l`::
+	논리 변수들을 표시합니다. 또한, Git 설정 파일 `.git/config` 의 모든
+	변수들도 함께 나열됩니다. (단, 설정 변수 목록 기능은 `git config list` 를
+	선호하여 현재는 사용되지 않습니다.)
+
+EXAMPLES
+--------
+	$ git var GIT_AUTHOR_IDENT
+	Eric W. Biederman <ebiederm@lnxi.com> 1121223278 -0600
+
+
+VARIABLES
+---------
+`GIT_AUTHOR_IDENT`::
+    코드의 작성자.
+
+`GIT_COMMITTER_IDENT`::
+    코드를 Git에 넣은 사람.
+
+`GIT_EDITOR`::
+    Git 명령에서 사용할 텍스트 편집기. 값은 사용될 때 셸에 의해 해석되도록
+    의도되었습니다. 예시: `~/bin/vi`, `$SOME_ENVIRONMENT_VARIABLE`, `"C:\Program Files\Vim\gvim.exe"
+    --nofork`. 우선순위 순서는 `$GIT_EDITOR`, 그다음 `core.editor` 설정
+    값, 그다음 `$VISUAL`, 그다음 `$EDITOR`, 마지막으로 컴파일 시
+    선택된 기본값 (일반적으로 'vi')입니다.
+ifdef::git-default-editor[]
+    사용 중인 빌드는 기본값으로 '{git-default-editor}'를 선택했습니다.
+endif::git-default-editor[]
+
+`GIT_SEQUENCE_EDITOR`::
+    `git rebase -i` 실행 중 'todo' 파일을 편집하는 데 사용되는 텍스트 편집기.
+    `GIT_EDITOR` 와 마찬가지로, 값은 사용될 때 셸에 의해 해석되도록
+    의도되었습니다. 우선순위 순서는 `$GIT_SEQUENCE_EDITOR`, 그다음
+    `sequence.editor` 설정 값, 그다음 `git var GIT_EDITOR` 값입니다.
+
+`GIT_PAGER`::
+    Git 명령에서 사용할 텍스트 뷰어 (예: 'less'). 값은 셸에 의해 해석되도록
+    의도되었습니다. 우선순위 순서는 `$GIT_PAGER`, 그다음 `core.pager` 설정
+    값, 그다음 `$PAGER`, 마지막으로 컴파일 시 선택된 기본값 (일반적으로 `less`)입니다.
+ifdef::git-default-pager[]
+    사용 중인 빌드는 기본값으로 '{git-default-pager}'를 선택했습니다.
+endif::git-default-pager[]
+
+`GIT_DEFAULT_BRANCH`::
+    새로 초기화된 저장소에서 생성되는 첫 번째 브랜치의 이름.
+
+`GIT_SHELL_PATH`::
+    셸을 사용하는 명령을 위해 POSIX 셸을 제공하는 바이너리의 경로.
+
+`GIT_ATTR_SYSTEM`::
+    시스템 linkgit:gitattributes[5] 파일의 경로 (활성화된 경우).
+
+`GIT_ATTR_GLOBAL`::
+    전역 (사용자별) linkgit:gitattributes[5] 파일의 경로.
+
+`GIT_CONFIG_SYSTEM`::
+    시스템 설정 파일의 경로 (활성화된 경우).
+
+`GIT_CONFIG_GLOBAL`::
+    전역 (사용자별) 설정 파일의 경로 (있는 경우).
+
+대부분의 경로 값은 하나의 값만 포함합니다. 하지만 일부는 여러 값을 포함할 수 있으며,
+이 값들은 줄바꿈으로 분리되고 우선순위 높은 순서대로 나열됩니다. 호출자는 이러한
+경로 값이 여러 항목을 포함할 수 있음을 염두에 두어야 합니다.
+
+경로는 존재하지 않아도 출력되지만, 다른 환경 변수에 의해 비활성화된 경우에는
+출력되지 않습니다.
+
+SEE ALSO
+--------
+linkgit:git-commit-tree[1]
+linkgit:git-tag[1]
+linkgit:git-config[1]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

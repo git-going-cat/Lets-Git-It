@@ -1,0 +1,46 @@
+git-verify-pack(1)
+==================
+
+NAME
+----
+git-verify-pack - 압축된 Git 아카이브 파일 검증
+
+
+SYNOPSIS
+--------
+[synopsis]
+git verify-pack [-v | --verbose] [-s | --stat-only] [--] <pack>.idx...
+
+
+DESCRIPTION
+-----------
+명령줄에 주어진 압축된 Git 아카이브의 각 idx 파일을 읽고, idx 파일과 해당 pack 파일을 검증합니다.
+
+OPTIONS
+-------
+`-v`::
+`--verbose`::
+	팩을 검증한 후, 팩에 포함된 객체 목록과 델타 체인 길이의 히스토그램을 보여줍니다.
+
+`-s`::
+`--stat-only`::
+	팩 내용을 검증하지 않습니다. 델타 체인 길이의 히스토그램만 보여줍니다. `--verbose`와 함께 사용하면 객체 목록도 보여줍니다.
+
+`--`::
+	더 이상 인수를 옵션으로 해석하지 않습니다.
+
+OUTPUT FORMAT
+-------------
+`-v` 옵션을 지정할 때 사용되는 형식은 다음과 같습니다.
+
+	<object-name> <type> <size> <size-in-packfile> <offset-in-packfile>
+
+팩에서 델타화되지 않은 객체의 경우, 그리고
+
+	<object-name> <type> <size> <size-in-packfile> <offset-in-packfile> <depth> <base-object-name>
+
+델타화된 객체의 경우입니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

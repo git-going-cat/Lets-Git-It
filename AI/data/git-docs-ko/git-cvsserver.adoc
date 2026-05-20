@@ -1,0 +1,401 @@
+git-cvsserver(1)
+================
+
+NAME
+----
+git-cvsserver - Git용 CVS 서버 에뮬레이터
+
+SYNOPSIS
+--------
+
+SSH:
+
+[verse]
+export CVS_SERVER="git cvsserver"
+'cvs' -d :ext:user@server/path/repo.git co <HEAD_name>
+
+pserver (/etc/inetd.conf):
+
+[verse]
+cvspserver stream tcp nowait nobody /usr/bin/git-cvsserver git-cvsserver pserver
+
+Usage:
+
+[verse]
+'git-cvsserver' [<options>] [pserver|server] [<directory> ...]
+
+DESCRIPTION
+-----------
+
+이 애플리케이션은 Git을 위한 CVS 에뮬레이션 계층입니다.
+
+매우 기능적입니다. 하지만 모든 메서드가 구현된 것은 아니며,
+구현된 메서드의 경우에도 모든 스위치가 구현된 것은 아닙니다.
+
+CLI CVS 클라이언트와 Eclipse CVS 플러그인 모두를 사용하여 테스트되었습니다.
+대부분의 기능은 두 클라이언트 모두에서 정상적으로 작동합니다.
+
+OPTIONS
+-------
+
+이러한 모든 옵션은 서버 측에서 강제될 때만 의미가 있습니다.
+linkgit:git-daemon[1] 옵션과 최대한 유사하게 구현되었습니다.
+
+--base-path <path>::
+요청된 CVSROOT에 'path'를 접두사로 붙입니다.
+
+--strict-paths::
+하위 디렉토리로 재귀하는 것을 허용하지 않습니다.
+
+--export-all::
+설정에서 `gitcvs.enabled`를 확인하지 않습니다. 이 옵션을 사용하려면
+허용된 디렉토리 목록(아래 참조)도 지정해야 합니다.
+
+-V::
+--version::
+버전 정보를 출력하고 종료합니다.
+
+-h::
+-H::
+--help::
+사용법 정보를 출력하고 종료합니다.
+
+<directory>::
+나머지 인수는 디렉토리 목록을 제공합니다. 디렉토리가
+지정되지 않으면 모든 디렉토리가 허용됩니다. 이러한 디렉토리 내의
+저장소는 `--export-all`이 지정되지 않는 한 여전히 `gitcvs.enabled`
+구성 옵션이 필요합니다.
+
+LIMITATIONS
+-----------
+
+CVS 클라이언트는 태그, 브랜치 또는 Git 머지를 수행할 수 없습니다.
+
+'git-cvsserver'는 Git 브랜치를 CVS 모듈에 매핑합니다.
+대부분의 CVS 사용자가 예상하는 것과는 매우 다르며, CVS에서는
+모듈이 일반적으로 하나 이상의 디렉토리를 나타내기 때문입니다.
+
+INSTALLATION
+------------
+
+1. pserver를 통해 CVS 액세스를 제공할 예정이라면,
+   /etc/inetd.conf에 다음 줄을 추가합니다.
++
+--
+------
+   cvspserver stream tcp nowait nobody git-cvsserver pserver
+
+------
+참고: 일부 inetd 서버는 실행 프로그램의 이름과 argv[0]의 값(즉,
+프로그램이 실행되었다고 가정하는 이름)을 별도로 지정할 수 있습니다.
+이 경우 /etc/inetd.conf의 올바른 줄은 다음과 같습니다.
+
+------
+   cvspserver stream tcp nowait nobody /usr/bin/git-cvsserver git-cvsserver pserver
+
+------
+
+pserver는 기본적으로 익명 액세스만 제공합니다. 커밋하려면
+pserver 계정을 생성해야 합니다. 쓰기 권한을 허용하려는 저장소의
+설정 파일에 gitcvs.authdb 설정을 추가하기만 하면 됩니다. 예를 들면 다음과 같습니다.
+
+------
+
+   [gitcvs]
+	authdb = /etc/cvsserver/passwd
+
+------
+이 파일의 형식은 사용자 이름 다음에 암호화된 비밀번호가 옵니다. 예를 들면 다음과 같습니다.
+
+------
+   myuser:sqkNi8zPf01HI
+   myuser:$1$9K7FzU28$VfF6EoPYCJEYcVQwATgOP/
+   myuser:$5$.NqmNH1vwfzGpV8B$znZIcumu1tNLATgV2l6e1/mY8RzhUDHMOaVOeL1cxV3
+------
+Apache와 함께 제공되는 'htpasswd' 유틸리티를 사용하여 이 파일을 만들 수 있지만,
+-d 옵션만 사용해야 합니다(또는 시스템에서 지원하는 경우 -B).
+
+가급적이면 플랫폼에서 비밀번호 해시 생성을 관리하는 시스템별 유틸리티(예: Linux의 mkpasswd, OpenBSD의 encrypt 또는 NetBSD의 pwhash)를 사용하고
+올바른 위치에 붙여넣으십시오.
+
+그런 다음 pserver 메서드를 통해 비밀번호를 제공합니다. 예를 들면 다음과 같습니다.
+
+------
+   cvs -d:pserver:someuser:somepassword@server:/path/repo.git co <HEAD_name>
+------
+
+SSH 액세스에는 Git 도구가 PATH에 있는 것 외에 특별한 설정이 필요하지 않습니다.
+CVS_SERVER 환경 변수를 허용하지 않는 클라이언트가 있는 경우,
+'git-cvsserver'의 이름을 `cvs`로 바꾸기만 하면 됩니다.
+
+참고: 최신 CVS 버전(>= 1.12.11)은 CVSROOT/CVS_SERVER를 직접 지정하는 것도 지원합니다.
+
+------
+   cvs -d ":ext;CVS_SERVER=git cvsserver:user@server/path/repo.git" co <HEAD_name>
+------
+
+이렇게 하면 'CVS/Root' 파일에 저장되어 올바른 환경 변수를 항상 설정할 걱정을 할 필요가 없다는
+장점이 있습니다. 'git-shell'로 제한된 SSH 사용자는 기본값을 CVS_SERVER로
+재정의할 필요가 없으며 (그래서도 안 됩니다), 'git-shell'은 `cvs`를
+'git-cvsserver'로 인식하고 실제 'cvs'가 실행되는 것처럼 가장합니다.
+--
+2. CVS에서 액세스하려는 각 저장소에 대해 저장소의 설정을 편집하고
+   다음 섹션을 추가해야 합니다.
++
+--
+------
+   [gitcvs]
+        enabled=1
+        # 디버깅용 (선택 사항)
+	logFile=/path/to/logfile
+
+------
+참고: 'git-cvsserver'를 호출할 모든 사용자가 로그 파일과 데이터베이스에
+대한 쓰기 권한을 가지고 있는지 확인해야 합니다(<<dbbackend,데이터베이스 백엔드>> 참조).
+SSH를 통해 쓰기 액세스를 제공하려면 사용자는 물론 Git 저장소 자체에 대한
+쓰기 권한도 있어야 합니다.
+
+또한 `cvs commit`이 작동하려면 각 저장소가 "bare"(Git 인덱스 파일 없음)
+이어야 합니다. linkgit:gitcvs-migration[7]을 참조하십시오.
+
+[[configaccessmethod]]
+모든 구성 변수는 특정 액세스 방법에 대해 재정의할 수도 있습니다.
+유효한 메서드 이름은 "ext"(SSH 액세스용) 및 "pserver"입니다.
+다음 예시 구성은 SSH 액세스는 허용하면서 pserver 액세스는 비활성화합니다.
+
+------
+   [gitcvs]
+        enabled=0
+
+   [gitcvs "ext"]
+        enabled=1
+------
+--
+3. checkout 명령에서 CVSROOT/CVS_SERVER를 직접 지정하지 않고
+   'CVS/Root' 파일에 자동으로 저장하지 않은 경우, 환경에서 명시적으로
+   설정해야 합니다. CVSROOT는 일반적인 방식으로 설정해야 하지만,
+   디렉토리는 해당 Git 저장소를 가리켜야 합니다. 위에서 설명한 대로, SSH 클라이언트의 경우
+   'git-shell'로 제한되지 않은 경우 CVS_SERVER를 'git-cvsserver'로 설정해야 합니다.
++
+--
+------
+   export CVSROOT=:ext:user@server:/var/git/project.git
+   export CVS_SERVER="git cvsserver"
+------
+--
+4. 커밋할 SSH 클라이언트를 위해, 서버 측
+   .ssh/environment 파일(또는 해당 쉘에 따라 .bashrc 등)은
+   GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, GIT_COMMITTER_NAME, GIT_COMMITTER_EMAIL에
+   대한 적절한 값을 export해야 합니다. 로그인 쉘이 bash인 SSH 클라이언트의 경우,
+   .bashrc가 합리적인 대안이 될 수 있습니다.
+
+5. 클라이언트는 이제 프로젝트를 checkout할 수 있어야 합니다.
+   CVS 'module' 이름을 사용하여 checkout하려는 Git 'head'를 지정합니다.
+   이는 새로 checkout된 디렉토리의 이름이 됩니다 ( `-d <dir-name>`으로
+   다른 이름을 지정하지 않는 한). 예를 들어, 'master' 브랜치를
+   `project-master` 디렉토리로 checkout하는 예입니다:
++
+------
+   cvs co -d project-master master
+------
+
+[[dbbackend]]
+DATABASE BACKEND
+----------------
+
+'git-cvsserver'는 각 Git head(커밋 모듈)마다 하나의 데이터베이스를 사용하여
+저장소에 대한 정보를 저장하여 일관된 CVS 리비전 번호를 유지합니다.
+데이터베이스는 모든 커밋 후 업데이트(즉, 쓰기)되어야 합니다.
+
+`git`을 직접 사용하여 커밋이 수행된다면( 'git-cvsserver'를
+사용하는 것과는 달리), 이 업데이트는 저장소에 대한 다음 액세스 시
+'git-cvsserver'에 의해 수행되어야 하며, 액세스 방법 및 요청된 작업에
+관계없이 수행됩니다.
+
+이것은 pserver 방법을 사용하여 읽기 액세스만 제공하더라도,
+'git-cvsserver'는 안정적으로 작동하기 위해 데이터베이스에 대한 쓰기
+권한을 가져야 함을 의미합니다(그렇지 않으면 'git-cvsserver'가 실행될 때마다
+데이터베이스가 최신 상태인지 확인해야 합니다).
+
+기본적으로 Git 디렉토리에 `gitcvs.<module-name>.sqlite`라는 이름의
+SQLite 데이터베이스를 사용합니다. SQLite 백엔드는 쓰기 시 데이터베이스 파일과
+동일한 디렉토리에 임시 파일을 생성하므로, 'git-cvsserver'를 사용하는
+사용자에게 데이터베이스 파일에 대한 쓰기 권한뿐만 아니라 디렉토리에 대한
+쓰기 권한도 부여하는 것으로 충분하지 않을 수 있습니다.
+
+추적 중인 브랜치가 변경된 후에는 데이터베이스를 일관된 형태로
+안정적으로 다시 생성할 수 없습니다. 예: 병합된 브랜치의 경우,
+'git-cvsserver'는 개발의 한 브랜치만 추적하며, 'git merge' 후
+증분 업데이트된 데이터베이스는 처음부터 다시 생성된 데이터베이스와
+다른 브랜치를 추적할 수 있어 일관되지 않은 CVS 리비전 번호를
+유발합니다. `git-cvsserver`는 사전 병합 시 증분적으로 실행되었어야 하는
+브랜치를 알 방법이 없습니다. 따라서 데이터베이스를 완전히 또는 부분적으로
+(오래된 백업에서) 다시 생성해야 하는 경우, 기존 CVS 샌드박스에 대해
+의심해야 합니다.
+
+다음 구성 변수를 사용하여 데이터베이스 백엔드를 구성할 수 있습니다.
+
+데이터베이스 백엔드 구성
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+'git-cvsserver'는 Perl DBI 모듈을 사용합니다. 이러한 변수를 변경할 때,
+특히 `DBI->connect()`에 대한 문서를 읽어보십시오.
+
+gitcvs.dbName::
+	데이터베이스 이름. 정확한 의미는 선택된 데이터베이스 드라이버에 따라 다릅니다.
+	SQLite의 경우 파일 이름입니다. 변수 치환을 지원합니다(아래 참조).
+	세미콜론( `;`)을 포함할 수 없습니다.
+	기본값: '%Ggitcvs.%m.sqlite'
+
+gitcvs.dbDriver::
+	사용된 DBI 드라이버. 사용할 수 있는 드라이버를 여기에 지정할 수 있지만,
+	작동하지 않을 수 있습니다. cvsserver는 'DBD::SQLite'로 테스트되었으며,
+	'DBD::Pg'로 작동한다고 보고되었고, 'DBD::mysql'로는 작동하지 않는다고
+	보고되었습니다. 실험적인 기능으로 간주하십시오. 콜론(`:`)을 포함할 수 없습니다.
+	기본값: 'SQLite'
+
+gitcvs.dbuser::
+	데이터베이스 사용자. `dbDriver` 설정 시에만 유용합니다.
+	SQLite는 데이터베이스 사용자 개념이 없습니다. 변수 치환을 지원합니다(아래 참조).
+
+gitcvs.dbPass::
+	데이터베이스 비밀번호. `dbDriver` 설정 시에만 유용합니다.
+	SQLite는 데이터베이스 비밀번호 개념이 없습니다.
+
+gitcvs.dbTableNamePrefix::
+	데이터베이스 테이블 이름 접두사. 변수 치환을 지원합니다(아래 참조).
+	알파벳이 아닌 문자는 밑줄로 대체됩니다.
+
+모든 변수는 액세스 방법별로 설정할 수도 있습니다. <<configaccessmethod,위>>를 참조하십시오.
+
+변수 치환
+^^^^^^^^^^^^^^^^^^^^^^
+`dbDriver` 및 `dbUser`에서 다음과 같은 변수를 사용할 수 있습니다.
+
+%G::
+	Git 디렉토리 이름
+%g::
+	Git 디렉토리 이름. 영숫자, `.` 및 `-`를 제외한 모든 문자는
+	`_`로 대체됩니다(원하는 경우 디렉토리 이름을 파일 이름에 더 쉽게 사용).
+%m::
+	CVS 모듈/Git head 이름
+%a::
+	액세스 방법 ("ext" 또는 "pserver" 중 하나)
+%u::
+	'git-cvsserver'를 실행하는 사용자 이름.
+	이름을 결정할 수 없는 경우,
+	숫자 uid가 사용됩니다.
+
+ENVIRONMENT
+-----------
+
+이러한 변수는 경우에 따라 명령줄 옵션의 필요성을 줄여주어,
+git-shell을 통한 제한된 사용을 더 쉽게 합니다.
+
+GIT_CVSSERVER_BASE_PATH::
+	이 변수는 --base-path 인수를 대체합니다.
+
+GIT_CVSSERVER_ROOT::
+	이 변수는 단일 디렉토리를 지정하여 `<directory>...` 인수 목록을 대체합니다.
+	저장소는 `--export-all`이 지정되지 않는 한 `gitcvs.enabled` 구성 옵션이 여전히 필요합니다.
+
+이러한 환경 변수가 설정되면, 해당 명령줄 인수는 사용할 수 없습니다.
+
+ECLIPSE CVS CLIENT NOTES
+------------------------
+
+Eclipse CVS 클라이언트를 사용하여 checkout하려면:
+
+1. "새 프로젝트 생성 -> CVS checkout에서"를 선택합니다.
+2. 새 위치를 생성합니다. 올바른 프로토콜을 선택하는 방법에 대한 자세한 내용은
+   아래 노트를 참조하십시오.
+3. 사용 가능한 'modules'를 탐색합니다. 저장소의 head 목록이 표시됩니다.
+   여기서는 트리를 탐색할 수 없습니다. head만 표시됩니다.
+4. checkout할 브랜치/태그를 묻는 메시지가 표시되면 `HEAD`를 선택합니다.
+   .project 파일을 커밋하는 것을 피하려면 "commit wizard 실행"을 선택 해제합니다.
+
+프로토콜 노트: pserver를 통한 익명 액세스를 사용하는 경우 해당 옵션을 선택하십시오.
+SSH 액세스를 사용하는 사용자는 'ext' 프로토콜을 선택하고
+Preferences->Team->CVS->ExtConnection 패널에서 'ext' 액세스를 구성해야 합니다.
+CVS_SERVER를 "`git cvsserver`"로 설정합니다. 'ext'를 사용할 때 비밀번호
+지원이 좋지 않으므로 SSH 키를 설정하는 것이 좋습니다.
+
+또는 Eclipse에서 제공하는 비표준 extssh 프로토콜을 사용할 수도 있습니다.
+이 경우 CVS_SERVER는 무시되며, 서버에서 cvs 유틸리티를 'git-cvsserver'로
+바꾸거나 `.bashrc`를 조작하여 'cvs' 호출이 실제로 'git-cvsserver'를
+호출하도록 해야 합니다.
+
+KNOWN TO WORK CLIENTS
+--------------------
+
+- CVS 1.12.9 on Debian
+- CVS 1.11.17 on MacOSX (from Fink package)
+- Eclipse 3.0, 3.1.2 on MacOSX (see Eclipse CVS Client Notes)
+- TortoiseCVS
+
+SUPPORTED OPERATIONS
+--------------------
+
+checkout, diff, status, update, log, add, remove, commit을 포함하여
+정상적인 사용에 필요한 모든 작업이 지원됩니다.
+
+CVS 태그 또는 리비전 번호를 읽는 대부분의 CVS 명령 인수(-r 등)는 작동하며,
+어떤 git refspec(태그, 브랜치, 커밋 ID 등)도 지원합니다.
+하지만, 기본 브랜치가 아닌 CVS 리비전 번호는 잘 에뮬레이션되지 않으며,
+cvs log는 태그나 브랜치를 전혀 표시하지 않습니다. (기본 브랜치가 아닌
+CVS 리비전 번호는 CVS 리비전 번호처럼 보이지만, 실제로는 브랜치 지점에서부터의
+리비전 수를 나타내는 것이 아니라 Git 커밋 ID를 직접 인코딩합니다.)
+
+특정 브랜치를 checkout하는 두 가지 방법이 있다는 점에 유의하십시오.
+이 페이지의 다른 곳에서 설명한 대로, cvs checkout의 "module" 매개변수는
+브랜치 이름으로 해석되며, 기본 브랜치가 됩니다. cvs update -r로
+임시로 다른 브랜치를 고정하더라도 해당 샌드박스의 기본 브랜치로 유지됩니다.
+또는, -r 인수는 실제 checkout할 다른 브랜치를 나타낼 수 있지만,
+모듈은 여전히 "기본" 브랜치입니다. (현재 구현에서의) 절충점: 각 새
+"모듈"은 디스크에 해당 모듈의 히스토리가 있는 새 데이터베이스를 생성하며,
+데이터베이스가 생성된 후 해당 기본 브랜치에 대한 작업은 빠릅니다.
+또는 대안적으로, -r은 추가 디스크 공간을 차지하지 않지만, cvs update와 같은
+많은 작업에 대해 상당히 느릴 수 있습니다.
+
+CVS에서 허용되지 않는 문자를 가진 git refspec을 참조하려면 두 가지 옵션이 있습니다.
+첫째, 해당 CVS -r 인수에 git refspec을 직접 제공하면 작동할 수 있습니다.
+일부 CVS 클라이언트는 인수 유효성 검사를 많이 수행하지 않는 것 같습니다.
+둘째, 그래도 실패하면, CVS 태그에서 유효한 문자만 사용하는 특수 문자 이스케이프 메커니즘을
+사용할 수 있습니다. 4~5자의 형태 (밑줄 (`"_"`), 대시 (`"-"`), 하나 또는 두 글자, 그리고 대시 (`"-"`))
+시퀀스는 하나 또는 두 글자에 따라 다양한 문자를 인코딩할 수 있습니다: 슬래시 (`"/"`)의 경우 `"s"`,
+마침표 (`"."`)의 경우 `"p"`, 밑줄 (`"_"` )의 경우 `"u"`, 또는 모든 바이트 값 (일반적으로 ASCII 숫자 또는
+UTF-8 인코딩 문자일 수 있음)의 경우 두 개의 16진수 숫자.
+
+레거시 모니터링 작업(edit, watch 및 관련)은 지원되지 않습니다.
+내보내기 및 태깅(태그 및 브랜치)은 이 단계에서는 지원되지 않습니다.
+
+CRLF 줄 끝 변환
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+기본적으로 서버는 모든 파일에 대해 `-k` 모드를 비워 두어,
+CVS 클라이언트가 이를 텍스트 파일로 취급하게 하며, 일부 플랫폼에서는
+줄 끝 변환이 적용될 수 있습니다.
+
+서버가 줄 끝 변환 속성을 사용하여 파일에 대한 `-k` 모드를
+설정하려면 `gitcvs.usecrlfattr` 구성 변수를 설정할 수 있습니다.
+줄 끝 변환에 대한 자세한 내용은 linkgit:gitattributes[5]를 참조하십시오.
+
+또는 `gitcvs.usecrlfattr` 구성이 활성화되지 않았거나
+속성이 파일 이름에 대한 자동 감지를 허용하지 않는 경우,
+서버는 `gitcvs.allBinary` 구성을 기본 설정에 사용합니다.
+`gitcvs.allBinary`가 설정되어 있으면, 달리 지정되지 않은 파일은
+기본적으로 '-kb' 모드로 설정됩니다. 그렇지 않으면 `-k` 모드는 비워 둡니다.
+하지만 `gitcvs.allBinary`가 "guess"로 설정되어 있으면,
+파일 내용을 기반으로 올바른 `-k` 모드가 추측됩니다.
+
+'cvs'와의 일관성을 위해 `gitcvs.usecrlfattr`를 true로,
+`gitcvs.allBinary`를 "guess"로 설정하여 기본값을 재정의하는 것이
+가장 좋을 것입니다.
+
+DEPENDENCIES
+------------
+'git-cvsserver'는 DBD::SQLite에 의존합니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

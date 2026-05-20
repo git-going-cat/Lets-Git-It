@@ -1,0 +1,284 @@
+git-am(1)
+=========
+
+NAME
+----
+git-am - 메일박스에서 패치 시리즈 적용
+
+
+SYNOPSIS
+--------
+[verse]
+'git am' [--signoff] [--keep] [--[no-]keep-cr] [--[no-]utf8] [--[no-]verify]
+	 [--[no-]3way] [--interactive] [--committer-date-is-author-date]
+	 [--ignore-date] [--ignore-space-change | --ignore-whitespace]
+	 [--whitespace=<action>] [-C<n>] [-p<n>] [--directory=<dir>]
+	 [--exclude=<path>] [--include=<path>] [--reject] [-q | --quiet]
+	 [--[no-]scissors] [-S[<keyid>]] [--patch-format=<format>]
+	 [--quoted-cr=<action>]
+	 [--empty=(stop|drop|keep)]
+	 [(<mbox> | <Maildir>)...]
+'git am' (--continue | --skip | --abort | --quit | --retry | --show-current-patch[=(diff|raw)] | --allow-empty)
+
+DESCRIPTION
+-----------
+메일박스에 있는 메일 메시지를 커밋 로그 메시지,
+작성자 정보, 패치로 분할하고 현재 브랜치에 적용합니다.
+직선적인 히스토리와 머지 없는 브랜치에서 실행된 linkgit:git-format-patch[1]의
+역방향 작업으로 생각할 수 있습니다.
+
+OPTIONS
+-------
+(<mbox>|<Maildir>)...::
+	패치를 읽어올 메일박스 파일 목록입니다. 이 인자를 제공하지 않으면
+	표준 입력에서 읽어옵니다.
+	디렉토리를 제공하면 Maildir로 취급됩니다.
+
+-s::
+--signoff::
+	커밋 메시지에 `Signed-off-by` 트레일러를 추가합니다 (
+	linkgit:git-interpret-trailers[1] 참조).
+	자신의 커미터 신원을 사용합니다. 자세한 내용은
+	linkgit:git-commit[1]의 signoff 옵션을 참조하십시오.
+
+-k::
+--keep::
+	linkgit:git-mailinfo[1]에 `-k` 플래그를 전달합니다.
+
+--keep-non-patch::
+	linkgit:git-mailinfo[1]에 `-b` 플래그를 전달합니다.
+
+--keep-cr::
+--no-keep-cr::
+	`--keep-cr`과 함께 사용하면 linkgit:git-mailsplit[1]을
+	같은 옵션으로 호출하여 줄 끝의 CR을 제거하지 않도록 합니다.
+	`am.keepcr` 설정 변수를 사용하여 기본 동작을 지정할 수 있습니다.
+	`--no-keep-cr`은 `am.keepcr`을 재정의하는 데 유용합니다.
+
+-c::
+--scissors::
+	가위선(scissors line) 이전의 본문 내용을 모두 제거합니다 (
+	linkgit:git-mailinfo[1] 참조). `mailinfo.scissors` 설정 변수를 사용하여
+	기본적으로 활성화할 수 있습니다.
+
+--no-scissors::
+	가위선(scissors lines)을 무시합니다 (linkgit:git-mailinfo[1] 참조).
+
+--quoted-cr=<action>::
+	이 플래그는 linkgit:git-mailinfo[1]에 전달됩니다.
+
+--empty=(drop|keep|stop)::
+	패치가 없는 이메일 메시지를 처리하는 방법:
++
+--
+`drop`;;
+	이메일 메시지가 건너뛰어집니다.
+`keep`;;
+	이메일 메시지 내용을 로그로 하는 빈 커밋이 생성됩니다.
+`stop`;;
+	명령이 실패하며 현재 `am` 세션 중간에 중지됩니다. 이것이 기본 동작입니다.
+--
+
+-m::
+--message-id::
+	linkgit:git-mailinfo[1]에 `-m` 플래그를 전달하여
+	`Message-ID` 헤더가 커밋 메시지에 추가되도록 합니다.
+	`am.messageid` 설정 변수를 사용하여 기본 동작을 지정할 수 있습니다.
+
+--no-message-id::
+	Message-ID 헤더를 커밋 메시지에 추가하지 않습니다.
+	`--no-message-id`는 `am.messageid`를 재정의하는 데 유용합니다.
+
+-q::
+--quiet::
+	조용하게 실행합니다. 오류 메시지만 출력합니다.
+
+-u::
+--utf8::
+	linkgit:git-mailinfo[1]에 `-u` 플래그를 전달합니다.
+	이메일에서 가져온 제안된 커밋 로그 메시지가 UTF-8 인코딩으로
+	재코딩됩니다 (`i18n.commitEncoding` 설정 변수를 사용하여
+	프로젝트의 기본 인코딩이 UTF-8이 아닌 경우 지정할 수 있습니다).
++
+이전 버전의 git에서는 선택 사항이었지만 이제는 기본값입니다.
+`--no-utf8`을 사용하여 이를 재정의할 수 있습니다.
+
+--no-utf8::
+	linkgit:git-mailinfo[1]에 `-n` 플래그를 전달합니다.
+
+-3::
+--3way::
+--no-3way::
+	패치가 깨끗하게 적용되지 않으면, 패치가 적용 대상이 되는 블롭의
+	신원을 기록하고 해당 블롭을 로컬에서 사용할 수 있는 경우
+	3방향 머지로 대체합니다. `--no-3way`는 am.threeWay 설정 변수를
+	재정의하는 데 사용할 수 있습니다. 자세한 내용은
+	linkgit:git-config[1]의 am.threeWay를 참조하십시오.
+
+include::rerere-options.adoc[]
+
+--ignore-space-change::
+--ignore-whitespace::
+--whitespace=<action>::
+-C<n>::
+-p<n>::
+--directory=<dir>::
+--exclude=<path>::
+--include=<path>::
+--reject::
+	이 플래그들은 패치를 적용하는 linkgit:git-apply[1] 프로그램에 전달됩니다.
++
+`--whitespace` 옵션에 대한 유효한 <action>은 다음과 같습니다:
+`nowarn`, `warn`, `fix`, `error`, `error-all`.
+
+--patch-format::
+	기본적으로 이 명령은 패치 형식을 자동으로 감지하려고 시도합니다.
+	이 옵션을 사용하면 사용자가 자동 감지를 우회하고 패치가 해석되어야 하는
+	패치 형식을 지정할 수 있습니다. 유효한 형식은 mbox, mboxrd,
+	stgit, stgit-series, hg 입니다.
+
+-i::
+--interactive::
+	대화형으로 실행합니다.
+
+--verify::
+-n::
+--no-verify::
+	`pre-applypatch` 및 `applypatch-msg` 훅을 실행합니다. 이것이 기본값입니다.
+	`-n` 또는 `--no-verify`를 사용하여 이러한 훅을 건너뜁니다.
+	linkgit:githooks[5]도 참조하십시오.
++
+`post-applypatch`는 건너뛸 수 없음에 유의하십시오.
+
+--committer-date-is-author-date::
+	기본적으로 이 명령은 이메일 메시지의 날짜를 커밋 작성자 날짜로 기록하고,
+	커밋 생성 시간을 커밋 커미터 날짜로 사용합니다.
+	이를 통해 사용자는 작성자 날짜와 동일한 값을 사용하여
+	커미터 날짜에 대해 거짓말을 할 수 있습니다.
++
+경고: 히스토리 워킹 메커니즘은 커밋에 비감소하는 커밋 타임스탬프가 있다고 가정합니다.
+이 옵션을 정말로 사용해야 하는지 고려해야 합니다. 그런 경우, 이 옵션을 커미터 날짜를
+재정의하기 위해서만 사용해야 하며, 적용하려는 가장 오래된 패치보다
+(커밋 날짜 기준으로) 더 오래된 베이스 커밋 위에 커밋을 적용할 때입니다.
+
+--ignore-date::
+	기본적으로 이 명령은 이메일 메시지의 날짜를 커밋 작성자 날짜로 기록하고,
+	커밋 생성 시간을 커밋 커미터 날짜로 사용합니다.
+	이를 통해 사용자는 작성자 날짜와 동일한 값을 사용하여
+	작성자 날짜에 대해 거짓말을 할 수 있습니다.
+
+--skip::
+	현재 패치를 건너뜁니다. 이것은 중단된 패치를 재시작할 때만 의미가 있습니다.
+
+-S[<keyid>]::
+--gpg-sign[=<keyid>]::
+--no-gpg-sign::
+	커밋을 GPG 서명합니다. `keyid` 인자는 선택 사항이며
+	커미터 신원을 기본값으로 합니다. 지정하는 경우 공백 없이 옵션에 붙여야 합니다.
+	`--no-gpg-sign`은 `commit.gpgSign` 설정 변수와
+	이전의 `--gpg-sign`을 모두 무효화하는 데 유용합니다.
+
+--continue::
+-r::
+--resolved::
+	패치 실패 후 (예: 충돌하는 패치 적용 시도), 사용자가 직접 패치를 적용하고
+	인덱스 파일이 적용 결과를 저장했습니다.
+	이메일 메시지에서 추출한 작성자 및 커밋 로그와 현재 인덱스 파일을 사용하여
+	커밋을 만들고 계속 진행합니다.
+
+--resolvemsg=<msg>::
+	패치 실패가 발생하면 <msg>가 화면에 출력된 후 종료됩니다.
+	이것은 실패를 처리하기 위해 `--continue` 또는 `--skip`을 사용하라는
+	표준 메시지를 재정의합니다. 이것은 linkgit:git-rebase[1]과
+	linkgit:git-am[1] 간의 내부 용도로만 사용됩니다.
+
+--abort::
+	원래 브랜치로 복구하고 패치 작업을 중단합니다.
+	am 작업에 관련된 파일의 내용을 패치 이전 상태로 되돌립니다.
+
+--quit::
+	패치 작업을 중단하지만 HEAD와 인덱스는 그대로 둡니다.
+
+--retry::
+	마지막으로 충돌한 패치를 다시 적용합니다. 일반적으로 추가 옵션을
+	전달하는 경우에만 유용합니다 (예: `--3way`), 그렇지 않으면 동일한
+	실패를 다시 보게 될 것입니다.
+
+--show-current-patch[=(diff|raw)]::
+	linkgit:git-am[1]이 충돌로 인해 중단된 메시지를 보여줍니다.
+	`raw`가 지정되면 이메일 메시지의 원시 내용을 보여주고, `diff`이면
+	diff 부분만 보여줍니다.
+	기본값은 `raw`입니다.
+
+--allow-empty::
+	패치가 없는 입력 이메일 메시지에서 패치 실패 후,
+	이메일 메시지 내용을 로그 메시지로 하는 빈 커밋을 생성합니다.
+
+[[discussion]]
+DISCUSSION
+----------
+
+커밋 작성자 이름은 메시지의 "From: " 줄에서 가져오고,
+커밋 작성자 날짜는 메시지의 "Date: " 줄에서 가져옵니다.
+"Subject: " 줄은 공통 접두사 "[PATCH <anything>]"을 제거한 후
+커밋 제목으로 사용됩니다.
+"Subject: " 줄은 한 줄의 텍스트로 커밋이 무엇에 관한 것인지 간결하게 설명해야 합니다.
+
+본문의 시작 부분에 있는 "From: ", "Date: ", "Subject: " 줄은
+헤더에서 가져온 해당 커밋 작성자 이름과 제목 값을 재정의합니다.
+
+커밋 메시지는 "Subject: "에서 가져온 제목, 빈 줄, 그리고 패치가 시작되는 지점까지의
+메시지 본문으로 구성됩니다. 각 줄 끝의 과도한 공백은 자동으로 제거됩니다.
+
+패치는 메시지 바로 뒤에 인라인으로 포함될 것으로 예상됩니다.
+include::format-patch-end.adoc[]
+
+이것은 커밋 메시지 내용이 의도치 않게 처리를 방해할 수 있다는 것을 의미합니다 (아래 <<caveats,CAVEATS>> 섹션 참조).
+
+linkgit:git-am[1]을 처음 호출할 때 처리할 메일박스 이름을 제공합니다.
+적용되지 않는 첫 번째 패치를 보면 중단됩니다. 이 상황은 두 가지 방법으로 복구할 수 있습니다:
+
+. `--skip` 옵션으로 명령을 다시 실행하여 현재 패치를 건너뜁니다.
+
+. 작업 트리에서 수동으로 충돌을 해결하고, 패치가 생성했어야 할 상태로
+  인덱스 파일을 업데이트합니다. 그런 다음 `--continue` 옵션으로 명령을 실행합니다.
+
+명령은 현재 작업이 완료될 때까지 새 메일박스를 처리하는 것을 거부하므로,
+처음부터 다시 시작하기로 결정했다면 `git am --abort`를 실행한 후
+메일박스 이름으로 명령을 실행하십시오.
+
+패치가 적용되기 전에 ORIG_HEAD는 현재 브랜치의 팁으로 설정됩니다.
+이것은 여러 커밋에 문제가 있는 경우 유용합니다. 예를 들어, 잘못된 브랜치에서
+linkgit:git-am[1]을 실행했거나 (예: "From:" 줄의 오류) 메일박스를 수정하는 것이
+더 쉬운 커밋의 오류가 발생한 경우입니다.
+
+[[caveats]]
+CAVEATS
+-------
+
+:git-am: 1
+include::format-patch-caveats.adoc[]
+
+HOOKS
+-----
+이 명령은 `applypatch-msg`, `pre-applypatch`,
+`post-applypatch` 훅을 실행할 수 있습니다. 자세한 내용은
+linkgit:githooks[5]를 참조하십시오.
+
+`--verify`/`-n`/`--no-verify` 옵션을 참조하십시오.
+
+CONFIGURATION
+-------------
+
+include::includes/cmd-config-section-all.adoc[]
+
+include::config/am.adoc[]
+
+SEE ALSO
+--------
+linkgit:git-apply[1],
+linkgit:git-format-patch[1].
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

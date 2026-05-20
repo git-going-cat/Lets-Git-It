@@ -1,0 +1,92 @@
+git-instaweb(1)
+===============
+
+NAME
+----
+git-instaweb - Gitweb에서 워킹 저장소를 즉시 브라우징
+
+SYNOPSIS
+--------
+[verse]
+'git instaweb' [--local] [--httpd=<httpd>] [--port=<port>]
+               [--browser=<browser>]
+'git instaweb' [--start] [--stop] [--restart]
+
+DESCRIPTION
+-----------
+로컬 저장소를 브라우징하기 위한 `gitweb`과 웹 서버를 설정하는 간단한 스크립트입니다.
+
+OPTIONS
+-------
+
+-l::
+--local::
+	웹 서버를 로컬 IP(127.0.0.1)에만 바인딩합니다.
+
+-d::
+--httpd::
+	실행될 HTTP 데몬 명령어 라인입니다.
+	명령어 라인 옵션이 여기에 지정될 수 있으며,
+	설정 파일이 명령어 라인 끝에 추가됩니다.
+	현재 apache2, lighttpd, mongoose, plackup, python 및
+	webrick이 지원됩니다.
+	(기본값: lighttpd)
+
+-m::
+--module-path::
+	모듈 경로입니다 (httpd가 Apache일 경우에만 필요).
+	(기본값: /usr/lib/apache2/modules)
+
+-p::
+--port::
+	httpd가 바인딩될 포트 번호입니다.  (기본값: 1234)
+
+-b::
+--browser::
+	gitweb 페이지를 보는 데 사용될 웹 브라우저입니다.
+	이것은 URL of the gitweb instance와 함께 'git web{litdd}browse' 헬퍼 스크립트에 전달됩니다.
+	이것에 대한 더 자세한 내용은 linkgit:git-web{litdd}browse[1]을 참조하십시오.
+	스크립트가 실패하면 URL이 stdout으로 출력됩니다.
+
+start::
+--start::
+	httpd 인스턴스를 시작하고 종료합니다.
+	새로운 인스턴스를 시작하는 데 필요한 설정 파일을 재생성합니다.
+
+stop::
+--stop::
+	httpd 인스턴스를 중지하고 종료합니다.
+	새로운 인스턴스를 시작하는 설정 파일을 생성하지 않으며,
+	브라우저를 닫지도 않습니다.
+
+restart::
+--restart::
+	httpd 인스턴스를 재시작하고 종료합니다.
+	새로운 인스턴스를 시작하는 데 필요한 설정 파일을 재생성합니다.
+
+CONFIGURATION
+-------------
+
+.git/config에서 설정을 지정할 수 있습니다.
+
+-----------------------------------------------------------------------
+[instaweb]
+	local = true
+	httpd = apache2 -f
+	port = 4321
+	browser = konqueror
+	modulePath = /usr/lib/apache2/modules
+
+-----------------------------------------------------------------------
+
+If the configuration variable `instaweb.browser` is not set,
+`web.browser` will be used instead if it is defined. See
+linkgit:git-web{litdd}browse[1] for more information about this.
+
+SEE ALSO
+--------
+linkgit:gitweb[1]
+
+GIT
+---
+linkgit:git[1] 툴 모음의 일부입니다.

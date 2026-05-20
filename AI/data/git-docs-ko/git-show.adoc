@@ -1,0 +1,79 @@
+git-show(1)
+===========
+
+NAME
+----
+git-show - 다양한 타입의 객체를 보여줌
+
+
+SYNOPSIS
+--------
+[synopsis]
+git show [<options>] [<object>...]
+
+DESCRIPTION
+-----------
+하나 이상의 객체(blob, tree, tag, commit)를 보여줍니다.
+
+커밋의 경우, 로그 메시지와 텍스트 diff를 보여줍니다. 또한 `git diff-tree --cc`에 의해 생성되는 것과 같은 특별한 형식으로 머지 커밋을 표시합니다.
+
+태그의 경우, 태그 메시지와 참조된 객체를 보여줍니다.
+
+트리의 경우, 이름만 보여줍니다 (`git ls-tree --name-only`와 동등).
+
+일반 blob의 경우, 내용을 그대로 보여줍니다.
+
+`git log` 명령에서 이해하는 일부 옵션을 사용하여 커밋이 도입한 변경 사항을 표시하는 방법을 제어할 수 있습니다.
+
+이 매뉴얼 페이지는 가장 자주 사용되는 옵션만 설명합니다.
+
+
+OPTIONS
+-------
+`<object>...`::
+	보여줄 객체의 이름 (`HEAD`가 기본값).
+	객체 이름을 지정하는 더 완전한 방법에 대해서는 linkgit:gitrevisions[7]의 "SPECIFYING REVISIONS" 섹션을 참조하십시오.
+
+include::pretty-options.adoc[]
+
+
+include::pretty-formats.adoc[]
+
+
+DIFF FORMATTING
+---------------
+아래 옵션들을 사용하여 `git show`가 diff 출력을 생성하는 방식을 변경할 수 있습니다.
+
+:git-log: 1
+:diff-merges-default: `dense-combined`
+include::diff-options.adoc[]
+
+include::diff-generate-patch.adoc[]
+
+
+EXAMPLES
+--------
+
+`git show v1.0.0`::
+	`v1.0.0` 태그와 해당 태그가 가리키는 객체를 보여줍니다.
+
+`git show v1.0.0^{tree}`::
+	`v1.0.0` 태그가 가리키는 트리를 보여줍니다.
+
+`git show -s --format=%s v1.0.0^{commit}`::
+	`v1.0.0` 태그가 가리키는 커밋의 제목을 보여줍니다.
+
+`git show next~10:Documentation/README`::
+	`next` 브랜치의 10번째 이전 커밋에서 `Documentation/README` 파일의 내용을 보여줍니다.
+
+`git show master:Makefile master:t/Makefile`::
+	`master` 브랜치 최상단에 있는 해당 Makefile들의 내용을 연결하여 보여줍니다.
+
+DISCUSSION
+----------
+
+include::i18n.adoc[]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부
