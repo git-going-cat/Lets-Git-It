@@ -13,12 +13,10 @@ interface PlayerRankingCardProps {
   asset: CharacterAsset | null;
   isMe?: boolean;
   isMiss?: boolean;
+  disconnected?: boolean;
 }
 
-/**
- * 기여도 랭킹 카드 (nes.css 픽셀 스타일).
- * 상단: 등수 / 중앙: 캐릭터 / 하단: 이름 + 프로그래스 바.
- */
+/** Contribution ranking card shown during a multiplayer game. */
 export default function PlayerRankingCard({
   rank,
   nickname,
@@ -26,6 +24,7 @@ export default function PlayerRankingCard({
   asset,
   isMe = false,
   isMiss = false,
+  disconnected = false,
 }: PlayerRankingCardProps) {
   const clamped = Math.max(0, Math.min(100, contribution));
   const progressVariant = isMiss ? 'is-warning' : isMe ? 'is-primary' : 'is-success';
@@ -33,17 +32,20 @@ export default function PlayerRankingCard({
   const cardBg = isFirst ? '!bg-yellow-100' : '!bg-white';
 
   return (
-    <section className={`nes-container with-title is-rounded !mt-3 !p-3 ${cardBg}`}>
+    <section
+      className={`nes-container with-title is-rounded !mt-3 !p-3 ${cardBg} ${
+        disconnected ? 'opacity-60 grayscale' : ''
+      }`}
+    >
       <p
         className={`title font-pixel !text-sm ${cardBg} ${
           isFirst ? '!text-amber-600' : '!text-gray-900'
         }`}
       >
-        {rank}등
+        {rank}위
       </p>
 
       <div className="flex flex-col items-center gap-1">
-        {/* 캐릭터 — 에셋 위쪽 25% 잘라내서 카드 슬림화 */}
         <div className="flex h-16 items-center justify-center">
           {isMiss ? (
             <MissCatSprite height={MISS_CAT_HEIGHT} />
@@ -56,13 +58,12 @@ export default function PlayerRankingCard({
           )}
         </div>
 
-        {/* 이름 */}
         <span className="font-pixel w-full truncate text-center text-sm text-gray-900">
           {nickname}
           {isMe && <span className="ml-1 text-xs text-cyan-700">(나)</span>}
+          {disconnected && <span className="ml-1 text-xs text-red-600">OUT</span>}
         </span>
 
-        {/* 프로그래스 + % */}
         <div className="flex w-full items-center gap-2">
           <progress
             className={`nes-progress ${progressVariant} !h-3 flex-1 ${

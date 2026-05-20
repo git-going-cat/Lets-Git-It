@@ -106,7 +106,12 @@ export default function WaitingRoom() {
     void navigate({ to: '/home', search: { lobby: currentMode ?? 'CONTRIBUTION' } });
   }, [navigate, reset]);
 
-  const handlePrivateError = useCallback((_code: string, message: string) => {
+  const handlePrivateError = useCallback((code: string, message: string) => {
+    if (code === 'PLAYER_NOT_IN_ROOM' || code === 'ROOM_NOT_FOUND') {
+      setPrivateError(null);
+      setRestoreError(true);
+      return;
+    }
     setPrivateError(message);
   }, []);
 

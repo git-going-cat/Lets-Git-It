@@ -49,17 +49,13 @@ function CardFront({
   );
 }
 
-interface CoopCardAreaProps {
-  showAssignedCard?: boolean;
-}
-
-export default function CoopCardArea({ showAssignedCard = false }: CoopCardAreaProps) {
+export default function CoopCardArea() {
   const commands = useAtomValue(coopCommandsAtom);
   const myCommand = useAtomValue(coopMyCommandAtom);
   const isMyCommandCompleted = useAtomValue(coopMyCommandCompletedAtom);
   const phase = useAtomValue(coopPhaseAtom);
 
-  if (phase === 'assign' && !showAssignedCard) {
+  if (phase === 'assign') {
     return (
       <section className="pointer-events-none z-30 flex w-full items-center justify-center">
         <style>{`
@@ -101,11 +97,7 @@ export default function CoopCardArea({ showAssignedCard = false }: CoopCardAreaP
   }
 
   const shouldShowMyCommand =
-    myCommand !== null &&
-    ((phase === 'assign' && showAssignedCard) ||
-      phase === 'input' ||
-      phase === 'wrong' ||
-      phase === 'reset_wait');
+    myCommand !== null && (phase === 'input' || phase === 'wrong' || phase === 'reset_wait');
 
   if (shouldShowMyCommand) {
     return (

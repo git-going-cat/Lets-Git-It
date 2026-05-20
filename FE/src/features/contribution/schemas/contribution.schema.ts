@@ -125,6 +125,11 @@ export const ContributionPlayerDisconnectedSchema = z.object({
   serverTime: z.number(),
   disconnectedPlayerId: z.string().uuid(),
   scores: z.array(ScoreEntrySchema),
+  progress: z.object({
+    current: z.number(),
+    total: z.number(),
+    percent: z.number(),
+  }),
 });
 
 /** 게임 채널(/topic/room/{roomId}/contribution) 수신 메시지 discriminatedUnion (CONTRIBUTION_GAME_END 제외). */
