@@ -6,7 +6,19 @@ INFRA_DIR="$PROJECT_DIR/INFRA"
 COMPOSE_FILE="$INFRA_DIR/docker-compose.ai.yml"
 
 echo "[AI 배포] 빌드 및 실행 시작"
-docker compose -f "$COMPOSE_FILE" up -d --build
+
+# redis-ai 먼저 기동 (ingest 전 필요 없지만 depends_on 충족용)
+docker compose -f "$COMPOSE_FILE" up -d --build redis-ai
+
+# embeddings.npy 없으면 최초 1회 ingest 실행
+EMBEDDINGS_FILE="$PROJECT_DIR/AI/data/embeddings.npy"
+if [ ! -f "$EMBEDDINGS_FILE" ]; then
+  echo "[AI] embeddings.npy 없음 - ingest 실행 중 (시간이 걸릴 수 있습니다)..."
+  docker compose -f "$COMPOSE_FILE" run --rm rag-fastapi python scripts/ingest.py --index
+  echo "[AI] ingest 완료"
+fi
+
+docker compose -f "$COMPOSE_FILE" up -d rag-fastapi
 
 # 헬스체크 루프 (최대 100초, 5초 간격 x 20)
 echo "[헬스체크] rag-fastapi 응답 대기 중..."
