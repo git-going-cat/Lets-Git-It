@@ -40,6 +40,7 @@ interface ContributionSessionActions {
     players: ContributionPlayer[];
   }) => void;
   updatePlayerBranch: (playerId: string, branch: string) => void;
+  markPlayerDisconnected: (playerId: string) => void;
   clearSession: () => void;
 }
 
@@ -66,6 +67,11 @@ export const useContributionStore = create<ContributionSessionState & Contributi
         players: s.players.map((p) =>
           p.playerId === playerId ? { ...p, currentBranch: branch } : p
         ),
+      })),
+
+    markPlayerDisconnected: (playerId) =>
+      set((s) => ({
+        players: s.players.map((p) => (p.playerId === playerId ? { ...p, disconnected: true } : p)),
       })),
 
     clearSession: () => set(initialState),

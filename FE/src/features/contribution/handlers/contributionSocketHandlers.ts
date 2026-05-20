@@ -13,10 +13,8 @@
  * ```
  */
 
-import { socketManager } from '@/core/socket/SocketManager';
+import { socketManager, TERMINAL_AUTH_ERROR_CODES } from '@/core/socket/SocketManager';
 import { baseMessageSchema } from '@/features/multi/schemas/room.schema';
-
-const FORCE_DISCONNECT_CODES = new Set(['LOGGED_OUT', 'REPLACED_BY_NEW_LOGIN']);
 
 import { contributionBus } from '../bridge/contributionBus';
 import {
@@ -126,7 +124,9 @@ export function handleContributionPlayerDisconnected(
     ...s,
     isMe: s.playerId === ctx.myPlayerId,
   }));
+  ctx.store.markPlayerDisconnected(msg.disconnectedPlayerId);
   ctx.setScores(scores);
+  ctx.setProgress(msg.progress);
 }
 
 export function handleContributionInputFailed(msg: ContributionInputFailedMsg): void {
@@ -196,7 +196,7 @@ export function handleContributionPrivateMessage(raw: unknown, ctx: Contribution
       handleContributionInputFailed(result.data);
       break;
     case 'FORCE_DISCONNECT':
-      if (!FORCE_DISCONNECT_CODES.has(result.data.code)) break;
+      if (!TERMINAL_AUTH_ERROR_CODES.has(result.data.code)) break;
       socketManager.disconnect();
       ctx.onForceDisconnect?.();
       break;

@@ -30,6 +30,7 @@ export interface ContributionPlayer {
   characterEye: string;
   characterOutfit: string;
   characterOutfitColor: string;
+  disconnected?: boolean;
 }
 
 export interface ContributionProgress {

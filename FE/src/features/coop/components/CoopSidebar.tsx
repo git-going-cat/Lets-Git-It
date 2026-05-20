@@ -3,7 +3,7 @@ import { useAtomValue } from 'jotai';
 import PlayerCharacterPreview from '@/shared/components/PlayerCharacterPreview';
 
 import { coopInputBlockedAtom, coopResetTargetPlayerIdAtom } from '../store/coopPhaseAtom';
-import { coopPlayersAtom, coopPlayerStatsAtom } from '../store/coopPlayersAtom';
+import { coopPlayersAtom } from '../store/coopPlayersAtom';
 
 import type { CoopPlayer } from '../types/coop.types';
 import type { CharacterAsset } from '@/shared/types/user.types';
@@ -23,7 +23,6 @@ export default function CoopSidebar() {
   const players = useAtomValue(coopPlayersAtom);
   const isInputBlocked = useAtomValue(coopInputBlockedAtom);
   const resetTargetPlayerId = useAtomValue(coopResetTargetPlayerIdAtom);
-  const playerStats = useAtomValue(coopPlayerStatsAtom);
 
   return (
     <aside className="relative flex w-52 shrink-0 flex-col border-l border-gray-700">
@@ -34,7 +33,6 @@ export default function CoopSidebar() {
         <ol className="flex flex-1 flex-col justify-between gap-5 pb-2">
           {players.map((player) => {
             const isWrongPlayer = player.playerId === resetTargetPlayerId;
-            const stats = playerStats[player.playerId] ?? { typoCount: 0, resetCount: 0 };
             const cardBg = player.isMe ? '!bg-yellow-100' : '!bg-white';
 
             return (
@@ -62,10 +60,6 @@ export default function CoopSidebar() {
                     <span className="font-pixel w-full truncate text-center text-sm leading-tight text-gray-900">
                       {player.nickname}
                     </span>
-                    <div className="flex w-full justify-center gap-2 font-pixel text-xs leading-none text-gray-700">
-                      <span>오타 {stats.typoCount}</span>
-                      <span>리셋 {stats.resetCount}</span>
-                    </div>
                   </div>
                 </section>
               </li>

@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { socketManager } from '@/core/socket/SocketManager';
+import { socketManager, TERMINAL_AUTH_ERROR_CODES } from '@/core/socket/SocketManager';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useCoopStore } from '@/features/coop/store/coopStore';
 
@@ -27,7 +27,7 @@ const PRIVATE_KEY = 'room-private';
 const REST_FALLBACK_DELAY_MS = 3_000;
 const RECONNECTED_BANNER_MS = 2_000;
 const BLOCKING_ESCALATION_MS = 10_000;
-const FORCE_DISCONNECT_CODES = new Set(['LOGGED_OUT', 'REPLACED_BY_NEW_LOGIN']);
+const ROOM_RESTORE_TERMINAL_ERROR_CODES = new Set(['PLAYER_NOT_IN_ROOM', 'ROOM_NOT_FOUND']);
 const COOP_RUNTIME_MESSAGE_TYPES = new Set([
   'COOP_ROUND_REVEAL',
   'COOP_ROUND_ASSIGN',
@@ -186,7 +186,7 @@ export function useRoomSocket(
               console.error('[socket] Invalid FORCE_DISCONNECT packet dropped.', result.error);
               return;
             }
-            if (!FORCE_DISCONNECT_CODES.has(result.data.code)) return;
+            if (!TERMINAL_AUTH_ERROR_CODES.has(result.data.code)) return;
             socketManager.disconnect();
             privateQueueHandlersRef.current.onForceDisconnect?.();
             return;
@@ -213,6 +213,12 @@ export function useRoomSocket(
               code: result.data.code,
               message: result.data.message,
             });
+            if (ROOM_RESTORE_TERMINAL_ERROR_CODES.has(result.data.code)) {
+              needsRestoreRef.current = false;
+              clearFallbackTimer();
+              setConnectionStatus('idle');
+              onReconnectCompleteRef.current?.(null);
+            }
             privateQueueHandlersRef.current.onPrivateError?.(result.data.code, result.data.message);
             return;
           }
@@ -243,6 +249,8 @@ export function useRoomSocket(
       socketManager.subscribe(
         `/topic/room/${roomId}/contribution`,
         (raw) => {
+          if (getMessageType(raw) !== 'CONTRIBUTION_STARTED') return;
+
           const result = contributionStartedSchema.safeParse(raw);
           if (!result.success) {
             console.error('[WS] CONTRIBUTION_STARTED 파싱 실패:', result.error);
@@ -288,8 +296,8 @@ export function useRoomSocket(
 
     return () => {
       socketManager.unsubscribe(topicKey(roomId));
-      if (mode === 'CONTRIBUTION') socketManager.unsubscribe(contributionGameKey(roomId));
-      if (mode === 'COOP') socketManager.unsubscribe(coopGameKey(roomId));
+      if (mode !== 'COOP') socketManager.unsubscribe(contributionGameKey(roomId));
+      if (mode !== 'CONTRIBUTION') socketManager.unsubscribe(coopGameKey(roomId));
       socketManager.unsubscribe(PRIVATE_KEY);
       clearFallbackTimer();
     };

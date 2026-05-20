@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-import { socketManager } from '@/core/socket/SocketManager';
+import { socketManager, TERMINAL_AUTH_ERROR_CODES } from '@/core/socket/SocketManager';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import {
   CoopGameEndSchema,
@@ -194,14 +194,12 @@ export function useCoopGame() {
   const pendingInputRequestIdsRef = useRef<Set<string>>(new Set());
   const playersRef = useRef<CoopPlayer[]>([]);
   const playerStatsRef = useRef<Record<string, { typoCount: number; resetCount: number }>>({});
-  const elapsedSecondsRef = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
   const graphDataRef = useRef<unknown>(null);
   const accessToken = useAuthStore((state) => state.accessToken);
   const phase = useAtomValue(coopPhaseAtom);
   const players = useAtomValue(coopPlayersAtom);
   const playerStats = useAtomValue(coopPlayerStatsAtom);
-  const elapsedSeconds = useAtomValue(coopElapsedSecondsAtom);
   const setPhase = useSetAtom(coopPhaseAtom);
   const setRound = useSetAtom(coopRoundAtom);
   const setCompletedCount = useSetAtom(coopCompletedCountAtom);
@@ -234,10 +232,9 @@ export function useCoopGame() {
     pendingInputRequestIdsRef.current = pendingInputRequestIds;
     playersRef.current = players;
     playerStatsRef.current = playerStats;
-    elapsedSecondsRef.current = elapsedSeconds;
     sessionIdRef.current = sessionId;
     graphDataRef.current = graphData;
-  }, [elapsedSeconds, graphData, pendingInputRequestIds, playerStats, players, sessionId]);
+  }, [graphData, pendingInputRequestIds, playerStats, players, sessionId]);
 
   useEffect(
     () => () => {
@@ -333,6 +330,9 @@ export function useCoopGame() {
       setMyCommandOrder(null);
       setMyCommandCompleted(false);
       setPendingInputRequestIds(new Set());
+      if (result.data.isReset) {
+        coopBus.emit('coop:input-clear');
+      }
       if (pendingAssignedCommandTextRef.current !== null) {
         const pendingCommandText = pendingAssignedCommandTextRef.current;
         pendingAssignedCommandTextRef.current = null;
@@ -429,40 +429,19 @@ export function useCoopGame() {
       gameEndFallbackTimerRef.current = null;
       if (useCoopStore.getState().result !== null) return;
 
-      console.warn('[COOP] GAME_END 미수신: 최종 입력 완료 상태로 결과 모달을 표시합니다.');
+      console.warn('[COOP] COOP_GAME_END timeout. Showing result receive failure modal.');
       setResult({
         type: 'COOP_GAME_END',
         gameSessionId: sessionIdRef.current,
         serverTime: Date.now(),
-        isSuccess: true,
-        reason: 'CLIENT_FALLBACK',
-        elapsedTime: elapsedSecondsRef.current * 1000,
-        results: playersRef.current
-          .map((player) => {
-            const stat = playerStatsRef.current[player.playerId] ?? {
-              typoCount: 0,
-              resetCount: 0,
-            };
-            return {
-              playerId: player.playerId,
-              nickname: player.nickname,
-              wrongTypeCount: stat.typoCount,
-              wrongOrderCount: stat.resetCount,
-              ranking: 0,
-              isMe: player.isMe,
-            };
-          })
-          .sort((a, b) => {
-            const aWrongCount = a.wrongTypeCount + a.wrongOrderCount;
-            const bWrongCount = b.wrongTypeCount + b.wrongOrderCount;
-            if (aWrongCount !== bWrongCount) return aWrongCount - bWrongCount;
-            return a.nickname.localeCompare(b.nickname);
-          })
-          .map((result, index) => ({ ...result, ranking: index + 1 })),
+        isSuccess: false,
+        reason: 'RESULT_TIMEOUT',
+        elapsedTime: null,
+        results: null,
       });
       setInputBlocked(true);
       setPhase('ended');
-    }, 1500);
+    }, 30000);
   }, [setInputBlocked, setPhase, setResult]);
 
   const handleInputCorrect = useCallback(
@@ -498,6 +477,7 @@ export function useCoopGame() {
       setGraphActiveSequence(null);
 
       if (result.data.isRoundComplete && result.data.sequence >= COOP_TOTAL_COMMANDS) {
+        setInputBlocked(true);
         scheduleGameEndFallback();
       }
     },
@@ -507,6 +487,7 @@ export function useCoopGame() {
       setCurrentOrder,
       setGraphActiveSequence,
       setGraphCompletedSequences,
+      setInputBlocked,
       setMyCommandCompleted,
       setPendingInputRequestIds,
       setRound,
@@ -786,7 +767,28 @@ export function useCoopGame() {
       privateKey
     );
 
+    const removeConnectionListener = socketManager.addConnectionListener((event) => {
+      if (event !== 'disconnected') return;
+
+      const disconnectError = socketManager.getLastDisconnectError();
+      if (!disconnectError || !TERMINAL_AUTH_ERROR_CODES.has(disconnectError.code)) return;
+      if (useCoopStore.getState().result !== null) return;
+
+      setInputBlocked(true);
+      setResult({
+        type: 'COOP_GAME_END',
+        gameSessionId: sessionIdRef.current,
+        serverTime: Date.now(),
+        isSuccess: false,
+        reason: disconnectError.code,
+        elapsedTime: null,
+        results: null,
+      });
+      setPhase('ended');
+    });
+
     return () => {
+      removeConnectionListener();
       socketManager.unsubscribe(gameKey);
       socketManager.unsubscribe(privateKey);
     };
@@ -801,6 +803,9 @@ export function useCoopGame() {
     handleRoundAssign,
     handleRoundReveal,
     roomId,
+    setInputBlocked,
+    setPhase,
+    setResult,
     sessionId,
   ]);
 }

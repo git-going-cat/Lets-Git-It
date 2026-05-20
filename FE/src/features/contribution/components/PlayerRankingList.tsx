@@ -30,6 +30,7 @@ export default function PlayerRankingList() {
                 asset={asset ?? null}
                 isMe={entry.isMe}
                 isMiss={isMiss}
+                disconnected={entry.disconnected}
               />
             </li>
           );

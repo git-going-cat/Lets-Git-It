@@ -39,6 +39,7 @@ export function useCoopInput() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [isShaking, setIsShaking] = useState(false);
   const phase = useAtomValue(coopPhaseAtom);
+  const previousPhaseRef = useRef(phase);
   const currentOrder = useAtomValue(coopCurrentOrderAtom);
   const isInputBlocked = useAtomValue(coopInputBlockedAtom);
   const resetTargetPlayerId = useAtomValue(coopResetTargetPlayerIdAtom);
@@ -81,24 +82,48 @@ export function useCoopInput() {
     setInputValue('');
   }, []);
 
+  const clearSubmittedInputState = useCallback(
+    (shouldClearHistory = false) => {
+      pendingTextsRef.current.clear();
+      setPendingInputRequestIds(new Set());
+      lastSubmittedTextRef.current = null;
+      clearInputValue();
+      if (shouldClearHistory) {
+        setHistory([]);
+      }
+    },
+    [clearInputValue, setPendingInputRequestIds]
+  );
+
   useEffect(() => {
     inputValueRef.current = inputValue;
   }, [inputValue]);
 
   useEffect(() => {
+    if (previousPhaseRef.current !== 'reset_wait' && phase === 'reset_wait' && isResetTarget) {
+      clearInputValue();
+    }
+    previousPhaseRef.current = phase;
+  }, [clearInputValue, isResetTarget, phase]);
+
+  useEffect(() => {
     return coopBus.subscribe('coop:input-wrong-shake', () => {
       const text = lastSubmittedTextRef.current ?? inputValueRef.current.trim();
-      pendingTextsRef.current.clear();
-      setPendingInputRequestIds(new Set());
-      lastSubmittedTextRef.current = null;
+      clearSubmittedInputState();
       if (text) {
         setHistory([{ text, status: 'error' }]);
       }
-      clearInputValue();
       triggerShake();
       inputRef.current?.focus();
     });
-  }, [clearInputValue, setPendingInputRequestIds, triggerShake]);
+  }, [clearSubmittedInputState, triggerShake]);
+
+  useEffect(() => {
+    return coopBus.subscribe('coop:input-clear', () => {
+      clearSubmittedInputState(true);
+      inputRef.current?.focus();
+    });
+  }, [clearSubmittedInputState]);
 
   useEffect(() => {
     if (!isDisabled) inputRef.current?.focus();

@@ -9,9 +9,18 @@ import type { IMessage, StompSubscription } from '@stomp/stompjs';
 const RECONNECT_DELAY_MS = 5000;
 const HEARTBEAT_INTERVAL_MS = 5000;
 const INVALID_SOCKET_MESSAGE = Symbol('INVALID_SOCKET_MESSAGE');
+export const TERMINAL_AUTH_ERROR_CODES = new Set([
+  'TOKEN_BLACKLISTED',
+  'LOGGED_OUT',
+  'REPLACED_BY_NEW_LOGIN',
+]);
 
 type ConnectionEvent = 'connected' | 'disconnected';
 type ConnectionListener = (event: ConnectionEvent) => void;
+type DisconnectError = {
+  code: string;
+  message: string;
+};
 
 type PendingSubscription = {
   callback: SocketMessageHandler;
@@ -33,6 +42,8 @@ class SocketManager {
   private isConnecting = false;
 
   private isReissuingToken = false;
+
+  private lastDisconnectError: DisconnectError | null = null;
 
   /** Dev 전용 mock 모드. publish를 silent no-op으로 만들어 진짜 WS 없이 동작 가능. */
   private mockMode = false;
@@ -74,6 +85,7 @@ class SocketManager {
     client.onConnect = () => {
       this.isConnected = true;
       this.isConnecting = false;
+      this.lastDisconnectError = null;
       this.queueActiveSubscriptionsForReconnect();
       this.flushPendingSubscriptions();
       this.runConnectCallbacks();
@@ -94,6 +106,8 @@ class SocketManager {
         return;
       }
 
+      const disconnectError = this.parseErrorFrame(frame.body, frame.headers.message);
+      this.lastDisconnectError = disconnectError;
       this.isConnected = false;
       this.isConnecting = false;
       this.queueActiveSubscriptionsForReconnect();
@@ -102,6 +116,13 @@ class SocketManager {
         body: frame.body,
         message: frame.headers.message,
       });
+
+      if (TERMINAL_AUTH_ERROR_CODES.has(disconnectError.code)) {
+        this.pendingSubscriptions.clear();
+        this.subscriptions.clear();
+        this.client = null;
+        void client.deactivate();
+      }
     };
 
     this.client = client;
@@ -166,6 +187,10 @@ class SocketManager {
 
   get connected(): boolean {
     return this.isConnected && (this.client?.connected ?? false);
+  }
+
+  getLastDisconnectError(): DisconnectError | null {
+    return this.lastDisconnectError;
   }
 
   /**
@@ -247,6 +272,25 @@ class SocketManager {
     } catch {
       return false;
     }
+  }
+
+  private parseErrorFrame(body: string, message?: string): DisconnectError {
+    try {
+      const parsed = JSON.parse(body) as { code?: unknown; message?: unknown };
+      if (typeof parsed.code === 'string') {
+        return {
+          code: parsed.code,
+          message: typeof parsed.message === 'string' ? parsed.message : (message ?? parsed.code),
+        };
+      }
+    } catch {
+      // fall through to message-only error
+    }
+
+    return {
+      code: 'STOMP_ERROR',
+      message: message ?? 'WebSocket connection failed.',
+    };
   }
 
   private async reconnectWithFreshToken(): Promise<void> {
