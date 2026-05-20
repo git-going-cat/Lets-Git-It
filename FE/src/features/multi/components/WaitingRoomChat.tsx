@@ -44,7 +44,7 @@ export function WaitingRoomChat({ onSendMessage }: WaitingRoomChatProps) {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col border-t border-[#c8dfd0]">
+    <div className="mb-2 flex h-52 shrink-0 flex-col border-t border-[#c8dfd0]">
       <div className="flex shrink-0 items-center gap-1.5 border-b border-gray-700 bg-[#1a1a1a] px-3 py-1">
         <span className="font-mono text-md font-bold uppercase tracking-wider text-green-400">
           CHAT_TERMINAL

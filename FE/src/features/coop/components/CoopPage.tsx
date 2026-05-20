@@ -27,6 +27,7 @@ export default function CoopPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const assignFallbackTimerRef = useRef<number | null>(null);
+  const assignedCardTimerRef = useRef<number | null>(null);
   const shouldLeaveRoomRef = useRef(true);
   const phase = useAtomValue(coopPhaseAtom);
   const setPhase = useSetAtom(coopPhaseAtom);
@@ -40,6 +41,7 @@ export default function CoopPage() {
   const revealDurationMs = useCoopStore((state) => state.revealDurationMs);
   const [countdownDoneStartKey, setCountdownDoneStartKey] = useState<number | null>(null);
   const [countdownDoneRevealKey, setCountdownDoneRevealKey] = useState<number | null>(null);
+  const [showAssignedCard, setShowAssignedCard] = useState(false);
   const hasStartCountdown = startKey > 0 && startDelayMs > 0;
   const isStartCountdownDone = !hasStartCountdown || countdownDoneStartKey === startKey;
   const hasRevealPacket = revealKey > 0;
@@ -76,6 +78,7 @@ export default function CoopPage() {
     }
 
     const timerId = window.setTimeout(() => {
+      setShowAssignedCard(false);
       setPhase('assign');
       coopBus.emit('coop:reveal-ended');
     }, revealDurationMs);
@@ -88,15 +91,10 @@ export default function CoopPage() {
   useEffect(() => {
     if (phase !== 'assign') return;
 
-    const enterInputPhase = () => {
-      setInputBlocked(false);
-      setPhase('input');
-      coopBus.emit('coop:cards-hide');
-    };
-
     assignFallbackTimerRef.current = window.setTimeout(() => {
+      setShowAssignedCard(true);
+      coopBus.emit('coop:cards-hide');
       assignFallbackTimerRef.current = null;
-      enterInputPhase();
     }, 2000);
 
     const unsubscribe = coopBus.subscribe('coop:shuffle-complete', () => {
@@ -104,7 +102,8 @@ export default function CoopPage() {
         window.clearTimeout(assignFallbackTimerRef.current);
         assignFallbackTimerRef.current = null;
       }
-      enterInputPhase();
+      setShowAssignedCard(true);
+      coopBus.emit('coop:cards-hide');
     });
 
     return () => {
@@ -114,7 +113,24 @@ export default function CoopPage() {
         assignFallbackTimerRef.current = null;
       }
     };
-  }, [phase, setInputBlocked, setPhase]);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== 'assign' || !showAssignedCard || myCommand === null) return;
+
+    assignedCardTimerRef.current = window.setTimeout(() => {
+      setInputBlocked(false);
+      setPhase('input');
+      assignedCardTimerRef.current = null;
+    }, 1500);
+
+    return () => {
+      if (assignedCardTimerRef.current !== null) {
+        window.clearTimeout(assignedCardTimerRef.current);
+        assignedCardTimerRef.current = null;
+      }
+    };
+  }, [myCommand, phase, setInputBlocked, setPhase, showAssignedCard]);
 
   useEffect(() => {
     return coopBus.subscribe('coop:scene-ready', () => {
@@ -174,13 +190,23 @@ export default function CoopPage() {
 
             {phase === 'assign' && (
               <div className="relative flex w-full max-w-4xl flex-1 items-center justify-center">
-                <CoopCardArea />
+                {showAssignedCard && myCommand !== null ? (
+                  <div className="translate-x-8">
+                    <CoopCardArea showAssignedCard />
+                  </div>
+                ) : showAssignedCard ? (
+                  <div className="flex h-full w-full flex-1 items-center justify-center pointer-events-auto">
+                    <CoopGitShapePanel />
+                  </div>
+                ) : (
+                  <CoopCardArea />
+                )}
               </div>
             )}
 
             {(phase === 'input' || phase === 'wrong' || phase === 'reset_wait') && (
               <div className="flex h-full w-full flex-1 items-center justify-center pointer-events-auto">
-                <CoopGitShapePanel myCommand={myCommand} />
+                <CoopGitShapePanel myCommand={showAssignedCard ? myCommand : null} />
               </div>
             )}
           </div>

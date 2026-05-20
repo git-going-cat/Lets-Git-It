@@ -1,0 +1,37 @@
+services:
+  rag-fastapi:
+    build:
+      context: ../AI
+    container_name: rag-fastapi
+    expose:
+      - "8000"
+    env_file:
+      - ../AI/.env
+    volumes:
+      - ../AI/data:/app/data
+    depends_on:
+      redis-ai:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - letsgit-dev
+
+  redis-ai:
+    image: redis:7-alpine
+    container_name: redis-ai
+    ports:
+      - "10.0.0.1:6382:6382"
+    command: redis-server --port 6382
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6382", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - letsgit-dev
+
+networks:
+  letsgit-dev:
+    name: letsgit-dev
+    external: true

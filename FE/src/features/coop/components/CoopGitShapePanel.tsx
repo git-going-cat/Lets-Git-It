@@ -23,23 +23,9 @@ export default function CoopGitShapePanel({ myCommand = null }: CoopGitShapePane
   const roundSteps = [1, 2, 3, 4];
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-gray-700 bg-[#0A0A14] p-6 text-white drop-shadow-lg">
+    <div className="flex h-full w-full flex-col rounded-xl border border-gray-700 bg-[#0A0A14] p-6 text-white drop-shadow-lg">
       <h2 className="mb-3 font-pixel text-2xl text-gray-200">Git Branch History</h2>
-      <div className="mb-3 flex shrink-0 items-center justify-center gap-4 rounded-lg border border-[#F2CB05]/30 bg-black/30 py-2">
-        {roundSteps.map((step) => (
-          <img
-            key={step}
-            src="/assets/coop/cat_pixel.png"
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className={`h-14 w-14 object-contain [image-rendering:pixelated] drop-shadow-[0_0_10px_rgba(242,203,5,0.65)] ${
-              step <= completedCount ? 'opacity-100 grayscale-0' : 'grayscale opacity-30'
-            }`}
-          />
-        ))}
-      </div>
-      <div className="flex min-h-0 w-full flex-1 items-center justify-center gap-6">
+      <div className="flex w-full flex-1 items-center justify-center gap-6">
         <div className="flex min-w-0 flex-1 items-center justify-center">
           {graphData ? (
             <div className="flex h-full w-full items-center justify-center p-4">
@@ -72,6 +58,20 @@ export default function CoopGitShapePanel({ myCommand = null }: CoopGitShapePane
             </div>
           </div>
         )}
+      </div>
+      <div className="mt-4 flex items-center justify-center gap-4">
+        {roundSteps.map((step) => (
+          <img
+            key={step}
+            src="/assets/coop/cat_pixel.png"
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`h-20 w-20 object-contain [image-rendering:pixelated] ${
+              step <= completedCount ? 'opacity-100 grayscale-0' : 'grayscale opacity-30'
+            }`}
+          />
+        ))}
       </div>
     </div>
   );

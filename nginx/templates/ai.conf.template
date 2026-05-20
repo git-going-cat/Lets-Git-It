@@ -1,0 +1,16 @@
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN_AI};
+
+    ssl_certificate ${SSL_CERT};
+    ssl_certificate_key ${SSL_KEY};
+
+    location / {
+        limit_req zone=api_limit burst=30 nodelay;
+        proxy_pass http://rag-fastapi:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
