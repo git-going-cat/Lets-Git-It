@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 
 import { env } from '@/config/env';
 import { socketManager } from '@/core/socket/SocketManager';
 
 import { coopBus } from '../bridge/coopBus';
-import { coopCommandsAtom, coopMyCommandAtom } from '../store/coopCommandsAtom';
+import {
+  coopCommandsAtom,
+  coopMyCommandAtom,
+  coopPendingInputRequestIdsAtom,
+} from '../store/coopCommandsAtom';
 import {
   coopCurrentOrderAtom,
   coopInputBlockedAtom,
@@ -41,6 +45,7 @@ export function useCoopInput() {
   const players = useAtomValue(coopPlayersAtom);
   const commands = useAtomValue(coopCommandsAtom);
   const myCommand = useAtomValue(coopMyCommandAtom);
+  const setPendingInputRequestIds = useSetAtom(coopPendingInputRequestIdsAtom);
   const roomId = useCoopStore((state) => state.roomId);
 
   const me = players.find((player) => player.isMe) ?? null;
@@ -57,7 +62,7 @@ export function useCoopInput() {
     (isInputBlocked && phase !== 'input' && !isResetTarget);
 
   const placeholder = useMemo(() => {
-    if (phase === 'reveal') return '명령어를 암기하세요...';
+    if (phase === 'reveal') return '명령어를 기억하세요...';
     if (phase === 'assign') return '명령어 배정 중...';
     if (phase === 'reset_wait' && !isResetTarget) return '다른 플레이어가 reset 중입니다...';
     if (isInputBlocked && !isResetTarget) return '입력이 차단되었습니다...';
@@ -71,6 +76,11 @@ export function useCoopInput() {
     window.setTimeout(() => setIsShaking(true), 0);
   }, []);
 
+  const clearInputValue = useCallback(() => {
+    inputValueRef.current = '';
+    setInputValue('');
+  }, []);
+
   useEffect(() => {
     inputValueRef.current = inputValue;
   }, [inputValue]);
@@ -79,28 +89,29 @@ export function useCoopInput() {
     return coopBus.subscribe('coop:input-wrong-shake', () => {
       const text = lastSubmittedTextRef.current ?? inputValueRef.current.trim();
       pendingTextsRef.current.clear();
+      setPendingInputRequestIds(new Set());
       lastSubmittedTextRef.current = null;
       if (text) {
-        setHistory((prev) => [...prev, { text, status: 'typo' }]);
+        setHistory([{ text, status: 'error' }]);
       }
-      setInputValue('');
+      clearInputValue();
       triggerShake();
       inputRef.current?.focus();
     });
-  }, [triggerShake]);
+  }, [clearInputValue, setPendingInputRequestIds, triggerShake]);
 
   useEffect(() => {
     if (!isDisabled) inputRef.current?.focus();
   }, [currentOrder, isDisabled, phase]);
 
-  const submitInput = () => {
-    const value = inputValue.trim();
+  const submitInput = useCallback(() => {
+    const value = inputValueRef.current.trim();
     if (!value || isDisabled) return;
 
     if (phase === 'reset_wait') {
       if (value !== 'git reset') {
-        setHistory((prev) => [...prev, { text: value, status: 'typo' }]);
-        setInputValue('');
+        setHistory([{ text: value, status: 'error' }]);
+        clearInputValue();
         triggerShake();
         return;
       }
@@ -112,8 +123,7 @@ export function useCoopInput() {
         coopBus.emit('coop:mock-reset');
         pendingTextsRef.current.delete(requestId);
         lastSubmittedTextRef.current = null;
-        setHistory((prev) => [...prev, { text: value, status: 'switch' }]);
-        setInputValue('');
+        clearInputValue();
         return;
       }
 
@@ -122,27 +132,36 @@ export function useCoopInput() {
         inputText: value,
         requestId,
       });
-      setHistory((prev) => [...prev, { text: value, status: 'switch' }]);
-      setInputValue('');
+      clearInputValue();
       return;
     }
 
     const requestId = createRequestId();
     pendingTextsRef.current.set(requestId, value);
     lastSubmittedTextRef.current = value;
+    setPendingInputRequestIds((requestIds: Set<string>) => new Set(requestIds).add(requestId));
 
     if (env.MODE === 'development' && roomId == null) {
       if (value === myCommand) {
         coopBus.emit('coop:mock-input-correct');
         pendingTextsRef.current.delete(requestId);
-        setHistory((prev) => [...prev, { text: value, status: 'switch' }]);
-        setInputValue('');
+        setPendingInputRequestIds((requestIds: Set<string>) => {
+          const next = new Set(requestIds);
+          next.delete(requestId);
+          return next;
+        });
+        clearInputValue();
         return;
       }
 
       if (commands.some((command) => command.commandText === value)) {
         coopBus.emit('coop:mock-order-wrong');
         pendingTextsRef.current.delete(requestId);
+        setPendingInputRequestIds((requestIds: Set<string>) => {
+          const next = new Set(requestIds);
+          next.delete(requestId);
+          return next;
+        });
         lastSubmittedTextRef.current = null;
         return;
       }
@@ -156,19 +175,32 @@ export function useCoopInput() {
       inputText: value,
       requestId,
     });
-    setHistory((prev) => [...prev, { text: value, status: 'switch' }]);
-    setInputValue('');
-  };
+    clearInputValue();
+  }, [
+    clearInputValue,
+    commands,
+    isDisabled,
+    myCommand,
+    phase,
+    roomId,
+    setPendingInputRequestIds,
+    triggerShake,
+  ]);
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(event.target.value);
-  };
+  const handleInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value;
+    inputValueRef.current = nextValue;
+    setInputValue(nextValue);
+  }, []);
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    submitInput();
-  };
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      submitInput();
+    },
+    [submitInput]
+  );
 
   return {
     inputRef,

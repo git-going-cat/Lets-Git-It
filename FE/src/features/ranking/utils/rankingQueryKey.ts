@@ -11,7 +11,7 @@ function normalizeCoopQuery(coopQuery?: CoopRankingQuery) {
   };
 }
 
-/** 랭킹 쿼리 캐시 키를 현재/과거와 협력 조건까지 명시적으로 구성합니다. */
+/** 랭킹 쿼리 캐시 키를 현재/과거 주차와 협력 맵 조건 기준으로 구성합니다. */
 export function rankingQueryKey(
   mode: RankingMode,
   selectedWeek: WeekParam | null,

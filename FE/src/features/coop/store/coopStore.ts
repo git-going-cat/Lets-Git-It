@@ -10,6 +10,7 @@ interface CoopMetaState {
   mapName: string | null;
   playerSnapshots: CoopPlayer[];
   startKey: number;
+  startAt: number | null;
   startDelayMs: number;
   revealKey: number;
   revealDelayMs: number;
@@ -41,6 +42,7 @@ const initialState: CoopMetaState = {
   mapName: null,
   playerSnapshots: [],
   startKey: 0,
+  startAt: null,
   startDelayMs: 0,
   revealKey: 0,
   revealDelayMs: 0,

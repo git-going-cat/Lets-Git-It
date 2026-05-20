@@ -9,6 +9,7 @@ import { createGameConfig } from '@/game/config';
 import { coopBus } from '../bridge/coopBus';
 import { useCoopGame } from '../hooks/useCoopGame';
 import { CoopScene } from '../scenes/CoopScene';
+import { coopMyCommandAtom } from '../store/coopCommandsAtom';
 import { coopInputBlockedAtom, coopPhaseAtom } from '../store/coopPhaseAtom';
 import { useCoopStore } from '../store/coopStore';
 
@@ -21,14 +22,17 @@ import SirenOverlay from './overlays/SirenOverlay';
 import ResultModal from './ResultModal';
 import SimpleInputBar from './SimpleInputBar';
 
+/** 협력 게임 화면의 Phaser scene, React overlay, WebSocket game state를 연결한다. */
 export default function CoopPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const assignFallbackTimerRef = useRef<number | null>(null);
+  const assignedCardTimerRef = useRef<number | null>(null);
   const shouldLeaveRoomRef = useRef(true);
   const phase = useAtomValue(coopPhaseAtom);
   const setPhase = useSetAtom(coopPhaseAtom);
   const setInputBlocked = useSetAtom(coopInputBlockedAtom);
+  const myCommand = useAtomValue(coopMyCommandAtom);
   const roomId = useCoopStore((state) => state.roomId);
   const clearSession = useCoopStore((state) => state.clearSession);
   const startKey = useCoopStore((state) => state.startKey);
@@ -87,14 +91,11 @@ export default function CoopPage() {
   useEffect(() => {
     if (phase !== 'assign') return;
 
-    let timerId: number | null = null;
     assignFallbackTimerRef.current = window.setTimeout(() => {
-      setShowAssignedCard(false);
-      setInputBlocked(false);
-      setPhase('input');
+      setShowAssignedCard(true);
       coopBus.emit('coop:cards-hide');
       assignFallbackTimerRef.current = null;
-    }, 10000);
+    }, 2000);
 
     const unsubscribe = coopBus.subscribe('coop:shuffle-complete', () => {
       if (assignFallbackTimerRef.current !== null) {
@@ -102,25 +103,42 @@ export default function CoopPage() {
         assignFallbackTimerRef.current = null;
       }
       setShowAssignedCard(true);
-      timerId = window.setTimeout(() => {
-        setShowAssignedCard(false);
-        setInputBlocked(false);
-        setPhase('input');
-        coopBus.emit('coop:cards-hide');
-      }, 3000);
+      coopBus.emit('coop:cards-hide');
     });
 
     return () => {
       unsubscribe();
-      if (timerId !== null) {
-        window.clearTimeout(timerId);
-      }
       if (assignFallbackTimerRef.current !== null) {
         window.clearTimeout(assignFallbackTimerRef.current);
         assignFallbackTimerRef.current = null;
       }
     };
-  }, [phase, setInputBlocked, setPhase]);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== 'assign' || !showAssignedCard || myCommand === null) return;
+
+    assignedCardTimerRef.current = window.setTimeout(() => {
+      setInputBlocked(false);
+      setPhase('input');
+      assignedCardTimerRef.current = null;
+    }, 1500);
+
+    return () => {
+      if (assignedCardTimerRef.current !== null) {
+        window.clearTimeout(assignedCardTimerRef.current);
+        assignedCardTimerRef.current = null;
+      }
+    };
+  }, [myCommand, phase, setInputBlocked, setPhase, showAssignedCard]);
+
+  useEffect(() => {
+    return coopBus.subscribe('coop:scene-ready', () => {
+      if (phase === 'assign' && isCountdownDone) {
+        coopBus.emit('coop:reveal-ended');
+      }
+    });
+  }, [isCountdownDone, phase]);
 
   return (
     <div className="relative flex h-screen overflow-hidden text-white">
@@ -137,12 +155,7 @@ export default function CoopPage() {
 
         <div className="relative h-full w-full overflow-hidden">
           {/* Background color for Phaser container to avoid flickering before load, same as config.ts */}
-          <div
-            ref={containerRef}
-            className={`pointer-events-none absolute inset-0 ${
-              phase === 'assign' ? 'z-20' : 'z-0'
-            }`}
-          />
+          <div ref={containerRef} className="pointer-events-none absolute inset-0 z-0" />
 
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-6 pointer-events-none">
             {!isStartCountdownDone && (
@@ -170,24 +183,30 @@ export default function CoopPage() {
 
             {(phase === 'waiting' ||
               (phase === 'reveal' && (!isStartCountdownDone || !hasRevealPacket))) && (
-              <div className="flex w-full max-w-4xl flex-1 items-center justify-center pointer-events-auto">
+              <div className="flex h-full w-full flex-1 items-center justify-center pointer-events-auto">
                 <CoopGitShapePanel />
               </div>
             )}
 
             {phase === 'assign' && (
               <div className="relative flex w-full max-w-4xl flex-1 items-center justify-center">
-                {showAssignedCard ? (
+                {showAssignedCard && myCommand !== null ? (
                   <div className="translate-x-8">
-                    <CoopCardArea />
+                    <CoopCardArea showAssignedCard />
                   </div>
-                ) : null}
+                ) : showAssignedCard ? (
+                  <div className="flex h-full w-full flex-1 items-center justify-center pointer-events-auto">
+                    <CoopGitShapePanel />
+                  </div>
+                ) : (
+                  <CoopCardArea />
+                )}
               </div>
             )}
 
             {(phase === 'input' || phase === 'wrong' || phase === 'reset_wait') && (
-              <div className="flex w-full max-w-4xl flex-1 items-center justify-center pointer-events-auto">
-                <CoopGitShapePanel />
+              <div className="flex h-full w-full flex-1 items-center justify-center pointer-events-auto">
+                <CoopGitShapePanel myCommand={showAssignedCard ? myCommand : null} />
               </div>
             )}
           </div>

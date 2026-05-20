@@ -34,7 +34,7 @@ export const CoopInputWrongSchema = z.object({
   gameSessionId: z.string(),
   serverTime: z.number(),
   requestId: z.string(),
-  playerId: z.string().uuid(),
+  playerId: z.string().min(1),
 });
 
 export const CoopOrderWrongSchema = z.object({
@@ -42,7 +42,7 @@ export const CoopOrderWrongSchema = z.object({
   gameSessionId: z.string(),
   serverTime: z.number(),
   requestId: z.string(),
-  resetTargetPlayerId: z.string().uuid(),
+  resetTargetPlayerId: z.string().min(1),
   nickname: z.string(),
 });
 
@@ -62,25 +62,25 @@ export const CoopResetWrongSchema = z.object({
   gameSessionId: z.string(),
   serverTime: z.number(),
   requestId: z.string(),
-  playerId: z.string().uuid(),
+  playerId: z.string().min(1),
 });
 
 const CoopGameEndSuccessSchema = z.object({
   type: z.literal('COOP_GAME_END'),
-  gameSessionId: z.string(),
+  gameSessionId: z.string().nullable(),
   serverTime: z.number(),
   isSuccess: z.literal(true),
-  reason: z.string(),
+  reason: z.string().optional(),
   elapsedTime: z.number(),
   finalGraph: z.unknown().optional(),
   results: z.array(
     z.object({
-      playerId: z.string().uuid(),
+      playerId: z.string(),
       nickname: z.string(),
       wrongTypeCount: z.number(),
       wrongOrderCount: z.number(),
       ranking: z.number(),
-      newRecord: z.boolean().optional(),
+      isNewRecord: z.boolean().optional(),
       isMe: z.boolean().optional(),
     })
   ),
@@ -92,7 +92,9 @@ const CoopGameEndFailureSchema = z.object({
   serverTime: z.number(),
   isSuccess: z.literal(false),
   reason: z.string(),
-  playerId: z.string().uuid().optional(),
+  results: z.null().optional(),
+  elapsedTime: z.null().optional(),
+  playerId: z.string().min(1).optional(),
   nickname: z.string().optional(),
 });
 

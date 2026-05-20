@@ -389,22 +389,20 @@ export const coopStartedSchema = z.object({
         x: z.number(),
         y: z.number(),
         label: z.string(),
-        branch: z.string(),
+        branch: z.string().optional(),
+        activateOnRound: z.number().optional(),
+        activateOnStep: z.number().optional(),
       })
     ),
     edges: z.array(
       z.object({
         from: z.number(),
         to: z.number(),
-        type: z.enum(['solid', 'dashed', 'curve']),
+        type: z.enum(['solid', 'dashed', 'curve']).catch('solid'),
       })
     ),
   }),
-  players: z.array(
-    gameStartPlayerSchema.extend({
-      bestTime: z.number(),
-    })
-  ),
+  players: z.array(gameStartPlayerSchema),
 });
 
 export type BaseMessage = z.infer<typeof baseMessageSchema>;
