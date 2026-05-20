@@ -61,6 +61,8 @@ export default function CommandInput({
           <input
             ref={inputRef}
             type="text"
+            lang="en"
+            inputMode="text"
             className="flex-1 bg-transparent !text-2xl text-white outline-none"
             value={value}
             placeholder={placeholder}
@@ -71,6 +73,8 @@ export default function CommandInput({
             onCut={(e) => e.preventDefault()}
             disabled={!isPlaying}
             autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
             spellCheck={false}
           />
         </div>

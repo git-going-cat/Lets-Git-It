@@ -6,24 +6,31 @@ import multiCoopImg from '@/assets/home/multi-coop.png';
 import multiTimeattackImg from '@/assets/home/multi-timeattack.png';
 import singleEasyImg from '@/assets/home/single-easy.png';
 import singleHardImg from '@/assets/home/single-hard.png';
+import singleIncidentImg from '@/assets/home/single-incident.png';
 import singleNormalImg from '@/assets/home/single-normal.png';
 import { Win11Dialog } from '@/shared/components/Win11Dialog';
 import { useModal } from '@/shared/hooks/useModal';
+
+import ScenarioSelectModal from './ScenarioSelectModal';
 
 // ── 타입 ──────────────────────────────────────────────────
 
 type ExplorerTab = 'single' | 'multi';
 type SingleDifficulty = 'EASY' | 'NORMAL' | 'HARD';
+type SingleGameType = 'SPEED_TYPING' | 'INCIDENT_RESPONSE';
 type MultiMode = 'contribution' | 'coop' | 'timeattack';
-type SelectedItem = SingleDifficulty | MultiMode | null;
+type SelectedItem = SingleDifficulty | MultiMode | 'INCIDENT_RESPONSE' | null;
 
 interface ExplorerItem {
-  id: SingleDifficulty | MultiMode;
+  id: SingleDifficulty | MultiMode | 'INCIDENT_RESPONSE';
+  section?: SingleGameType;
   label: string;
   img: string;
   description: string;
   detail: string;
 }
+
+import type { Scenario } from '@/features/incident/types/incident.types';
 
 interface Win11ExplorerModalProps {
   initialTab: ExplorerTab;
@@ -33,6 +40,9 @@ interface Win11ExplorerModalProps {
   // routes 레이어에서 주입: clearSession + startSession + setSession을 묶은 wiring callback.
   // 실패 시 throw하므로 모달이 catch해 에러 다이얼로그를 띄운다.
   onStartSingle: (difficulty: SingleDifficulty) => Promise<void>;
+  /** routes/-HomeRoute에서 incident 진행도와 시나리오 목록을 주입. cross-feature 직접 import 차단. */
+  incidentScenarios: Scenario[];
+  isIncidentCleared: (scenarioId: number) => boolean;
 }
 
 // ── 데이터 ────────────────────────────────────────────────
@@ -40,6 +50,7 @@ interface Win11ExplorerModalProps {
 const SINGLE_ITEMS: ExplorerItem[] = [
   {
     id: 'EASY',
+    section: 'SPEED_TYPING',
     label: 'Easy',
     img: singleEasyImg,
     description: '브랜치 최대 3개로 진행되는 기본 모드',
@@ -48,6 +59,7 @@ const SINGLE_ITEMS: ExplorerItem[] = [
   },
   {
     id: 'NORMAL',
+    section: 'SPEED_TYPING',
     label: 'Normal',
     img: singleNormalImg,
     description: '브랜치 최대 4개로 진행되는 중급 모드',
@@ -55,11 +67,20 @@ const SINGLE_ITEMS: ExplorerItem[] = [
   },
   {
     id: 'HARD',
+    section: 'SPEED_TYPING',
     label: 'Hard',
     img: singleHardImg,
     description: '브랜치 최대 3개로 진행되는 고급 모드',
     detail:
       'Normal 명령어 + rebase / force push / diff\nConflict 미니게임 포함\nGit 전문가를 위한 난이도',
+  },
+  {
+    id: 'INCIDENT_RESPONSE',
+    section: 'INCIDENT_RESPONSE',
+    label: '고양이 사고처리반',
+    img: singleIncidentImg,
+    description: '사건 시나리오를 Git 명령어로 해결하는 스토리 모드',
+    detail: '주어진 사건을 Git 명령어로 해결\n시나리오별 고유 스토리 제공',
   },
 ];
 
@@ -107,6 +128,8 @@ export default function Win11ExplorerModal({
   onClose,
   onLobbyOpen,
   onStartSingle,
+  incidentScenarios,
+  isIncidentCleared,
 }: Win11ExplorerModalProps) {
   const { containerRef } = useModal({ isOpen: true, onClose });
 
@@ -119,6 +142,15 @@ export default function Win11ExplorerModal({
   // 모드 선택 화면 위에 바로 피드백하는 게 UX상 자연스럽다.
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState(false);
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<SingleGameType, boolean>>({
+    SPEED_TYPING: true,
+    INCIDENT_RESPONSE: true,
+  });
+
+  const toggleSection = (section: SingleGameType) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
 
   const MULTI_MODE_MAP: Record<string, string> = {
     contribution: 'CONTRIBUTION',
@@ -127,6 +159,7 @@ export default function Win11ExplorerModal({
 
   const items = activeTab === 'single' ? SINGLE_ITEMS : MULTI_ITEMS;
   const selectedData = items.find((item) => item.id === selectedItem) ?? null;
+  const isIncidentResponseSelected = selectedItem === 'INCIDENT_RESPONSE';
   // 기여도 뺏기·협력은 로비 입장, 타임어택은 준비 중
   const isLobbyMode =
     activeTab === 'multi' && (selectedItem === 'contribution' || selectedItem === 'coop');
@@ -141,6 +174,10 @@ export default function Win11ExplorerModal({
 
   const handleGameStart = async () => {
     if (!selectedItem || isStartButtonDisabled) return;
+    if (selectedItem === 'INCIDENT_RESPONSE') {
+      setIsScenarioModalOpen(true);
+      return;
+    }
     if (isLobbyMode) {
       const apiMode = (MULTI_MODE_MAP[selectedItem as MultiMode] ?? 'CONTRIBUTION') as
         | 'CONTRIBUTION'
@@ -168,6 +205,44 @@ export default function Win11ExplorerModal({
       }
     }
   };
+
+  const renderItemButton = (item: ExplorerItem) => (
+    <button
+      key={item.id}
+      type="button"
+      onClick={() => setSelectedItem(item.id)}
+      onDoubleClick={activeTab === 'single' ? () => void handleGameStart() : undefined}
+      className={`flex flex-col items-center gap-2 rounded-lg p-3 outline-none! transition-colors focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
+        selectedItem === item.id ? 'bg-[#cce4f7] ring-2 ring-[#0078d4]/40' : 'hover:bg-gray-100'
+      }`}
+    >
+      <div className="relative">
+        <img
+          src={item.img}
+          alt={item.label}
+          className="pixel-art h-20 w-20 object-contain"
+          draggable={false}
+        />
+        {/* Windows 바로가기 화살표 오버레이 */}
+        <div className="absolute bottom-0 left-0 flex h-4 w-4 items-center justify-center rounded-sm bg-white shadow-sm ring-1 ring-gray-300">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            className="h-3 w-3 text-gray-600"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M7 17L17 7M17 7H7M17 7V17"
+            />
+          </svg>
+        </div>
+      </div>
+      <span className="text-xs text-gray-800">{item.label}</span>
+    </button>
+  );
 
   return (
     <>
@@ -372,46 +447,40 @@ export default function Win11ExplorerModal({
             </div>
 
             {/* 메인 그리드 */}
-            <div className="flex flex-1 flex-wrap content-start gap-6 overflow-y-auto bg-white p-6">
-              {items.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setSelectedItem(item.id)}
-                  onDoubleClick={activeTab === 'single' ? () => void handleGameStart() : undefined}
-                  className={`flex flex-col items-center gap-2 rounded-lg p-3 outline-none! transition-colors focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
-                    selectedItem === item.id
-                      ? 'bg-[#cce4f7] ring-2 ring-[#0078d4]/40'
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="relative">
-                    <img
-                      src={item.img}
-                      alt={item.label}
-                      className="pixel-art h-20 w-20 object-contain"
-                      draggable={false}
-                    />
-                    {/* Windows 바로가기 화살표 오버레이 */}
-                    <div className="absolute bottom-0 left-0 flex h-4 w-4 items-center justify-center rounded-sm bg-white shadow-sm ring-1 ring-gray-300">
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        className="h-3 w-3 text-gray-600"
+            <div className="flex flex-1 flex-col overflow-y-auto bg-white p-6">
+              {activeTab === 'multi' ? (
+                <div className="flex flex-wrap gap-6">
+                  {items.map((item) => renderItemButton(item))}
+                </div>
+              ) : (
+                (['SPEED_TYPING', 'INCIDENT_RESPONSE'] as const).map((sectionType) => {
+                  const isExpanded = expandedSections[sectionType];
+                  const sectionId = `single-section-${sectionType}`;
+                  return (
+                    <div key={sectionType} className="mb-4 flex w-full flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(sectionType)}
+                        aria-expanded={isExpanded}
+                        aria-controls={sectionId}
+                        className="flex items-center gap-3 self-start text-xs font-bold text-gray-500 outline-none! focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M7 17L17 7M17 7H7M17 7V17"
-                        />
-                      </svg>
+                        <span className="inline-block w-3 text-center">
+                          {isExpanded ? '▼' : '▶'}
+                        </span>
+                        {sectionType === 'SPEED_TYPING' ? '빠른 타이핑' : '고양이 사고처리반'}
+                      </button>
+                      {isExpanded && (
+                        <div id={sectionId} className="flex flex-wrap gap-6">
+                          {SINGLE_ITEMS.filter((i) => i.section === sectionType).map((item) =>
+                            renderItemButton(item)
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <span className="text-xs text-gray-800">{item.label}</span>
-                </button>
-              ))}
+                  );
+                })
+              )}
             </div>
 
             {/* 세부 정보 패널 */}
@@ -438,17 +507,23 @@ export default function Win11ExplorerModal({
                   </div>
                   <button
                     type="button"
-                    onClick={handleGameStart}
+                    onClick={
+                      isIncidentResponseSelected
+                        ? () => setIsScenarioModalOpen(true)
+                        : handleGameStart
+                    }
                     disabled={isStartButtonDisabled}
                     className="mt-auto w-full rounded bg-[#0078d4] py-2 text-sm font-semibold text-white outline-none! transition-colors hover:bg-[#106ebe] focus:outline-none! focus-visible:ring-2 focus-visible:ring-sky-500/40 active:bg-[#005a9e] disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400 disabled:active:bg-gray-400"
                   >
                     {isStarting
                       ? '게임 시작 중...'
-                      : isLobbyMode
-                        ? '로비 입장'
-                        : isPreparingModeSelected
-                          ? '게임 준비중'
-                          : '게임 시작'}
+                      : isIncidentResponseSelected
+                        ? '시나리오 선택'
+                        : isLobbyMode
+                          ? '로비 입장'
+                          : isPreparingModeSelected
+                            ? '게임 준비중'
+                            : '게임 시작'}
                   </button>
                 </div>
               ) : (
@@ -469,6 +544,18 @@ export default function Win11ExplorerModal({
           title="게임 시작 실패"
           message={'서버에서 응답을 받지 못했어요.\n잠시 후 다시 시도해 주세요.'}
           onClose={() => setStartError(false)}
+        />
+      )}
+      {isScenarioModalOpen && (
+        <ScenarioSelectModal
+          onClose={() => setIsScenarioModalOpen(false)}
+          incidentScenarios={incidentScenarios}
+          isIncidentCleared={isIncidentCleared}
+          onStartScenario={async (scenarioId) => {
+            setIsScenarioModalOpen(false);
+            onClose();
+            void navigate({ to: '/incident', search: { scenarioId } });
+          }}
         />
       )}
     </>

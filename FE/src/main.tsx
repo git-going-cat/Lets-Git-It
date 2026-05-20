@@ -2,12 +2,37 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as Sentry from '@sentry/react';
 
+import { useAuthStore } from '@/features/auth/store/authStore';
+import { useIncidentProgressStore } from '@/features/incident/store/incidentProgressStore';
+
 import App from './App.tsx';
 import { env } from './config/env';
 
 import './index.css';
 
 import './lib/faro'; // Faro 조기 초기화 — 이후 모든 에러·로그에 컨텍스트 부착
+
+// incident-progress legacy 키(구 포맷: {state:{clearedScenarios:[]}}) → 새 구조로 1회 흡수
+// 새 스토어는 고정 키 'incident-progress'에 {state:{progressByUser:{memberId:[]}}} 형태로 저장
+// setState 후 persist 구독자가 자동으로 새 형식을 같은 키에 덮어쓰므로 removeItem 불필요
+const legacyRaw = localStorage.getItem('incident-progress');
+if (legacyRaw) {
+  try {
+    const parsed = JSON.parse(legacyRaw) as { state?: { clearedScenarios?: number[] } };
+    const cleared = parsed.state?.clearedScenarios;
+    if (cleared?.length) {
+      const memberId = useAuthStore.getState().user?.memberId ?? 'guest';
+      useIncidentProgressStore.setState((prev) => ({
+        progressByUser: {
+          ...prev.progressByUser,
+          [memberId]: cleared,
+        },
+      }));
+    }
+  } catch {
+    // 파싱 실패 시 무시
+  }
+}
 
 Sentry.init({
   dsn: env.SENTRY_DSN,

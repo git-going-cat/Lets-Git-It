@@ -5,6 +5,7 @@ import Phaser from 'phaser';
 
 import screenBg from '@/assets/bg/screen.png';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { useInGameRoomEvents } from '@/features/multi/hooks/useInGameRoomEvents';
 import { createGameConfig } from '@/game/config';
 import SharedCommandInput from '@/shared/components/CommandInput';
 import SharedGameProgress from '@/shared/components/GameProgress';
@@ -26,14 +27,17 @@ export default function ContributionGameContent() {
   // 250ms마다 갱신되는 wall-clock — 카운트다운을 derived 값으로 계산하기 위한 트리거.
   const [now, setNow] = useState(() => Date.now());
   const [privateError, setPrivateError] = useState<{ code: string; message: string } | null>(null);
+  const [roomNotice, setRoomNotice] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const gameDestroyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roomNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const progress = useAtomValue(progressAtom);
   const gameStatus = useAtomValue(gameStatusAtom);
 
   const clientStartAt = useContributionStore((s) => s.clientStartAt);
+  const roomId = useContributionStore((s) => s.roomId);
 
   const navigate = useNavigate();
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -52,10 +56,26 @@ export default function ContributionGameContent() {
     setPrivateError({ code, message });
   }, []);
 
+  const handlePlayerLeft = useCallback((message: { leftPlayerNickname: string }) => {
+    if (roomNoticeTimerRef.current !== null) {
+      clearTimeout(roomNoticeTimerRef.current);
+    }
+    setRoomNotice(`${message.leftPlayerNickname} 님이 게임에서 나갔습니다.`);
+    roomNoticeTimerRef.current = window.setTimeout(() => {
+      roomNoticeTimerRef.current = null;
+      setRoomNotice(null);
+    }, 3000);
+  }, []);
+
   useContributionGame({
     onForceDisconnect: handleForceDisconnect,
     onKicked: handleKicked,
     onPrivateError: handlePrivateError,
+  });
+
+  useInGameRoomEvents({
+    roomId,
+    onPlayerLeft: handlePlayerLeft,
   });
   // 입력 실패(오타·없는 브랜치) 피드백 — 연속 발화 시 애니메이션 재시작되도록 false→true 토글.
   const triggerShake = useCallback(() => {
@@ -66,6 +86,15 @@ export default function ContributionGameContent() {
   useEffect(() => {
     return contributionBus.subscribe('command:failed', triggerShake);
   }, [triggerShake]);
+
+  useEffect(
+    () => () => {
+      if (roomNoticeTimerRef.current !== null) {
+        clearTimeout(roomNoticeTimerRef.current);
+      }
+    },
+    []
+  );
 
   // 카운트다운 동안만 now를 250ms마다 갱신. gameStatus가 'playing'이 되면 interval 정리.
   // (setState를 effect body에서 직접 호출하지 않기 위해 countdown은 derived 값으로 계산)
@@ -166,6 +195,11 @@ export default function ContributionGameContent() {
               >
                 ✕
               </button>
+            </div>
+          )}
+          {roomNotice && (
+            <div className="absolute top-12 left-1/2 z-30 -translate-x-1/2 rounded border border-yellow-400/60 bg-black/80 px-4 py-2 font-pixel text-sm text-yellow-300">
+              {roomNotice}
             </div>
           )}
         </div>

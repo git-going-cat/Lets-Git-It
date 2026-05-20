@@ -61,14 +61,12 @@ export function formatClearTime(ms: number): string {
 /** 숫자 기반 랭킹 값에서 등급 배지 값을 계산합니다. */
 export function getGrade(mode: RankingMode, entry: RankingEntry): RankGrade | null {
   if (mode === 'coop') return null;
+  if (mode === 'speed') return null;
   if ('grade' in entry && entry.grade) return entry.grade;
   if (mode.startsWith('single-')) return null;
 
   let value: number;
-  if (mode === 'speed') {
-    if (!('contribution' in entry)) return null;
-    value = entry.contribution;
-  } else if (mode === 'timeattack') {
+  if (mode === 'timeattack') {
     if (!('totalCount' in entry)) return null;
     value = entry.totalCount;
   } else {
