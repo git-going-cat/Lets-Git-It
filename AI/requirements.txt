@@ -5,8 +5,8 @@ uvicorn[standard]==0.32.1
 # OpenAI-compatible SDK (works with OpenRouter via base_url override)
 openai==1.57.4
 
-# Vector DB
-pinecone==5.4.2
+# Numeric / vector search
+numpy==2.2.6
 
 # Redis client
 redis==5.2.1

@@ -2,110 +2,102 @@
 
 ### Background / Context
 
-Phase 3에서 Pro Git 청크 589개를 Pinecone에 인덱싱 완료 ([[IMPLEMENTATION_EMBEDDING_MODEL]] 참고). 이제 사용자 질문이 들어오면 그 질문도 벡터로 변환해서, Pinecone에서 가장 유사한 청크 K개를 가져오는 런타임 코드가 필요하다.
-
-요구사항:
-- 비동기 (FastAPI 이벤트 루프 블로킹 금지)
-- 매 요청마다 클라이언트 재생성 금지 (싱글톤)
-- Pinecone Python SDK는 동기 → async 코드에서 호출 시 처리 필요
+Pro Git 청크 589개를 인메모리 numpy 배열로 관리. FastAPI 시작 시 `data/embeddings.npy`를 한 번 로드하고, 사용자 질문이 들어오면 query를 임베딩해서 코사인 유사도로 가장 가까운 K개를 반환한다.
 
 ### Decision
 
-**lazy init 싱글톤 + `run_in_executor`로 동기 SDK 비동기 wrap**
+**인메모리 numpy + L2 정규화 dot product**
 
-`app/rag/search.py` 구조:
+```
+[시작 시 1회]
+data/chunks.json + data/embeddings.npy → 모듈 전역 변수 _chunks, _embeddings
 
+[요청마다]
+query 문자열
+  → OpenRouter text-embedding-3-small → 1536차원 벡터
+  → L2 정규화
+  → _embeddings @ query_vec (dot product = cosine similarity)
+  → argsort → top_k 인덱스
+  → [{chapter, section, text, source, score}] 반환
+```
+
+`app/rag/vector_store.py`:
 ```python
-_embed_client: AsyncOpenAI | None = None
-_index = None
+def load_index() -> None:
+    global _chunks, _embeddings
+    _chunks = json.loads(chunks_path.read_text())
+    _embeddings = np.load(str(embeddings_path))  # shape (N, 1536), L2 정규화됨
 
-def _get_embed_client() -> AsyncOpenAI:
-    global _embed_client
-    if _embed_client is None:
-        _embed_client = AsyncOpenAI(api_key=..., base_url="https://openrouter.ai/api/v1")
-    return _embed_client
+def cosine_search(query_vec, top_k=5) -> list[dict]:
+    q = np.array(query_vec, dtype=np.float32)
+    q = q / np.linalg.norm(q)           # query도 L2 정규화
+    scores = _embeddings @ q             # dot product = cosine sim (정규화 후)
+    top_indices = np.argsort(scores)[::-1][:top_k]
+    return [...]
+```
 
-def _get_index():
-    global _index
-    if _index is None:
-        pc = Pinecone(api_key=...)
-        _index = pc.Index(name=..., host=...)
-    return _index
-
-async def search(query: str, top_k: int = 5) -> list[dict[str, Any]]:
-    # 1) query → 1536차원 벡터 (async)
+`app/rag/search.py`:
+```python
+async def search(query: str, top_k: int = 5) -> list[dict]:
     resp = await _get_embed_client().embeddings.create(
         model="openai/text-embedding-3-small",
         input=query,
     )
-    vector = resp.data[0].embedding
-
-    # 2) Pinecone query (동기 SDK → 이벤트 루프 블록 방지)
-    loop = asyncio.get_running_loop()
-    results = await loop.run_in_executor(
-        None,
-        lambda: _get_index().query(vector=vector, top_k=top_k, include_metadata=True),
-    )
-
-    # 3) FastAPI 친화적 dict 리스트로 변환
-    return [
-        {
-            "chapter": m.metadata.get("chapter", ""),
-            "section": m.metadata.get("section", ""),
-            "text": m.metadata.get("text", ""),
-            "score": m.score,
-            "source": m.metadata.get("source", ""),
-        }
-        for m in results.matches
-    ]
+    return cosine_search(resp.data[0].embedding, top_k=top_k)
 ```
 
 ### Why
 
-#### 1) 임베딩은 query에도 동일 모델 사용
+#### Pinecone → 인메모리로 전환한 이유
 
-Pinecone에 저장된 청크 벡터들은 `text-embedding-3-small`로 생성됨. 검색하려면 **반드시 같은 모델로 query도 임베딩**해야 비교 가능 (다른 모델은 벡터 공간이 다름).
+| 항목 | Pinecone | 인메모리 numpy |
+|---|---|---|
+| 검색 latency | 100~200ms (네트워크) | 1~10ms |
+| 외부 의존 | Pinecone SaaS + API key | 없음 |
+| 운영 복잡도 | FastAPI + Redis + Pinecone | FastAPI + Redis |
+| 청크 수 | 관계없음 | 589개 × 1536 × 4 byte ≈ 3.5MB (무시 가능) |
+| 월 비용 | 무료 티어 내 ~$0 | $0 |
+| 확장성 | 수백만 청크 가능 | ~수만 청크까지 실용적 |
 
-#### 2) `top_k = 5`
+Pro Git은 한 번 정해진 책이라 청크가 폭발할 일이 없고, 3.5MB짜리 배열에 Pinecone의 장점이 없다.
 
-| top_k | 컨텍스트 토큰 (avg 559×K) | 답변 다양성 | 비용 |
-|---|---|---|---|
-| 3 | ~1,700 | 부족 가능 | 저렴 |
-| **5** | **~2,800** | **충분** | **균형** |
-| 10 | ~5,600 | 과하게 산만 | 비쌈 |
+#### L2 정규화를 인덱싱 시점에 미리 수행
 
-gpt-4o-mini 컨텍스트 한도는 128K로 여유 있음. K=5가 정확도/비용 균형점.
-
-#### 3) lazy init 싱글톤
-
-매 요청마다 `AsyncOpenAI()` / `Pinecone()` 생성하면 TCP 연결도 매번 새로 맺어 성능 저하. 모듈 레벨 변수에 한 번 생성해두고 재사용.
-
-`load_dotenv()`를 모듈 import 시 실행하지만, 클라이언트 객체는 첫 호출 때 생성 → 테스트 시 환경변수 mock이 쉬워짐.
-
-#### 4) `run_in_executor` for Pinecone 동기 SDK
-
-Pinecone Python SDK 5.x는 동기 클라이언트. FastAPI async 핸들러에서 동기 블로킹 호출하면 **이벤트 루프 전체가 멈춤** (모든 동시 요청이 함께 대기).
-
-해결책: `loop.run_in_executor(None, sync_call)` → 스레드 풀에서 실행, 이벤트 루프는 다른 요청 처리 계속.
-
-대안: Pinecone 5.x의 `PineconeAsyncio` (있긴 함). 다만 호환성 검증이 더 필요해 현재는 검증된 동기 SDK + executor 패턴 사용.
-
-### 검색 결과 메타데이터
-
-Pinecone 인덱싱 시 각 벡터의 metadata에 다음 저장 (`scripts/ingest.py:382`):
+`scripts/ingest.py`에서 임베딩 후 정규화:
 ```python
-metadata = {
-    "chapter": "Git 브랜치",
-    "section": "Rebase 의 기초",
-    "source": "book/03-git-branching/sections/rebasing.asc",
-    "token_count": 559,
-    "text": "본문 텍스트...",  # 검색 시 별도 조회 없이 바로 사용
-}
+arr = np.array(all_embeddings, dtype=np.float32)
+norms = np.linalg.norm(arr, axis=1, keepdims=True)
+arr = arr / norms
+np.save(str(EMBEDDINGS_FILE), arr)
 ```
 
-`text`를 metadata에 넣은 이유: 검색 후 LLM에 컨텍스트로 넘기려면 본문이 필요한데, 별도 저장소에서 ID로 조회하는 단계를 줄여 latency 절감.
+런타임에 매 요청마다 정규화하면 같은 배열에 반복 계산. 미리 정규화해두면 런타임은 query만 정규화하면 됨.
 
-Pinecone metadata 크기 제한은 40KB/벡터. 청크는 최대 800 토큰 ≈ 3KB이므로 충분.
+L2 정규화된 벡터끼리의 dot product = 코사인 유사도 ([-1, 1], 1에 가까울수록 유사).
+
+#### `top_k` 결정
+
+| top_k | 용도 | 컨텍스트 토큰 (avg 559×K) |
+|---|---|---|
+| **3** | `/coaching` | ~1,700 |
+| **5** | `/ask` | ~2,800 |
+
+코칭은 "이 명령어가 왜 다른가"라는 좁은 질문이라 3개로 충분. `/ask`는 일반 질문이라 5개가 균형점.
+
+#### 임베딩은 동일 모델 필수
+
+인덱스의 청크 벡터: `text-embedding-3-small`로 생성됨.
+런타임 query 벡터도 반드시 같은 모델로 생성해야 비교 가능 (다른 모델은 벡터 공간이 다름).
+
+### 인덱스 빌드
+
+`scripts/ingest.py --index` 실행:
+```bash
+python scripts/ingest.py --chunk   # chunks.json 생성 (청크 없으면 먼저)
+python scripts/ingest.py --index   # embeddings.npy 생성
+```
+
+산출물: `data/embeddings.npy` (gitignore됨). Docker 이미지 빌드 전 반드시 생성 필요.
 
 ### 검색 품질 평가 결과
 
@@ -122,23 +114,17 @@ Pinecone metadata 크기 제한은 40KB/벡터. 청크는 최대 800 토큰 ≈ 
 | git reflog 언제 쓰는지 | 0.624 | Git 도구 > RefLog로 가리키기 |
 | 서브모듈 추가하는 방법 | 0.487 | Git 도구 > 서브모듈 시작하기 |
 
-해석:
-- **>0.6**: 매우 양호. 검색-쿼리 의미 일치도 높음
-- **0.5~0.6**: 양호. 답변 가능
-- **<0.5**: 낮은 신뢰도. 자연어 쿼리와 책의 기술 용어 사이 갭이 원인. 그러나 실제 응답은 대체로 양호 (LLM이 청크 내용으로 답변 가능)
-
-**우리 서비스 입력은 자연어 질문이 아니라 명령어**(`git push origin main`)라서 실제 운영에서는 점수가 더 높게 나올 것으로 예상.
+실제 서비스 입력은 자연어 질문이 아니라 명령어(`git restore .env`)라서 운영에서는 점수가 더 높게 나올 것으로 예상.
 
 ### Caution
 
-- **싱글톤 = 프로세스 단위**: 워커 여러 개면 각 워커가 자기 클라이언트 보유. 메모리 ~수십 MB 추가. uvicorn `--workers N` 사용 시 인지 필요
-- **Pinecone latency**: 한국→AWS us-east-1 round-trip 약 200~300ms. 빠른 응답이 필요하면 동일 리전 배포 또는 한국 리전 이전 고려
-- **임베딩 모델 변경 시 인덱스 재생성**: `text-embedding-3-small`(1536) → 다른 모델은 차원이 다르면 Pinecone 인덱스 새로 생성해야 함 ([[IMPLEMENTATION_EMBEDDING_MODEL]] 참고)
-- **검색 결과 중복**: 같은 섹션이 top 1, 2 모두 차지하는 경우 있음 (큰 섹션이 슬라이딩 윈도우로 여러 청크로 쪼개진 경우). 향후 `(chapter, section)` 기준 dedup 고려 가능
+- **`data/embeddings.npy`는 gitignore 처리**: CI 빌드나 신규 환경 셋업 시 `ingest.py --index` 실행 필요. 빠지면 FastAPI 시작 시 FileNotFoundError.
+- **임베딩 모델 변경 시 재생성**: 모델을 바꾸면 차원이 달라질 수 있으므로 `embeddings.npy` 삭제 후 재생성 필요.
+- **검색 결과 중복**: 같은 섹션이 top 1, 2 모두 차지하는 경우 있음 (슬라이딩 윈도우 청킹). 향후 `(chapter, section)` 기준 dedup 고려 가능.
 
 ### Test Plan
 
-- `scripts/test_search.py` 실행 → "git rebase 사용법"으로 검색
+- `python scripts/test_search.py` 실행 → "git rebase 사용법"으로 검색
 - top 3 결과의 chapter/section/score 출력 확인
 - 점수가 0.5 이상인지 확인 (관련성)
-- `scripts/eval_rag.py`로 8개 쿼리 일괄 평가
+- `python scripts/eval_rag.py`로 8개 쿼리 일괄 평가

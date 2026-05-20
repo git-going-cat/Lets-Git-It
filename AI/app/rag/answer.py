@@ -1,35 +1,13 @@
 import json
-import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from dotenv import load_dotenv
 from loguru import logger
-from openai import AsyncOpenAI
 
+from app.llm import stream_chat
 from app.prompts import SYSTEM_PROMPT
 from app.rag.cache import set_cached
-
-load_dotenv()
-
-_llm_client: AsyncOpenAI | None = None
-
-
-def _get_llm_client() -> AsyncOpenAI:
-    global _llm_client
-    if _llm_client is None:
-        _llm_client = AsyncOpenAI(
-            api_key=os.environ["OPENROUTER_API_KEY"],
-            base_url="https://openrouter.ai/api/v1",
-        )
-    return _llm_client
-
-
-def _build_context(chunks: list[dict[str, Any]]) -> str:
-    parts = []
-    for i, c in enumerate(chunks, 1):
-        parts.append(f"[{i}] {c['chapter']} > {c['section']}\n{c['text']}")
-    return "\n\n---\n\n".join(parts)
+from app.rag.context import build_context
 
 
 async def stream_answer(
@@ -46,22 +24,14 @@ async def stream_answer(
     full_answer = ""
     has_error = False
     try:
-        context = _build_context(chunks)
-        stream = await _get_llm_client().chat.completions.create(
-            model="openai/gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT.format(context=context)},
-                {"role": "user", "content": query},
-            ],
-            stream=True,
-            max_tokens=1024,
-        )
-
-        async for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                full_answer += delta
-                yield f"event: token\ndata: {json.dumps({'text': delta}, ensure_ascii=False)}\n\n"
+        context = build_context(chunks)
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT.format(context=context)},
+            {"role": "user", "content": query},
+        ]
+        async for delta in stream_chat(messages):
+            full_answer += delta
+            yield f"event: token\ndata: {json.dumps({'text': delta}, ensure_ascii=False)}\n\n"
     except Exception:
         logger.exception("LLM streaming failed")
         has_error = True

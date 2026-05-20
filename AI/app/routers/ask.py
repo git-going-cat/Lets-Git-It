@@ -1,9 +1,10 @@
 import json
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 
+from app.middleware.auth import verify_api_key
 from app.middleware.rate_limit import check_rate_limit
 from app.rag.answer import stream_answer
 from app.rag.cache import get_cached, make_cache_key
@@ -28,7 +29,7 @@ class AskRequest(BaseModel):
         return v
 
 
-@router.post("/ask")
+@router.post("/ask", dependencies=[Depends(verify_api_key)])
 async def ask(body: AskRequest, request: Request):
     await check_rate_limit(request)
 

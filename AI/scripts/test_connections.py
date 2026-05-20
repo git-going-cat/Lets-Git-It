@@ -1,9 +1,10 @@
-"""Phase 1: API 연결 테스트 스크립트.
+"""API 연결 테스트 스크립트.
 
 실행: python scripts/test_connections.py
 """
 import asyncio
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,29 +24,20 @@ async def test_embedding():
     print(f"[OK] Embedding: {dim}차원")
 
 
-async def test_llm():
+async def test_llm_fallback():
     from openai import AsyncOpenAI
+    from app.llm import PREFERRED_MODELS
     client = AsyncOpenAI(
         api_key=os.environ["OPENROUTER_API_KEY"],
         base_url="https://openrouter.ai/api/v1",
     )
     response = await client.chat.completions.create(
-        model="openai/gpt-4o-mini",
+        model=PREFERRED_MODELS[0],
         messages=[{"role": "user", "content": "ping"}],
         max_tokens=5,
+        extra_body={"models": PREFERRED_MODELS},
     )
-    print(f"[OK] LLM: {response.choices[0].message.content!r}")
-
-
-async def test_pinecone():
-    from pinecone import Pinecone
-    pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
-    index = pc.Index(
-        name=os.environ["PINECONE_INDEX_NAME"],
-        host=os.environ["PINECONE_HOST"],
-    )
-    stats = index.describe_index_stats()
-    print(f"[OK] Pinecone: {stats.total_vector_count}개 벡터")
+    print(f"[OK] LLM fallback: model={response.model!r}, reply={response.choices[0].message.content!r}")
 
 
 async def test_redis():
@@ -58,10 +50,12 @@ async def test_redis():
 
 async def main():
     print("=== API 연결 테스트 ===")
+    import sys
+    sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent))
+
     tests = [
         ("OpenRouter Embedding", test_embedding),
-        ("OpenRouter LLM", test_llm),
-        ("Pinecone", test_pinecone),
+        ("OpenRouter LLM (fallback ladder)", test_llm_fallback),
         ("Redis", test_redis),
     ]
     for name, fn in tests:
