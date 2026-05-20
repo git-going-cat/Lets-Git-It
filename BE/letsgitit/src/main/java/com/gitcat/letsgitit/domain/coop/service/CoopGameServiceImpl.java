@@ -478,5 +478,29 @@ public class CoopGameServiceImpl implements CoopGameService {
 		} catch (Exception e) {
 			log.error("[coop][endGameInternal] DB save failed. gameSessionId={}, roomId={}", gameSessionId, roomId, e);
 		}
+
+		// Redis 정리 및 방 초기화 — DB 성공 여부와 무관하게 항상 실행
+		coopGameRedisRepository.deleteGameState(gameSessionId);
+		coopGameRedisRepository.deleteRoomGameSession(roomId);
+		roomService.resetRoomAfterGame(roomId);
+
+		// 결과 브로드캐스트
+		if (saveResult != null) {
+			final Map<UUID, Boolean> newRecordMap = saveResult.newRecordMap();
+			List<CoopGameEndResponse.ResultDto> resultDtos = statsList.stream()
+				.map(s -> new CoopGameEndResponse.ResultDto(
+					s.id(),
+					memberService.getNicknameById(s.id()),
+					s.wrongType(),
+					s.wrongOrder(),
+					rankMap.get(s.id()),
+					newRecordMap.getOrDefault(s.id(), false)))
+				.toList();
+			messageSender.send("/topic/room/" + roomId + "/coop",
+				CoopGameEndResponse.success(gameSessionId, elapsedTime, resultDtos));
+		} else {
+			messageSender.send("/topic/room/" + roomId + "/coop",
+				CoopGameEndResponse.failure(gameSessionId));
+		}
 	}
 }
