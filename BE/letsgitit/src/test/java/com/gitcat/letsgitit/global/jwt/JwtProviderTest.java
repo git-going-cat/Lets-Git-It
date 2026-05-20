@@ -30,7 +30,7 @@ class JwtProviderTest {
 	@Test
 	void Access_Token_생성_및_파싱() {
 		// when
-		String token = jwtProvider.createAccessToken(EMAIL);
+		String token = jwtProvider.createAccessToken(EMAIL, "");
 
 		// then
 		assertThat(token).isNotBlank();
@@ -76,7 +76,7 @@ class JwtProviderTest {
 		ReflectionTestUtils.setField(otherProvider, "accessExpiration", ACCESS_EXPIRATION);
 		ReflectionTestUtils.setField(otherProvider, "refreshExpiration", REFRESH_EXPIRATION);
 		otherProvider.init();
-		String wrongSignatureToken = otherProvider.createAccessToken(EMAIL);
+		String wrongSignatureToken = otherProvider.createAccessToken(EMAIL, "");
 
 		// when
 		boolean result = jwtProvider.validateToken(wrongSignatureToken);
@@ -88,7 +88,7 @@ class JwtProviderTest {
 	@Test
 	void getExpiration_유효한_토큰_양수_반환() {
 		// given
-		String token = jwtProvider.createAccessToken(EMAIL);
+		String token = jwtProvider.createAccessToken(EMAIL, "");
 
 		// when
 		long remaining = jwtProvider.getExpiration(token);
@@ -116,6 +116,6 @@ class JwtProviderTest {
 		ReflectionTestUtils.setField(shortLived, "accessExpiration", -1L);
 		ReflectionTestUtils.setField(shortLived, "refreshExpiration", -1L);
 		shortLived.init();
-		return shortLived.createAccessToken(EMAIL);
+		return shortLived.createAccessToken(EMAIL, "");
 	}
 }

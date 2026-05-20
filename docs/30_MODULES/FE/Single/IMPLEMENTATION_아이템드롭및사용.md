@@ -40,7 +40,7 @@ if (completedCmd?.itemDrop) {
   if (slotIndex !== -1 && !itemSlotsRef[slotIndex]) {
     itemSlotsRef[slotIndex] = true;
     setItemSlots([itemSlotsRef[0], itemSlotsRef[1], itemSlotsRef[2]]);
-    EventBus.emit('item:acquired', { slot: slotIndex });
+    singleBus.emit('item:acquired', { slot: slotIndex });
   }
 }
 ```
@@ -55,13 +55,13 @@ if (completedCmd?.itemDrop) {
 
 **키보드**: `useSingleGame` 내 `window.addEventListener('keydown', handleAltKey)`로 처리.
 
-**버튼 클릭**: `HUDItemSlots` 각 버튼의 `onClick`에서 `EventBus.emit('item:click', { slot: i })`를 emit하면, `useSingleGame`의 `handleItemClick` 핸들러가 동일한 `applyItemSlot(slot)` 함수를 호출한다.
+**버튼 클릭**: `HUDItemSlots` 각 버튼의 `onClick`에서 `singleBus.emit('item:click', { slot: i })`를 emit하면, `useSingleGame`의 `handleItemClick` 핸들러가 동일한 `applyItemSlot(slot)` 함수를 호출한다.
 
 두 경로 모두 `applyItemSlot(slotIndex)`로 수렴하며, 게임이 `playing` 상태이고 해당 슬롯이 채워져 있을 때만 동작한다. 버튼은 `disabled={!active || !isPlaying}`으로 UI에서도 차단된다.
 
 ```
-Alt+1 또는 HUD 버튼 클릭 (slot 0, stash)       → EventBus.emit('item:use', { slot: 0 }) → SingleScene 처리
-Alt+2 또는 HUD 버튼 클릭 (slot 1, cherry-pick) → activeBranch 사이드이펙트 처리 후 EventBus.emit('item:use', { slot: 1 })
+Alt+1 또는 HUD 버튼 클릭 (slot 0, stash)       → singleBus.emit('item:use', { slot: 0 }) → SingleScene 처리
+Alt+2 또는 HUD 버튼 클릭 (slot 1, cherry-pick) → activeBranch 사이드이펙트 처리 후 singleBus.emit('item:use', { slot: 1 })
 Alt+3 또는 HUD 버튼 클릭 (slot 2, restore)     → useSingleGame에서 직접 lives +1 처리 (Phaser 불필요)
 ```
 
@@ -82,7 +82,7 @@ this.stashTimeoutId = this.time.delayedCall(5000, () => {
     this.tweens.resumeAll();
     if (this.timerEvent) this.timerEvent.paused = false;
   }
-  EventBus.emit('stash:end');
+  singleBus.emit('stash:end');
 });
 ```
 
@@ -91,7 +91,7 @@ this.stashTimeoutId = this.time.delayedCall(5000, () => {
 `handleGameResume`은 stash/cherry-pick 활성 중에는 `tweens.resumeAll()`을 호출하지 않는다. stash의 `time.delayedCall` 콜백이 완료 시 알아서 tween/timerEvent를 재개하므로 ESC 해제 시점에 노드가 떨어지지 않는다.
 
 **Stash 조기 종료**: 명령어 성공 시 stash가 조기 종료된다.
-- `SingleScene.handleCommandComplete`: `stashTimeoutId.remove()` + `tweens.resumeAll()` + `timerEvent.paused = false` + `EventBus.emit('stash:end')`.
+- `SingleScene.handleCommandComplete`: `stashTimeoutId.remove()` + `tweens.resumeAll()` + `timerEvent.paused = false` + `singleBus.emit('stash:end')`.
 - `StashOverlay`: `stash:end` 이벤트를 구독해 오버레이를 즉시 숨김.
 - 오타(`command:wrong`)에는 반응하지 않는다 — 성공 시에만 종료.
 
@@ -117,9 +117,9 @@ this.cherryPickTimeoutId = this.time.delayedCall(CHERRY_PICK_ANIM_MS, () => {
       this.tweens.resumeAll();
       if (this.timerEvent) this.timerEvent.paused = false;
     }
-    EventBus.emit('command:complete', { index: indexAtUse });
+    singleBus.emit('command:complete', { index: indexAtUse });
   }
-  EventBus.emit('cherry-pick:end');
+  singleBus.emit('cherry-pick:end');
 });
 ```
 
@@ -140,15 +140,15 @@ if (cmd && (cmd.type === 'CREATE' || cmd.type === 'SWITCH')) {
 
 ### 6. restore 구현 (useSingleGame + RestoreOverlay)
 
-`useSingleGame`이 `livesAtom +1`을 직접 처리한다. Phaser와 무관한 React 상태 변경이므로 EventBus를 거치지 않는다.  
-단, `RestoreOverlay` 애니메이션을 트리거하기 위해 `EventBus.emit('item:use', { slot: 2 })`도 함께 emit한다.
+`useSingleGame`이 `livesAtom +1`을 직접 처리한다. Phaser와 무관한 React 상태 변경이므로 singleBus를 거치지 않는다.  
+단, `RestoreOverlay` 애니메이션을 트리거하기 위해 `singleBus.emit('item:use', { slot: 2 })`도 함께 emit한다.
 
 **RestoreOverlay**: `item:use { slot: 2 }` 수신 시 ♥가 확대되며 페이드아웃하는 힐링 아우라를 700ms 재생한다.  
 → 상세: `IMPLEMENTATION_게임피드백애니메이션.md` — "7. RestoreOverlay" 참고
 
 ### 7. commandIndexRef
 
-`useSingleGame` 내 EventBus 핸들러(`handleComplete`, `handleMiss`)에서 `commandIndexRef.current`를 수동으로 업데이트한다.  
+`useSingleGame` 내 singleBus 핸들러(`handleComplete`, `handleMiss`)에서 `commandIndexRef.current`를 수동으로 업데이트한다.  
 React 상태 업데이트는 비동기 배치이므로 atom 구독 ref만으로는 Alt 핸들러 실행 시 stale할 수 있다.
 
 ### 8. 리셋
@@ -163,7 +163,7 @@ React 상태 업데이트는 비동기 배치이므로 atom 구독 ref만으로�
 ### restore를 React에서 처리하는 이유
 
 restore는 `livesAtom`만 변경하면 되고 Phaser Scene의 시각 상태와 무관하다.  
-EventBus를 거치면 불필요한 왕복이 생기므로 `useSingleGame`이 직접 처리한다.  
+singleBus를 거치면 불필요한 왕복이 생기므로 `useSingleGame`이 직접 처리한다.  
 단, `RestoreOverlay` 애니메이션 트리거를 위해 `item:use { slot: 2 }`는 emit한다.
 
 ### stash에 `time.delayedCall` + `timerEvent.paused` 개별 제어를 쓰는 이유
@@ -182,7 +182,7 @@ EventBus를 거치면 불필요한 왕복이 생기므로 `useSingleGame`이 직
 
 ### cherry-pick에서 activeBranch를 useSingleGame이 처리하는 이유
 
-`activeBranchAtom`은 React 상태다. SingleScene은 React 상태를 직접 쓸 수 없고 EventBus만 사용한다.  
+`activeBranchAtom`은 React 상태다. SingleScene은 React 상태를 직접 쓸 수 없고 singleBus만 사용한다.  
 cherry-pick의 activeBranch 사이드이펙트는 `useSingleGame`의 Alt 핸들러에서 처리하고, Phaser 측 시각 효과(lane:create, branch:switch)는 `command:complete` → `handleCommandComplete` 체인에서 처리한다.
 
 ### 슬롯당 아이템 1개(중복 불가)를 선택한 이유

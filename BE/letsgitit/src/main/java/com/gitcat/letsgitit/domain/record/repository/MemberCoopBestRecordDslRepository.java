@@ -25,12 +25,26 @@ public class MemberCoopBestRecordDslRepository {
 			.where(record.memberId.eq(memberId))
 			.orderBy(
 				record.bestTime.asc(), // 1. 시간 짧은 순
-				record.mapDifficulty.desc(), // 2. 난이도 높은 순
+				record.difficulty.desc(), // 2. 난이도 높은 순
 				record.updatedAt.desc() // 3. 최신 순
 			)
 			.limit(1)
 			.fetchOne();
 
 		return Optional.ofNullable(result);
+	}
+
+	public Optional<MemberCoopBestRecord> findBestRecordByMemberIdAndMap(UUID memberId, String mapName,
+		int difficulty) {
+		QMemberCoopBestRecord record = QMemberCoopBestRecord.memberCoopBestRecord;
+
+		return Optional.ofNullable(
+			jpaQueryFactory
+				.selectFrom(record)
+				.where(
+					record.memberId.eq(memberId),
+					record.mapName.eq(mapName),
+					record.difficulty.eq(difficulty))
+				.fetchOne());
 	}
 }

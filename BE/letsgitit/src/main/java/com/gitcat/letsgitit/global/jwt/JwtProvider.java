@@ -42,11 +42,12 @@ public class JwtProvider {
 	 * - expiration: 만료 시각 (발급 시각 + accessExpiration)
 	 * - signWith: 비밀키로 서명 → 위변조 감지 가능
 	 */
-	public String createAccessToken(String email) {
+	public String createAccessToken(String email, String nickname) {
 		Date now = new Date();
 		return Jwts.builder()
 			.subject(email)
-			.claim("type", "access") // 토큰 타입 명시 (재발급 API에서 refresh 토큰이 들어오는 것 방지)
+			.claim("type", "access")
+			.claim("nickname", nickname)
 			.issuedAt(now)
 			.expiration(new Date(now.getTime() + accessExpiration))
 			.signWith(secretKey)
@@ -76,6 +77,17 @@ public class JwtProvider {
 	 */
 	public String getEmail(String token) {
 		return parseClaims(token).getSubject();
+	}
+
+	/**
+	 * 토큰 타입(access / refresh) 추출
+	 */
+	public String getTokenType(String token) {
+		return parseClaims(token).get("type", String.class);
+	}
+
+	public String getNickname(String token) {
+		return parseClaims(token).get("nickname", String.class);
 	}
 
 	/**

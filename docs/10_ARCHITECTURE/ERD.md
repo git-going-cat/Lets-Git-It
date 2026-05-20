@@ -80,7 +80,7 @@ CONSTRAINT chk_single_ranking_grade CHECK (grade IN ('S', 'A', 'B', 'C', 'D'))
 -- =============================================
 CREATE TABLE contribution_result (
 contribution_result_id BINARY(16)   NOT NULL,
-room_id                VARCHAR(100) NOT NULL COMMENT '대기방 Redis ID (추적용)',
+room_id                BIGINT       NOT NULL COMMENT '대기방 ID',
 session_id             VARCHAR(100) NOT NULL COMMENT '게임 세션 Redis ID',
 played_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 PRIMARY KEY (contribution_result_id),
@@ -95,7 +95,6 @@ contribution_result_member_id BINARY(16) NOT NULL,
 contribution_result_id        BINARY(16) NOT NULL,
 member_id                     BINARY(16) NOT NULL,
 contribution                  INT        NOT NULL COMMENT '최종 기여도 (%)',
-rank                          INT        NOT NULL COMMENT '최종 순위',
 PRIMARY KEY (contribution_result_member_id),
 UNIQUE KEY uq_contribution_result_member (contribution_result_id, member_id),
 INDEX idx_contribution_result_member_member (member_id),
@@ -112,7 +111,7 @@ REFERENCES member (member_id)
 -- =============================================
 CREATE TABLE timeattack_result (
 timeattack_result_id BINARY(16)   NOT NULL,
-room_id              VARCHAR(100) NOT NULL COMMENT '대기방 Redis ID (추적용)',
+room_id              BIGINT       NOT NULL COMMENT '대기방 ID',
 session_id           VARCHAR(100) NOT NULL COMMENT '게임 세션 Redis ID',
 played_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 PRIMARY KEY (timeattack_result_id),
@@ -146,7 +145,7 @@ REFERENCES member (member_id)
 CREATE TABLE competitive_ranking (
 competitive_ranking_id BINARY(16)  NOT NULL,
 member_id              BINARY(16)  NOT NULL,
-mode                   VARCHAR(50) NOT NULL COMMENT 'TIME_ATTACK / CONTRIBUTION_RUN',
+mode                   VARCHAR(50) NOT NULL COMMENT 'TIME_ATTACK / CONTRIBUTION',
 score                  INT         NOT NULL DEFAULT 0,
 rank                   INT         NOT NULL,
 week                   VARCHAR(10) NOT NULL COMMENT '예: 2025-04-3 (year-month-weekOfMonth)'
@@ -175,7 +174,7 @@ PRIMARY KEY (coop_map_id)
 -- =============================================
 CREATE TABLE coop_result (
 coop_result_id BINARY(16)   NOT NULL,
-room_id        VARCHAR(100) NOT NULL COMMENT '대기방 Redis ID (추적용)',
+room_id        BIGINT       NOT NULL COMMENT '대기방 ID',
 session_id     VARCHAR(100) NOT NULL COMMENT '게임 세션 Redis ID',
 map_name       VARCHAR(100) NOT NULL COMMENT '플레이 시점 맵 이름 스냅샷',
 map_difficulty VARCHAR(20)  NOT NULL COMMENT '플레이 시점 맵 난이도 스냅샷',
@@ -227,7 +226,7 @@ CONSTRAINT fk_coop_ranking_result FOREIGN KEY (coop_result_id) REFERENCES coop_r
 CREATE TABLE member_best_record (
 member_best_record_id BINARY(16)  NOT NULL,
 member_id             BINARY(16)  NOT NULL,
-mode                  VARCHAR(50) NOT NULL COMMENT 'SINGLE_EASY / SINGLE_NORMAL / SINGLE_HARD / TIME_ATTACK / CONTRIBUTION_RUN',
+mode                  VARCHAR(50) NOT NULL COMMENT 'SINGLE_EASY / SINGLE_NORMAL / SINGLE_HARD / TIME_ATTACK / CONTRIBUTION',
 best_score            INT         NOT NULL DEFAULT 0,
 best_rank             INT         NOT NULL COMMENT '해당 기록의 순위',
 updated_at            DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -305,7 +304,7 @@ single_command_set_id      BINARY(16)   NOT NULL,
 sequence                   INT          NOT NULL COMMENT '명령어 순서',
 command_text               VARCHAR(255) NOT NULL COMMENT '명령어 텍스트',
 branch_name                VARCHAR(100) NULL     COMMENT '명령어가 속한 브랜치명',
-command_type               VARCHAR(10)  NOT NULL DEFAULT 'COMMON' COMMENT 'CREATE / MERGE / COMMON',
+command_type               VARCHAR(10)  NOT NULL DEFAULT 'COMMON' COMMENT 'CREATE / MERGE / SWITCH / COMMON / CONFLICT',
 PRIMARY KEY (single_command_set_item_id),
 UNIQUE KEY uq_single_command_set_item (single_command_set_id, sequence),
 CONSTRAINT fk_single_command_set_item FOREIGN KEY (single_command_set_id) REFERENCES single_command_set (single_command_set_id)
@@ -318,11 +317,12 @@ CONSTRAINT fk_single_command_set_item FOREIGN KEY (single_command_set_id) REFERE
 CREATE TABLE competitive_command_set (
 competitive_command_set_id BINARY(16)  NOT NULL,
 set_number                 INT         NOT NULL COMMENT '1 / 2 / 3',
-mode                       VARCHAR(50) NOT NULL COMMENT 'CONTRIBUTION_RUN / TIME_ATTACK',
+mode                       VARCHAR(50) NOT NULL COMMENT 'CONTRIBUTION / TIME_ATTACK',
+player_count               INT         NULL COMMENT '기여도 모드 플레이어 수',
 PRIMARY KEY (competitive_command_set_id),
-UNIQUE KEY uq_competitive_command_set (set_number, mode),
+UNIQUE KEY uq_competitive_command_set (set_number, mode, player_count),
 CONSTRAINT chk_competitive_command_set_mode
-CHECK (mode IN ('CONTRIBUTION_RUN', 'TIME_ATTACK'))
+CHECK (mode IN ('CONTRIBUTION', 'TIME_ATTACK'))
 );
 
 

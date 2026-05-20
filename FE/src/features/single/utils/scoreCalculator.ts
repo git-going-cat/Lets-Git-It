@@ -1,4 +1,4 @@
-import type { Difficulty, Grade } from '@/shared/types/game.types';
+import type { Command, Difficulty, Grade } from '@/shared/types/game.types';
 
 /** 난이도별 감점 파라미터 */
 interface ScoreConfig {
@@ -9,19 +9,36 @@ interface ScoreConfig {
 }
 
 export const SCORE_CONFIG: Record<Difficulty, ScoreConfig> = {
-  EASY: { idealTimeSec: 75, timePenaltyPer100ms: 6, typoPenalty: 220, livesPenalty: 800 },
-  NORMAL: { idealTimeSec: 110, timePenaltyPer100ms: 6, typoPenalty: 400, livesPenalty: 1200 },
-  HARD: { idealTimeSec: 150, timePenaltyPer100ms: 6, typoPenalty: 700, livesPenalty: 1700 },
+  EASY: { idealTimeSec: 35, timePenaltyPer100ms: 6, typoPenalty: 220, livesPenalty: 800 },
+  NORMAL: { idealTimeSec: 55, timePenaltyPer100ms: 6, typoPenalty: 400, livesPenalty: 1200 },
+  HARD: { idealTimeSec: 80, timePenaltyPer100ms: 6, typoPenalty: 700, livesPenalty: 1700 },
 };
 
-const MAX_SCORE = 10000;
+/** 보너스 전 기준 점수. 시간/오타/목숨 감점이 모두 0이면 이 값에 도달한다. */
+const BASE_SCORE = 10000;
 
 /** 75% 이상 churu 달성 시 탈출 성공. 초과분은 보너스 점수로 전환 */
 export const CHURU_THRESHOLD = 0.75;
 /** 초과 churu 1개당 보너스 점수 (튜닝 가능) */
-const CHURU_BONUS_PER = 200;
-/** 최대 연속 콤보 1 당 보너스 점수 (튜닝 가능) */
-const COMBO_BONUS_PER = 50;
+const CHURU_BONUS_PER = 500;
+/** 콤보 레벨 k 달성 시 k×10점 누적 보너스의 단위값. 최종 보너스 = 5·N·(N+1) */
+const COMBO_BONUS_PER = 10;
+
+/**
+ * 특정 명령어가 churu/점수 카운트에 들어가는지 판단합니다.
+ * EASY는 모든 명령어, NORMAL/HARD는 SWITCH 제외(원래 SWITCH 자체가 없음).
+ */
+export function isScoringCommand(cmd: Pick<Command, 'type'>, difficulty: Difficulty): boolean {
+  return difficulty === 'EASY' || cmd.type !== 'SWITCH';
+}
+
+/** commandSet 중 점수에 카운트되는 명령어 수를 반환합니다. */
+export function countScoringCommands(
+  commandSet: ReadonlyArray<Pick<Command, 'type'>>,
+  difficulty: Difficulty
+): number {
+  return commandSet.filter((c) => isScoringCommand(c, difficulty)).length;
+}
 
 const GRADE_THRESHOLDS: { grade: Grade; min: number }[] = [
   { grade: 'S', min: 10000 },
@@ -49,12 +66,12 @@ export interface ScoreResult {
 
 /**
  * 싱글 게임 최종 점수와 등급을 계산합니다.
- * 기준 시간 안에 오타·목숨 손실 없이 클리어하면 기준점 10,000점에 도달하며,
- * 초과 churu와 최대 콤보로 10,000점을 넘는 보너스 점수를 획득할 수 있습니다.
+ * 기준 시간 안에 오타·목숨 손실 없이 클리어하면 기준점(BASE_SCORE=10,000)에 도달하며,
+ * 초과 churu와 최대 콤보로 기준점을 넘는 보너스 점수를 획득할 수 있습니다.
  *
- * score = max(0, 10000 - 시간감점 - 오타감점 - 목숨감점)
+ * score = max(0, BASE_SCORE - 시간감점 - 오타감점 - 목숨감점)
  *       + (churuCount - threshold) × CHURU_BONUS_PER   // 초과 churu 보너스
- *       + maxCombo × COMBO_BONUS_PER                   // 콤보 보너스
+ *       + 5·N·(N+1)                                    // 누진 콤보 보너스 (콤보 k 달성 시 +10k)
  */
 export function calcScore({
   playTimeMs,
@@ -74,11 +91,11 @@ export function calcScore({
   const typoPenalty = typoCount * config.typoPenalty;
   const livesPenalty = livesLost * config.livesPenalty;
 
-  const base = Math.max(0, Math.round(MAX_SCORE - timePenalty - typoPenalty - livesPenalty));
+  const base = Math.max(0, Math.round(BASE_SCORE - timePenalty - typoPenalty - livesPenalty));
 
   const threshold = Math.ceil(totalCommands * CHURU_THRESHOLD);
   const churuBonus = Math.max(0, churuCount - threshold) * CHURU_BONUS_PER;
-  const comboBonus = maxCombo * COMBO_BONUS_PER;
+  const comboBonus = (COMBO_BONUS_PER * maxCombo * (maxCombo + 1)) / 2;
 
   const score = base + churuBonus + comboBonus;
   const grade = calcGrade(score);

@@ -52,7 +52,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 			.queryParam("code", tempCode)
 			.build().toUriString();
 
-		log.debug("OAuth2 로그인 성공, 임시코드 발급. memberId: {}", memberId);
+		log.debug("[auth][OAuth2SuccessHandler] login success, temp code issued. memberId={}", memberId);
 		response.sendRedirect(redirectUrl);
 	}
 }

@@ -24,7 +24,8 @@ export function useExistingBranches(): Set<string> {
       const target = parseSwitchTarget(cmd.text);
       if (!target) continue;
       if (cmd.type === 'CREATE') set.add(target);
-      else if (cmd.type === 'MERGE') set.delete(target);
+      // CONFLICT도 결국 MERGE 효과로 마무리되므로 동일하게 브랜치를 제거한다.
+      else if (cmd.type === 'MERGE' || cmd.type === 'CONFLICT') set.delete(target);
     }
     return set;
   }, [commandSet, commandIndex]);

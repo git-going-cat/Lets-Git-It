@@ -99,7 +99,7 @@ com.gitcat.letsgitit.global
     ├── Provider.java               # LOCAL / GOOGLE
     ├── Difficulty.java             # EASY / NORMAL / HARD
     ├── GameMode.java               # SINGLE / TIME_ATTACK / SPEED_RUN / COOP
-    ├── CommandType.java            # CREATE / MERGE / COMMON
+    ├── CommandType.java            # CREATE / MERGE / SWITCH / COMMON / CONFLICT
     ├── MapDifficulty.java          # MAP_1 ~ MAP_5
     ├── GitProficiency.java         # NEVER_HEARD / HEARD_ONLY / LEARNED / PERSONAL / TEAM
     └── OnboardingStatus.java       # NONE / NICKNAME_SET_DONE / TUTORIAL_DONE
@@ -230,7 +230,7 @@ com.gitcat.letsgitit.domain
 │   │   ├── ChatMessage.java
 │   │   └── HostTransferRequestMessage.java
 │   ├── constants
-│   │   └── RoomRedisKeys.java
+│   │   └── RoomConstants.java
 │   └── exception
 │       ├── RoomNotFoundException.java
 │       └── RoomFullException.java

@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import bgImage from '@/assets/bg/screen.png';
-import DictionaryModal from '@/features/dictionary/components/DictionaryModal';
+import LobbyPage from '@/features/multi/components/LobbyPage';
 import MyPageModal from '@/features/mypage/components/MyPageModal';
 import RankingModal from '@/features/ranking/components/RankingModal';
 import { useBgm } from '@/shared/hooks/useBgm';
 
+import { useHomeEscSettings } from '../hooks/useHomeEscSettings';
+
 import BoardButton from './BoardButton';
+import HomeWalkingCharacter from './HomeWalkingCharacter';
 import LogoSection from './LogoSection';
 import LogoutModal from './modals/LogoutModal';
 import SettingsModal from './modals/SettingsModal';
@@ -18,22 +21,60 @@ import SideMenuButtons from './SideMenuButtons';
 import TutorialNpc from './TutorialNpc';
 
 import type { HomeModalType } from '../types/home.types';
+import type { Scenario } from '@/features/incident/types/incident.types';
+import type { GameMode } from '@/features/multi/types/room.types';
+import type { Difficulty } from '@/shared/types/game.types';
+import type { ReactNode } from 'react';
+
+interface HomePageProps {
+  // 다른 페이지에서 ?modal=... 로 복귀한 경우 첫 렌더에 열어둘 모달. routes 레이어가 주입.
+  initialModal: HomeModalType | null;
+  // 대기실에서 나왔을 때 자동으로 열 로비 모드. routes 레이어가 주입.
+  initialLobbyMode: GameMode | null;
+  // initialModal 처리 후 URL에서 search param을 제거해 재오픈을 방지. routes 레이어가 주입.
+  onUrlCleanup: () => void;
+  // 싱글 모드 '게임 시작' 시 routes 레이어가 startSession + setSession을 수행. 실패 시 throw.
+  onStartSingle: (difficulty: Difficulty) => Promise<void>;
+  // routes/-HomeRoute에서 주입: incident cross-feature wiring
+  incidentScenarios: Scenario[];
+  isIncidentCleared: (scenarioId: number) => boolean;
+  renderDictionaryModal: (onClose: () => void) => ReactNode;
+}
 
 /**
  * 홈 화면의 배경, 모드 진입, 랭킹/도감/마이페이지 모달 상태를 관리합니다.
+ * cross-feature wiring(URL 파라미터, single API 호출)은 routes/-HomeRoute에서 주입받습니다.
  */
-export function HomePage() {
+export function HomePage({
+  initialModal,
+  initialLobbyMode,
+  onUrlCleanup,
+  onStartSingle,
+  incidentScenarios,
+  isIncidentCleared,
+  renderDictionaryModal,
+}: HomePageProps) {
   useBgm();
-  const [activeModal, setActiveModal] = useState<HomeModalType | null>(null);
+  // setState in effect를 피하기 위해 useState initializer로 처리.
+  const [activeModal, setActiveModal] = useState<HomeModalType | null>(() => initialModal);
   const [isMyPageOpen, setIsMyPageOpen] = useState(false);
+  const [lobbyMode, setLobbyMode] = useState<GameMode | null>(() => initialLobbyMode);
 
   useEffect(() => {
     void import('@/features/single/components/SinglePage');
   }, []);
 
-  const handleOpenModal = (modal: HomeModalType) => {
+  // 모달/로비가 열린 뒤 URL은 깔끔하게 정리한다. (재진입 시 자동 재오픈 방지)
+  useEffect(() => {
+    if (!initialModal && !initialLobbyMode) return;
+    onUrlCleanup();
+  }, [initialModal, initialLobbyMode, onUrlCleanup]);
+
+  const hasOpenModal = activeModal !== null || isMyPageOpen || lobbyMode !== null;
+
+  const handleOpenModal = useCallback((modal: HomeModalType) => {
     setActiveModal(modal);
-  };
+  }, []);
 
   const handleCloseModal = () => {
     setActiveModal(null);
@@ -42,6 +83,11 @@ export function HomePage() {
   const handleToggleMyPage = () => {
     setIsMyPageOpen((prev) => !prev);
   };
+
+  useHomeEscSettings({
+    enabled: !hasOpenModal,
+    onOpenSettings: () => handleOpenModal('settings'),
+  });
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
@@ -54,6 +100,8 @@ export function HomePage() {
       />
 
       {/* 내부 컴포넌트들은 각각 absolute 클래스를 가지고 있으므로 그대로 렌더링 */}
+      <HomeWalkingCharacter />
+
       <LogoSection />
 
       <div className="absolute left-16 top-34 z-20">
@@ -66,7 +114,7 @@ export function HomePage() {
 
       <SideMenuButtons onOpen={handleOpenModal} />
 
-      <div className="absolute bottom-20 left-1/2 -translate-x-1/2">
+      <div className="absolute bottom-20 left-1/2 z-20 -translate-x-1/2">
         <ModeSelectSection onOpen={handleOpenModal} />
       </div>
 
@@ -96,14 +144,29 @@ export function HomePage() {
       {activeModal === 'settings' && <SettingsModal onClose={handleCloseModal} />}
       {activeModal === 'logout' && <LogoutModal onClose={handleCloseModal} />}
       {activeModal === 'explorer-single' && (
-        <Win11ExplorerModal initialTab="single" onClose={handleCloseModal} />
+        <Win11ExplorerModal
+          initialTab="single"
+          onClose={handleCloseModal}
+          onStartSingle={onStartSingle}
+          incidentScenarios={incidentScenarios}
+          isIncidentCleared={isIncidentCleared}
+        />
       )}
       {activeModal === 'explorer-multi' && (
-        <Win11ExplorerModal initialTab="multi" onClose={handleCloseModal} />
+        <Win11ExplorerModal
+          initialTab="multi"
+          onClose={handleCloseModal}
+          onLobbyOpen={(m) => setLobbyMode(m)}
+          onStartSingle={onStartSingle}
+          incidentScenarios={incidentScenarios}
+          isIncidentCleared={isIncidentCleared}
+        />
       )}
 
+      {lobbyMode !== null && <LobbyPage mode={lobbyMode} onClose={() => setLobbyMode(null)} />}
+
       {activeModal === 'ranking' && <RankingModal onClose={handleCloseModal} />}
-      {activeModal === 'dictionary' && <DictionaryModal onClose={handleCloseModal} />}
+      {activeModal === 'dictionary' && renderDictionaryModal(handleCloseModal)}
     </div>
   );
 }

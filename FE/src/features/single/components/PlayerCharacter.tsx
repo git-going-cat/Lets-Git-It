@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { EventBus } from '@/core/bridge/EventBus';
 import AnimatedCharacter from '@/shared/components/AnimatedCharacter';
 import { useCurrentCharacterAsset } from '@/shared/hooks/useCurrentCharacterAsset';
 
+import { singleBus } from '../bridge/singleBus';
 import { useExistingBranches } from '../hooks/useExistingBranches';
 import { useSingleStore } from '../store/singleStore';
 
@@ -15,10 +15,7 @@ export default function PlayerCharacter() {
 
   useEffect(() => {
     const handler = ({ branch }: { branch: string }) => setActiveBranch(branch);
-    EventBus.on('branch:switch', handler);
-    return () => {
-      EventBus.off('branch:switch', handler);
-    };
+    return singleBus.subscribe('branch:switch', handler);
   }, []);
 
   if (!asset) return null;

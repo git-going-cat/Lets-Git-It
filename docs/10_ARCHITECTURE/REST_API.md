@@ -611,7 +611,7 @@ GET /api/v1/members/me
 | 모드 | 필드명 | 타입 | 설명 |
 | --- | --- | --- | --- |
 | `SINGLE_EASY` / `SINGLE_NORMAL` / `SINGLE_HARD` | `bestScore` | Integer | 모든 기간 중 최고 점수 |
-| `CONTRIBUTION_RUN` | `totalContribution` | Integer | 모든 기간 누적 기여도 |
+| `CONTRIBUTION` | `totalContribution` | Integer | 모든 기간 누적 기여도 |
 | `TIME_ATTACK` | `totalCount` | Integer | 모든 기간 누적 카운트 |
 | `COOP` | `bestClearTime` | Integer | 모든 기간 중 최단 클리어 시간 (ms) |
 
@@ -637,7 +637,7 @@ GET /api/v1/members/me
       { "mode": "SINGLE_EASY",      "bestScore": 9500 },
       { "mode": "SINGLE_NORMAL",    "bestScore": 7200 },
       { "mode": "SINGLE_HARD",      "bestScore": 5100 },
-      { "mode": "CONTRIBUTION_RUN", "totalContribution": 88000 },
+      { "mode": "CONTRIBUTION",     "totalContribution": 88000 },
       { "mode": "TIME_ATTACK",      "totalCount": 10500},
       { "mode": "COOP",             "bestClearTime": 61000 }
     ]
@@ -978,7 +978,7 @@ GET /api/v1/rankings/single?difficulty={difficulty}&afterRank={afterRank}&before
 | `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. `beforeRank`가 있으면 위 방향 스크롤 우선 처리.
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
 
 #### 초기 진입 Response
 
@@ -1087,43 +1087,193 @@ GET /api/v1/rankings/single?difficulty=NORMAL&beforeRank=40&size=20
 
 ### 4-2. 기여도 뺏기 랭킹 조회 (이번 주)
 
-- 응답 구조는 싱글 랭킹과 동일하지만 `difficulty` 필드 없음
+> **[기여도 뺏기 랭킹 기준]**
+>
+> 기여도 뺏기 랭킹은 아래 우선순위로 정렬한다.
+> - 1순위: `contribution` 내림차순
+> - 2순위: `playCount` 오름차순
+> - 3순위: 동일 점수 및 동일 플레이 횟수일 경우 먼저 등록된 순
+>
+> 예시:
+> - contribution이 높은 플레이어가 상위 랭크
+> - contribution이 같다면 playCount가 적은 플레이어가 상위 랭크
+> - contribution과 playCount가 모두 같다면 먼저 기록된 플레이어가 상위 랭크
+
+- 이번 주 랭킹은 **Redis Sorted Set** 기반으로 실시간 조회
+- 주차 정산이 완료되면 **RDB에 저장** 후 Redis 키 삭제
+- 주차 정산 시점: **매주 월요일 00:00**
 
 ```
-GET /api/v1/rankings/speed?cursor={cursor}&size={size}
+GET /api/v1/rankings/contribution?afterRank={afterRank}&beforeRank={beforeRank}&size={size}
 ```
 
 #### Query Parameters
 
 | 파라미터 | 필수 | 설명 |
 | --- | --- | --- |
-| `cursor` | ❌ | 무한 스크롤 커서, 생략 시 초기 응답 |
+| `afterRank` | ❌ | 아래 방향 스크롤 커서 (마지막으로 확인한 순위). 생략 시 초기 응답 |
+| `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
+
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
+
+#### 초기 진입 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `year` | Integer | 현재 연도 |
+| `month` | Integer | 현재 월 |
+| `week` | Integer | 현재 주차 |
+| `top3` | Array | 상위 3명 고정 노출 |
+| `top3[].rank` | Integer | 순위 |
+| `top3[].playerId` | UUID | 플레이어 ID |
+| `top3[].nickname` | String | 닉네임 |
+| `top3[].contribution` | Integer | 해당 주차 누적 기여도 점수 |
+| `top3[].playCount` | Integer | 해당 주차 동안 플레이한 총 게임 수 |
+| `myRank` | Object | 내 랭킹 정보 |
+| `myRank.rank` | Integer | 내 순위 |
+| `myRank.contribution` | Integer | 내 기여도 점수 |
+| `myRank.playCount` | Integer | 해당 주차 동안 플레이한 총 게임 수 |
+| `around` | Array | 내 랭킹 근처 유저 |
+| `around[].rank` | Integer | 순위 |
+| `around[].playerId` | UUID | 플레이어 ID |
+| `around[].nickname` | String | 닉네임 |
+| `around[].contribution` | Integer | 해당 주차 누적 기여도 점수 |
+| `around[].playCount` | Integer | 해당 주차 동안 플레이한 총 게임 수 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (around 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (around 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
 
 #### 초기 진입 Response 예시
 
 ```json
 {
   "status": 200,
-  "message": "스피드런 랭킹 조회 성공",
+  "message": "기여도 뺏기 랭킹 조회 성공",
   "data": {
     "year": 2025,
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "speed", "contribution": 12000 },
-      { "rank": 2, "nickname": "fast",  "contribution": 11500 },
-      { "rank": 3, "nickname": "quick", "contribution": 10900 }
+      {
+        "rank": 1,
+        "playerId": "550e8400-e29b-41d4-a716-446655440000",
+        "nickname": "dobby",
+        "contribution": 12000,
+        "playCount": 10
+      },
+      {
+        "rank": 2,
+        "playerId": "661f9511-f30c-52e5-b827-557766551111",
+        "nickname": "alice",
+        "contribution": 11500,
+        "playCount": 9
+      },
+      {
+        "rank": 3,
+        "playerId": "772e0622-f41d-43f6-a938-668877662222",
+        "nickname": "bob",
+        "contribution": 10900,
+        "playCount": 11
+      }
     ],
-    "myRank": { "rank": 15, "contribution": 8800 },
+    "myRank": {
+      "rank": 15,
+      "contribution": 8800,
+      "playCount": 10
+    },
     "around": [
-      { "rank": 13, "nickname": "user1",  "contribution": 9100 },
-      { "rank": 14, "nickname": "user2",  "contribution": 8900 },
-      { "rank": 15, "nickname": "dobby",  "contribution": 8800 },
-      { "rank": 16, "nickname": "user3",  "contribution": 8600 },
-      { "rank": 17, "nickname": "user4",  "contribution": 8400 }
+      {
+        "rank": 13,
+        "playerId": "11111111-e29b-41d4-a716-446655440000",
+        "nickname": "user1",
+        "contribution": 9100,
+        "playCount": 10
+      },
+      {
+        "rank": 14,
+        "playerId": "22222222-e29b-41d4-a716-446655440000",
+        "nickname": "user2",
+        "contribution": 8900,
+        "playCount": 9
+      },
+      {
+        "rank": 15,
+        "playerId": "33333333-e29b-41d4-a716-446655440000",
+        "nickname": "dobby",
+        "contribution": 8800,
+        "playCount": 10
+      },
+      {
+        "rank": 16,
+        "playerId": "44444444-e29b-41d4-a716-446655440000",
+        "nickname": "user3",
+        "contribution": 8600,
+        "playCount": 12
+      },
+      {
+        "rank": 17,
+        "playerId": "55555555-e29b-41d4-a716-446655440000",
+        "nickname": "user4",
+        "contribution": 8400,
+        "playCount": 8
+      }
     ],
+    "prevCursor": 13,
+    "hasPrev": true,
     "nextCursor": 17,
+    "hasNext": true
+  }
+}
+```
+
+#### 아래 방향 스크롤 Request
+
+```
+GET /api/v1/rankings/contribution?afterRank=17&size=20
+```
+
+#### 위 방향 스크롤 Request
+
+```
+GET /api/v1/rankings/contribution?beforeRank=13&size=20
+```
+
+#### 스크롤 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `rankings` | Array | 랭킹 목록 |
+| `rankings[].rank` | Integer | 순위 |
+| `rankings[].playerId` | UUID | 플레이어 ID |
+| `rankings[].nickname` | String | 닉네임 |
+| `rankings[].contribution` | Integer | 기여도 점수 |
+| `rankings[].playCount` | Integer | 해당 주차 동안 플레이한 총 게임 수 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (현재 페이지 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (현재 페이지 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
+
+#### 스크롤 Response 예시
+
+```json
+{
+  "status": 200,
+  "message": "기여도 뺏기 랭킹 조회 성공",
+  "data": {
+    "rankings": [
+      {
+        "rank": 18,
+        "playerId": "66666666-e29b-41d4-a716-446655440000",
+        "nickname": "user5",
+        "contribution": 8200,
+        "playCount": 7
+      }
+    ],
+    "prevCursor": 18,
+    "hasPrev": true,
+    "nextCursor": 37,
     "hasNext": true
   }
 }
@@ -1179,69 +1329,217 @@ GET /api/v1/rankings/timeattack?cursor={cursor}&size={size}
 
 ### 4-4. 협력 랭킹 조회 (이번 주)
 
-- `clearTime`은 **낮을수록 높은 순위**
-- Redis 키는 맵마다 분리: `ranking:COOP:{mapId}:{week}`
+> **[협력 랭킹 기준]**
+>
+> 협력 랭킹은 아래 우선순위로 정렬한다.
+> - 1순위: `elapsedTime` 오름차순
+> - 2순위: `totalWrongOrderCount` 오름차순
+> - 3순위: `totalWrongTypeCount` 오름차순
+> - 4순위: 동일 기록일 경우 먼저 등록된 순
+>
+> 예시:
+> - elapsedTime이 짧은 팀이 상위 랭크
+> - elapsedTime이 같다면 totalWrongOrderCount가 적은 팀이 상위 랭크
+> - elapsedTime과 totalWrongOrderCount가 같다면 totalWrongTypeCount가 적은 팀이 상위 랭크
+> - 위 조건이 모두 같다면 먼저 기록된 팀이 상위 랭크
+
+#### 개요
+
+- 이번 주 랭킹은 **Redis Sorted Set** 기반으로 실시간 조회
+- 주차 정산이 완료되면 **RDB에 저장** 후 Redis 키 삭제
+- 주차 정산 시점: **매주 월요일 00:00**
+- 협력 랭킹은 개인이 아닌 **팀 단위**로 등록된다.
+- 협력 랭킹은 `score` 대신 `elapsedTime`을 사용한다.
+- `elapsedTime`은 **낮을수록 높은 순위**이다.
+- `members` 목록은 닉네임 가나다순으로 정렬된다.
 
 ```
-GET /api/v1/rankings/coop?mapName={맵이름}&difficulty={맵난이도}&cursor={cursor}&size={size}
+GET /api/v1/rankings/coop?mapName={mapName}&difficulty={difficulty}&afterRank={afterRank}&beforeRank={beforeRank}&size={size}
 ```
 
 #### Query Parameters
 
 | 파라미터 | 필수 | 설명 |
 | --- | --- | --- |
-| `mapName` | ✅ | 맵 이름 |
-| `difficulty` | ✅ | 맵 난이도 |
-| `cursor` | ❌ | 무한 스크롤 커서, 생략 시 초기 응답 |
+| `mapName` | ✅ | 조회할 맵 이름, 예: `기초 브랜치` |
+| `difficulty` | ✅ | 조회할 난이도 (1~5), 예: `1` |
+| `afterRank` | ❌ | 아래 방향 스크롤 커서 (마지막으로 확인한 순위). 생략 시 초기 응답 |
+| `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
 
-#### 초기 진입 Response
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
+
+#### 초기 진입 Response Fields
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `mapId` | Integer | 맵 ID |
-| `mapName` | String | 맵 이름 |
 | `year` | Integer | 현재 연도 |
 | `month` | Integer | 현재 월 |
 | `week` | Integer | 현재 주차 |
-| `top3` | Array | 상위 3명 고정 노출 |
+| `top3` | Array | 상위 3팀 고정 노출 |
 | `top3[].rank` | Integer | 순위 |
-| `top3[].nickname` | String | 닉네임 |
-| `top3[].clearTime` | Integer | 클리어 시간 (ms) |
-| `myRank` | Object | 내 랭킹 정보 |
-| `myRank.rank` | Integer | 내 순위 |
-| `myRank.clearTime` | Integer | 내 클리어 시간 (ms) |
-| `around` | Array | 내 랭킹 근처 유저 |
+| `top3[].teamName` | String | 팀명 |
+| `top3[].mapName` | String | 맵 이름 |
+| `top3[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
+| `top3[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
+| `top3[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
+| `top3[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
+| `top3[].members` | Array | 팀원 목록. 닉네임 가나다순 정렬 |
+| `top3[].members[].playerId` | UUID | 플레이어 ID |
+| `top3[].members[].nickname` | String | 닉네임 |
+| `myRank` | Object | 내가 속한 팀의 랭킹 정보, 없으면 null |
+| `myRank.rank` | Integer | 내 팀 순위 |
+| `myRank.teamName` | String | 팀명 |
+| `myRank.mapName` | String | 맵 이름 |
+| `myRank.difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
+| `myRank.elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
+| `myRank.totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
+| `myRank.totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
+| `myRank.members` | Array | 팀원 목록. 닉네임 가나다순 정렬 |
+| `myRank.members[].playerId` | UUID | 플레이어 ID |
+| `myRank.members[].nickname` | String | 닉네임 |
+| `around` | Array | 내 팀 랭킹 근처 팀 목록 |
 | `around[].rank` | Integer | 순위 |
-| `around[].nickname` | String | 닉네임 |
-| `around[].clearTime` | Integer | 클리어 시간 (ms) |
-| `nextCursor` | Integer | 다음 커서, null이면 마지막 |
-| `hasNext` | Boolean | 다음 페이지 존재 여부 |
+| `around[].teamName` | String | 팀명 |
+| `around[].mapName` | String | 맵 이름 |
+| `around[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
+| `around[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
+| `around[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
+| `around[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
+| `around[].members` | Array | 팀원 목록. 닉네임 가나다순 정렬 |
+| `around[].members[].playerId` | UUID | 플레이어 ID |
+| `around[].members[].nickname` | String | 닉네임 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (around 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (around 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
+
+#### 초기 진입 Response 예시
 
 ```json
 {
   "status": 200,
   "message": "협력 랭킹 조회 성공",
   "data": {
-    "mapId": 1,
-    "mapName": "기초 브랜치",
     "year": 2025,
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "coopma", "clearTime": 61000 },
-      { "rank": 2, "nickname": "teamwo",   "clearTime": 65000 },
-      { "rank": 3, "nickname": "syncpr",    "clearTime": 70000 }
+      {
+        "rank": 1,
+        "teamName": "git masters",
+        "mapName": "기초 브랜치",
+        "difficulty": 2,
+        "elapsedTime": 61000,
+        "totalWrongTypeCount": 2,
+        "totalWrongOrderCount": 1,
+        "members": [
+          { "playerId": "22222222-e29b-41d4-a716-446655440000", "nickname": "alice" },
+          { "playerId": "33333333-e29b-41d4-a716-446655440000", "nickname": "bob" },
+          { "playerId": "44444444-e29b-41d4-a716-446655440000", "nickname": "charlie" },
+          { "playerId": "11111111-e29b-41d4-a716-446655440000", "nickname": "dobby" }
+        ]
+      }
     ],
-    "myRank": { "rank": 5, "clearTime": 83000 },
+    "myRank": {
+      "rank": 5,
+      "teamName": "merge crew",
+      "mapName": "기초 브랜치",
+      "difficulty": 2,
+      "elapsedTime": 83000,
+      "totalWrongTypeCount": 5,
+      "totalWrongOrderCount": 3,
+      "members": [
+        { "playerId": "aaaaaaaa-e29b-41d4-a716-446655440000", "nickname": "alice" },
+        { "playerId": "bbbbbbbb-e29b-41d4-a716-446655440000", "nickname": "bob" },
+        { "playerId": "cccccccc-e29b-41d4-a716-446655440000", "nickname": "charlie" },
+        { "playerId": "99999999-e29b-41d4-a716-446655440000", "nickname": "dobby" }
+      ]
+    },
     "around": [
-      { "rank": 3, "nickname": "user1",  "clearTime": 79000 },
-      { "rank": 4, "nickname": "user2",  "clearTime": 81000 },
-      { "rank": 5, "nickname": "dobby",  "clearTime": 83000 },
-      { "rank": 6, "nickname": "user3",  "clearTime": 85000 },
-      { "rank": 7, "nickname": "user4",  "clearTime": 87000 }
+      {
+        "rank": 4,
+        "teamName": "reset zero",
+        "mapName": "기초 브랜치",
+        "difficulty": 2,
+        "elapsedTime": 81000,
+        "totalWrongTypeCount": 4,
+        "totalWrongOrderCount": 2,
+        "members": [
+          { "playerId": "dddddddd-e29b-41d4-a716-446655440000", "nickname": "user5" },
+          { "playerId": "eeeeeeee-e29b-41d4-a716-446655440000", "nickname": "user6" },
+          { "playerId": "ffffffff-e29b-41d4-a716-446655440000", "nickname": "user7" },
+          { "playerId": "12121212-e29b-41d4-a716-446655440000", "nickname": "user8" }
+        ]
+      }
     ],
-    "nextCursor": 7,
+    "prevCursor": 4,
+    "hasPrev": true,
+    "nextCursor": 6,
+    "hasNext": true
+  }
+}
+```
+
+#### 아래 방향 스크롤 Request
+
+```
+GET /api/v1/rankings/coop?mapName=기초+브랜치&difficulty=2&afterRank=6&size=20
+```
+
+#### 위 방향 스크롤 Request
+
+```
+GET /api/v1/rankings/coop?mapName=기초+브랜치&difficulty=2&beforeRank=4&size=20
+```
+
+#### 스크롤 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `rankings` | Array | 랭킹 목록 |
+| `rankings[].rank` | Integer | 순위 |
+| `rankings[].teamName` | String | 팀명 |
+| `rankings[].mapName` | String | 맵 이름 |
+| `rankings[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
+| `rankings[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
+| `rankings[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
+| `rankings[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
+| `rankings[].members` | Array | 팀원 목록. 닉네임 가나다순 정렬 |
+| `rankings[].members[].playerId` | UUID | 플레이어 ID |
+| `rankings[].members[].nickname` | String | 닉네임 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (현재 페이지 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (현재 페이지 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
+
+#### 스크롤 Response 예시
+
+```json
+{
+  "status": 200,
+  "message": "협력 랭킹 조회 성공",
+  "data": {
+    "rankings": [
+      {
+        "rank": 7,
+        "teamName": "conflict solvers",
+        "mapName": "기초 브랜치",
+        "difficulty": 1,
+        "elapsedTime": 89000,
+        "totalWrongTypeCount": 7,
+        "totalWrongOrderCount": 4,
+        "members": [
+          { "playerId": "17171717-e29b-41d4-a716-446655440000", "nickname": "user13" },
+          { "playerId": "18181818-e29b-41d4-a716-446655440000", "nickname": "user14" },
+          { "playerId": "19191919-e29b-41d4-a716-446655440000", "nickname": "user15" },
+          { "playerId": "20202020-e29b-41d4-a716-446655440000", "nickname": "user16" }
+        ]
+      }
+    ],
+    "prevCursor": 7,
+    "hasPrev": true,
+    "nextCursor": 26,
     "hasNext": true
   }
 }
@@ -1382,8 +1680,28 @@ GET /api/v1/rankings/single/history?difficulty=NORMAL&year=2025&month=4&week=3&b
 
 ### 4-6. 기여도 뺏기 랭킹 조회 (과거 주)
 
+> **[기여도 뺏기 랭킹 기준]**
+>
+> 기여도 뺏기 랭킹은 아래 우선순위로 정렬한다.
+> - 1순위: `contribution` 내림차순
+> - 2순위: `playCount` 오름차순
+> - 3순위: 동일 점수 및 동일 플레이 횟수일 경우 먼저 등록된 순
+>
+> 예시:
+> - contribution이 높은 플레이어가 상위 랭크
+> - contribution이 같다면 playCount가 적은 플레이어가 상위 랭크
+> - contribution과 playCount가 모두 같다면 먼저 기록된 플레이어가 상위 랭크
+
+#### 개요
+
+- 과거의 랭킹은 **RDB에서 조회**
+- 주차 정산이 완료된 랭킹 데이터를 조회한다.
+- 이번 주 랭킹은 Redis Sorted Set 기반으로 실시간 조회하지만 과거주 랭킹은 정산 완료 후 저장된 RDB 데이터를 사용한다.
+- 주차 정산 시점: **매주 월요일 00:00**
+- 화면에 보여주는 값은 이번 주 기여도 뺏기 랭킹 조회와 동일하다.
+
 ```
-GET /api/v1/rankings/speed/history?year={year}&month={month}&week={week}&cursor={cursor}&size={size}
+GET /api/v1/rankings/contribution/history?year={year}&month={month}&week={week}&afterRank={afterRank}&beforeRank={beforeRank}&size={size}
 ```
 
 #### Query Parameters
@@ -1393,54 +1711,168 @@ GET /api/v1/rankings/speed/history?year={year}&month={month}&week={week}&cursor=
 | `year` | ✅ | 조회할 연도, 예: `2025` |
 | `month` | ✅ | 조회할 월, 예: `4` |
 | `week` | ✅ | 조회할 주차, 예: `3` |
-| `cursor` | ❌ | 무한 스크롤 커서, 생략 시 초기 응답 |
+| `afterRank` | ❌ | 아래 방향 스크롤 커서 (마지막으로 확인한 순위). 생략 시 초기 응답 |
+| `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
+
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
+
+#### 초기 진입 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `year` | Integer | 조회 연도 |
+| `month` | Integer | 조회 월 |
+| `week` | Integer | 조회 주차 |
+| `top3` | Array | 상위 3명 고정 노출 |
+| `top3[].rank` | Integer | 순위 |
+| `top3[].playerId` | UUID | 플레이어 ID |
+| `top3[].nickname` | String | 닉네임 |
+| `top3[].contribution` | Integer | 해당 주차 누적 기여도 점수 |
+| `top3[].playCount` | Integer | 해당 주차 동안 플레이한 총 게임 수 |
+| `myRank` | Object | 내 랭킹 정보, 없으면 null |
+| `myRank.rank` | Integer | 내 순위 |
+| `myRank.contribution` | Integer | 내 기여도 점수 |
+| `myRank.playCount` | Integer | 해당 주차 동안 플레이한 총 게임 수 |
+| `around` | Array | 내 랭킹 근처 유저 |
+| `around[].rank` | Integer | 순위 |
+| `around[].playerId` | UUID | 플레이어 ID |
+| `around[].nickname` | String | 닉네임 |
+| `around[].contribution` | Integer | 해당 주차 누적 기여도 점수 |
+| `around[].playCount` | Integer | 해당 주차 동안 플레이한 총 게임 수 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (around 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (around 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
 
 #### 초기 진입 Response 예시
 
 ```json
 {
   "status": 200,
-  "message": "스피드런 랭킹 조회 성공",
+  "message": "기여도 뺏기 랭킹 조회 성공",
   "data": {
     "year": 2025,
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "speed", "contribution": 12000 },
-      { "rank": 2, "nickname": "fast",  "contribution": 11500 },
-      { "rank": 3, "nickname": "quick", "contribution": 10900 }
+      {
+        "rank": 1,
+        "playerId": "550e8400-e29b-41d4-a716-446655440000",
+        "nickname": "dobby",
+        "contribution": 12000,
+        "playCount": 10
+      },
+      {
+        "rank": 2,
+        "playerId": "661f9511-f30c-52e5-b827-557766551111",
+        "nickname": "alice",
+        "contribution": 11500,
+        "playCount": 9
+      },
+      {
+        "rank": 3,
+        "playerId": "772e0622-f41d-43f6-a938-668877662222",
+        "nickname": "bob",
+        "contribution": 10900,
+        "playCount": 11
+      }
     ],
-    "myRank": { "rank": 15, "contribution": 8800 },
+    "myRank": {
+      "rank": 15,
+      "contribution": 8800,
+      "playCount": 10
+    },
     "around": [
-      { "rank": 13, "nickname": "user1",  "contribution": 9100 },
-      { "rank": 14, "nickname": "user2",  "contribution": 8900 },
-      { "rank": 15, "nickname": "dobby",  "contribution": 8800 },
-      { "rank": 16, "nickname": "user3",  "contribution": 8600 },
-      { "rank": 17, "nickname": "user4",  "contribution": 8400 }
+      {
+        "rank": 13,
+        "playerId": "11111111-e29b-41d4-a716-446655440000",
+        "nickname": "user1",
+        "contribution": 9100,
+        "playCount": 10
+      },
+      {
+        "rank": 14,
+        "playerId": "22222222-e29b-41d4-a716-446655440000",
+        "nickname": "user2",
+        "contribution": 8900,
+        "playCount": 9
+      },
+      {
+        "rank": 15,
+        "playerId": "33333333-e29b-41d4-a716-446655440000",
+        "nickname": "dobby",
+        "contribution": 8800,
+        "playCount": 10
+      },
+      {
+        "rank": 16,
+        "playerId": "44444444-e29b-41d4-a716-446655440000",
+        "nickname": "user3",
+        "contribution": 8600,
+        "playCount": 12
+      },
+      {
+        "rank": 17,
+        "playerId": "55555555-e29b-41d4-a716-446655440000",
+        "nickname": "user4",
+        "contribution": 8400,
+        "playCount": 8
+      }
     ],
+    "prevCursor": 13,
+    "hasPrev": true,
     "nextCursor": 17,
     "hasNext": true
   }
 }
 ```
 
-#### 무한 스크롤 Request
+#### 아래 방향 스크롤 Request
 
 ```
-GET /api/v1/rankings/speed/history?year=2025&month=4&week=17&cursor=17&size=20
+GET /api/v1/rankings/contribution/history?year=2025&month=4&week=3&afterRank=17&size=20
 ```
 
-#### 무한 스크롤 Response 예시
+#### 위 방향 스크롤 Request
+
+```
+GET /api/v1/rankings/contribution/history?year=2025&month=4&week=3&beforeRank=13&size=20
+```
+
+#### 스크롤 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `rankings` | Array | 랭킹 목록 |
+| `rankings[].rank` | Integer | 순위 |
+| `rankings[].playerId` | UUID | 플레이어 ID |
+| `rankings[].nickname` | String | 닉네임 |
+| `rankings[].contribution` | Integer | 해당 주차 누적 기여도 점수 |
+| `rankings[].playCount` | Integer | 해당 주차 동안 플레이한 총 게임 수 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (현재 페이지 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (현재 페이지 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
+
+#### 스크롤 Response 예시
 
 ```json
 {
   "status": 200,
-  "message": "스피드런 랭킹 조회 성공",
+  "message": "기여도 뺏기 랭킹 조회 성공",
   "data": {
     "rankings": [
-      { "rank": 18, "nickname": "user5", "contribution": 8200 }
+      {
+        "rank": 18,
+        "playerId": "66666666-e29b-41d4-a716-446655440000",
+        "nickname": "user5",
+        "contribution": 8200,
+        "playCount": 7
+      }
     ],
+    "prevCursor": 18,
+    "hasPrev": true,
     "nextCursor": 37,
     "hasNext": true
   }
@@ -1520,20 +1952,93 @@ GET /api/v1/rankings/timeattack/history?year=2025&month=4&week=17&cursor=9&size=
 
 ### 4-8. 협력 랭킹 조회 (과거 주)
 
+> **[협력 랭킹 기준]**
+>
+> 협력 랭킹은 아래 우선순위로 정렬한다.
+> - 1순위: `elapsedTime` 오름차순
+> - 2순위: `totalWrongOrderCount` 오름차순
+> - 3순위: `totalWrongTypeCount` 오름차순
+> - 4순위: 동일 기록일 경우 먼저 등록된 순
+>
+> 예시:
+> - elapsedTime이 짧은 팀이 상위 랭크
+> - elapsedTime이 같다면 totalWrongOrderCount가 적은 팀이 상위 랭크
+> - elapsedTime과 totalWrongOrderCount가 같다면 totalWrongTypeCount가 적은 팀이 상위 랭크
+> - 위 조건이 모두 같다면 먼저 기록된 팀이 상위 랭크
+
+#### 개요
+
+- 과거의 랭킹은 **RDB에서 조회**
+- 주차 정산이 완료된 랭킹 데이터를 조회한다.
+- 이번 주 랭킹은 Redis Sorted Set 기반으로 실시간 조회하지만 과거주 랭킹은 정산 완료 후 저장된 RDB 데이터를 사용한다.
+- 주차 정산 시점: **매주 월요일 00:00**
+- 화면에 보여주는 값은 이번 주 협력 랭킹 조회와 동일하다.
+- 협력 랭킹은 개인이 아닌 **팀 단위**로 등록된다.
+- `members` 목록은 닉네임 가나다순으로 정렬된다.
+
 ```
-GET /api/v1/rankings/coop/history?mapId={mapId}&year={year}&month={month}&week={week}&cursor={cursor}&size={size}
+GET /api/v1/rankings/coop/history?year={year}&month={month}&week={week}&mapName={mapName}&difficulty={difficulty}&afterRank={afterRank}&beforeRank={beforeRank}&size={size}
 ```
 
 #### Query Parameters
 
 | 파라미터 | 필수 | 설명 |
 | --- | --- | --- |
-| `mapId` | ✅ | 맵 ID |
 | `year` | ✅ | 조회할 연도, 예: `2025` |
 | `month` | ✅ | 조회할 월, 예: `4` |
 | `week` | ✅ | 조회할 주차, 예: `3` |
-| `cursor` | ❌ | 무한 스크롤 커서, 생략 시 초기 응답 |
+| `mapName` | ✅ | 조회할 맵 이름, 예: `기초 브랜치` |
+| `difficulty` | ✅ | 조회할 난이도 (1~5), 예: `1` |
+| `afterRank` | ❌ | 아래 방향 스크롤 커서 (마지막으로 확인한 순위). 생략 시 초기 응답 |
+| `beforeRank` | ❌ | 위 방향 스크롤 커서 (현재 뷰의 첫 번째 순위). 생략 시 초기 응답 |
 | `size` | ❌ | 페이지 크기, 기본값 20 |
+
+> `afterRank`와 `beforeRank` 모두 생략 시 초기 응답. 두 파라미터를 동시에 전달하면 `400 Bad Request`를 반환한다.
+
+#### 초기 진입 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `year` | Integer | 조회 연도 |
+| `month` | Integer | 조회 월 |
+| `week` | Integer | 조회 주차 |
+| `top3` | Array | 상위 3팀 고정 노출 |
+| `top3[].rank` | Integer | 순위 |
+| `top3[].teamName` | String | 팀명 |
+| `top3[].mapName` | String | 맵 이름 |
+| `top3[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
+| `top3[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
+| `top3[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
+| `top3[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
+| `top3[].members` | Array | 팀원 목록. 닉네임 가나다순 정렬 |
+| `top3[].members[].playerId` | UUID | 플레이어 ID |
+| `top3[].members[].nickname` | String | 닉네임 |
+| `myRank` | Object | 내가 속한 팀의 랭킹 정보, 없으면 null |
+| `myRank.rank` | Integer | 내 팀 순위 |
+| `myRank.teamName` | String | 팀명 |
+| `myRank.mapName` | String | 맵 이름 |
+| `myRank.difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
+| `myRank.elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
+| `myRank.totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
+| `myRank.totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
+| `myRank.members` | Array | 팀원 목록. 닉네임 가나다순 정렬 |
+| `myRank.members[].playerId` | UUID | 플레이어 ID |
+| `myRank.members[].nickname` | String | 닉네임 |
+| `around` | Array | 내 팀 랭킹 근처 팀 목록 |
+| `around[].rank` | Integer | 순위 |
+| `around[].teamName` | String | 팀명 |
+| `around[].mapName` | String | 맵 이름 |
+| `around[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
+| `around[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
+| `around[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
+| `around[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
+| `around[].members` | Array | 팀원 목록. 닉네임 가나다순 정렬 |
+| `around[].members[].playerId` | UUID | 플레이어 ID |
+| `around[].members[].nickname` | String | 닉네임 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (around 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (around 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
 
 #### 초기 진입 Response 예시
 
@@ -1542,37 +2047,99 @@ GET /api/v1/rankings/coop/history?mapId={mapId}&year={year}&month={month}&week={
   "status": 200,
   "message": "협력 랭킹 조회 성공",
   "data": {
-    "mapId": 1,
-    "mapName": "기초 브랜치",
     "year": 2025,
     "month": 4,
     "week": 3,
     "top3": [
-      { "rank": 1, "nickname": "coopm", "clearTime": 61000 },
-      { "rank": 2, "nickname": "team",   "clearTime": 65000 },
-      { "rank": 3, "nickname": "sync",    "clearTime": 70000 }
+      {
+        "rank": 1,
+        "teamName": "git masters",
+        "mapName": "기초 브랜치",
+        "difficulty": 2,
+        "elapsedTime": 61000,
+        "totalWrongTypeCount": 2,
+        "totalWrongOrderCount": 1,
+        "members": [
+          { "playerId": "22222222-e29b-41d4-a716-446655440000", "nickname": "alice" },
+          { "playerId": "33333333-e29b-41d4-a716-446655440000", "nickname": "bob" },
+          { "playerId": "44444444-e29b-41d4-a716-446655440000", "nickname": "charlie" },
+          { "playerId": "11111111-e29b-41d4-a716-446655440000", "nickname": "dobby" }
+        ]
+      }
     ],
-    "myRank": { "rank": 5, "clearTime": 83000 },
+    "myRank": {
+      "rank": 5,
+      "teamName": "merge crew",
+      "mapName": "기초 브랜치",
+      "difficulty": 2,
+      "elapsedTime": 83000,
+      "totalWrongTypeCount": 5,
+      "totalWrongOrderCount": 3,
+      "members": [
+        { "playerId": "aaaaaaaa-e29b-41d4-a716-446655440000", "nickname": "alice" },
+        { "playerId": "bbbbbbbb-e29b-41d4-a716-446655440000", "nickname": "bob" },
+        { "playerId": "cccccccc-e29b-41d4-a716-446655440000", "nickname": "charlie" },
+        { "playerId": "99999999-e29b-41d4-a716-446655440000", "nickname": "dobby" }
+      ]
+    },
     "around": [
-      { "rank": 3, "nickname": "user1",  "clearTime": 79000 },
-      { "rank": 4, "nickname": "user2",  "clearTime": 81000 },
-      { "rank": 5, "nickname": "dobby",  "clearTime": 83000 },
-      { "rank": 6, "nickname": "user3",  "clearTime": 85000 },
-      { "rank": 7, "nickname": "user4",  "clearTime": 87000 }
+      {
+        "rank": 4,
+        "teamName": "reset zero",
+        "mapName": "기초 브랜치",
+        "difficulty": 2,
+        "elapsedTime": 81000,
+        "totalWrongTypeCount": 4,
+        "totalWrongOrderCount": 2,
+        "members": [
+          { "playerId": "dddddddd-e29b-41d4-a716-446655440000", "nickname": "user5" },
+          { "playerId": "eeeeeeee-e29b-41d4-a716-446655440000", "nickname": "user6" },
+          { "playerId": "ffffffff-e29b-41d4-a716-446655440000", "nickname": "user7" },
+          { "playerId": "12121212-e29b-41d4-a716-446655440000", "nickname": "user8" }
+        ]
+      }
     ],
-    "nextCursor": 7,
+    "prevCursor": 4,
+    "hasPrev": true,
+    "nextCursor": 6,
     "hasNext": true
   }
 }
 ```
 
-#### 무한 스크롤 Request
+#### 아래 방향 스크롤 Request
 
 ```
-GET /api/v1/rankings/coop/history?mapId=1&year=2025&month=4&week=17&cursor=7&size=20
+GET /api/v1/rankings/coop/history?year=2025&month=4&week=3&mapName=기초+브랜치&difficulty=2&afterRank=6&size=20
 ```
 
-#### 무한 스크롤 Response 예시
+#### 위 방향 스크롤 Request
+
+```
+GET /api/v1/rankings/coop/history?year=2025&month=4&week=3&mapName=기초+브랜치&difficulty=2&beforeRank=4&size=20
+```
+
+#### 스크롤 Response Fields
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `rankings` | Array | 랭킹 목록 |
+| `rankings[].rank` | Integer | 순위 |
+| `rankings[].teamName` | String | 팀명 |
+| `rankings[].mapName` | String | 맵 이름 |
+| `rankings[].difficulty` | Integer | 맵 난이도 (1, 2, 3, 4, 5) |
+| `rankings[].elapsedTime` | Integer | 4명이 게임을 완료한 시간, ms |
+| `rankings[].totalWrongTypeCount` | Integer | 팀 전체 오타 횟수 |
+| `rankings[].totalWrongOrderCount` | Integer | 팀 전체 순서 오입력 횟수 |
+| `rankings[].members` | Array | 팀원 목록. 닉네임 가나다순 정렬 |
+| `rankings[].members[].playerId` | UUID | 플레이어 ID |
+| `rankings[].members[].nickname` | String | 닉네임 |
+| `prevCursor` | Integer | 위 방향 스크롤 커서 (현재 페이지 첫 순위), null이면 위쪽 끝 |
+| `hasPrev` | Boolean | 위 방향 페이지 존재 여부 |
+| `nextCursor` | Integer | 아래 방향 스크롤 커서 (현재 페이지 마지막 순위), null이면 아래쪽 끝 |
+| `hasNext` | Boolean | 아래 방향 페이지 존재 여부 |
+
+#### 스크롤 Response 예시
 
 ```json
 {
@@ -1580,9 +2147,25 @@ GET /api/v1/rankings/coop/history?mapId=1&year=2025&month=4&week=17&cursor=7&siz
   "message": "협력 랭킹 조회 성공",
   "data": {
     "rankings": [
-      { "rank": 8, "nickname": "user5", "clearTime": 89000 }
+      {
+        "rank": 7,
+        "teamName": "conflict solvers",
+        "mapName": "기초 브랜치",
+        "difficulty": 1,
+        "elapsedTime": 89000,
+        "totalWrongTypeCount": 7,
+        "totalWrongOrderCount": 4,
+        "members": [
+          { "playerId": "17171717-e29b-41d4-a716-446655440000", "nickname": "user13" },
+          { "playerId": "18181818-e29b-41d4-a716-446655440000", "nickname": "user14" },
+          { "playerId": "19191919-e29b-41d4-a716-446655440000", "nickname": "user15" },
+          { "playerId": "20202020-e29b-41d4-a716-446655440000", "nickname": "user16" }
+        ]
+      }
     ],
-    "nextCursor": 27,
+    "prevCursor": 7,
+    "hasPrev": true,
+    "nextCursor": 26,
     "hasNext": true
   }
 }
@@ -1597,7 +2180,7 @@ GET /api/v1/rankings/coop/history?mapId=1&year=2025&month=4&week=17&cursor=7&siz
 | 싱글 Easy / Normal / Hard | `ranking:SINGLE_{difficulty}:{yyyy-Www}` |
 | 기여도 뺏기 | `ranking:SPEED_RUN:{yyyy-Www}` |
 | 타임어택 | `ranking:TIME_ATTACK:{yyyy-Www}` |
-| 협력 | `ranking:COOP:{mapId}:{yyyy-Www}` |
+| 협력 | `ranking:COOP:{yyyy-Www}` |
 
 ### 주간 정산 스케줄러
 
@@ -1642,7 +2225,7 @@ POST /api/v1/single/sessions
 | `commandSet[].commandSequence` | Integer | 명령어 식별자 |
 | `commandSet[].text` | String | 명령어 전체 텍스트 |
 | `commandSet[].branchName` | String | 브랜치 이름 |
-| `commandSet[].type` | String | 명령어 타입 (`CREATE` / `MERGE` / `SWITCH` / `COMMON`) |
+| `commandSet[].type` | String | 명령어 타입 (`CREATE` / `MERGE` / `SWITCH` / `COMMON` / `CONFLICT`) |
 | `expiresAt` | DateTime | 세션 만료 시각 (생성 시점 기준 30분 후) |
 
 **type 분류 기준**
@@ -1784,39 +2367,27 @@ POST /api/v1/single/sessions/{sessionId}/result
 
 ## 6. 방 관리 (Room)
 
-### 6-1. 방 생성
+### 6-1. 기여도 뺏기 방 생성
 
 ```
-POST /api/v1/rooms
+POST /api/v1/rooms/contribution
 ```
-
-> 협력 모드는 `maxPlayers` 고정 4명 (요청 필드 불필요)
 
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | `title` | String | Y | 방 제목 |
-| `mode` | String | Y | `CONTRIBUTION_RUN` / `TIME_ATTACK` / `COOP` |
-| `maxPlayers` | Integer | N | 최대 인원 수 (경쟁 모드만. 기본값 4) |
+| `maxPlayers` | Integer | N | 최대 인원 수 (기본값 4) |
 | `hasPassword` | Boolean | Y | 비밀번호 설정 여부 |
 | `password` | String | N | 비밀번호 (`hasPassword: true`일 때 필수) |
 
 ```json
-// 스피드런 / 타임어택
 {
-  "title": "같이 스피드런 해요!",
-  "mode": "CONTRIBUTION_RUN",
+  "title": "같이 기여도 뺏기 해요!",
   "maxPlayers": 4,
   "hasPassword": true,
   "password": "1234"
-}
-
-// 협력 모드 (maxPlayers 불필요)
-{
-  "title": "협력 모드 같이해요!",
-  "mode": "COOP",
-  "hasPassword": false
 }
 ```
 
@@ -1824,24 +2395,87 @@ POST /api/v1/rooms
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 랜덤 방 코드 |
 | `title` | String | 방 제목 |
-| `mode` | String | 게임 모드 |
 | `maxPlayers` | Integer | 최대 인원 수 |
 | `hasPassword` | Boolean | 비밀번호 설정 여부 |
 
 ```json
 {
   "status": 201,
-  "message": "방 생성 성공",
+  "message": "기여도 뺏기 모드 방 생성 성공",
   "data": {
     "roomId": 42,
     "roomCode": "A3F9KX",
-    "title": "같이 스피드런 해요!",
-    "mode": "CONTRIBUTION_RUN",
+    "title": "같이 기여도 뺏기 해요!",
     "maxPlayers": 4,
     "hasPassword": true
+  }
+}
+```
+
+---
+
+### 6-1. 협력 모드 방 생성
+
+```
+POST /api/v1/rooms/coop
+```
+
+> 협력 모드는 `maxPlayers` 고정 4명
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `title` | String | Y | 방 제목 |
+| `teamName` | String | Y | 팀 이름 |
+| `hasPassword` | Boolean | Y | 비밀번호 설정 여부 |
+| `password` | String | N | 비밀번호 (`hasPassword: true`일 때 필수) |
+| `selectedMapId` | UUID | Y | 선택한 맵 ID |
+
+```json
+{
+  "title": "협력 모드 같이해요!",
+  "teamName": "팀이름",
+  "hasPassword": false,
+  "password": null,
+  "selectedMapId": "550e8400-e29b-41d4-a716-446655440002"
+}
+```
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `roomId` | Long | 방 ID |
+| `roomCode` | String | 랜덤 방 코드 |
+| `title` | String | 방 제목 |
+| `hasPassword` | Boolean | 비밀번호 설정 여부 |
+| `teamName` | String | 팀 이름 |
+| `maxPlayers` | Integer | 최대 인원 수 (4명 고정) |
+| `selectedMap` | Object | 선택한 맵 |
+| `selectedMap.mapId` | UUID | 선택한 맵 ID |
+| `selectedMap.mapName` | String | 선택한 맵 이름 |
+| `selectedMap.difficulty` | Integer | 선택한 맵 난이도 |
+
+```json
+{
+  "status": 201,
+  "message": "협력 모드 방 생성 성공",
+  "data": {
+    "roomId": 42,
+    "teamName": "팀이름",
+    "roomCode": "A3F9KX",
+    "title": "같이 협력 해요!",
+    "hasPassword": false,
+    "maxPlayers": 4,
+    "selectedMap": {
+      "mapId": "550e8400-e29b-41d4-a716-446655440002",
+      "mapName": "재밌는 맵",
+      "difficulty": 3
+    }
   }
 }
 ```
@@ -1854,20 +2488,24 @@ POST /api/v1/rooms
 GET /api/v1/rooms?mode={mode}
 ```
 
-> `mode`: `ALL` / `CONTRIBUTION_RUN` / `TIME_ATTACK` / `COOP` (기본값 `ALL`). 인증 불필요.
+> `mode`: `ALL` / `CONTRIBUTION` / `COOP` (기본값 `ALL`)
 
 #### Response
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `rooms` | Array | 방 목록 |
-| `rooms[].roomId` | Integer | 방 ID |
+| `rooms[].roomId` | Long | 방 ID |
 | `rooms[].title` | String | 방 제목 |
-| `rooms[].mode` | String | 게임 모드 |
+| `rooms[].mode` | String | 게임 모드 (`CONTRIBUTION`, `COOP`) |
 | `rooms[].currentPlayers` | Integer | 현재 인원 수 |
 | `rooms[].maxPlayers` | Integer | 최대 인원 수 |
 | `rooms[].hasPassword` | Boolean | 비밀방 여부 |
-| `rooms[].status` | String | `WAITING` / `IN_GAME` |
+| `rooms[].roomState` | String | `WAITING` / `IN_GAME` |
+| `rooms[].selectedMap` | Object | 선택한 맵 정보 (기여도 뺏기일 경우 `null`) |
+| `rooms[].selectedMap.mapId` | UUID | 맵 ID |
+| `rooms[].selectedMap.mapName` | String | 맵 이름 |
+| `rooms[].selectedMap.difficulty` | Integer | 맵 난이도 |
 
 ```json
 {
@@ -1877,12 +2515,27 @@ GET /api/v1/rooms?mode={mode}
     "rooms": [
       {
         "roomId": 42,
-        "title": "같이 스피드런 해요!",
-        "mode": "CONTRIBUTION_RUN",
+        "title": "같이 기여도 뺏기 해요!",
+        "mode": "CONTRIBUTION",
         "currentPlayers": 2,
         "maxPlayers": 4,
         "hasPassword": false,
-        "status": "WAITING"
+        "roomState": "WAITING",
+        "selectedMap": null
+      },
+      {
+        "roomId": 43,
+        "title": "같이 협력 해요!",
+        "mode": "COOP",
+        "currentPlayers": 2,
+        "maxPlayers": 4,
+        "hasPassword": false,
+        "roomState": "WAITING",
+        "selectedMap": {
+          "mapId": "550e8400-e29b-41d4-a716-446655440002",
+          "mapName": "선택한 맵 이름",
+          "difficulty": 2
+        }
       }
     ]
   }
@@ -1894,7 +2547,7 @@ GET /api/v1/rooms?mode={mode}
 ### 6-3. 방 코드로 검색
 
 ```
-GET /api/v1/rooms?code={code}
+GET /api/v1/rooms/search?code={code}
 ```
 
 #### Query Parameters
@@ -1907,13 +2560,13 @@ GET /api/v1/rooms?code={code}
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `title` | String | 방 제목 |
-| `mode` | String | 게임 모드 |
+| `mode` | String | 게임 모드 (`CONTRIBUTION`, `COOP`) |
 | `currentPlayers` | Integer | 현재 인원 수 |
 | `maxPlayers` | Integer | 최대 인원 수 |
 | `hasPassword` | Boolean | 비밀방 여부 |
-| `status` | String | `WAITING` / `IN_GAME` |
+| `roomState` | String | `WAITING` / `IN_GAME` |
 
 ```json
 {
@@ -1921,12 +2574,12 @@ GET /api/v1/rooms?code={code}
   "message": "방 코드로 검색 성공",
   "data": {
     "roomId": 42,
-    "title": "같이 스피드런 해요!",
-    "mode": "CONTRIBUTION_RUN",
+    "title": "같이 기여도 뺏기 해요!",
+    "mode": "CONTRIBUTION",
     "currentPlayers": 2,
     "maxPlayers": 4,
     "hasPassword": true,
-    "status": "WAITING"
+    "roomState": "WAITING"
   }
 }
 ```
@@ -1946,6 +2599,8 @@ GET /api/v1/rooms?code={code}
 POST /api/v1/rooms/{roomId}/password/verify
 ```
 
+> 현재 room 비밀번호는 별도 해시/암호화 없이 Redis `room:{roomId}:info.password` 필드에 평문 저장된 값을 그대로 비교한다.
+
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
@@ -1964,9 +2619,7 @@ POST /api/v1/rooms/{roomId}/password/verify
 {
   "status": 200,
   "message": "비밀번호 확인 성공",
-  "data": {
-    "verified": true
-  }
+  "data": {}
 }
 ```
 
@@ -1979,20 +2632,23 @@ POST /api/v1/rooms/{roomId}/password/verify
 
 ---
 
-### 6-5. 방 입장
+### 6-5. 기여도 뺏기 방 입장
+
+WebSocket CONNECT → SUBSCRIBE 후 HTTP API 호출
 
 ```
-POST /api/v1/rooms/{roomId}/join
+POST /api/v1/rooms/{roomId}/contribution/join
 ```
 
 #### Response
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `roomId` | Integer | 방 ID |
+| `roomId` | Long | 방 ID |
 | `roomCode` | String | 방 코드 |
 | `title` | String | 방 제목 |
-| `mode` | String | 게임 모드 |
+| `mode` | String | 게임 모드 (`CONTRIBUTION` 고정) |
+| `roomState` | String | 방 상태 (`WAITING` / `IN_GAME`) |
 | `currentPlayers` | Integer | 현재 인원 수 |
 | `maxPlayers` | Integer | 최대 인원 수 |
 | `members` | Array | 현재 참여 인원 목록 |
@@ -2000,15 +2656,104 @@ POST /api/v1/rooms/{roomId}/join
 | `members[].nickname` | String | 닉네임 |
 | `members[].characterHair` | String | 캐릭터 머리 에셋 ID |
 | `members[].characterHairColor` | String | 캐릭터 머리색 에셋 ID |
-| `members[].characterBody` | String | 캐릭터 스킨 에셋 ID |
-| `members[].characterEye` | String | 캐릭터 눈 ID |
-| `members[].characterOutfit` | String | 캐릭터 옷 ID |
-| `members[].characterOutfitColor` | String | 캐릭터 옷색 ID |
+| `members[].characterBody` | String | 캐릭터 몸 에셋 ID |
+| `members[].characterEye` | String | 캐릭터 눈 에셋 ID |
+| `members[].characterOutfit` | String | 캐릭터 옷 에셋 ID |
+| `members[].characterOutfitColor` | String | 캐릭터 옷색 에셋 ID |
+| `members[].isReady` | Boolean | 준비 여부 |
 | `members[].isHost` | Boolean | 방장 여부 |
-| `members[].isMe` | Boolean | 나 여부 |
-| `mapList` | Array | 맵 목록 (협력 모드만, 그 외 `[]`) |
+
+```json
+{
+  "status": 200,
+  "message": "기여도 뺏기 방 입장 성공",
+  "data": {
+    "roomId": 42,
+    "roomCode": "A3F9KX",
+    "title": "같이 기여도 뺏기 해요!",
+    "mode": "CONTRIBUTION",
+    "roomState": "WAITING",
+    "currentPlayers": 2,
+    "maxPlayers": 4,
+    "members": [
+      {
+        "playerId": "550e8400-e29b-41d4-a716-446655440000",
+        "nickname": "dobby",
+        "characterHair": "Hair_01",
+        "characterHairColor": "Hairstyle-color_01",
+        "characterBody": "Body_01",
+        "characterEye": "Eyes_01",
+        "characterOutfit": "Outfit_01",
+        "characterOutfitColor": "Outfit-color_01",
+        "isReady": false,
+        "isHost": true
+      },
+      {
+        "playerId": "550e8400-e29b-41d4-a716-446655440001",
+        "nickname": "alice",
+        "characterHair": "Hair_01",
+        "characterHairColor": "Hairstyle-color_01",
+        "characterBody": "Body_01",
+        "characterEye": "Eyes_01",
+        "characterOutfit": "Outfit_01",
+        "characterOutfitColor": "Outfit-color_01",
+        "isReady": false,
+        "isHost": false
+      }
+    ]
+  }
+}
+```
+
+#### 에러 코드
+
+| 코드 | 설명 |
+| --- | --- |
+| `ROOM_NOT_FOUND` | 존재하지 않는 방 |
+| `ROOM_FULL` | 방 인원 초과 |
+| `ROOM_IN_GAME` | 이미 게임 중인 방 |
+
+---
+
+### 6-5. 협력 방 입장
+
+WebSocket CONNECT → SUBSCRIBE 후 HTTP API 호출
+
+```
+POST /api/v1/rooms/{roomId}/coop/join
+```
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `roomId` | Long | 방 ID |
+| `roomCode` | String | 방 코드 |
+| `title` | String | 방 제목 |
+| `teamName` | String | 팀명 |
+| `mode` | String | 게임 모드 (`COOP` 고정) |
+| `roomState` | String | 방 상태 (`WAITING` / `IN_GAME`) |
+| `currentPlayers` | Integer | 현재 인원 수 |
+| `maxPlayers` | Integer | 최대 인원 수 (4명 고정) |
+| `selectedMap` | Object | 선택한 맵 정보 |
+| `selectedMap.mapId` | UUID | 맵 ID |
+| `selectedMap.mapName` | String | 맵 이름 |
+| `selectedMap.difficulty` | Integer | 맵 난이도 |
+| `members` | Array | 현재 참여 인원 목록 |
+| `members[].playerId` | UUID | 플레이어 ID |
+| `members[].nickname` | String | 닉네임 |
+| `members[].characterHair` | String | 캐릭터 머리 에셋 ID |
+| `members[].characterHairColor` | String | 캐릭터 머리색 에셋 ID |
+| `members[].characterBody` | String | 캐릭터 몸 에셋 ID |
+| `members[].characterEye` | String | 캐릭터 눈 에셋 ID |
+| `members[].characterOutfit` | String | 캐릭터 옷 에셋 ID |
+| `members[].characterOutfitColor` | String | 캐릭터 옷색 에셋 ID |
+| `members[].isReady` | Boolean | 준비 여부 |
+| `members[].isHost` | Boolean | 방장 여부 |
+| `mapList` | Array | 맵 목록 |
+| `mapList[].mapId` | UUID | 맵 ID |
 | `mapList[].mapName` | String | 맵 이름 |
-| `mapList[].difficulty` | String | 맵 난이도 |
+| `mapList[].difficulty` | Integer | 맵 난이도 |
 
 ```json
 {
@@ -2017,37 +2762,50 @@ POST /api/v1/rooms/{roomId}/join
   "data": {
     "roomId": 42,
     "roomCode": "A3F9KX",
-    "title": "같이 스피드런 해요!",
-    "mode": "CONTRIBUTION_RUN",
-    "currentPlayers": 3,
+    "title": "같이 협력 모드 해요!",
+    "teamName": "팀명",
+    "mode": "COOP",
+    "roomState": "WAITING",
+    "currentPlayers": 2,
     "maxPlayers": 4,
+    "selectedMap": {
+      "mapId": "550e8400-e29b-41d4-a716-446655440002",
+      "mapName": "멋깔나는 맵",
+      "difficulty": 3
+    },
     "members": [
       {
-        "playerId": "550e8400-...-0000",
+        "playerId": "550e8400-e29b-41d4-a716-446655440000",
         "nickname": "dobby",
-        "characterHair": "hair_01",
-        "characterHairColor": "color_black",
-        "characterBody": "body_default",
-        "characterEye": "eye_01",
-        "characterOutfit": "outfit_01",
-        "characterOutfitColor": "color_white",
-        "isHost": true,
-        "isMe": false
+        "characterHair": "Hair_01",
+        "characterHairColor": "Hairstyle-color_01",
+        "characterBody": "Body_01",
+        "characterEye": "Eyes_01",
+        "characterOutfit": "Outfit_01",
+        "characterOutfitColor": "Outfit-color_01",
+        "isReady": false,
+        "isHost": true
       },
       {
-        "playerId": "550e8400-...-0001",
+        "playerId": "550e8400-e29b-41d4-a716-446655440001",
         "nickname": "alice",
-        "characterHair": "hair_01",
-        "characterHairColor": "color_black",
-        "characterBody": "body_default",
-        "characterEye": "eye_01",
-        "characterOutfit": "outfit_01",
-        "characterOutfitColor": "color_white",
-        "isHost": false,
-        "isMe": true
+        "characterHair": "Hair_01",
+        "characterHairColor": "Hairstyle-color_01",
+        "characterBody": "Body_01",
+        "characterEye": "Eyes_01",
+        "characterOutfit": "Outfit_01",
+        "characterOutfitColor": "Outfit-color_01",
+        "isReady": false,
+        "isHost": false
       }
     ],
-    "mapList": []
+    "mapList": [
+      {
+        "mapId": "550e8400-e29b-41d4-a716-446655440002",
+        "mapName": "멋깔나는 맵",
+        "difficulty": 3
+      }
+    ]
   }
 }
 ```
@@ -2078,15 +2836,20 @@ DELETE /api/v1/rooms/{roomId}/leave
 }
 ```
 
+#### 에러 코드
+
+| 코드 | 설명 |
+| --- | --- |
+| `ROOM_NOT_FOUND` | 존재하지 않는 방 |
+| `PLAYER_NOT_IN_ROOM` | 방에 참여하지 않은 플레이어 |
+
 ---
 
-### 6-7. 방 정보 수정 (방장만)
+### 6-7. 기여도 뺏기 방 정보 수정 (방장만)
 
 ```
-PATCH /api/v1/rooms/{roomId}
+PATCH /api/v1/rooms/{roomId}/contribution
 ```
-
-> 협력 모드에서 `maxPlayers` 수정 불가
 
 #### Request Body
 
@@ -2095,13 +2858,74 @@ PATCH /api/v1/rooms/{roomId}
 | `title` | String | Y | 방 제목 |
 | `hasPassword` | Boolean | Y | 비밀번호 설정 여부 |
 | `password` | String | N | 비밀번호 |
-| `maxPlayers` | Integer | N | 최대 인원 수 (경쟁 모드만) |
+| `maxPlayers` | Integer | Y | 최대 인원 수 |
+
+비밀번호 정책:
+
+- 이미 비밀방이고 비밀번호를 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+- 이미 비밀방이고 비밀번호를 유지하려면 `hasPassword: true`, `password: null`
+- 비밀방을 공개방으로 바꾸려면 `hasPassword: false`, `password: null`
+- 공개방을 비밀방으로 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+- 공개방에서 `hasPassword: true`, `password: null` 을 보내면 예외가 발생한다
 
 ```json
 {
   "title": "변경된 방 제목",
   "hasPassword": false,
+  "password": null,
   "maxPlayers": 2
+}
+```
+
+#### Response
+
+```json
+{
+  "status": 200,
+  "message": "방 정보 수정 성공",
+  "data": {}
+}
+```
+
+#### 에러 코드
+
+| 코드 | 설명 |
+| --- | --- |
+| `NOT_HOST` | 방장이 아님 |
+
+---
+
+### 6-7. 협력 방 정보 수정 (방장만)
+
+```
+PATCH /api/v1/rooms/{roomId}/coop
+```
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `title` | String | Y | 방 제목 |
+| `teamName` | String | Y | 팀 명 |
+| `hasPassword` | Boolean | Y | 비밀번호 설정 여부 |
+| `password` | String | N | 비밀번호 |
+| `selectedMapId` | UUID | Y | 선택한 맵 ID |
+
+비밀번호 정책:
+
+- 이미 비밀방이고 비밀번호를 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+- 이미 비밀방이고 비밀번호를 유지하려면 `hasPassword: true`, `password: null`
+- 비밀방을 공개방으로 바꾸려면 `hasPassword: false`, `password: null`
+- 공개방을 비밀방으로 바꾸려면 `hasPassword: true`, `password: "새 비밀번호"`
+- 공개방에서 `hasPassword: true`, `password: null` 을 보내면 예외가 발생한다
+
+```json
+{
+  "title": "변경된 방 제목",
+  "hasPassword": false,
+  "password": null,
+  "teamName": "변경된 팀 이름",
+  "selectedMapId": "550e8400-e29b-41d4-a716-446655440002"
 }
 ```
 
@@ -2145,6 +2969,231 @@ DELETE /api/v1/rooms/{roomId}/members/{playerId}
 | --- | --- |
 | `NOT_HOST` | 방장이 아님 |
 | `PLAYER_NOT_FOUND` | 해당 플레이어 없음 |
+| `CANNOT_KICK_SELF` | 자기 자신을 추방할 수 없음 |
+
+---
+
+### 6-9. 기여도 뺏기 방 상태 조회 (Deprecated)
+
+```
+GET /api/v1/rooms/{roomId}/contribution/state
+```
+
+> Deprecated: 기존 기여도 방 상태 조회 API.
+> 재연결 `ROOM_STATE` 복원용 REST fallback은 `GET /api/v1/rooms/{roomId}/state`를 사용한다.
+> 이 API 응답에는 `type` 필드가 포함되지 않는다.
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `roomId` | Long | 방 ID |
+| `roomCode` | String | 방 코드 |
+| `title` | String | 방 제목 |
+| `mode` | String | 게임 모드 (`CONTRIBUTION` 고정) |
+| `roomState` | String | 방 상태 (`WAITING` / `IN_GAME`) |
+| `currentPlayers` | Integer | 현재 인원 수 |
+| `maxPlayers` | Integer | 최대 인원 수 |
+| `members` | Array | 현재 참여 인원 목록 |
+| `members[].playerId` | UUID | 플레이어 ID |
+| `members[].nickname` | String | 닉네임 |
+| `members[].characterHair` | String | 캐릭터 머리 에셋 ID |
+| `members[].characterHairColor` | String | 캐릭터 머리색 에셋 ID |
+| `members[].characterBody` | String | 캐릭터 몸 에셋 ID |
+| `members[].characterEye` | String | 캐릭터 눈 에셋 ID |
+| `members[].characterOutfit` | String | 캐릭터 옷 에셋 ID |
+| `members[].characterOutfitColor` | String | 캐릭터 옷색 에셋 ID |
+| `members[].isReady` | Boolean | 준비 여부 |
+| `members[].isHost` | Boolean | 방장 여부 |
+
+```json
+{
+  "status": 200,
+  "message": "방 상태 조회 성공",
+  "data": {
+    "roomId": 42,
+    "roomCode": "A3F9KX",
+    "title": "같이 기여도 뺏기 해요!",
+    "mode": "CONTRIBUTION",
+    "roomState": "WAITING",
+    "currentPlayers": 2,
+    "maxPlayers": 4,
+    "members": [
+      {
+        "playerId": "550e8400-e29b-41d4-a716-446655440000",
+        "nickname": "dobby",
+        "characterHair": "Hair_01",
+        "characterHairColor": "Hairstyle-color_01",
+        "characterBody": "Body_01",
+        "characterEye": "Eyes_01",
+        "characterOutfit": "Outfit_01",
+        "characterOutfitColor": "Outfit-color_01",
+        "isReady": false,
+        "isHost": true
+      },
+      {
+        "playerId": "550e8400-e29b-41d4-a716-446655440001",
+        "nickname": "alice",
+        "characterHair": "Hair_01",
+        "characterHairColor": "Hairstyle-color_01",
+        "characterBody": "Body_01",
+        "characterEye": "Eyes_01",
+        "characterOutfit": "Outfit_01",
+        "characterOutfitColor": "Outfit-color_01",
+        "isReady": false,
+        "isHost": false
+      }
+    ]
+  }
+}
+```
+
+#### 에러 코드
+
+| 코드 | 설명 |
+| --- | --- |
+| `ROOM_NOT_FOUND` | 존재하지 않는 방 |
+| `PLAYER_NOT_IN_ROOM` | 해당 방 참여자가 아님 |
+
+---
+
+### 6-9. 협력 방 상태 조회 (Deprecated)
+
+```
+GET /api/v1/rooms/{roomId}/coop/state
+```
+
+> Deprecated: 기존 협력 방 상태 조회 API.
+> 재연결 `ROOM_STATE` 복원용 REST fallback은 `GET /api/v1/rooms/{roomId}/state`를 사용한다.
+> 이 API 응답에는 `type` 필드가 포함되지 않는다.
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `roomId` | Long | 방 ID |
+| `roomCode` | String | 방 코드 |
+| `title` | String | 방 제목 |
+| `teamName` | String | 팀명 |
+| `mode` | String | 게임 모드 (`COOP` 고정) |
+| `roomState` | String | 방 상태 (`WAITING` / `IN_GAME`) |
+| `currentPlayers` | Integer | 현재 인원 수 |
+| `maxPlayers` | Integer | 최대 인원 수 (4명 고정) |
+| `selectedMap` | Object | 선택한 맵 정보 |
+| `selectedMap.mapId` | UUID | 맵 ID |
+| `selectedMap.mapName` | String | 맵 이름 |
+| `selectedMap.difficulty` | Integer | 맵 난이도 |
+| `members` | Array | 현재 참여 인원 목록 |
+| `members[].playerId` | UUID | 플레이어 ID |
+| `members[].nickname` | String | 닉네임 |
+| `members[].characterHair` | String | 캐릭터 머리 에셋 ID |
+| `members[].characterHairColor` | String | 캐릭터 머리색 에셋 ID |
+| `members[].characterBody` | String | 캐릭터 몸 에셋 ID |
+| `members[].characterEye` | String | 캐릭터 눈 에셋 ID |
+| `members[].characterOutfit` | String | 캐릭터 옷 에셋 ID |
+| `members[].characterOutfitColor` | String | 캐릭터 옷색 에셋 ID |
+| `members[].isReady` | Boolean | 준비 여부 |
+| `members[].isHost` | Boolean | 방장 여부 |
+
+```json
+{
+  "status": 200,
+  "message": "방 상태 조회 성공",
+  "data": {
+    "roomId": 42,
+    "roomCode": "A3F9KX",
+    "title": "같이 협력 모드 해요!",
+    "teamName": "팀명",
+    "mode": "COOP",
+    "roomState": "WAITING",
+    "currentPlayers": 2,
+    "maxPlayers": 4,
+    "selectedMap": {
+      "mapId": "550e8400-e29b-41d4-a716-446655440002",
+      "mapName": "멋깔나는 맵",
+      "difficulty": 3
+    },
+    "members": [
+      {
+        "playerId": "550e8400-e29b-41d4-a716-446655440000",
+        "nickname": "dobby",
+        "characterHair": "Hair_01",
+        "characterHairColor": "Hairstyle-color_01",
+        "characterBody": "Body_01",
+        "characterEye": "Eyes_01",
+        "characterOutfit": "Outfit_01",
+        "characterOutfitColor": "Outfit-color_01",
+        "isReady": false,
+        "isHost": true
+      },
+      {
+        "playerId": "550e8400-e29b-41d4-a716-446655440001",
+        "nickname": "alice",
+        "characterHair": "Hair_01",
+        "characterHairColor": "Hairstyle-color_01",
+        "characterBody": "Body_01",
+        "characterEye": "Eyes_01",
+        "characterOutfit": "Outfit_01",
+        "characterOutfitColor": "Outfit-color_01",
+        "isReady": false,
+        "isHost": false
+      }
+    ]
+  }
+}
+```
+
+#### 에러 코드
+
+| 코드 | 설명 |
+| --- | --- |
+| `ROOM_NOT_FOUND` | 존재하지 않는 방 |
+| `PLAYER_NOT_IN_ROOM` | 해당 방 참여자가 아님 |
+
+---
+
+### 6-10. 맵 리스트 조회
+
+```
+GET /api/v1/maps/coop
+```
+
+> 방 생성 전 맵 선택 UI 시 사용
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `maps` | Array | 맵 목록 |
+| `maps[].mapId` | UUID | 맵 ID |
+| `maps[].mapName` | String | 맵 이름 |
+| `maps[].difficulty` | Integer | 맵 난이도 (1~5) |
+
+```json
+{
+  "status": 200,
+  "message": "맵 목록 조회 성공",
+  "data": {
+    "maps": [
+      {
+        "mapId": "550e8400-e29b-41d4-a716-446655440002",
+        "mapName": "초보의 숲",
+        "difficulty": 1
+      },
+      {
+        "mapId": "550e8400-e29b-41d4-a716-446655440003",
+        "mapName": "병합 지옥",
+        "difficulty": 4
+      },
+      {
+        "mapId": "550e8400-e29b-41d4-a716-446655440004",
+        "mapName": "리베이스 전쟁",
+        "difficulty": 3
+      }
+    ]
+  }
+}
+```
 
 ---
 
@@ -2176,16 +3225,16 @@ GET /api/v1/tutorial
 | 단계 | 제목 | 명령어 | 핵심 포인트 |
 | --- | --- | --- | --- |
 | 1 | 게임 시작 | `git clone https://github.com/gitcat/project.git` | 모든 모드의 게임 진입점 |
-| 2 | 새 브랜치 만들기 (checkout) | `git checkout -b feature/login` | 브랜치 생성 + 이동 동시에 |
+| 2 | 새 브랜치 만들기 (switch) | `git switch -c feature/login` | 브랜치 생성 + 이동 동시에 |
 | 3 | 변경 사항 스테이징 | `git add .` | 전체 파일 스테이징 |
 | 4 | 커밋하기 | `git commit -m "feat: add login page"` | 변경 기록 저장 |
 | 5 | 원격 저장소에 올리기 | `git push origin feature/login` | 브랜치 푸시 |
-| 6 | 브랜치 이동하기 (checkout) | `git checkout main` | `-b` 없이 기존 브랜치 이동 |
-| 7 | 새 브랜치 만들기 (switch) | `git switch -c feature/signup` | `checkout -b`와 동일 기능, 최신 문법 |
+| 6 | 브랜치 이동하기 (switch) | `git switch main` | 기존 브랜치 이동 |
+| 7 | 새 브랜치 만들기 (switch) | `git switch -c feature/signup` | 브랜치 생성 + 이동 동시에 |
 | 8 | 변경 사항 스테이징 | `git add .` | 전체 파일 스테이징 |
 | 9 | 커밋하기 | `git commit -m "feat: add signup page"` | 변경 기록 저장 |
 | 10 | 원격 저장소에 올리기 | `git push origin feature/signup` | 브랜치 푸시 |
-| 11 | 브랜치 이동하기 (switch) | `git switch main` | `checkout`과 동일 기능, 최신 문법 |
+| 11 | 브랜치 이동하기 (switch) | `git switch main` | 기존 브랜치 이동 |
 | 12 | 브랜치 합치기 | `git merge feature/login`<br>`git merge feature/signup` | 두 브랜치 순서대로 머지 |
 | 13 | 최종 반영 | `git push origin main` | 머지된 main 최종 푸시 |
 

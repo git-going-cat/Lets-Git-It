@@ -7,7 +7,7 @@
 ```
 로그인 페이지 진입
  └─ 초기 번들 로드
-     ├─ routes/single.tsx → SinglePage → SingleGameContent → EventBus → Phaser ❌
+     ├─ routes/single.tsx → SinglePage → SingleGameContent → singleBus → Phaser ❌
      ├─ routes/tutorial.tsx → TutorialPage → ... → Phaser ❌
      └─ routes/home.tsx → HomePage (모달 다수 포함) ❌
 ```

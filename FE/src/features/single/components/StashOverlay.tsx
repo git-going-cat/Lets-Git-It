@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { EventBus } from '@/core/bridge/EventBus';
+import { singleBus } from '../bridge/singleBus';
 
 export default function StashOverlay() {
   const [active, setActive] = useState(false);
@@ -17,12 +17,11 @@ export default function StashOverlay() {
       setActive(false);
     };
 
-    EventBus.on('item:use', handleItemUse);
-    EventBus.on('stash:end', handleEnd);
-    return () => {
-      EventBus.off('item:use', handleItemUse);
-      EventBus.off('stash:end', handleEnd);
-    };
+    const unsubs = [
+      singleBus.subscribe('item:use', handleItemUse),
+      singleBus.subscribe('stash:end', handleEnd),
+    ];
+    return () => unsubs.forEach((fn) => fn());
   }, []);
 
   return (

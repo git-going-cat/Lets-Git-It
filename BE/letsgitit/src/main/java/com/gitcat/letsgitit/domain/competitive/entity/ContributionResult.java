@@ -1,6 +1,7 @@
 package com.gitcat.letsgitit.domain.competitive.entity;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import jakarta.persistence.*;
@@ -17,13 +18,15 @@ import lombok.NoArgsConstructor;
 })
 public class ContributionResult {
 
+	private static final ZoneId KOREA_ZONE_ID = ZoneId.of("Asia/Seoul");
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
 	@Column(name = "contribution_result_id", nullable = false, columnDefinition = "BINARY(16)")
 	private UUID id;
 
-	@Column(name = "room_id", nullable = false, length = 100)
-	private String roomId;
+	@Column(name = "room_id", nullable = false)
+	private Long roomId;
 
 	@Column(name = "session_id", nullable = false, length = 100)
 	private String sessionId;
@@ -31,11 +34,11 @@ public class ContributionResult {
 	@Column(name = "played_at", nullable = false)
 	private LocalDateTime playedAt;
 
-	public static ContributionResult of(String roomId, String sessionId) {
+	public static ContributionResult of(Long roomId, String sessionId) {
 		ContributionResult result = new ContributionResult();
 		result.roomId = roomId;
 		result.sessionId = sessionId;
-		result.playedAt = LocalDateTime.now();
+		result.playedAt = LocalDateTime.now(KOREA_ZONE_ID);
 		return result;
 	}
 }

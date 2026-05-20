@@ -116,6 +116,34 @@ class SingleServiceImplTest {
 		}
 
 		@Test
+		void command_type_conflict_응답_전달() {
+			// given
+			SingleSessionStartRequest request = new SingleSessionStartRequest(DIFFICULTY);
+
+			SingleCommandSet commandSet = createCommandSet(DIFFICULTY);
+			UUID commandSetId = UUID.randomUUID();
+			ReflectionTestUtils.setField(commandSet, "id", commandSetId);
+
+			List<SingleCommandSetItem> items = List.of(
+				createCommandSetItem(commandSetId, 1, "git merge feature/login", CommandType.CONFLICT));
+
+			given(singleCommandSetRepository.findAllByDifficulty(DIFFICULTY))
+				.willReturn(List.of(commandSet));
+			given(singleCommandSetRepository.findAllBySingleCommandSetIdOrderBySequenceAsc(commandSetId))
+				.willReturn(items);
+			given(singleResultRepository.findTopByMemberIdAndDifficultyOrderByScoreDesc(MEMBER_ID, DIFFICULTY))
+				.willReturn(Optional.empty());
+			given(singleSessionRedisRepository.getSessionTtl()).willReturn(Duration.ofMinutes(30));
+
+			// when
+			SingleSessionStartResponse response = singleService.startSession(MEMBER_ID, request);
+
+			// then
+			assertThat(response.commandSet()).singleElement()
+				.satisfies(command -> assertThat(command.type()).isEqualTo(CommandType.CONFLICT));
+		}
+
+		@Test
 		void 최고_점수_없을_때_0_반환() {
 			// given
 			SingleSessionStartRequest request = new SingleSessionStartRequest(DIFFICULTY);
@@ -505,7 +533,12 @@ class SingleServiceImplTest {
 	}
 
 	private SingleCommandSetItem createCommandSetItem(UUID commandSetId, int sequence, String commandText) {
+		return createCommandSetItem(commandSetId, sequence, commandText, CommandType.COMMON);
+	}
+
+	private SingleCommandSetItem createCommandSetItem(UUID commandSetId, int sequence, String commandText,
+		CommandType commandType) {
 		return SingleCommandSetItem.of(
-			commandSetId, sequence, commandText, null, CommandType.COMMON);
+			commandSetId, sequence, commandText, null, commandType);
 	}
 }

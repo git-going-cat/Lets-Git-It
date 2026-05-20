@@ -14,15 +14,17 @@
 ## 2. 레이어드 아키텍처
 
 - View (React UI): 공통 UI 및 게임 레이어 렌더링
-- Logic (Hooks): React 상태와 게임 엔진 간 이벤트 중재 (EventBus 활용)
+- Logic (Hooks): React 상태와 게임 엔진 간 이벤트 중재 (도메인별 이벤트 버스 활용 — `singleBus` 등)
 - Engine (Phaser): 순수 게임 렌더링 및 물리 연산 (React import 금지)
 
 ## 3. 개발 규칙
 
-- Phaser ↔ React: 직접 참조 금지, EventBus를 이용한 이벤트 기반 통신
-- EventBus 이벤트명: 'domain:action' 형태 (game:pause, score:update)
-- Phaser Scene 생명주기: create()에서 EventBus 등록, shutdown()에서 반드시 해제
-- Phaser Scene EventBus 핸들러: 클래스 필드 화살표 함수로 정의, context 인자 사용 금지
+- Phaser ↔ React: 직접 참조 금지, 도메인별 이벤트 버스(`singleBus` 등)를 이용한 이벤트 기반 통신
+- 이벤트 버스 구조: 제네릭 클래스 `core/bridge/TypedEventBus.ts`를 도메인별로 인스턴스화. 싱글 도메인은 `features/single/bridge/singleBus.ts`. 다른 도메인 추가 시 `features/{domain}/bridge/{domain}Bus.ts`로 신설
+- 이벤트명: 'domain:action' 형태 (game:pause, score:update)
+- Phaser Scene 생명주기: create()에서 도메인 버스 등록, shutdown()에서 반드시 해제
+- Phaser Scene 이벤트 핸들러: 클래스 필드 화살표 함수로 정의, context 인자 사용 금지
+- React 훅에서 이벤트 구독은 `bus.subscribe(event, fn)` 사용 권장 — `on` + `off` 분리 작성보다 cleanup 누락이 구조적으로 차단됨
 - Scene 안에서 React import 금지
 - WebSocket: core/socket/SocketManager.ts를 통해서만 연결
 - Zod 적용 범위:
@@ -33,7 +35,7 @@
 
 ## 4. 컴포넌트 설계 규칙
 
-- 데이터 가공, 이벤트 처리, EventBus 구독은 Custom Hook으로 분리
+- 데이터 가공, 이벤트 처리, 도메인 버스 구독은 Custom Hook으로 분리
 - 컴포넌트는 "어떻게 보여줄 것인가"만 담당
 - useEffect 3개 이상이면 hook 분리 우선 검토. 단, **콜드 마운트 / 키 입력 / 리사이즈처럼 의미가 명확히 다른 effect는 4개 이상도 허용** — 단순히 분리되어 있는 effect를 억지로 합치지 말 것
 - Phaser Scene 이벤트 구독은 useEffect + cleanup 필수
@@ -126,7 +128,7 @@ function Parent() {
 - 컴포넌트 내부에서 직접 axios 호출 금지
 - features/{domain}/api에 정의된 함수를 TanStack Query와 조합하여 호출
 - WebSocket 송신/수신 함수는 `features/{domain}/socket/`에 분리 (REST와 분리)
-- **인프라 레이어 예외**: `core/http.ts`의 인터셉터, `core/socket/` 등 인프라 코드에서는 raw axios/socket.io 사용 허용. 단 `core/` 외부에서는 금지 — 항상 인프라 레이어가 제공하는 단일 진입점만 사용
+- **인프라 레이어 예외**: `core/http.ts`의 인터셉터, `core/socket/` 등 인프라 코드에서는 raw axios/WebSocket client 사용 허용. 단 `core/` 외부에서는 금지 — 항상 인프라 레이어가 제공하는 단일 진입점만 사용
 
 ## 9. 경로 사용
 
@@ -169,12 +171,12 @@ function Parent() {
 
 ## 13. WebSocket 생명주기
 
-- 연결: 방 입장 확정 시 (`SocketManager.connect`)
-- 해제: 방 완전 이탈 / 홈 이동 시 (`SocketManager.disconnect`)
-- **단일 진입점**: 모든 송수신은 `SocketManager.emit(event, payload)` / `SocketManager.on(event, handler)` 경유. 컴포넌트/훅에서 직접 `io()`/`socket.emit` 금지
-- **토큰 핸드셰이크**: 쿼리스트링 금지(access log 노출). Socket.IO `auth` 옵션 또는 첫 메시지로 전달
+- 연결: 방 입장 확정 시 (`socketManager.connect(token)`)
+- 해제: 방 완전 이탈 / 홈 이동 시 (`socketManager.disconnect()`)
+- **단일 진입점**: 모든 송수신은 `socketManager.publish(destination, body)` / `socketManager.subscribe(destination, handler, key)` 경유. 컴포넌트에서 직접 `io()`/`socket.emit` 금지
+- **개인 구독 경로**: 개인 메시지는 `/user/queue/private`를 구독
+- **토큰 핸드셰이크**: 쿼리스트링 금지(access log 노출). `socketManager.connect(token)` 호출 시 외부에서 주입하고, `SocketManager`는 `useAuthStore`를 직접 import하지 않음
 - **패킷 직렬화**: JSON 고정
-- **이벤트 명명 충돌 방지**: EventBus는 `'domain:action'`(콜론), Socket은 `'domain.action'`(점)으로 구분
 - **수신 → 상태 반영**: hook 경유 (`useRoomSocket` 등). atom/store 직접 업데이트는 hook 안에서만, Phaser Scene 안에서 React 상태 라이브러리 호출 금지(컨벤션 2장 레이어 분리)
 - 재연결 전략: BE 합의 후 확정
 - 게임 중 연결 끊김 처리: BE 합의 후 확정
@@ -233,11 +235,14 @@ Phaser Scene은 React 컨텍스트에 접근할 수 없으므로, Phaser가 직�
 ```ts
 // ✅ Phaser가 접근해야 하는 게임 세션 데이터 — useEffect + Zustand 직접 저장 허용
 useEffect(() => {
-  singleApi.startSession(difficulty)
+  singleApi
+    .startSession(difficulty)
     .then((data) => useSingleStore.getState().setSession(data))
-    .catch(() => navigate({ to: '/home', replace: true }));
+    .catch(() => navigate({ to: "/home", replace: true }));
 
-  return () => { useSingleStore.getState().clearSession(); };
+  return () => {
+    useSingleStore.getState().clearSession();
+  };
 }, [difficulty]);
 ```
 
@@ -315,6 +320,37 @@ export const Route = createFileRoute("/home")({
 });
 ```
 
+#### features 간 wiring 예외
+
+서로 다른 두 feature가 결합되어야 하는데 FSD 상 한쪽이 다른 쪽을 직접 import할 수 없는 경우, `routes/` 레이어가 결합 지점이 된다. 이때 callback 안정화(`useCallback`), URL 파라미터 읽기(`useSearch`)는 허용한다. 단, **실제 UI 상태(`useState`)·페이지 조립 로직은 여전히 금지**.
+
+배경 — `features/single`이 튜토리얼 완료 시 `features/auth`의 `onboardingApi.completeTutorial()` + `useAuthStore.updateUser()`를 호출해야 했지만, single이 auth를 직접 import하면 cross-feature 역방향 의존이 발생한다. wrapper를 `features/single/` 안에 두면 같은 문제. `routes/`는 원래 여러 feature를 조합하는 레이어이므로 결합 지점으로 적합.
+
+```tsx
+// ✅ routes/-TutorialRoute.tsx — features 간 wiring 전담
+// features/single은 features/auth를 직접 import하지 않는다.
+// 대신 routes/ 레이어에서 auth API/store를 callback으로 묶어 features/single에 주입.
+export default function TutorialRoute() {
+  const { replay } = useSearch({ from: "/tutorial" });
+
+  const onComplete = useCallback(async () => {
+    const user = useAuthStore.getState().user;
+    if (replay || user?.onboardingStatus === "TUTORIAL_DONE") return;
+    await onboardingApi.completeTutorial();
+    useAuthStore.getState().updateUser({ onboardingStatus: "TUTORIAL_DONE" });
+  }, [replay]);
+
+  return <TutorialPage onComplete={onComplete} />;
+}
+```
+
+#### `-` 접두 헬퍼 파일
+
+라우트가 아닌 헬퍼 컴포넌트(예: 위의 wiring wrapper)는 파일명을 `-`로 시작. TanStack Router는 `-`로 시작하는 파일을 라우트 트리에서 자동 제외한다. `routes/` 폴더 안에 두지만 URL에는 매핑되지 않는다.
+
+- `routes/-TutorialRoute.tsx` ✅ (라우트 아님, helper)
+- `routes/tutorial.lazy.tsx` ✅ (실제 라우트, `-TutorialRoute`를 import)
+
 ### Zod
 
 - 게임 중 WebSocket 패킷은 `.safeParse()` 필수 — `.parse()`는 throw하므로 게임 중 사용 금지
@@ -336,15 +372,16 @@ if (!result.success) {
 
 ### Phaser ↔ React
 
-- React에서 Phaser Scene 직접 참조 금지 — EventBus 경유만 허용
+- React에서 Phaser Scene 직접 참조 금지 — 도메인 버스 경유만 허용
 
 ```ts
 // ❌ 강결합
 const scene = gameInstance.scene.getScene("SingleScene") as SingleScene;
 scene.pauseGame();
 
-// ✅ EventBus 경유
-EventBus.emit("game:pause");
+// ✅ 도메인 버스 경유 (싱글 도메인 예시)
+import { singleBus } from "@/features/single/bridge/singleBus";
+singleBus.emit("game:pause");
 ```
 
 ---
@@ -433,6 +470,7 @@ theme: { extend: { width: { hud: '8rem', churu: '9rem' }, zIndex: { '60': '60', 
   - 인터랙션 기반 데이터: 컴포넌트 hook(useQuery)
   - 두 패턴 혼용 금지 (한 라우트는 한 가지로 통일)
 - **lazy 라우트 (`*.lazy.tsx`)**: 진입이 드물거나 chunk가 큰 라우트(게임 화면, 튜토리얼 등)에 적용
+- **라우트 외 헬퍼 (`-*.tsx`)**: features 간 wiring wrapper 등 라우트 아닌 컴포넌트는 `-` 접두로 시작 — TanStack Router 라우트 트리에서 제외됨. UI 상태 보관은 금지, callback 안정화·URL 파라미터 읽기 같은 minimal wiring만 허용 (15장 TanStack Router 절 참조)
 
 ---
 
@@ -510,5 +548,5 @@ MR을 올리기 전에 아래 항목을 확인해 주세요.
 > 리뷰어가 특히 주의 깊게 봐주었으면 하는 부분이나,
 > 구현하면서 고민했던 부분, 참고해야 할 컨텍스트가 있다면 작성해 주세요.
 
-<!-- 예시: 기존 EventBus 구조를 변경했으니 Phaser 씬 연동 부분을 중점적으로 확인해 주세요. -->
+<!-- 예시: 기존 이벤트 버스 구조를 변경했으니 Phaser 씬 연동 부분을 중점적으로 확인해 주세요. -->
 ```

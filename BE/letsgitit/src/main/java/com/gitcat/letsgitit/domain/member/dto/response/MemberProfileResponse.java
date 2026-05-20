@@ -93,11 +93,11 @@ public record MemberProfileResponse(
 
 		private static RecordResponse contributionRecord(
 			Map<BestRecordMode, MemberBestRecord> recordMap) {
-			MemberBestRecord record = recordMap.get(BestRecordMode.CONTRIBUTION_RUN);
+			MemberBestRecord record = recordMap.get(BestRecordMode.CONTRIBUTION);
 			int totalContribution = record == null ? 0 : record.getBestScore();
 
 			return new RecordResponse(
-				BestRecordMode.CONTRIBUTION_RUN.name(),
+				BestRecordMode.CONTRIBUTION.name(),
 				null,
 				totalContribution,
 				null,

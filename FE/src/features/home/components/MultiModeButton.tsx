@@ -16,7 +16,7 @@ export default function MultiModeButton({ onClick }: MultiModeButtonProps) {
       <img
         src={multiFolderImg}
         alt="멀티모드"
-        className="pixel-art h30 w-30 object-contain drop-shadow-lg"
+        className="pixel-art h-40 w-40 object-contain drop-shadow-lg"
         draggable={false}
       />
       <span className="text-base font-bold tracking-wide text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">

@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import PreparingPage from '@/shared/components/PreparingPage';
+import ContributionPage from '@/features/contribution/components/ContributionPage';
 
 export const Route = createFileRoute('/contribution')({
-  component: () => <PreparingPage title="기여도 겨루기 준비 중" />,
+  component: ContributionPage,
 });

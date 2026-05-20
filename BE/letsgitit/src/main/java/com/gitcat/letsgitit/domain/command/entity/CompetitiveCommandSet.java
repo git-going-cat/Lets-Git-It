@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "competitive_command_set", uniqueConstraints = {
-	@UniqueConstraint(name = "uq_competitive_command_set", columnNames = {"set_number", "mode"})
+	@UniqueConstraint(name = "uq_competitive_command_set", columnNames = {"set_number", "mode", "player_count"})
 })
 public class CompetitiveCommandSet {
 
@@ -30,10 +30,18 @@ public class CompetitiveCommandSet {
 	@Column(name = "mode", nullable = false, length = 50)
 	private CompetitiveMode mode;
 
+	@Column(name = "player_count")
+	private Integer playerCount;
+
 	public static CompetitiveCommandSet of(int setNumber, CompetitiveMode mode) {
+		return of(setNumber, mode, null);
+	}
+
+	public static CompetitiveCommandSet of(int setNumber, CompetitiveMode mode, Integer playerCount) {
 		CompetitiveCommandSet set = new CompetitiveCommandSet();
 		set.setNumber = setNumber;
 		set.mode = mode;
+		set.playerCount = playerCount;
 		return set;
 	}
 }
