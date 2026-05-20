@@ -101,6 +101,11 @@ export class SingleScene extends Phaser.Scene {
 
   shutdown(): void {
     this.timerEvent?.remove();
+    this.timerEvent = null;
+    if (this.hardSpawnTimer) {
+      this.hardSpawnTimer.remove();
+      this.hardSpawnTimer = null;
+    }
     this.lanes.clear();
     if (this.stashTimeoutId !== null) {
       this.stashTimeoutId.remove();
