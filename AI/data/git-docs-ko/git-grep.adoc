@@ -1,0 +1,268 @@
+git-grep(1)
+===========
+
+NAME
+----
+git-grep - Print lines matching a pattern
+
+
+SYNOPSIS
+--------
+[verse]
+'git grep' [-a | --text] [-I] [--textconv] [-i | --ignore-case] [-w | --word-regexp]
+	   [-v | --invert-match] [-h|-H] [--full-name]
+	   [-E | --extended-regexp] [-G | --basic-regexp]
+	   [-P | --perl-regexp]
+	   [-F | --fixed-strings] [-n | --line-number] [--column]
+	   [-l | --files-with-matches] [-L | --files-without-match]
+	   [(-O | --open-files-in-pager) [<pager>]]
+	   [-z | --null]
+	   [ -o | --only-matching ] [-c | --count] [--all-match] [-q | --quiet]
+	   [--max-depth <depth>] [--[no-]recursive]
+	   [--color[=<when>] | --no-color]
+	   [--break] [--heading] [-p | --show-function]
+	   [-A <post-context>] [-B <pre-context>] [-C <context>]
+	   [-W | --function-context]
+	   [(-m | --max-count) <num>]
+	   [--threads <num>]
+	   [-f <file>] [-e] <pattern>
+	   [--and|--or|--not|(|)|-e <pattern>...]
+	   [--recurse-submodules] [--parent-basename <basename>]
+	   [ [--[no-]exclude-standard] [--cached | --untracked | --no-index] | <tree>...]
+	   [--] [<pathspec>...]
+
+DESCRIPTION
+-----------
+워킹 트리(work tree)에 있는 추적된 파일, 인덱스 파일(index file)에 등록된 블롭(blob), 또는 주어진 트리 객체(tree object)에 있는 블롭에서 지정된 패턴을 찾습니다. 패턴은 줄바꿈 문자로 구분된 하나 이상의 검색 식 목록입니다. 빈 문자열은 모든 줄과 일치합니다.
+
+
+OPTIONS
+-------
+--cached::
+	워킹 트리에 있는 추적된 파일을 검색하는 대신, 인덱스 파일에 등록된 블롭을 검색합니다.
+
+--untracked::
+	워킹 트리에 있는 추적된 파일을 검색하는 것 외에, 추적되지 않은 파일도 검색합니다.
+
+--no-index::
+	Git에 의해 관리되지 않는 현재 디렉토리에 있는 파일들을 검색하거나, 현재 디렉토리가 Git에 의해 관리되고 있음을 무시합니다. 이는 일반 `grep(1)` 유틸리티에 `-r` 옵션을 지정하여 실행하는 것과 유사하지만, 경로명을 제한하기 위해 pathspec 패턴을 사용하는 등 몇 가지 추가적인 이점이 있습니다. 더 자세한 내용은 linkgit:gitglossary[7]의 'pathspec' 항목을 참조하십시오.
++
+이 옵션은 `--cached` 또는 `--untracked`와 함께 사용할 수 없습니다. 또한 아래 'CONFIGURATION' 항목의 `grep.fallbackToNoIndex`도 참조하십시오.
+
+--no-exclude-standard::
+	`.gitignore` 메커니즘을 존중하지 않고 무시되는 파일에서도 검색합니다. `--untracked`와 함께 사용될 때만 유용합니다.
+
+--exclude-standard::
+	`.gitignore` 메커니즘을 통해 지정된 무시되는 파일들을 고려하지 않습니다. `--no-index`를 사용하여 현재 디렉토리의 파일을 검색할 때만 유용합니다.
+
+--recurse-submodules::
+	저장소에서 활성화되고 체크아웃된 각 서브모듈을 재귀적으로 검색합니다. _<tree>_ 옵션과 함께 사용될 때 모든 서브모듈 출력의 접두사는 부모 프로젝트의 _<tree>_ 객체 이름이 됩니다. 이 옵션은 `--untracked`와 함께 사용할 수 없으며, `--no-index`가 지정된 경우 아무런 효과가 없습니다.
+
+-a::
+--text::
+	이진 파일을 텍스트처럼 처리합니다.
+
+--textconv::
+	textconv 필터 설정을 존중합니다.
+
+--no-textconv::
+	textconv 필터 설정을 존중하지 않습니다.
+	이것이 기본값입니다.
+
+-i::
+--ignore-case::
+	패턴과 파일 간의 대소문자 차이를 무시합니다.
+
+-I::
+	이진 파일에서 패턴을 일치시키지 않습니다.
+
+--max-depth <depth>::
+	명령줄에 주어진 각 <pathspec>에 대해 디렉토리 수준을 최대 <depth>까지 내려갑니다. -1 값은 제한이 없음을 의미합니다.
+	<pathspec>에 활성 와일드카드가 포함된 경우 이 옵션은 무시됩니다.
+	즉, "a*"가 "a*"라는 이름의 디렉토리와 일치하는 경우, "*"는 리터럴로 일치하므로 --max-depth는 여전히 유효합니다.
+
+-r::
+--recursive::
+	`--max-depth=-1`과 동일합니다. 이것이 기본값입니다.
+
+--no-recursive::
+	`--max-depth=0`과 동일합니다.
+
+-w::
+--word-regexp::
+	패턴을 단어 경계에서만 일치시킵니다 (줄의 시작 부분에 있거나, 비단어 문자 뒤에 오거나; 줄의 끝에 있거나, 비단어 문자 앞에 오는 경우).
+
+-v::
+--invert-match::
+	일치하지 않는 줄을 선택합니다.
+
+-h::
+-H::
+	기본적으로 이 명령은 각 일치 항목에 대해 파일 이름을 표시합니다. `-h` 옵션은 이 출력을 억제하는 데 사용됩니다.
+	`-H`는 완전성을 위해 존재하며, 명령줄에서 이전에 주어진 `-h`를 재정의하는 것 외에는 아무것도 하지 않습니다.
+
+--full-name::
+	하위 디렉토리에서 실행될 때, 이 명령은 일반적으로 현재 디렉토리에 상대적인 경로를 출력합니다. 이 옵션은 프로젝트 최상위 디렉토리에 상대적인 경로를 출력하도록 강제합니다.
+
+-E::
+--extended-regexp::
+-G::
+--basic-regexp::
+	패턴에 POSIX 확장/기본 정규 표현식을 사용합니다. 기본값은 기본 정규 표현식을 사용하는 것입니다.
+
+-P::
+--perl-regexp::
+	패턴에 Perl 호환 정규 표현식을 사용합니다.
++
+이러한 종류의 정규 표현식에 대한 지원은 선택적인 컴파일 타임 종속성입니다. Git이 지원 없이 컴파일된 경우 이 옵션을 제공하면 종료됩니다.
+
+-F::
+--fixed-strings::
+	패턴에 고정 문자열을 사용합니다 (패턴을 정규식으로 해석하지 않음).
+
+-n::
+--line-number::
+	일치하는 줄 앞에 줄 번호를 붙여 표시합니다.
+
+--column::
+	일치하는 줄의 시작 부분에서 첫 번째 일치 항목의 1 기반 바이트 오프셋을 앞에 붙입니다.
+
+-l::
+--files-with-matches::
+--name-only::
+-L::
+--files-without-match::
+	일치하는 각 줄을 표시하는 대신, 일치가 포함된 (또는 포함되지 않은) 파일의 이름만 표시합니다.
+	'git diff'와의 호환성을 위해 `--name-only`는 `--files-with-matches`의 동의어입니다.
+
+-O[<pager>]::
+--open-files-in-pager[=<pager>]::
+	일치하는 파일을 페이저에서 엽니다 ('grep'의 출력은 아님).
+	페이저가 "less" 또는 "vi"이고 사용자가 패턴을 하나만 지정한 경우, 첫 번째 파일은 첫 번째 일치 항목으로 자동 위치됩니다. `pager` 인수는 선택 사항입니다. 지정된 경우 공백 없이 옵션에 붙여야 합니다. `pager`가 지정되지 않으면 기본 페이저가 사용됩니다 (linkgit:git-config[1]의 `core.pager` 참조).
+
+-z::
+--null::
+	출력에서 경로명의 구분 기호로 \0 (null 문자)를 사용하고, 해당 경로명을 그대로 출력합니다. 이 옵션이 없으면 "특이한" 문자가 포함된 경로명은 `core.quotePath` 설정 변수에 설명된 대로 인용됩니다 (linkgit:git-config[1] 참조).
+
+-o::
+--only-matching::
+	일치하는 줄에서 일치하는 (비어 있지 않은) 부분만 인쇄하고, 각 부분을 별도의 출력 줄에 표시합니다.
+
+-c::
+--count::
+	일치하는 각 줄을 표시하는 대신, 일치하는 줄의 수를 표시합니다.
+
+--color[=<when>]::
+	일치 항목을 색상으로 표시합니다.
+	값은 always (기본값), never, 또는 auto여야 합니다.
+
+--no-color::
+	구성 파일에서 색상 출력을 기본값으로 설정하더라도 일치 항목 강조 표시를 끕니다.
+	`--color=never`와 동일합니다.
+
+--break::
+	다른 파일의 일치 항목 사이에 빈 줄을 인쇄합니다.
+
+--heading::
+	각 표시 줄의 시작 부분 대신 해당 파일의 일치 항목 위에 파일 이름을 표시합니다.
+
+-p::
+--show-function::
+	일치 항목의 함수 이름을 포함하는 이전 줄을 표시합니다. 일치하는 줄 자체가 함수 이름인 경우는 제외합니다.
+	이름은 `git diff`가 패치 덩어리 헤더를 결정하는 방식과 동일하게 결정됩니다 (linkgit:gitattributes[5]의 'Defining a custom hunk-header' 참조).
+
+-<num>::
+-C <num>::
+--context <num>::
+	<num>개의 선행 및 후행 줄을 표시하고, 일치하는 그룹 사이에 `--`를 포함하는 줄을 배치합니다.
+
+-A <num>::
+--after-context <num>::
+	<num>개의 후행 줄을 표시하고, 일치하는 그룹 사이에 `--`를 포함하는 줄을 배치합니다.
+
+-B <num>::
+--before-context <num>::
+	<num>개의 선행 줄을 표시하고, 일치하는 그룹 사이에 `--`를 포함하는 줄을 배치합니다.
+
+-W::
+--function-context::
+	함수 이름을 포함하는 이전 줄부터 다음 함수 이름 이전 줄까지의 주변 텍스트를 표시하여, 일치가 발견된 함수 전체를 효과적으로 보여줍니다. 함수 이름은 `git diff`가 패치 덩어리 헤더를 결정하는 방식과 동일하게 결정됩니다 (linkgit:gitattributes[5]의 'Defining a custom hunk-header' 참조).
+
+-m <num>::
+--max-count <num>::
+	파일당 최대 일치 항목 수를 제한합니다. `-v` 또는 `--invert-match` 옵션을 사용할 때, 지정된 수의 불일치가 발생한 후 검색이 중지됩니다. -1 값은 무제한 결과를 반환합니다 (기본값). 0 값은 0이 아닌 상태 코드로 즉시 종료됩니다.
+
+--threads <num>::
+	사용할 `grep` 워커 스레드 수입니다. 'NOTES ON THREADS'와 'CONFIGURATION' 항목의 `grep.threads`를 참조하십시오.
+
+-f <file>::
+	<file>에서 패턴을 읽어옵니다 (한 줄에 하나씩).
++
+<file>을 통해 패턴을 전달하면 \0을 포함하는 검색 패턴을 제공할 수 있습니다.
++
+모든 패턴 유형이 \0을 포함하는 패턴을 지원하지는 않습니다. Git은 주어진 패턴 유형이 이러한 패턴을 지원할 수 없는 경우 오류를 발생시킵니다. PCRE v2 백엔드와 컴파일된 `--perl-regexp` 패턴 유형은 이러한 유형의 패턴을 가장 광범위하게 지원합니다.
++
+Git 버전 2.23.0 이전에는 \0을 포함하는 패턴이 조용히 고정 문자열로 간주되었습니다. 이는 문서화되지 않았으며, 예를 들어 \0을 포함하는 비 ASCII 패턴과 `--ignore-case` 사이에 이상하고 문서화되지 않은 상호 작용이 있었습니다.
++
+향후 버전에서는 더 많은 검색 백엔드에 대해 \0을 포함하는 패턴을 지원할 수 있습니다. 그때까지 해당 패턴 유형이 지원하지 않는 경우 종료됩니다.
+
+-e::
+	다음 매개변수가 패턴입니다. 이 옵션은 `-`로 시작하는 패턴에 사용해야 하며, 사용자 입력을 grep에 전달하는 스크립트에서 사용해야 합니다. 여러 패턴은 'or'로 결합됩니다.
+
+--and::
+--or::
+--not::
+( ... )::
+	여러 패턴이 Boolean 표현식을 사용하여 어떻게 결합되는지 지정합니다. `--or`가 기본 연산자입니다. `--and`는 `--or`보다 우선순위가 높습니다. 모든 패턴에 대해 `-e`를 사용해야 합니다.
+
+--all-match::
+	`--or`로 결합된 여러 패턴 표현식을 제공할 때, 이 플래그는 모든 패턴에 일치하는 줄이 있는 파일로만 일치를 제한하도록 지정됩니다.
+
+-q::
+--quiet::
+	일치하는 줄을 출력하지 않고, 일치가 있으면 상태 코드 0으로, 일치가 없으면 0이 아닌 상태 코드로 종료합니다.
+
+<tree>...::
+	워킹 트리에 있는 추적된 파일을 검색하는 대신, 주어진 트리 내의 블롭을 검색합니다.
+
+\--::
+	옵션의 끝을 알립니다. 나머지 매개변수는 <pathspec> 제한자입니다.
+
+<pathspec>...::
+	주어진 경우, 검색을 하나 이상의 패턴과 일치하는 경로로 제한합니다.
+	앞쪽 경로 일치 및 glob(7) 패턴 모두 지원됩니다.
++
+<pathspec> 구문에 대한 자세한 내용은 linkgit:gitglossary[7]의 'pathspec' 항목을 참조하십시오.
+
+EXAMPLES
+--------
+
+`git grep 'time_t' -- '*.[ch]'`::
+	작업 디렉토리와 그 하위 디렉토리에서 모든 추적된 .c 및 .h 파일에서 `time_t`를 찾습니다.
+
+`git grep -e '#define' --and \( -e MAX_PATH -e PATH_MAX \)`::
+	`#define`과 `MAX_PATH` 또는 `PATH_MAX`를 포함하는 줄을 찾습니다.
+
+`git grep --all-match -e NODE -e Unexpected`::
+	두 패턴 모두에 일치하는 줄이 있는 파일에서 `NODE` 또는 `Unexpected`를 찾습니다.
+
+`git grep solution -- :^Documentation`::
+	`solution`을 찾고, `Documentation`의 파일은 제외합니다.
+
+NOTES ON THREADS
+----------------
+
+`--open-files-in-pager`가 사용되면 `--threads` 옵션 (및 `grep.threads` 구성)은 무시되어 단일 스레드 실행으로 강제됩니다.
+
+객체 저장소( `--cached` 또는 트리 객체를 제공하여)를 grep할 때, `--textconv`가 있고 텍스트 변환이 너무 많으면 여러 스레드로 실행하는 것이 단일 스레드보다 느릴 수 있습니다. 따라서 이 경우 성능이 낮으면 `--threads=1`을 사용하는 것이 좋습니다.
+
+CONFIGURATION
+-------------
+
+include::includes/cmd-config-section-all.adoc[]
+
+include::config/grep.adoc[]
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

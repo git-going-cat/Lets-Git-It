@@ -1,0 +1,87 @@
+git-remote-ext(1)
+=================
+
+NAME
+----
+git-remote-ext - 스마트 전송을 외부 명령에 연결합니다.
+
+SYNOPSIS
+--------
+[verse]
+git remote add <nick> "ext::<command>[ <arguments>...]"
+
+DESCRIPTION
+-----------
+이 원격 헬퍼는 지정된 '<command>'를 사용하여 원격 Git 서버에 연결합니다.
+
+지정된 '<command>'의 표준 입력에 기록된 데이터는 git:// 서버, git-upload-pack, git-receive-pack 또는 git-upload-archive(상황에 따라 다름)로 전송되는 것으로 간주되며, <command>의 표준 출력에서 읽은 데이터는 동일한 서비스에서 수신되는 것으로 간주됩니다.
+
+명령어와 인수는 이스케이프되지 않은 공백으로 구분됩니다.
+
+다음 시퀀스는 특수 의미를 갖습니다.
+
+'% '::
+	명령어나 인수의 리터럴 공백.
+
+'%%'::
+	리터럴 퍼센트 기호.
+
+'%s'::
+	Git이 호출하려는 서비스의 이름(receive-pack, upload-pack 또는 upload-archive)으로 대체됩니다.
+
+'%S'::
+	Git이 호출하려는 서비스의 긴 이름(git-receive-pack, git-upload-pack 또는 git-upload-archive)으로 대체됩니다.
+
+'%G' (인수의 첫 번째 문자가 나와야 함)::
+	이 인수는 '<command>'로 전달되지 않습니다. 대신, 헬퍼가 원격 측으로 서비스 필드가 적절한 값으로, 저장소 필드가 나머지 인수로 설정된 git:// 서비스 요청을 보내도록 시작합니다. 기본값은 이러한 요청을 보내지 않는 것입니다.
++
+이는 원격 측이 터널을 통해 액세스되는 git:// 서버인 경우 유용합니다.
+
+'%V' (인수의 첫 번째 문자가 나와야 함)::
+	이 인수는 '<command>'로 전달되지 않습니다. 대신 git:// 서비스 요청에서 vhost 필드를 (나머지 인수로) 설정합니다. 기본값은 이러한 요청(보내는 경우)에서 vhost를 보내지 않는 것입니다.
+
+ENVIRONMENT VARIABLES
+---------------------
+
+GIT_TRANSLOOP_DEBUG::
+	설정되어 있으면 다양한 읽기/쓰기에 대한 디버깅 정보를 출력합니다.
+
+COMMAND로 전달되는 ENVIRONMENT VARIABLES
+---------------------------------------
+
+GIT_EXT_SERVICE::
+	헬퍼가 호출해야 하는 서비스의 긴 이름(git-upload-pack 등)으로 설정됩니다.
+
+GIT_EXT_SERVICE_NOPREFIX::
+	헬퍼가 호출해야 하는 서비스의 긴 이름(upload-pack 등)으로 설정됩니다.
+
+
+EXAMPLES
+--------
+이 원격 헬퍼는 <URL>이 `ext::`로 시작하는 "git fetch <URL>", "git clone <URL>", "git push <URL>" 또는 "git remote add <nick> <URL>"과 같은 명령어를 사용할 때 Git에서 투명하게 사용됩니다.
+
+"ext::ssh -i /home/foo/.ssh/somekey user&#64;host.example %S 'foo/repo'"::
+	host.example:foo/repo와 유사하지만, /home/foo/.ssh/somekey를 키 쌍으로, user를 원격 측 사용자 이름으로 사용합니다. 이렇게 하면 .ssh/config를 편집할 필요가 없습니다.
+
+"ext::socat -t3600 - ABSTRACT-CONNECT:/git-server %G/somerepo"::
+	/git-server 추상 네임스페이스 주소에서 git 프로토콜을 통해 액세스할 수 있는 /somerepo 경로의 저장소를 나타냅니다.
+
+"ext::git-server-alias foo %G/repo"::
+	"git-server-alias foo" 헬퍼 프로그램을 사용하여 액세스하는 /repo 경로의 저장소를 나타냅니다. 저장소 경로와 요청 유형은 git:// 프로토콜에서 일반적인 것처럼 명령줄이 아닌 프로토콜 스트림의 일부로 전달됩니다.
+
+"ext::git-server-alias foo %G/repo %Vfoo"::
+	"git-server-alias foo" 헬퍼 프로그램을 사용하여 액세스하는 /repo 경로의 저장소를 나타냅니다. 프로토콜 스트림에서 전달되는 원격 서버의 호스트 이름은 "foo"가 됩니다(이렇게 하면 여러 가상 Git 서버가 링크 수준 주소를 공유할 수 있습니다).
+
+"ext::git-server-alias foo %G/repo% with% spaces %Vfoo"::
+	"git-server-alias foo" 헬퍼 프로그램을 사용하여 액세스하는 `/repo with spaces` 경로의 저장소를 나타냅니다. 프로토콜 스트림에서 전달되는 원격 서버의 호스트 이름은 "foo"가 됩니다(이렇게 하면 여러 가상 Git 서버가 링크 수준 주소를 공유할 수 있습니다).
+
+"ext::git-ssl foo.example /bar"::
+	"git-ssl foo.example /bar" 헬퍼 프로그램을 사용하여 액세스하는 저장소를 나타냅니다. 요청 유형은 헬퍼가 환경 변수를 사용하여 결정할 수 있습니다(위 참조).
+
+SEE ALSO
+--------
+linkgit:gitremote-helpers[7]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

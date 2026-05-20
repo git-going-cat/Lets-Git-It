@@ -2,7 +2,9 @@
 
 ### Background / Context
 
-Pro Git 청크 589개를 인메모리 numpy 배열로 관리. FastAPI 시작 시 `data/embeddings.npy`를 한 번 로드하고, 사용자 질문이 들어오면 query를 임베딩해서 코사인 유사도로 가장 가까운 K개를 반환한다.
+**Pro Git 한국어판(718청크) + Git 공식 문서 한국어 번역본(1383청크) = 총 2101청크**를 인메모리 numpy 배열로 관리. FastAPI 시작 시 `data/embeddings.npy`를 한 번 로드하고, 사용자 질문이 들어오면 query를 임베딩해서 코사인 유사도로 가장 가까운 K개를 반환한다.
+
+Git 공식 문서 한국어 번역본은 `scripts/translate_git_docs.py`로 LLM 번역 후 `data/git-docs-ko/`에 커밋. 재번역 없이 재현 가능. 청크 메타데이터에 `source_type: 'progit' | 'git-docs-ko'` 포함.
 
 ### Decision
 
@@ -55,7 +57,7 @@ async def search(query: str, top_k: int = 5) -> list[dict]:
 | 검색 latency | 100~200ms (네트워크) | 1~10ms |
 | 외부 의존 | Pinecone SaaS + API key | 없음 |
 | 운영 복잡도 | FastAPI + Redis + Pinecone | FastAPI + Redis |
-| 청크 수 | 관계없음 | 589개 × 1536 × 4 byte ≈ 3.5MB (무시 가능) |
+| 청크 수 | 관계없음 | 2101개 × 1536 × 4 byte ≈ 12.9MB (무시 가능) |
 | 월 비용 | 무료 티어 내 ~$0 | $0 |
 | 확장성 | 수백만 청크 가능 | ~수만 청크까지 실용적 |
 
@@ -101,7 +103,9 @@ python scripts/ingest.py --index   # embeddings.npy 생성
 
 ### 검색 품질 평가 결과
 
-`scripts/eval_rag.py` 8개 샘플 쿼리:
+`scripts/eval_rag.py` 13개 샘플 쿼리 (자연어 8 + 명령어 5):
+
+**자연어 질의 (progit 청크 주로 반환)**
 
 | 쿼리 | Top score | 매칭 섹션 |
 |---|---|---|
@@ -114,17 +118,29 @@ python scripts/ingest.py --index   # embeddings.npy 생성
 | git reflog 언제 쓰는지 | 0.624 | Git 도구 > RefLog로 가리키기 |
 | 서브모듈 추가하는 방법 | 0.487 | Git 도구 > 서브모듈 시작하기 |
 
-실제 서비스 입력은 자연어 질문이 아니라 명령어(`git restore .env`)라서 운영에서는 점수가 더 높게 나올 것으로 예상.
+**명령어 질의 (git-docs-ko 청크 주로 반환)**
+
+| 쿼리 | source_type 분포 |
+|---|---|
+| git restore --staged | git-docs-ko 우세 |
+| git reset --soft HEAD~1 | git-docs-ko 우세 |
+| git cherry-pick 충돌 해결 | git-docs-ko 우세 |
+| git rebase -i squash | git-docs-ko 우세 |
+| git switch -c 새 브랜치 | git-docs-ko 우세 |
+
+이중 코퍼스 도입 전에는 `git restore --staged` 질의에서 Bazaar/stash 무관 청크가 반환됐지만, git-docs-ko 통합 후 `git-restore` 청크가 top-K에 포함됨.
 
 ### Caution
 
 - **`data/embeddings.npy`는 gitignore 처리**: CI 빌드나 신규 환경 셋업 시 `ingest.py --index` 실행 필요. 빠지면 FastAPI 시작 시 FileNotFoundError.
 - **임베딩 모델 변경 시 재생성**: 모델을 바꾸면 차원이 달라질 수 있으므로 `embeddings.npy` 삭제 후 재생성 필요.
 - **검색 결과 중복**: 같은 섹션이 top 1, 2 모두 차지하는 경우 있음 (슬라이딩 윈도우 청킹). 향후 `(chapter, section)` 기준 dedup 고려 가능.
+- **git-docs-ko 청크 우세**: 1383 vs 718로 git-docs-ko가 더 많아 명령어 질의에서 git-docs-ko 청크가 주로 반환됨. 자연어 질의는 여전히 progit이 상위.
 
 ### Test Plan
 
 - `python scripts/test_search.py` 실행 → "git rebase 사용법"으로 검색
-- top 3 결과의 chapter/section/score 출력 확인
+- top 3 결과의 chapter/section/score/source_type 출력 확인
 - 점수가 0.5 이상인지 확인 (관련성)
-- `python scripts/eval_rag.py`로 8개 쿼리 일괄 평가
+- `python scripts/eval_rag.py`로 13개 쿼리 일괄 평가
+- 명령어 질의에서 `source_type: git-docs-ko` 비율 확인

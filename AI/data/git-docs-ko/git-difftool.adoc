@@ -1,0 +1,99 @@
+git-difftool(1)
+===============
+
+NAME
+----
+git-difftool - 일반 diff 도구를 사용하여 변경 사항 보기
+
+SYNOPSIS
+--------
+[synopsis]
+git difftool [<options>] [<commit> [<commit>]] [--] [<path>...]
+
+DESCRIPTION
+-----------
+`git difftool`은 리비전 간의 파일을 일반 diff 도구를 사용하여 비교하고 편집할 수 있게 해주는 Git 명령어입니다. `git difftool`은 `git diff`의 프론트엔드이며 동일한 옵션과 인수를 허용합니다. linkgit:git-diff[1]을 참조하십시오.
+
+OPTIONS
+-------
+`-d`::
+`--dir-diff`::
+	수정된 파일을 임시 위치로 복사하고 해당 파일에 대해 디렉토리 diff를 수행합니다. 이 모드는 diff 도구를 실행하기 전에 절대 프롬프트를 표시하지 않습니다.
+
+`-y`::
+`--no-prompt`::
+	diff 도구를 실행하기 전에 프롬프트를 표시하지 않습니다.
+
+`--prompt`::
+	각 diff 도구 호출 전에 프롬프트를 표시합니다.
+	이것이 기본 동작입니다. 이 옵션은 구성 설정을 재정의하기 위해 제공됩니다.
+
+`--rotate-to=<file>`::
+	_<file>_의 diff 보기를 시작합니다. 해당 파일 이전의 경로는 끝으로 이동되어 출력됩니다.
+
+`--skip-to=<file>`::
+	_<file>_의 diff 보기를 시작하고 해당 파일 이전의 모든 경로는 건너뜁니다.
+
+`-t <tool>`::
+`--tool=<tool>`::
+	_<tool>_로 지정된 diff 도구를 사용합니다. 유효한 값에는 emerge, kompare, meld, vimdiff가 포함됩니다. 유효한 _<tool>_ 설정 목록은 `git difftool --tool-help`를 실행하여 확인할 수 있습니다.
++
+diff 도구가 지정되지 않은 경우 `git difftool`은 구성 변수 `diff.tool`을 사용합니다. 구성 변수 `diff.tool`이 설정되지 않은 경우 `git difftool`은 적합한 기본값을 선택합니다.
++
+도구의 전체 경로를 명시적으로 제공하려면 구성 변수 `difftool.<tool>.path`를 설정하면 됩니다. 예를 들어, `difftool.kdiff3.path`를 설정하여 kdiff3의 절대 경로를 구성할 수 있습니다. 그렇지 않으면 `git difftool`은 도구가 PATH에서 사용 가능하다고 가정합니다.
++
+알려진 diff 도구 중 하나를 실행하는 대신 `git difftool`은 구성 변수 `difftool.<tool>.cmd`에서 호출할 명령줄을 지정하여 대체 프로그램을 실행하도록 사용자 정의할 수 있습니다.
++
+이 도구로 `git difftool`이 호출될 때( `-t` 또는 `--tool` 옵션 또는 `diff.tool` 구성 변수를 통해) 구성된 명령줄이 다음 변수를 사용하여 호출됩니다. `$LOCAL`은 diff 이전 이미지의 내용을 포함하는 임시 파일 이름으로 설정되고 `$REMOTE`는 diff 이후 이미지의 내용을 포함하는 임시 파일 이름으로 설정됩니다. `$MERGED`는 비교 중인 파일 이름입니다. `$BASE`는 사용자 지정 병합 도구 명령과의 호환성을 위해 제공되며 `$MERGED`와 동일한 값을 갖습니다.
+
+`--tool-help`::
+	`--tool`과 함께 사용할 수 있는 diff 도구 목록을 출력합니다.
+
+`--symlinks`::
+`--no-symlinks`::
+	`git difftool`의 기본 동작은 `--dir-diff` 모드에서 실행될 때 워킹 트리에 대한 심볼릭 링크를 생성하며, 비교의 오른쪽이 워킹 트리의 파일과 동일한 내용을 생성하는 경우입니다.
++
+`--no-symlinks`를 지정하면 `git difftool`은 대신 복사본을 생성하도록 지시합니다. `--no-symlinks`는 Windows에서 기본값입니다.
+
+`-x <command>`::
+`--extcmd=<command>`::
+	diff를 보기 위한 사용자 지정 명령을 지정합니다.
+	`git-difftool`은 구성된 기본값을 무시하고 이 옵션이 지정되면 `<command> $LOCAL $REMOTE`를 실행합니다.
+	추가로, `$BASE`가 환경에 설정됩니다.
+
+`-g`::
+`--gui`::
+`--no-gui`::
+	`git difftool`이 `-g` 또는 `--gui` 옵션으로 호출될 때 기본 diff 도구는 `diff.tool` 대신 구성된 `diff.guitool` 변수에서 읽어옵니다. 이는 구성 변수 `difftool.guiDefault`를 사용하여 자동으로 선택될 수 있습니다. `--no-gui` 옵션은 이러한 설정을 재정의하는 데 사용할 수 있습니다. `diff.guitool`이 설정되지 않은 경우 `merge.guitool`, `diff.tool`, `merge.tool`의 순서로 대체되어 도구를 찾을 때까지 진행합니다.
+
+`--trust-exit-code`::
+`--no-trust-exit-code`::
+	diff 도구에서 보고된 오류는 기본적으로 무시됩니다.
+	호출된 diff 도구가 0이 아닌 종료 코드를 반환할 때 `git-difftool`이 종료되도록 하려면 `--trust-exit-code`를 사용하십시오.
++
+`--trust-exit-code`가 사용되면 `git-difftool`은 호출된 도구의 종료 코드를 전달합니다.
+
+지원되는 전체 옵션 목록은 linkgit:git-diff[1]을 참조하십시오.
+
+CONFIGURATION
+-------------
+`git difftool`은 difftool에 해당하는 설정이 정의되지 않은 경우 `git mergetool` 구성 변수로 대체됩니다.
+
+include::includes/cmd-config-section-rest.adoc[]
+
+include::config/difftool.adoc[]
+
+SEE ALSO
+--------
+linkgit:git-diff[1]::
+	 커밋, 커밋과 워킹 트리 간의 변경 사항 등을 표시합니다.
+
+linkgit:git-mergetool[1]::
+	 머지 충돌 해결 도구를 실행하여 머지 충돌을 해결합니다.
+
+linkgit:git-config[1]::
+	 저장소 또는 전역 옵션을 가져오고 설정합니다.
+
+GIT
+---
+linkgit:git[1] 스위트의 일부입니다.

@@ -1,0 +1,20 @@
+git-stage(1)
+============
+
+NAME
+----
+git-stage - 파일 내용을 스테이징 영역에 추가
+
+SYNOPSIS
+--------
+[synopsis]
+git stage <arg>...
+
+DESCRIPTION
+-----------
+
+이것은 linkgit:git-add[1]의 동의어입니다. 해당 명령어의 문서를 참조하십시오.
+
+GIT
+---
+linkgit:git[1] 시리즈의 일부

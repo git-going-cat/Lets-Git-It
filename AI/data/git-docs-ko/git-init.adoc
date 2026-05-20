@@ -1,0 +1,152 @@
+git-init(1)
+===========
+
+NAME
+----
+git-init - 비어 있는 Git 저장소를 생성하거나 기존 저장소를 다시 초기화합니다.
+
+
+SYNOPSIS
+--------
+[synopsis]
+git init [-q | --quiet] [--bare] [--template=<template-directory>]
+	 [--separate-git-dir <git-dir>] [--object-format=<format>]
+	 [--ref-format=<format>]
+	 [-b <branch-name> | --initial-branch=<branch-name>]
+	 [--shared[=<permissions>]] [<directory>]
+
+
+DESCRIPTION
+-----------
+
+이 명령은 비어 있는 Git 저장소를 생성합니다. 기본적으로 `objects`, `refs/heads`, `refs/tags`용 하위 디렉토리와 템플릿 파일이 있는 `.git` 디렉토리입니다. 초기 커밋이 없는 브랜치가 생성됩니다 (브랜치 이름은 아래 `--initial-branch` 옵션을 참조하세요).
+
+`GIT_DIR` 환경 변수가 설정되어 있다면, 저장소의 기본 경로로 `./.git` 대신 해당 경로가 사용됩니다.
+
+객체 저장 디렉토리가 `GIT_OBJECT_DIRECTORY` 환경 변수를 통해 지정되면 sha1 디렉토리가 그 아래에 생성됩니다. 그렇지 않으면 기본값인 `$GIT_DIR/objects` 디렉토리가 사용됩니다.
+
+기존 저장소에서 `git init`을 실행하는 것은 안전합니다. 이미 존재하는 내용은 덮어쓰지 않습니다. `git init`을 다시 실행하는 주된 이유는 새로 추가된 템플릿을 사용하거나 (또는 `--separate-git-dir`이 제공된 경우 저장소를 다른 위치로 이동) 하기 위함입니다.
+
+OPTIONS
+-------
+
+`-q`::
+`--quiet`::
+
+오류 및 경고 메시지만 출력합니다. 다른 모든 출력은 억제됩니다.
+
+`--bare`::
+
+베어 저장소를 생성합니다. `GIT_DIR` 환경 변수가 설정되어 있지 않으면 현재 작업 디렉토리가 사용됩니다.
+
+`--object-format=<format>`::
+저장소에 대한 해당 객체 _<format>_ (해시 알고리즘)를 지정합니다. 유효한
+값은 `sha1` 및 (활성화된 경우) `sha256`입니다. `sha1`이 기본값입니다.
++
+include::object-format-disclaimer.adoc[]
+
+`--ref-format=<format>`::
+저장소에 대한 해당 ref 저장소 _<format>_를 지정합니다. 유효한 값은 다음과 같습니다:
++
+include::ref-storage-format.adoc[]
+
+`--template=<template-directory>`::
+템플릿이 사용될 디렉토리를 지정합니다. (아래 "TEMPLATE DIRECTORY" 섹션을 참조하세요.)
+
+`--separate-git-dir=<git-dir>`::
+저장소를 `$GIT_DIR` 또는 `./.git/`로 초기화하는 대신, 실제 저장소 경로가 포함된 텍스트 파일을 거기에 생성합니다. 이 파일은 파일 시스템에 구애받지 않는 Git 심볼릭 링크 역할을 합니다.
++
+이것이 다시 초기화 작업이라면, 저장소는 지정된 경로로 이동됩니다.
+
+`-b <branch-name>`::
+`--initial-branch=<branch-name>`::
+새로 생성된 저장소의 초기 브랜치에 _<branch-name>_을 사용합니다. 지정되지 않은 경우 기본 이름으로 대체됩니다.
+ifndef::with-breaking-changes[]
+(현재 `master`이지만 Git 3.0 릴리스 시 `main`으로 변경될 예정입니다.)
+endif::with-breaking-changes[]
+ifdef::with-breaking-changes[]
+`main`.
+endif::with-breaking-changes[]
+기본 이름은 `init.defaultBranch` 설정 변수를 통해 사용자 정의할 수 있습니다.
+
+`--shared[=(false|true|umask|group|all|world|everybody|<perm>)]`::
+
+Git 저장소가 여러 사용자 간에 공유되도록 지정합니다. 이렇게 하면 동일한 그룹에 속한 사용자들이 해당 저장소에 푸시할 수 있습니다. 지정하면 `core.sharedRepository` 구성 변수가 설정되어 `$GIT_DIR` 아래의 파일 및 디렉토리가 요청된 권한으로 생성됩니다. 지정하지 않으면 Git은 `umask`(2)가 보고하는 권한을 사용합니다.
++
+옵션은 다음 값을 가질 수 있으며, 값이 없으면 `group`이 기본값입니다.
++
+--
+`umask`::
+`false`::
+
+`umask`(2)가 보고하는 권한을 사용합니다. `--shared`가 지정되지 않은 경우 기본값입니다.
+
+`group`::
+`true`::
+
+저장소를 그룹 쓰기 가능하게 만듭니다 (그리고 `g+sx`, git 그룹이 모든 사용자의 기본 그룹이 아닐 수 있기 때문입니다). 이는 안전한 `umask`(2) 값에 대한 권한을 완화하는 데 사용됩니다. umask가 다른 권한 비트 (예: umask가 `0022`일 때 `group` 사용이 다른 (그룹이 아닌) 사용자로부터 읽기 권한을 제거하지는 않음)에 여전히 적용된다는 점에 유의하세요. 저장소 권한을 정확히 지정하는 방법은 `0xxx`를 참조하세요.
+
+`all`::
+`world`::
+`everybody`::
+
+`group`과 동일하지만, 모든 사용자가 저장소를 읽을 수 있도록 합니다.
+
+_<perm>_::
+
+_<perm>_은 `0`으로 시작하는 3자리 8진수이며 각 파일의 모드는 _<perm>_입니다. _<perm>_은 사용자의 `umask`(2) 값을 재정의합니다 (`group` 및 `all`처럼 권한을 완화하는 것만이 아닙니다). `0640`은 그룹 읽기 가능하지만 그룹 쓰기 가능하지 않거나 다른 사용자가 액세스할 수 없는 저장소를 생성합니다. `0660`은 현재 사용자와 그룹이 읽고 쓸 수 있지만 다른 사용자는 액세스할 수 없는 저장소를 생성합니다 (디렉토리와 실행 파일은 해당 사용자 클래스에 대한 `r` 비트에서 `x` 비트를 얻습니다).
+--
+
+기본적으로 `receive.denyNonFastForwards` 설정 플래그는 공유 저장소에서 활성화되어 있으므로, 비패스트포워딩 푸시를 강제할 수 없습니다.
+
+ _<directory>_를 제공하면 해당 디렉토리 안에서 명령이 실행됩니다. 이 디렉토리가 존재하지 않으면 생성됩니다.
+
+TEMPLATE DIRECTORY
+------------------
+
+템플릿 디렉토리의 파일 및 디렉토리 (이름이 점으로 시작하지 않는 경우)는 생성 후 `$GIT_DIR`로 복사됩니다.
+
+템플릿 디렉토리는 다음 중 하나입니다 (순서대로):
+
+ - `--template` 옵션으로 주어진 인수;
+
+ - `$GIT_TEMPLATE_DIR` 환경 변수의 내용;
+
+ - `init.templateDir` 구성 변수; 또는
+
+ - 기본 템플릿 디렉토리: `/usr/share/git-core/templates`.
+
+기본 템플릿 디렉토리에는 일부 디렉토리 구조, 제안된 "제외 패턴" (linkgit:gitignore[5] 참조), 샘플 훅 파일이 포함되어 있습니다.
+
+샘플 훅은 기본적으로 모두 비활성화되어 있습니다. 샘플 훅 중 하나를 활성화하려면 `.sample` 접미사를 제거하여 이름을 바꾸십시오.
+
+훅 실행에 대한 더 일반적인 정보는 linkgit:githooks[5]를 참조하십시오.
+
+EXAMPLES
+--------
+
+기존 코드 베이스에 대한 새 Git 저장소 시작::
++
+----------------
+$ cd /path/to/my/codebase
+$ git init      <1>
+$ git add .     <2>
+$ git commit    <3>
+----------------
++
+<1> `/path/to/my/codebase/.git` 디렉토리를 생성합니다.
+<2> 모든 기존 파일을 인덱스에 추가합니다.
+<3> 기록에서 첫 번째 커밋으로 깨끗한 상태를 기록합니다.
+
+CONFIGURATION
+-------------
+
+include::includes/cmd-config-section-all.adoc[]
+
+:git-init:
+
+include::config/init.adoc[]
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

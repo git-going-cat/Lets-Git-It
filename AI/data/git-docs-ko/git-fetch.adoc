@@ -1,0 +1,204 @@
+git-fetch(1)
+============
+
+NAME
+----
+git-fetch - 다른 저장소에서 객체와 ref를 다운로드합니다.
+
+
+SYNOPSIS
+--------
+[synopsis]
+git fetch [<options>] [<repository> [<refspec>...]]
+git fetch [<options>] <group>
+git fetch --multiple [<options>] [(<repository>|<group>)...]
+git fetch --all [<options>]
+
+
+DESCRIPTION
+-----------
+하나 이상의 다른 저장소에서 브랜치 및/또는 태그(통칭 "refs")를 다운로드하고, 해당 히스토리를 완성하는 데 필요한 객체들을 가져옵니다. 원격 추적 브랜치가 업데이트됩니다 (_<refspec>_ 의 설명을 참조하여 이 동작을 제어하는 방법을 확인하십시오).
+
+기본적으로, 가져오는 히스토리를 가리키는 모든 태그도 함께 가져와집니다. 이는 관심 있는 브랜치를 가리키는 태그를 가져오는 효과가 있습니다. 이 기본 동작은 `--tags` 또는 `--no-tags` 옵션을 사용하거나 `remote.<name>.tagOpt`를 구성하여 변경할 수 있습니다. 명시적으로 태그를 가져오는 refspec을 사용하면, 관심 있는 브랜치를 가리키지 않는 태그도 가져올 수 있습니다.
+
+`git fetch`는 이름이 지정된 단일 저장소 또는 URL에서 가져오거나, _<group>_ 이 제공되고 구성 파일에 `remotes.<group>` 항목이 있는 경우 여러 저장소에서 한 번에 가져올 수 있습니다. (linkgit:git-config[1] 참조).
+
+원격이 지정되지 않은 경우, 기본적으로 `origin` 원격이 사용됩니다. 단, 현재 브랜치에 대한 업스트림 브랜치가 구성되어 있지 않다면 그렇습니다.
+
+가져온 ref의 이름과 해당 ref가 가리키는 객체 이름은 `.git/FETCH_HEAD`에 기록됩니다. 이 정보는 스크립트나 linkgit:git-pull[1]과 같은 다른 git 명령에서 사용될 수 있습니다.
+
+OPTIONS
+-------
+include::fetch-options.adoc[]
+
+include::pull-fetch-param.adoc[]
+
+`--stdin`::
+	인수로 제공된 refspec 외에도, stdin에서 한 줄당 하나의 refspec을 읽어옵니다. "tag _<name>_" 형식은 지원되지 않습니다.
+
+include::urls-remotes.adoc[]
+
+[[CRTB]]
+CONFIGURED REMOTE-TRACKING BRANCHES
+-----------------------------------
+
+일반적으로 같은 원격 저장소와 정기적이고 반복적으로 fetch를 통해 상호 작용합니다. 이러한 원격 저장소의 진행 상황을 추적하기 위해 `git fetch`는 `remote.<repository>.fetch` 구성 변수를 구성할 수 있도록 합니다.
+
+일반적인 변수는 다음과 같은 형태를 띨 수 있습니다:
+
+------------------------------------------------
+[remote "origin"]
+	fetch = +refs/heads/*:refs/remotes/origin/*
+------------------------------------------------
+
+이 구성은 두 가지 방식으로 사용됩니다:
+
+* `git fetch`가 명령줄에서 어떤 브랜치 및/또는 태그를 가져올지 지정하지 않고 실행될 때, 예: `git fetch origin` 또는 `git fetch`, `remote.<repository>.fetch` 값이 refspec으로 사용됩니다. 이들은 어떤 ref를 가져올지, 그리고 어떤 로컬 ref를 업데이트할지 지정합니다. 위의 예는 `origin`에 존재하는 모든 브랜치(즉, 값의 왼쪽 부분 `refs/heads/*`와 일치하는 모든 ref)를 가져오고 해당 원격 추적 브랜치를 `refs/remotes/origin/*` 계층 구조로 업데이트합니다.
+
+* `git fetch`가 명령줄에서 특정 브랜치 및/또는 태그를 가져오기 위해 실행될 때, 예: `git fetch origin master`, 명령줄에 제공된 _<refspec>_ 이 가져올 것을 결정합니다 (예: 예제의 `master`, 이는 `master:`의 짧은 형태로, " `master` 브랜치를 가져오지만, 명령줄에서 어떤 원격 추적 브랜치를 업데이트할지 명시적으로 말하지 않음"을 의미합니다). 그리고 예제 명령은 _`master` 브랜치만_ 가져올 것입니다. `remote.<repository>.fetch` 값은 어떤 원격 추적 브랜치가 업데이트될지 (있는 경우) 결정하는 데 사용됩니다. 이 방식으로 사용될 때, `remote.<repository>.fetch` 값은 _무엇을_ 가져올지 결정하는 데 아무런 영향을 미치지 않습니다 (즉, 명령줄이 refspec을 나열할 때 값이 refspec으로 사용되지 않습니다). 가져온 ref가 어디에 저장될지 결정하는 데만 사용되며 매핑 역할을 합니다.
+
+`remote.<repository>.fetch` 값의 후자 사용은 명령줄에서 `--refmap=<refspec>` 매개변수를 제공하여 재정의될 수 있습니다.
+
+PRUNING
+-------
+
+Git은 명시적으로 폐기되지 않는 한 데이터를 유지하려는 기본 성향을 가지고 있습니다. 이는 원격에서 삭제된 브랜치에 대한 로컬 참조를 계속 유지하는 데까지 확장됩니다.
+
+방치하면 이러한 오래된 참조가 쌓여 대규모의 빈번한 브랜치 변경이 있는 저장소의 성능을 저하시킬 수 있으며, `git branch -a --contains <commit>`과 같은 명령의 출력을 불필요하게 장황하게 만들고, 알려진 전체 참조 세트와 작동하는 다른 모든 것에 영향을 미칠 수 있습니다.
+
+이러한 원격 추적 참조는 다음 중 하나로 일회성으로 삭제할 수 있습니다:
+
+------------------------------------------------
+# Fetching 중
+$ git fetch --prune <name>
+
+# Prune만 수행, fetch는 안 함
+$ git remote prune <name>
+------------------------------------------------
+
+기능을 정상적으로 워크플로우에 통합하여 기억하고 실행할 필요 없이 참조를 prune하려면, 전역적으로 `fetch.prune`을 설정하거나, 원격별로 `remote.<name>.prune`을 구성 파일에서 설정하십시오. linkgit:git-config[1]을 참조하십시오.
+
+여기서 상황이 복잡하고 더 구체적이 됩니다. pruning 기능은 실제로 브랜치를 신경쓰지 않습니다. 대신 원격의 refspec의 함수로 로컬 <--> 원격 참조를 prune합니다 (위의 `<refspec>` 및 <<CRTB,CONFIGURED REMOTE-TRACKING BRANCHES>> 참조).
+
+따라서 원격의 refspec이 e.g. `refs/tags/*:refs/tags/*`를 포함하거나, 수동으로 e.g. `git fetch --prune <name> "refs/tags/*:refs/tags/*"`를 실행하면, 삭제되는 것은 stale 원격 추적 브랜치가 아니라 원격에 존재하지 않는 모든 로컬 태그가 됩니다.
+
+이는 예상과 다를 수 있습니다. 즉, 원격 _<name>_ 을 prune하려고 하지만, 또한 거기서 태그를 명시적으로 가져오려고 할 때, fetch할 때 로컬 태그 전체를 삭제하게 되는데, 이 태그들 중 대부분은 _<name>_ 원격에서 오지 않았을 수 있습니다.
+
+따라서 `refs/tags/*:refs/tags/*`와 같은 refspec이나, 여러 원격에서 참조를 동일한 로컬 네임스페이스로 매핑할 수 있는 다른 refspec과 함께 사용할 때는 주의하십시오.
+
+원격의 브랜치와 태그를 모두 최신 상태로 유지하는 것은 일반적인 사용 사례이므로 `--prune-tags` 옵션을 `--prune`과 함께 제공하여 원격에 존재하지 않는 로컬 태그를 prune하고, 다른 태그는 강제로 업데이트할 수 있습니다. 태그 pruning은 `fetch.pruneTags` 또는 `remote.<name>.pruneTags`로 구성할 수도 있습니다. linkgit:git-config[1]을 참조하십시오.
+
+`--prune-tags` 옵션은 원격의 refspec에 `refs/tags/*:refs/tags/*`가 선언된 것과 동일합니다. 이는 다소 이상하게 보이는 상호 작용을 일으킬 수 있습니다:
+
+------------------------------------------------
+# 둘 다 태그를 가져옵니다
+$ git fetch --no-tags origin 'refs/tags/*:refs/tags/*'
+$ git fetch --no-tags --prune-tags origin
+------------------------------------------------
+
+`--prune` 또는 해당 구성 버전 없이 제공되었을 때 오류가 발생하지 않는 이유는 구성 버전의 유연성을 위해서이며, 명령줄 플래그가 하는 일과 구성 버전이 하는 일 사이에 1:1 매핑을 유지하기 위해서입니다.
+
+`~/.gitconfig`에 `fetch.pruneTags=true`를 구성하여 `git fetch --prune`이 실행될 때마다 태그가 prune되도록 하는 것은 합리적입니다. `--prune` 없이 `git fetch`를 호출할 때마다 오류가 발생하는 것을 피하기 위해서입니다.
+
+`--prune-tags`로 태그를 prune하는 것은 URL을 fetch할 때도 작동합니다. 다음은 모두 origin에 없는 태그를 prune합니다:
+
+------------------------------------------------
+$ git fetch origin --prune --prune-tags
+$ git fetch origin --prune 'refs/tags/*:refs/tags/*'
+$ git fetch <url-of-origin> --prune --prune-tags
+$ git fetch <url-of-origin> --prune 'refs/tags/*:refs/tags/*'
+------------------------------------------------
+
+OUTPUT
+------
+
+"git fetch"의 출력은 전송 방법에 따라 달라집니다. 이 섹션에서는 Git 프로토콜(로컬 또는 ssh 경유) 및 Smart HTTP 프로토콜을 통해 fetch할 때의 출력을 설명합니다.
+
+fetch의 상태는 테이블 형식으로 출력되며, 각 줄은 단일 ref의 상태를 나타냅니다. 각 줄의 형식은 다음과 같습니다:
+
+-------------------------------
+ <flag> <summary> <from> -> <to> [<reason>]
+-------------------------------
+
+`--porcelain`을 사용할 때, 출력 형식은 기계가 파싱하기 용이하도록 되어 있습니다. 인간이 읽을 수 있는 출력 형식과 달리 표준 출력으로 출력됩니다. 각 줄의 형식은 다음과 같습니다:
+
+-------------------------------
+<flag> <old-object-id> <new-object-id> <local-reference>
+-------------------------------
+
+최신 상태인 ref의 상태는 `--verbose` 옵션이 사용된 경우에만 표시됩니다.
+
+컴팩트 출력 모드에서는 `fetch.output` 구성 변수로 지정되며, _<from>_ 또는 _<to>_ 전체가 다른 문자열에 포함되어 있으면 다른 문자열에서 `*`로 대체됩니다. 예를 들어, `master -> origin/master`는 `master -> origin/*`가 됩니다.
+
+flag::
+	ref의 상태를 나타내는 단일 문자:
+(space);; 성공적으로 fetch된 fast-forward;
+`+`;; 성공적인 강제 업데이트;
+`-`;; 성공적으로 prune된 ref;
+`t`;; 성공적인 태그 업데이트;
+`*`;; 성공적으로 fetch된 새 ref;
+`!`;; 거부되거나 업데이트에 실패한 ref;
+`=`;; 업데이트되었고 fetch가 필요하지 않은 ref.
+
+summary::
+	성공적으로 fetch된 ref의 경우, 요약은 `git log`에 인수로서 사용하기에 적합한 형식으로 ref의 이전 및 새 값을 보여줍니다 (대부분의 경우 `<old>..<new>`이며, 강제 비-fast-forward 업데이트의 경우 `<old>...<new>`입니다).
+
+from::
+	가져오는 원격 ref의 이름, `refs/<type>/` 접두사를 제외한 이름. 삭제의 경우, 원격 ref의 이름은 "(none)"입니다.
+
+to::
+	업데이트되는 로컬 ref의 이름, `refs/<type>/` 접두사를 제외한 이름.
+
+reason::
+	인간이 읽을 수 있는 설명. 성공적으로 fetch된 ref의 경우, 설명이 필요하지 않습니다. 실패한 ref의 경우, 실패 이유가 설명됩니다.
+
+EXAMPLES
+--------
+
+* 원격 추적 브랜치 업데이트:
++
+------------------------------------------------
+$ git fetch origin
+------------------------------------------------
++
+위 명령은 `remote.<repository>.fetch` 옵션을 사용하여 기본이 아닌 refspec을 지정하지 않는 한, 원격 `refs/heads/` 네임스페이스의 모든 브랜치를 복사하여 로컬 `refs/remotes/origin/` 네임스페이스에 저장합니다.
+
+* 명시적으로 refspec 사용:
++
+------------------------------------------------
+$ git fetch origin +seen:seen maint:tmp
+------------------------------------------------
++
+이 명령은 원격 저장소의 `seen` 및 `maint` 브랜치에서 fetch하여 로컬 저장소의 `seen` 및 `tmp` 브랜치를 업데이트하거나(필요한 경우 생성)합니다.
++
+`seen` 브랜치는 fast-forward가 되지 않더라도 업데이트될 것입니다. 왜냐하면 플러스 기호로 접두사가 붙었기 때문입니다. `tmp`는 그렇지 않습니다.
+
+* 원격의 브랜치를 로컬 저장소에 구성하지 않고 엿보기:
++
+------------------------------------------------
+$ git fetch git://git.kernel.org/pub/scm/git/git.git maint
+$ git log FETCH_HEAD
+------------------------------------------------
++
+첫 번째 명령은 `git://git.kernel.org/pub/scm/git/git.git` 저장소에서 `maint` 브랜치를 fetch하고, 두 번째 명령은 `FETCH_HEAD`를 사용하여 linkgit:git-log[1]으로 브랜치를 검사합니다. fetch된 객체는 곧 git 내장 정리(linkgit:git-gc[1] 참조)에 의해 제거될 것입니다.
+
+include::transfer-data-leaks.adoc[]
+
+CONFIGURATION
+-------------
+
+include::includes/cmd-config-section-all.adoc[]
+
+include::config/fetch.adoc[]
+
+BUGS
+----
+`--recurse-submodules`를 사용하면 로컬에 존재하는 서브모듈의 새 커밋만 fetch할 수 있습니다 (예: `$GIT_DIR/modules/`). 업스트림에서 새 서브모듈을 추가하는 경우, `git submodule update` 등으로 복제될 때까지 해당 서브모듈을 fetch할 수 없습니다. 이는 향후 Git 버전에서 수정될 것으로 예상됩니다.
+
+SEE ALSO
+--------
+linkgit:git-pull[1]
+
+GIT
+---
+linkgit:git[1] suite의 일부

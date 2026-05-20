@@ -96,7 +96,11 @@ RATE_LIMIT_PER_MINUTE=30
 
 ## 4. EC2 최초 1회 — embeddings.npy 생성
 
-`data/embeddings.npy`는 gitignore 처리되어 있어 Docker 빌드 전 EC2에서 직접 생성해야 합니다. **최초 1회만** 필요하며, Pro Git 데이터가 바뀌지 않는 한 재생성 불필요.
+`data/embeddings.npy`는 gitignore 처리되어 있어 Docker 빌드 전 EC2에서 직접 생성해야 합니다. **최초 1회만** 필요하며, 코퍼스(`data/chunks.json`)가 바뀌지 않는 한 재생성 불필요.
+
+코퍼스는 두 종류로 구성됨:
+- **Pro Git 한국어판** (`data/chunks.json`에 포함, progit 718청크)
+- **Git 공식 문서 한국어 번역본** (`data/git-docs-ko/`, 1383청크) — `data/chunks.json`에 통합됨
 
 ```bash
 cd /home/ubuntu/develop/S14P31A304/AI
@@ -104,10 +108,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# OPENROUTER_API_KEY 필요
+# OPENROUTER_API_KEY 필요 (임베딩 API 호출용)
 export OPENROUTER_API_KEY=sk-or-...
 python scripts/ingest.py --index
-# 완료 시 data/embeddings.npy 생성됨 (약 3.5MB)
+# 완료 시 data/embeddings.npy 생성됨 (약 12.9MB, 2101청크)
 
 deactivate
 ```
@@ -230,5 +234,44 @@ deploy-dev-ai:
 | 코드 | 원인 |
 |---|---|
 | 401 | X-API-Key 헤더 누락 또는 불일치 |
-| 422 | 요청 필드 누락 |
+| 422 | 요청 필드 누락 또는 `userInput`이 git 명령어 형식이 아님 (한국어, 자연어, rm -rf 등) |
 | 429 | IP 분당 30회 초과 |
+
+**FE 권장 fallback 처리:**
+
+LLM 실패 시 서버는 503 대신 200을 반환하며 `coaching` 필드에 `"정답 명령어: \`{correctCommand}\`"` 형태의 fallback을 포함합니다. FE는 `coaching` 필드를 그대로 표시하면 됩니다.
+
+단, 422(비git입력) · 401 · 429 등 non-2xx는 별도로 발생할 수 있습니다. 이 경우에도 `correctCommand`를 직접 표시하도록 방어 처리를 권장합니다.
+
+```typescript
+try {
+  const res = await fetchCoaching({ userInput, correctCommand, cardId, score });
+  // LLM 실패 포함 모두 res.coaching이 존재함
+  showCoaching(res.coaching);
+} catch {
+  // 422(비git입력), 429(rate limit), 401 등
+  showCorrectAnswer(correctCommand);
+}
+```
+
+---
+
+## 운영 모니터링
+
+### fallback 비율 트래킹 (필수)
+
+`/coaching`은 LLM/검색 실패를 모두 200 + `modelUsed: "fallback"`로 숨깁니다. 운영 장애를 놓치지 않으려면 **fallback 비율을 반드시 트래킹**해야 합니다.
+
+**로그 기반 (즉시 사용 가능):**
+
+`coaching.py`의 fallback 경로는 `logger.exception("coaching.fallback — ...")` 라벨로 통일되어 있습니다. 로그에서 grep으로 카운트 가능:
+
+```bash
+docker logs fastapi | grep -c "coaching.fallback"
+```
+
+**메트릭 기반 (권장, Sentry/Prometheus 도입 시):**
+
+응답 JSON의 `modelUsed == "fallback"` 비율을 메트릭으로 발행. 임계치(예: 5분 평균 > 10%)에서 알람.
+
+운영 관점에서 정상 동작 시 fallback 비율은 < 1% 수준이어야 함. 그 이상이면 OpenRouter 장애, API 키 만료, 또는 코퍼스 임베딩 누락 가능성.
