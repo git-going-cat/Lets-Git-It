@@ -15,6 +15,10 @@ async def generate_coaching(
     correct_command: str,
     card_id: str,
     score: int,
+    base: int,
+    must: int,
+    bonus: int,
+    explanation: str | None = None,
 ) -> dict[str, Any]:
     cache_key = make_coaching_cache_key(card_id, user_input)
     cached = await get_cached(cache_key)
@@ -29,12 +33,16 @@ async def generate_coaching(
     chunks = await search(query, top_k=3)
 
     context = build_context(chunks) if chunks else "관련 자료 없음"
+    explanation_block = explanation or "(제공되지 않음)"
+    user_content = (
+        f"사용자 입력: {user_input}\n"
+        f"정답 예시: {correct_command}\n"
+        f"채점 결과: base={base}/40, must={must}/40, bonus={bonus}/20 (총 {score}/100)\n"
+        f"카드 해설 (응답에 인용 금지, 내부 참고만): {explanation_block}"
+    )
     messages = [
         {"role": "system", "content": COACHING_SYSTEM_PROMPT.format(context=context)},
-        {
-            "role": "user",
-            "content": f"사용자 입력: {user_input}\n정답 명령어: {correct_command}\n점수: {score}",
-        },
+        {"role": "user", "content": user_content},
     ]
 
     try:
