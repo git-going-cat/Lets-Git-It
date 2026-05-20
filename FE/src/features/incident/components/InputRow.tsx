@@ -2,12 +2,12 @@ import { useEffect, useRef } from 'react';
 
 import ScoreRow from './ScoreRow';
 
-import type { HistoryEntry, IncidentPhase, ScoreResult } from '../types/incident.types';
+import type { HistoryEntry, Phase, ScoreResult } from '../types/incident.types';
 
 interface InputRowProps {
   input: string;
   setInput: (v: string) => void;
-  phase: IncidentPhase;
+  phase: Phase;
   onFinalize: () => void;
   onRetry: () => void;
   onShowAnswer: () => void;
@@ -17,6 +17,7 @@ interface InputRowProps {
   isLastCard: boolean;
   focusTrigger?: number;
   currentBranch?: string;
+  aiCoachingLoading?: boolean;
 }
 
 export default function InputRow({
@@ -32,6 +33,7 @@ export default function InputRow({
   isLastCard,
   focusTrigger,
   currentBranch = 'main',
+  aiCoachingLoading = false,
 }: InputRowProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const nextBtnRef = useRef<HTMLButtonElement>(null);
@@ -58,10 +60,10 @@ export default function InputRow({
   }, [focusTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (phase !== 'scored') return;
+    if (phase !== 'scored' || aiCoachingLoading) return;
     const id = setTimeout(() => nextBtnRef.current?.focus(), 0);
     return () => clearTimeout(id);
-  }, [phase]);
+  }, [phase, aiCoachingLoading]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -166,7 +168,14 @@ export default function InputRow({
           </button>
         )}
 
-        {phase === 'scored' && scored && (
+        {phase === 'scored' && aiCoachingLoading && (
+          <div className="flex h-full flex-col items-center justify-center gap-3">
+            <span className="text-base text-gray-400">채점 중</span>
+            <span className="loader" />
+          </div>
+        )}
+
+        {phase === 'scored' && !aiCoachingLoading && scored && (
           <>
             <div
               className="nes-container score-pop flex w-full flex-1 items-center gap-3 bg-white !p-2"

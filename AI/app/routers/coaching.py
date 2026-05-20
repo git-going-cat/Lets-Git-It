@@ -13,6 +13,10 @@ class CoachingRequest(BaseModel):
     correctCommand: str = Field(..., min_length=1, max_length=200)
     cardId: str = Field(..., min_length=1, max_length=100)
     score: int = Field(..., ge=0, le=100)
+    base: int = Field(..., ge=0, le=100)
+    must: int = Field(..., ge=0, le=100)
+    bonus: int = Field(..., ge=0, le=100)
+    explanation: str | None = Field(default=None, max_length=2000)
 
     @field_validator("userInput", "correctCommand", "cardId")
     @classmethod
@@ -31,4 +35,8 @@ async def coaching(body: CoachingRequest, request: Request):
         correct_command=body.correctCommand,
         card_id=body.cardId,
         score=body.score,
+        base=body.base,
+        must=body.must,
+        bonus=body.bonus,
+        explanation=body.explanation,
     )
