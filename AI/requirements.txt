@@ -1,0 +1,24 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# OpenAI-compatible SDK (works with OpenRouter via base_url override)
+openai==1.57.4
+
+# Numeric / vector search
+numpy==2.2.6
+
+# Redis client
+redis==5.2.1
+
+# Environment & config
+python-dotenv==1.0.1
+
+# Token counting
+tiktoken==0.8.0
+
+# Logging
+loguru==0.7.3
+
+# Retry logic
+tenacity==9.0.0
