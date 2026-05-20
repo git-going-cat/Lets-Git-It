@@ -27,11 +27,21 @@ async function leaveRoomKeepAlive(roomId: number): Promise<void> {
 export function useRoomExitGuard({ roomId, reset, shouldLeave }: UseRoomExitGuardOptions) {
   const hasLeftRef = useRef(false);
   const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resetRef = useRef(reset);
+  const shouldLeaveRef = useRef(shouldLeave);
+
+  useEffect(() => {
+    resetRef.current = reset;
+  }, [reset]);
+
+  useEffect(() => {
+    shouldLeaveRef.current = shouldLeave;
+  }, [shouldLeave]);
 
   const leave = useCallback(
     async (bestEffort: boolean) => {
       if (roomId == null || roomId <= 0 || hasLeftRef.current) return;
-      if (shouldLeave && !shouldLeave()) return;
+      if (shouldLeaveRef.current && !shouldLeaveRef.current()) return;
       hasLeftRef.current = true;
 
       try {
@@ -43,10 +53,10 @@ export function useRoomExitGuard({ roomId, reset, shouldLeave }: UseRoomExitGuar
       } catch (error) {
         console.error('[RoomExitGuard] 방 나가기 실패:', error);
       } finally {
-        reset();
+        resetRef.current();
       }
     },
-    [reset, roomId, shouldLeave]
+    [roomId]
   );
 
   // roomId 변경 시 guard 초기화 + 이전 leave 예약 취소

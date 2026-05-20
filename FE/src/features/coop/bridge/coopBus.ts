@@ -2,6 +2,7 @@ import { TypedEventBus } from '@/core/bridge/TypedEventBus';
 
 interface CoopEventMap {
   'coop:reveal-ended': void;
+  'coop:scene-ready': void;
   'coop:assign-start': void;
   'coop:shuffle-complete': void;
   'coop:assign-reveal': { myCommandOrder: number };

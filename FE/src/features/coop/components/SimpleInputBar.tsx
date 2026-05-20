@@ -10,6 +10,7 @@ export default function SimpleInputBar() {
     isInputDisabled,
     isShaking,
     activeBranch,
+    placeholder,
     handleInputChange,
     handleKeyDown,
     setIsShaking,
@@ -26,6 +27,7 @@ export default function SimpleInputBar() {
         history={history}
         isPlaying={!isInputDisabled}
         activeBranch={activeBranch}
+        placeholder={placeholder}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
       />

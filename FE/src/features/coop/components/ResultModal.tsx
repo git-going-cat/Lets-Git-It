@@ -31,8 +31,7 @@ export default function ResultModal({ onBackToRoom }: ResultModalProps) {
   const isSuccess = result?.isSuccess === true;
   const results = result?.isSuccess === true ? result.results : [];
   const elapsedTime = result?.isSuccess === true ? result.elapsedTime : 0;
-  const reason = result?.reason ?? null;
-  const hasNewRecord = results.some((player) => player.newRecord === true);
+  const hasNewRecord = results.some((player) => player.isNewRecord === true);
 
   const cleanup = () => {
     clearSession();
@@ -42,7 +41,11 @@ export default function ResultModal({ onBackToRoom }: ResultModalProps) {
     onBackToRoom?.();
     cleanup();
     if (roomId != null) {
-      void navigate({ to: '/multi/$roomId', params: { roomId: String(roomId) } });
+      void navigate({
+        to: '/multi/$roomId',
+        params: { roomId: String(roomId) },
+        search: { fromGameResult: true },
+      });
       return;
     }
 
@@ -55,7 +58,7 @@ export default function ResultModal({ onBackToRoom }: ResultModalProps) {
   };
 
   return (
-    <PixelModal isOpen={isVisible} title="협력 게임 결과">
+    <PixelModal isOpen={isVisible} title={isSuccess ? '협력 게임 결과' : '게임이 종료되었습니다'}>
       <span
         className={`nes-text text-2xl tracking-widest ${isSuccess ? 'is-success' : 'is-warning'}`}
       >
@@ -72,10 +75,8 @@ export default function ResultModal({ onBackToRoom }: ResultModalProps) {
           )}
         </p>
       ) : (
-        <p className="m-0 text-center font-pixel text-base text-yellow-300">
-          {reason === 'PLAYER_DISCONNECTED'
-            ? '플레이어 이탈로 게임이 종료되었습니다.'
-            : '게임이 종료되었습니다.'}
+        <p className="m-0 max-w-md text-center font-pixel text-base leading-relaxed text-yellow-300">
+          플레이어가 연결을 종료하여 게임이 중단되었습니다.
         </p>
       )}
 
@@ -91,7 +92,7 @@ export default function ResultModal({ onBackToRoom }: ResultModalProps) {
                 <span className="shrink-0 text-[#F2CB05]">{player.ranking}위</span>
                 <span className="min-w-0 flex-1 truncate">{player.nickname}</span>
                 <span className="shrink-0 text-gray-300">오타 {player.wrongTypeCount}</span>
-                <span className="shrink-0 text-gray-300">순서 {player.wrongOrderCount}</span>
+                <span className="shrink-0 text-gray-300">리셋 {player.wrongOrderCount}</span>
                 <span className="shrink-0 text-cyan-300">총 {totalWrong}</span>
               </div>
             );
@@ -100,8 +101,8 @@ export default function ResultModal({ onBackToRoom }: ResultModalProps) {
       )}
 
       <div className="mt-2 flex w-full flex-col gap-2">
-        <PixelButton label="방으로" onClick={handleBackToRoom} variant="primary" />
-        <PixelButton label="메인으로" onClick={handleHome} />
+        <PixelButton label="대기실로 돌아가기" onClick={handleBackToRoom} variant="primary" />
+        {isSuccess && <PixelButton label="메인으로" onClick={handleHome} />}
       </div>
     </PixelModal>
   );

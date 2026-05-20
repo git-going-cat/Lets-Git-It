@@ -1,5 +1,5 @@
 ﻿import { useCallback, useState } from 'react';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Check, Copy, Gamepad2, LockKeyhole, LogOut, Settings, Users } from 'lucide-react';
 
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -53,6 +53,7 @@ function getMemberActionErrorMessage(error: unknown) {
 export default function WaitingRoom() {
   const navigate = useNavigate();
   const { roomId } = useParams({ from: '/multi/$roomId' });
+  const { fromGameResult } = useSearch({ from: '/multi/$roomId' });
   const numericRoomId = Number(roomId);
 
   const title = useRoomStore((s) => s.title);
@@ -78,6 +79,8 @@ export default function WaitingRoom() {
   const handleReconnectComplete = useCallback(
     (restoredRoomState: string | null) => {
       if (restoredRoomState === 'IN_GAME') {
+        if (fromGameResult) return;
+
         const currentMode = useRoomStore.getState().mode;
         reset();
         void navigate({ to: '/home', search: { lobby: currentMode ?? 'CONTRIBUTION' } });
@@ -86,7 +89,7 @@ export default function WaitingRoom() {
         setRestoreError(true);
       }
     },
-    [navigate, reset]
+    [fromGameResult, navigate, reset]
   );
 
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -178,9 +181,9 @@ export default function WaitingRoom() {
           playerId: player.playerId,
           nickname: player.nickname,
           isMe:
-            myMemberId !== undefined
+            myMemberId != null
               ? player.playerId === myMemberId || member?.playerId === myMemberId
-              : myNickname !== undefined &&
+              : myNickname != null &&
                 (player.nickname === myNickname || member?.nickname === myNickname),
           commandOrder: index + 1,
           characterHair: member?.characterHair ?? '',
@@ -197,8 +200,9 @@ export default function WaitingRoom() {
         sessionId: message.gameSessionId,
         roomId: numericRoomId,
         mapName: useRoomStore.getState().selectedMap?.mapName ?? null,
-        startKey: Date.now(),
-        startDelayMs: Math.max(0, message.startAt - Date.now()),
+        startKey: message.startAt,
+        startAt: message.startAt + (Date.now() - message.serverTime),
+        startDelayMs: Math.max(0, message.startAt - message.serverTime),
       });
       useCoopStore.getState().setPlayerSnapshots(players);
       useCoopStore.getState().setGameSessionId(message.gameSessionId);
@@ -225,8 +229,11 @@ export default function WaitingRoom() {
       }
     );
 
+  const myMemberId = useAuthStore((s) => s.user?.memberId);
   const myNickname = useAuthStore((s) => s.user?.nickname);
-  const me = members.find((m) => m.nickname === myNickname);
+  const me =
+    members.find((member) => member.playerId === myMemberId) ??
+    members.find((member) => member.nickname === myNickname);
   const myPlayerId = me?.playerId;
   const isHost = me?.isHost ?? false;
 
