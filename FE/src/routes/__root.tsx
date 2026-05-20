@@ -6,6 +6,7 @@ import { useAuthStore, waitForAuthStoreHydration } from '@/features/auth/store/a
 import { fetchMyAuthUser } from '@/features/mypage/api/mypageApi';
 import { PostHogPageView } from '@/providers/PostHogProvider';
 import { RouteErrorFallback } from '@/shared/components/RouteErrorFallback';
+import { RouteNotFoundFallback } from '@/shared/components/RouteNotFoundFallback';
 
 /** 인증 없이 접근 가능한 경로 */
 const PUBLIC_PATHS = ['/login', '/auth/callback/google'];
@@ -47,6 +48,7 @@ export const Route = createRootRoute({
   },
   component: RootComponent,
   errorComponent: RouteErrorFallback,
+  notFoundComponent: RouteNotFoundFallback,
 });
 
 function RootComponent() {

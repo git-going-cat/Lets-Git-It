@@ -17,6 +17,7 @@ import {
 import { useRoomStore } from '../store/roomStore';
 
 import type { ContributionStartedMessage, CoopStartedMessage } from '../schemas/room.schema';
+import type { GameMode } from '../types/room.types';
 
 const topicKey = (roomId: number) => `room-topic-${roomId}`;
 const contributionGameKey = (roomId: number) => `room-contribution-start-${roomId}`;
@@ -71,6 +72,7 @@ type GameStartHandlers = {
  */
 export function useRoomSocket(
   roomId: number,
+  mode: GameMode | null,
   onReconnectComplete?: (roomState: string | null) => void,
   privateQueueHandlers: PrivateQueueHandlers = {},
   gameStartHandlers: GameStartHandlers = {}
@@ -152,6 +154,12 @@ export function useRoomSocket(
     socketManager.subscribe(
       '/user/queue/private',
       (raw) => {
+        const messageType = getMessageType(raw);
+        if (COOP_RUNTIME_MESSAGE_TYPES.has(messageType ?? '')) {
+          useCoopStore.getState().enqueuePendingMessage(raw);
+          return;
+        }
+
         const baseMessage = baseMessageSchema.safeParse(raw);
         if (!baseMessage.success) {
           console.error('[WS] 개인 큐 메시지 파싱 실패:', baseMessage.error);
@@ -210,9 +218,6 @@ export function useRoomSocket(
           }
 
           default:
-            if (COOP_RUNTIME_MESSAGE_TYPES.has(baseMessage.data.type)) {
-              useCoopStore.getState().enqueuePendingMessage(raw);
-            }
             return;
         }
       },
@@ -283,12 +288,12 @@ export function useRoomSocket(
 
     return () => {
       socketManager.unsubscribe(topicKey(roomId));
-      socketManager.unsubscribe(contributionGameKey(roomId));
-      socketManager.unsubscribe(coopGameKey(roomId));
+      if (mode === 'CONTRIBUTION') socketManager.unsubscribe(contributionGameKey(roomId));
+      if (mode === 'COOP') socketManager.unsubscribe(coopGameKey(roomId));
       socketManager.unsubscribe(PRIVATE_KEY);
       clearFallbackTimer();
     };
-  }, [clearFallbackTimer, roomId, scheduleRestFallback]);
+  }, [clearFallbackTimer, mode, roomId, scheduleRestFallback]);
 
   // Effect 2: 네트워크 단절 / 재연결 감지
   useEffect(() => {

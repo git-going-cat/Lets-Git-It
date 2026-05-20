@@ -1,20 +1,14 @@
-// ── 주차 파라미터 ──────────────────────────────────────────
-
 export interface WeekParam {
   year: number;
   month: number;
   week: number;
 }
 
-// ── 모드 타입 ──────────────────────────────────────────────
-
 export const SINGLE_RANKING_MODES = ['single-easy', 'single-normal', 'single-hard'] as const;
 
 export type SingleRankingMode = (typeof SINGLE_RANKING_MODES)[number];
 
 export type RankingMode = SingleRankingMode | 'speed' | 'timeattack' | 'coop';
-
-// ── 엔트리 타입 (REST API 응답 기준) ──────────────────────
 
 export interface SingleRankingEntry {
   rank: number;
@@ -26,8 +20,10 @@ export interface SingleRankingEntry {
 
 export interface SpeedRankingEntry {
   rank: number;
+  playerId: string;
   nickname: string;
   contribution: number;
+  playCount: number;
 }
 
 export interface TimeAttackRankingEntry {
@@ -36,11 +32,20 @@ export interface TimeAttackRankingEntry {
   totalCount: number;
 }
 
+export interface CoopRankingMember {
+  playerId: string;
+  nickname: string;
+}
+
 export interface CoopRankingEntry {
   rank: number;
-  nickname: string;
-  clearTime: number; // ms 단위
+  teamName: string;
+  mapName: string;
   difficulty: number;
+  elapsedTime: number;
+  totalWrongTypeCount: number;
+  totalWrongOrderCount: number;
+  members: CoopRankingMember[];
 }
 
 export type RankingEntry =
@@ -48,8 +53,6 @@ export type RankingEntry =
   | SpeedRankingEntry
   | TimeAttackRankingEntry
   | CoopRankingEntry;
-
-// ── 내 랭킹 타입 ──────────────────────────────────────────
 
 export interface SingleMyRank {
   rank: number;
@@ -61,6 +64,7 @@ export interface SingleMyRank {
 export interface SpeedMyRank {
   rank: number;
   contribution: number;
+  playCount: number;
 }
 
 export interface TimeAttackMyRank {
@@ -70,12 +74,16 @@ export interface TimeAttackMyRank {
 
 export interface CoopMyRank {
   rank: number;
-  clearTime: number;
+  teamName: string;
+  mapName: string;
+  difficulty: number;
+  elapsedTime: number;
+  totalWrongTypeCount: number;
+  totalWrongOrderCount: number;
+  members: CoopRankingMember[];
 }
 
 export type MyRank = SingleMyRank | SpeedMyRank | TimeAttackMyRank | CoopMyRank | null;
-
-// ── 초기 진입 응답 (top3 + myRank + around) ───────────────
 
 export interface RankingInitialResponse<T extends RankingEntry, M extends Exclude<MyRank, null>> {
   year: number;
@@ -90,8 +98,6 @@ export interface RankingInitialResponse<T extends RankingEntry, M extends Exclud
   hasNext: boolean;
 }
 
-// ── 무한 스크롤 응답 (rankings) ───────────────────────────
-
 export interface RankingInfiniteResponse<T extends RankingEntry> {
   rankings: T[];
   prevCursor?: number | null;
@@ -104,12 +110,22 @@ export type RankingResponse<T extends RankingEntry, M extends Exclude<MyRank, nu
   | RankingInitialResponse<T, M>
   | RankingInfiniteResponse<T>;
 
-// ── 등급 뱃지 ─────────────────────────────────────────────
-
 export type RankGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
 
 export interface CoopRankingQuery {
   mapName: string;
   difficulty: number;
-  mapId?: string | number;
+  mapId?: string;
+}
+
+export interface CoopRankingMap {
+  mapId: string;
+  mapName: string;
+  difficulty: number;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export interface CoopRankingMapListResponse {
+  maps: CoopRankingMap[];
 }

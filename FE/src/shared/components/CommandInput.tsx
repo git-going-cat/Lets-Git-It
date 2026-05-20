@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 
-export type HistoryStatus = 'ok' | 'typo' | 'miss' | 'wrong-branch' | 'switch';
+export type HistoryStatus = 'ok' | 'typo' | 'miss' | 'wrong-branch' | 'switch' | 'error';
 
 interface HistoryEntry {
   text: string;
@@ -13,6 +13,7 @@ export interface CommandInputProps {
   history: HistoryEntry[];
   isPlaying: boolean;
   activeBranch: string;
+  placeholder?: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
@@ -22,6 +23,7 @@ const HISTORY_STATUS_CLASS: Record<HistoryStatus, string> = {
   miss: 'text-yellow-400',
   typo: 'text-red-400',
   'wrong-branch': 'text-red-400',
+  error: 'text-red-400',
   switch: 'text-green-400/60',
 };
 
@@ -31,6 +33,7 @@ export default function CommandInput({
   history,
   isPlaying,
   activeBranch,
+  placeholder = 'Waiting for input...',
   onChange,
   onKeyDown,
 }: CommandInputProps) {
@@ -60,6 +63,7 @@ export default function CommandInput({
             type="text"
             className="flex-1 bg-transparent !text-2xl text-white outline-none"
             value={value}
+            placeholder={placeholder}
             onChange={onChange}
             onKeyDown={onKeyDown}
             onCopy={(e) => e.preventDefault()}
