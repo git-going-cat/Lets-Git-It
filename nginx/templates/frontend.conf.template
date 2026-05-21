@@ -1,0 +1,28 @@
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN_FRONTEND};
+
+    ssl_certificate ${SSL_CERT};
+    ssl_certificate_key ${SSL_KEY};
+
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+
+   location /faro/collect {
+        proxy_pass http://grafana-agent:12347/collect;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+
+        # 추가
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' '*' always;
+
+        if ($request_method = 'OPTIONS') {
+            return 204;
+        }
+    }
+}

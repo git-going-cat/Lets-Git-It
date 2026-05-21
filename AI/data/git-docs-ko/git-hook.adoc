@@ -1,0 +1,195 @@
+git-hook(1)
+===========
+
+NAME
+----
+git-hook - Git 훅 실행
+
+SYNOPSIS
+--------
+[verse]
+'git hook' run [--allow-unknown-hook-name] [--ignore-missing] [--to-stdin=<path>] [(-j|--jobs) <n>]
+	<hook-name> [-- <hook-args>]
+'git hook' list [--allow-unknown-hook-name] [-z] [--show-scope] <hook-name>
+
+DESCRIPTION
+-----------
+
+Git 훅(참조: linkgit:githooks[5])을 실행하기 위한 커맨드 인터페이스로,
+다른 스크립트 기반 Git 커맨드에서 사용됩니다.
+
+이 커맨드는 다음과 같은 설정 셋을 위한 기본 설정 파일을 파싱합니다:
+
+  [hook "linter"]
+    event = pre-commit
+    command = ~/bin/linter --cpp20
+
+이 예시에서, `[hook "linter"]`는 하나의 스크립트인 `~/bin/linter --cpp20`을 나타냅니다.
+이 스크립트는 여러 저장소에서도 공유될 수 있으며, 적절하다면 여러 훅 이벤트에서도 공유될 수 있습니다.
+
+다른 이벤트에서 실행되는 관련 없는 훅을 추가하려면, 예를 들어 커밋 메시지에 대한
+맞춤법 검사기라면 다음과 같은 설정을 작성할 수 있습니다:
+
+  [hook "linter"]
+    event = pre-commit
+    command = ~/bin/linter --cpp20
+  [hook "spellcheck"]
+    event = commit-msg
+    command = ~/bin/spellchecker
+
+이 설정으로 'git commit'을 실행하면, 먼저 `~/bin/linter --cpp20`이
+커밋될 파일들을 검사할 기회를 갖게 됩니다 (`pre-commit` 훅 이벤트 동안).
+그런 다음 `~/bin/spellchecker`가 커밋 메시지를 검사할 기회를 갖게 됩니다 (`commit-msg` 훅 이벤트 동안).
+
+커맨드는 Git이 설정 파싱 중에 해당 `hook.<friendly-name>.event` 설정을
+발견하는 순서대로 실행됩니다 (참조: linkgit:git-config[1]). 여러 `hook.linter.event` 설정이 추가될 수 있지만,
+`hook.linter.command` 이벤트는 하나만 유효합니다. Git은 어떤 커맨드를 실행할지 결정하기 위해
+"마지막 설정이 우선" 방식을 사용합니다.
+
+따라서 커밋 시에도 린터를 실행하고 푸시 시에도 실행되도록 하려면 다음과 같이 설정할 수 있습니다:
+
+  [hook "linter"]
+    event = pre-commit
+    event = pre-push
+    command = ~/bin/linter --cpp20
+
+이 설정으로, Git은 커밋이 생성되기 전 (`pre-commit` 동안) 및 푸시가 수행되기 전 (`pre-push` 동안)에
+`~/bin/linter --cpp20`을 실행합니다.
+
+그리고 "pre-commit" 훅 이벤트 동안에만 린터와 비밀 정보 유출 탐지기를 실행하고 싶다면,
+대신 다음과 같이 설정할 수 있습니다:
+
+  [hook "linter"]
+    event = pre-commit
+    command = ~/bin/linter --cpp20
+  [hook "no-leaks"]
+    event = pre-commit
+    command = ~/bin/leak-detector
+
+이 설정으로, 커밋이 생성되기 전 (`pre-commit` 동안) Git은 먼저 `~/bin/linter --cpp20`을 시작하고,
+그 다음 `~/bin/leak-detector`를 시작합니다. Git은 각자의 출력을 평가하여 커밋을 계속 진행할지 결정합니다.
+
+`hook.<friendly-name>.event` 설정을 지정할 수 있는 훅 이벤트의 전체 목록과
+각 이벤트 동안 훅이 어떻게 호출되는지에 대해서는 참조: linkgit:githooks[5]를 참조하세요.
+
+Git은 인식하지 못하는 이벤트를 지정하는 `hook.<friendly-name>.event`는 무시합니다.
+이는 Git을 래핑하는 도구들이 훅 인프라를 사용하여 자체 훅을 실행할 수 있도록 하기 위함입니다.
+자세한 내용은 "WRAPPERS"를 참조하십시오.
+
+일반적으로, `.git/hooks/<hook-event>`에 스크립트를 추가하라는 지침이 있다면,
+대신 다음을 실행하여 설정에서 지정할 수 있습니다:
+
+----
+git config set hook.<some-name>.command <path-to-script>
+git config set --append hook.<some-name>.event <hook-event>
+----
+
+이렇게 하면 여러 저장소 간에 스크립트를 공유할 수 있습니다. 즉, `cp
+~/my-script.sh ~/project/.git/hooks/pre-commit`는 다음과 같이 변경됩니다:
+
+----
+git config set hook.my-script.command ~/my-script.sh
+git config set --append hook.my-script.event pre-commit
+----
+
+SUBCOMMANDS
+-----------
+
+run::
+	`<hook-name>`에 대해 설정된 훅을 설정 파싱 중에 발견된 순서대로 실행합니다.
+	훅 디렉토리의 기본 `<hook-name>`은 마지막에 실행됩니다. 지원되는
+	훅 이름에 대해서는 참조: linkgit:githooks[5]를 참조하십시오.
++
+
+훅에 대한 모든 위치 인수는 필수 `--`(또는 참조: linkgit:gitcli[7]의 `--end-of-options`) 뒤에 전달되어야 합니다.
+훅이 예상할 수 있는 인수에 대해서는 (있다면) 참조: linkgit:githooks[5]를 참조하십시오.
+
+list [-z] [--show-scope]::
+	`<hook-name>` 이벤트에서 실행될 훅 목록을 출력합니다. 해당 이벤트에 대해
+	설정된 훅이 없으면 경고를 출력하고 1을 반환합니다.
+	출력 줄 끝을 개행 문자 대신 NUL 문자로 끝내려면 `-z`를 사용합니다.
+
+OPTIONS
+-------
+
+--allow-unknown-hook-name::
+	기본적으로 `git hook run` 및 `git hook list`는
+	`<hook-name>`이 Git에서 알려지지 않은 훅 이벤트인 경우 (`linkgit:githooks[5]`에서
+	알려진 훅 목록 참조) 중단됩니다. 이는 `pre-receive` 대신 `prereceive`와 같은
+	오타를 잡는 데 도움이 됩니다. 알 수 없는 훅 이름을 허용하려면 이 플래그를
+	전달하십시오.
+
+--to-stdin::
+	"run"의 경우; 훅의 표준 입력으로 스트리밍될 파일을 지정합니다.
+	훅은 시작부터 EOF까지 전체 파일을 받게 됩니다.
+
+--ignore-missing::
+	존재할 수도 있고 존재하지 않을 수도 있는 훅을 무차별적으로 일회성으로
+	실행하려는 도구에서 사용됩니다. 누락된 훅은 조용히 0을 반환하며 무시합니다.
+
+-z::
+	"list" 출력 줄 끝을 개행 문자 대신 NUL 문자로 끝냅니다.
+
+--show-scope::
+	"list"의 경우; 각 설정된 훅의 친숙한 이름 앞에 탭으로 구분된 설정 스코프(`local`, `global`, `system` 등)를 붙입니다.
+	이는 `git config --show-scope`의 출력 스타일을 미러링합니다. 훅 디렉토리의
+	전통적인 훅은 영향을 받지 않습니다.
+
+-j::
+--jobs::
+	`run`에만 유효합니다.
++
+동시에 실행할 훅 수를 지정합니다. 이 플래그가 지정되지 않은 경우,
+`hook.jobs` 설정 값이 사용됩니다 (참조: linkgit:git-config[1]). 둘 다 지정되지 않은 경우, 기본값은 1 (순차 실행)입니다.
++
+1보다 큰 값을 지정하면, 해당 이벤트에 대한 모든 훅이 개별적으로 병렬로 표시되지 않았더라도
+동시에 실행되도록 훅별 `hook.<friendly-name>.parallel` 설정을 재정의합니다.
++
+일부 훅은 Git이 병렬로 안전하게 실행될 수 없다는 것을 알기 때문에 이 플래그나
+`hook.jobs` 설정에 관계없이 항상 순차적으로 실행됩니다:
+`applypatch-msg`, `pre-commit`, `prepare-commit-msg`, `commit-msg`,
+`post-commit`, `post-checkout`, 및 `push-to-checkout`.
+
+WRAPPERS
+--------
+
+`git hook run`은 Git을 래핑하는 도구들이 Git 훅 인프라를 사용하여 훅을 쉽게 설정하고 실행할 수 있도록 설계되었습니다.
+인수와 표준 입력을 명령줄을 통해 제공할 수 있으며, 사용자가 여러 훅을 지정한 경우 병렬 또는 순차 실행을 지정할 수도 있습니다.
+
+래퍼가 "mywrapper-start-tests"라는 이름의 훅을 지원한다고 가정할 때,
+사용자는 다음과 같이 훅을 지정하도록 할 수 있습니다:
+
+  [hook "setup-test-dashboard"]
+    event = mywrapper-start-tests
+    command = ~/mywrapper/setup-dashboard.py --tap
+
+ 그런 다음, 'mywrapper' 도구 내에서 사용자의 설정된 훅을 다음과 같이 호출할 수 있습니다:
+
+----
+git hook run --allow-unknown-hook-name mywrapper-start-tests \
+  # 표준 입력으로 무언가를 제공
+  --stdin some-tempfile-123 \
+  # 여러 훅을 병렬로 실행
+  --jobs 3 \
+  # 그리고 자체 인수...
+  -- \
+  --testname bar \
+  baz
+----
+
+래퍼의 훅 이벤트 이름을 Git의 네이티브 훅과 겹치지 않는 방식으로 이름을 지정하도록 주의하십시오 (참조: linkgit:githooks[5]).
+`mywrappertool-validate-commit`과 같은 훅 이벤트 이름은 `validate-commit`이라는 훅 이벤트 이름보다
+네이티브 Git에 추가될 가능성이 훨씬 적습니다. Git이 래퍼 훅과 같은 이름을 가진 훅 이벤트를 사용하기 시작하면,
+사용자의 훅을 의도하지 않고 지원되지 않는 방식으로 호출할 수 있습니다.
+
+CONFIGURATION
+-------------
+include::config/hook.adoc[]
+
+SEE ALSO
+--------
+linkgit:githooks[5]
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

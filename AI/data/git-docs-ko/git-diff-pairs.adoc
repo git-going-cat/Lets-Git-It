@@ -1,0 +1,45 @@
+git-diff-pairs(1)
+=================
+
+NAME
+----
+git-diff-pairs - 제공된 blob 쌍의 내용 및 모드 비교
+
+SYNOPSIS
+--------
+[synopsis]
+git diff-pairs -z [<diff-options>]
+
+DESCRIPTION
+-----------
+표준 입력으로 제공된 파일 쌍에 대한 변경 사항을 표시합니다. 이 명령어의 입력은 `git diff-tree -z -r --raw`와 같은 명령어로 생성된 NUL 종료 원시 출력 형식이어야 합니다. 기본적으로 출력된 diff는 표준 입력이 닫힐 때 패치 형식으로 계산되고 표시됩니다.
+
+표준 입력 줄 사이에 단일 NUL 바이트가 표준 입력에 기록될 수 있으며, 이는 표준 입력이 닫히기를 기다리는 대신 해당 시점까지의 파일 쌍 diff를 계산합니다. NUL 바이트는 이러한 diff 일괄 처리를 구분하기 위해 출력에도 기록됩니다.
+
+이 명령어의 사용은 전통적인 diff 파이프라인을 여러 단계로 나눌 수 있게 하며, `diff-pairs`는 출력 단계 역할을 합니다. `diff-tree`와 같은 다른 명령어는 입력으로 사용되는 원시 diff 형식을 계산하는 프론트엔드 역할을 할 수 있습니다.
+
+`git diff-tree -p -M`을 한 단계로 사용하여 diff를 계산하는 대신, `diff-tree`는 blob diff 없이 파일 쌍 및 이름 변경 정보를 계산할 수 있습니다. 이 출력은 다음 예에서와 같이 Blob diff를 생성하는 `diff-pairs`로 전달될 수 있습니다.
+
+-----------------------------
+git diff-tree -z -r -M $a $b |
+git diff-pairs -z
+-----------------------------
+
+이름 변경 정보가 포함된 트리 diff를 미리 계산하면, `diff-pairs` 패치 출력은 잠재적으로 여러 번의 호출 과정에서 점진적으로 계산될 수 있습니다.
+
+Pathspec은 현재 `diff-pairs`에서 지원되지 않습니다. Pathspec 제한은 입력으로 사용되는 원시 diff를 생성하는 업스트림 명령어로 수행되어야 합니다.
+
+Tree 객체는 현재 입력으로 지원되지 않으며 거부됩니다.
+
+`diff-pairs` 입력에서 약식 객체 ID는 지원되지 않습니다. 출력되는 객체 ID는 `--abbrev` 옵션을 사용하여 약식으로 표시될 수 있습니다.
+
+OPTIONS
+-------
+
+include::diff-options.adoc[]
+
+include::diff-generate-patch.adoc[]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

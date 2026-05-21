@@ -1,0 +1,33 @@
+server:
+  log_level: warn
+
+logs:
+  positions_directory: /tmp/agent-positions
+  configs:
+    - name: faro
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+
+integrations:
+  agent:
+    enabled: false
+
+traces: {}
+
+metrics:
+  global:
+    scrape_interval: 15s
+  configs: []
+
+agent_management: {}
+
+faro:
+  server:
+    listen_address: 0.0.0.0:12347
+    cors_allowed_origins:
+      - "https://dev.lets-git-it.kr"
+  sourcemaps: {}
+  extra_log_labels:
+    app: letsgitit-fe
+    env: dev
+  logs_instance: faro

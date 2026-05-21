@@ -1,0 +1,203 @@
+git-remote(1)
+=============
+
+NAME
+----
+git-remote - 관리형 저장소 집합 관리
+
+
+SYNOPSIS
+--------
+[synopsis]
+git remote [-v | --verbose]
+git remote add [-t <branch>] [-m <master>] [-f] [--[no-]tags] [--mirror=(fetch|push)] <name> <URL>
+git remote rename [--[no-]progress] <old> <new>
+git remote remove <name>
+git remote set-head <name> (-a | --auto | -d | --delete | <branch>)
+git remote set-branches [--add] <name> <branch>...
+git remote get-url [--push] [--all] <name>
+git remote set-url [--push] <name> <newurl> [<oldurl>]
+git remote set-url --add [--push] <name> <newurl>
+git remote set-url --delete [--push] <name> <URL>
+git remote [-v | --verbose] show [-n] <name>...
+git remote prune [-n | --dry-run] <name>...
+git remote [-v | --verbose] update [-p | --prune] [(<group> | <remote>)...]
+
+DESCRIPTION
+-----------
+
+추적하는 저장소("원격 저장소") 집합을 관리합니다.
+
+
+OPTIONS
+-------
+
+`-v`::
+`--verbose`::
+	조금 더 자세하게 출력하며 이름 뒤에 원격 URL을 표시합니다.
+	프로미서 원격 저장소의 경우, 구성된 필터(`blob:none` 등)도 표시합니다.
+	참고: 이것은 `remote`와 하위 명령 사이에 위치해야 합니다.
+
+
+COMMANDS
+--------
+
+인수 없이 호출하면 기존 원격 저장소 목록을 표시합니다. 원격 저장소에 대한 작업을 수행하기 위해 여러 하위 명령을 사용할 수 있습니다.
+
+`add`::
+
+저장소 _<URL>_에 대한 _<name>_이라는 새 원격 저장소를 추가합니다. 그런 다음 `git fetch <name>` 명령을 사용하여 원격 추적 브랜치 `<name>/<branch>`를 생성하고 업데이트할 수 있습니다.
++
+`-f` 옵션을 사용하면 원격 정보 설정 직후 `git fetch <name>`이 즉시 실행됩니다.
++
+`--tags` 옵션을 사용하면 원격 저장소의 모든 태그를 가져옵니다.
++
+`--no-tags` 옵션을 사용하면 원격 저장소의 태그를 가져오지 않습니다.
++
+기본적으로, 가져온 브랜치의 태그만 가져옵니다 (linkgit:git-fetch[1] 참조).
++
+`-t <branch>` 옵션을 사용하면, `refs/remotes/<name>/` 네임스페이스 아래의 모든 브랜치를 추적하기 위한 원격의 기본 glob refspec 대신, _<branch>_만 추적하는 refspec이 생성됩니다. 여러 브랜치를 추적하지만 모든 브랜치를 가져오지 않으려면 `-t <branch>`를 여러 번 지정할 수 있습니다.
++
+`-m <master>` 옵션을 사용하면, 원격의 _<master>_ 브랜치를 가리키도록 심볼릭 참조 `refs/remotes/<name>/HEAD`가 설정됩니다. set-head 명령도 참조하십시오.
++
+`--mirror=fetch`로 패치 미러를 생성할 때, ref는 `refs/remotes/` 네임스페이스에 저장되지 않고, 원격의 `refs/`의 모든 내용이 국소 저장소의 `refs/`로 직접 미러링됩니다. 이 옵션은 베어 저장소에서만 의미가 있으며, 패치 시 국소 커밋을 덮어쓸 수 있습니다.
++
+`--mirror=push`로 푸시 미러를 생성할 때, `git push`는 항상 `--mirror`가 전달된 것처럼 동작합니다.
+
+`rename`::
+
+_<old>_라는 원격 저장소의 이름을 _<new>_로 변경합니다. 원격 추적 브랜치와 해당 원격 저장소의 설정이 모두 업데이트됩니다.
++
+_<old>_와 _<new>_가 같고 _<old>_가 `$GIT_DIR/remotes` 또는 `$GIT_DIR/branches` 아래의 파일인 경우, 해당 원격 저장소는 설정 파일 형식으로 변환됩니다.
+
+`remove`::
+`rm`::
+
+_<name>_이라는 원격 저장소를 제거합니다. 해당 원격 추적 브랜치와 원격 저장소의 설정이 모두 제거됩니다.
+
+`set-head`::
+
+이름이 지정된 원격 저장소의 기본 브랜치 (즉, 심볼릭 참조 `refs/remotes/<name>/HEAD`의 대상)를 설정하거나 삭제합니다. 원격 저장소에 대한 기본 브랜치가 필수는 아니지만, 특정 브랜치 대신 원격 저장소의 이름을 지정할 수 있게 합니다. 예를 들어, `origin`의 기본 브랜치가 `master`로 설정되어 있으면, `origin/master`를 지정해야 했던 곳에 `origin`으로 지정할 수 있습니다.
++
+`-d` 또는 `--delete`를 사용하면, 심볼릭 참조 `refs/remotes/<name>/HEAD`가 삭제됩니다.
++
+`-a` 또는 `--auto`를 사용하면, 원격 저장소를 쿼리하여 `HEAD`를 결정한 다음, 심볼릭 참조 `refs/remotes/<name>/HEAD`를 동일한 브랜치로 설정합니다. 예를 들어, 원격 `HEAD`가 `next`를 가리키고 있다면 `git remote set-head origin -a`는 `refs/remotes/origin/HEAD`을 `refs/remotes/origin/next`로 설정합니다. 이는 `refs/remotes/origin/next`가 이미 존재하는 경우에만 작동합니다. 그렇지 않으면 먼저 가져와야 합니다.
++
+_<branch>_를 사용하여 심볼릭 참조 `refs/remotes/<name>/HEAD`를 명시적으로 설정합니다. 예를 들어, `git remote set-head origin master`는 `refs/remotes/origin/HEAD`를 `refs/remotes/origin/master`로 설정합니다. 이는 `refs/remotes/origin/master`가 이미 존재하는 경우에만 작동합니다. 그렇지 않으면 먼저 가져와야 합니다.
++
+
+`set-branches`::
+
+이름이 지정된 원격 저장소가 추적하는 브랜치 목록을 변경합니다. 초기 설정 후 원격 브랜치의 일부만 추적하는 데 사용할 수 있습니다.
++
+지정된 브랜치는 `git remote add` 명령 행에서 `-t` 옵션으로 지정된 것처럼 해석됩니다.
++
+`--add` 옵션을 사용하면 현재 추적 중인 브랜치 목록을 바꾸는 대신 목록에 추가합니다.
+
+`get-url`::
+
+원격 저장소의 URL을 검색합니다. `insteadOf` 및 `pushInsteadOf` 구성이 여기서 확장됩니다. 기본적으로 첫 번째 URL만 나열됩니다.
++
+`--push` 옵션을 사용하면 패치 URL 대신 푸시 URL을 쿼리합니다.
++
+`--all` 옵션을 사용하면 원격 저장소의 모든 URL이 나열됩니다.
+
+`set-url`::
+
+원격 저장소의 URL을 변경합니다. _<name>_ 원격 저장소의 URL 중 _<oldurl>_ 정규 표현식과 일치하는 첫 번째 URL ( _<oldurl>_이 제공되지 않으면 첫 번째 URL)을 _<newurl>_로 설정합니다. _<oldurl>_이 어떤 URL과도 일치하지 않으면 오류가 발생하며 아무것도 변경되지 않습니다.
++
+`--push` 옵션을 사용하면 패치 URL 대신 푸시 URL을 조작합니다.
++
+`--add` 옵션을 사용하면 기존 URL을 변경하는 대신 새 URL을 추가합니다.
++
+`--delete` 옵션을 사용하면 기존 URL을 변경하는 대신 _<name>_ 원격 저장소에 대해 _<URL>_ 정규 표현식과 일치하는 모든 URL을 삭제합니다. 푸시 URL이 아닌 모든 URL을 삭제하려고 시도하면 오류가 발생합니다.
++
+패치 URL과 푸시 URL은 다르게 설정될 수 있지만, 여전히 같은 곳을 참조해야 합니다. 푸시 URL에 푸시한 내용은 패치 URL에서 즉시 가져왔을 때 볼 수 있는 내용이어야 합니다. 한 곳 (예: 업스트림)에서 패치하고 다른 곳 (예: 발행 저장소)으로 푸시하려는 경우, 두 개의 별도 원격 저장소를 사용하십시오.
+
+
+`show`::
+
+_<name>_ 원격 저장소에 대한 정보를 제공합니다.
++
+`-n` 옵션을 사용하면, `git ls-remote <name>`으로 원격 HEAD를 먼저 쿼리하지 않고, 캐시된 정보가 대신 사용됩니다.
+
+`prune`::
+
+_<name>_과 관련된 오래된 참조를 삭제합니다. 기본적으로 _<name>_ 아래의 오래된 원격 추적 브랜치가 삭제되지만, 전역 구성 및 원격 저장소 구성에 따라 거기에 푸시되지 않은 국소 태그를 삭제할 수도 있습니다. `git fetch --prune <name>`과 동일하지만, 새로운 참조는 가져오지 않습니다.
++
+어떤 구성에 따라 무엇을 삭제할지는 linkgit:git-fetch[1]의 PRUNING 섹션을 참조하십시오.
++
+`--dry-run` 옵션을 사용하면, 무엇이 삭제될지 보고하지만 실제로 삭제하지는 않습니다.
+
+`update`::
+
+저장소에서 `remotes.<group>`으로 정의된 원격 저장소 또는 원격 저장소 그룹의 업데이트를 가져옵니다. 명령줄에서 그룹이나 원격 저장소를 지정하지 않으면, `remotes.default` 구성 매개변수가 사용됩니다. `remotes.default`가 정의되지 않았다면, `remote.<name>.skipDefaultUpdate` 매개변수가 `true`로 설정되지 않은 모든 원격 저장소가 업데이트됩니다. (linkgit:git-config[1] 참조).
++
+`--prune` 옵션을 사용하면, 업데이트되는 모든 원격 저장소에 대해 삭제 작업을 실행합니다.
+
+
+DISCUSSION
+----------
+
+원격 구성은 `remote.origin.url` 및 `remote.origin.fetch` 구성 변수를 사용하여 달성됩니다. (linkgit:git-config[1] 참조).
+
+EXIT STATUS
+-----------
+
+성공 시, 종료 상태는 `0`입니다.
+
+`add`, `rename`, `remove`와 같은 하위 명령이 해당 원격 저장소를 찾을 수 없는 경우, 종료 상태는 `2`입니다. 원격 저장소가 이미 존재하는 경우, 종료 상태는 `3`입니다.
+
+기타 오류의 경우, 종료 상태는 0이 아닌 다른 값이 될 수 있습니다.
+
+EXAMPLES
+--------
+
+* 새 원격 저장소를 추가하고, 가져오고, 거기서 브랜치를 체크아웃합니다.
++
+------------
+$ git remote
+origin
+$ git branch -r
+  origin/HEAD -> origin/master
+  origin/master
+$ git remote add staging git://git.kernel.org/.../gregkh/staging.git
+$ git remote
+origin
+staging
+$ git fetch staging
+...
+From git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging
+ * [new branch]      master     -> staging/master
+ * [new branch]      staging-linus -> staging/staging-linus
+ * [new branch]      staging-next -> staging/staging-next
+$ git branch -r
+  origin/HEAD -> origin/master
+  origin/master
+  staging/master
+  staging/staging-linus
+  staging/staging-next
+$ git switch -c staging staging/master
+...
+------------
+
+* `git clone`을 모방하지만 선택된 브랜치만 추적합니다.
++
+------------
+$ mkdir project.git
+$ cd project.git
+$ git init
+$ git remote add -f -t master -m master origin git://example.com/git.git/
+$ git merge origin
+------------
+
+
+SEE ALSO
+--------
+linkgit:git-fetch[1]
+linkgit:git-branch[1]
+linkgit:git-config[1]
+
+GIT
+---
+linkgit:git[1] 도구 모음의 일부

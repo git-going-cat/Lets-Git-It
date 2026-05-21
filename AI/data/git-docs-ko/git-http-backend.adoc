@@ -1,0 +1,238 @@
+git-http-backend(1)
+===================
+
+NAME
+----
+git-http-backend - HTTP를 통한 Git의 서버 측 구현
+
+SYNOPSIS
+--------
+[verse]
+'git http-backend'
+
+DESCRIPTION
+-----------
+http:// 및 https:// 프로토콜을 통해 저장소에 접근하는 Git 클라이언트에 Git 저장소의 내용을 제공하는 간단한 CGI 프로그램입니다.
+이 프로그램은 스마트 HTTP 프로토콜과 이전 버전과 호환되는 덤 HTTP 프로토콜을 모두 사용하여 클라이언트가 fetch하는 것을 지원하며, 스마트 HTTP 프로토콜을 사용하여 클라이언트가 push하는 것도 지원합니다.
+적절히 설정된 경우, Git의 더 효율적인 "v2" 프로토콜도 지원합니다; 아래의 ENVIRONMENT 섹션에서 `GIT_PROTOCOL`에 대한 내용을 참조하십시오.
+
+이 프로그램은 디렉토리에 "git-daemon-export-ok"라는 매직 파일이 있는지 확인하며, 명시적으로 이런 식으로 내보내기가 표시되지 않은 Git 디렉토리는 내보내기를 거부합니다 (`GIT_HTTP_EXPORT_ALL` 환경 변수가 설정되지 않은 경우).
+
+기본적으로 `upload-pack` 서비스만 활성화되어 있으며, 이는 'git fetch-pack' 및 'git ls-remote' 클라이언트를 제공합니다. 이들은 'git fetch', 'git pull', 'git clone'에서 호출됩니다.
+클라이언트가 인증된 경우, `receive-pack` 서비스가 활성화되어 'git send-pack' 클라이언트를 제공하며, 이는 'git push'에서 호출됩니다.
+
+SERVICES
+--------
+이러한 서비스는 저장소별 설정 파일을 사용하여 활성화/비활성화할 수 있습니다.
+
+http.getanyfile::
+	1.6.6 이전 버전의 Git 클라이언트가 upload pack 서비스를 사용할 수 없는 경우를 지원합니다.
+	활성화되면 클라이언트는 저장소 내의 모든 파일을 읽을 수 있습니다. 여기에는 더 이상 브랜치에서 도달할 수 없지만 여전히 존재하는 객체도 포함됩니다.
+	기본적으로 활성화되어 있지만, 저장소는 이 설정 값을 `false`로 설정하여 비활성화할 수 있습니다.
+
+http.uploadpack::
+	'git fetch-pack' 및 'git ls-remote' 클라이언트를 제공합니다.
+	기본적으로 활성화되어 있지만, 저장소는 이 설정 값을 `false`로 설정하여 비활성화할 수 있습니다.
+
+http.receivepack::
+	'git send-pack' 클라이언트를 제공하여 push를 허용합니다.
+	익명 사용자에게는 기본적으로 비활성화되어 있으며, 웹 서버에 의해 인증된 사용자에게는 기본적으로 활성화됩니다.
+	이 항목을 `false`로 설정하여 비활성화하거나, `true`로 설정하여 익명 사용자를 포함한 모든 사용자에게 활성화할 수 있습니다.
+
+http.uploadarchive::
+	HTTP/HTTPS 프로토콜을 통해 원격 아카이브를 위한 'git archive' 클라이언트를 제공합니다.
+	기본적으로 비활성화되어 있습니다. Protocol v2에서만 작동합니다.
+
+URL TRANSLATION
+---------------
+디스크상의 저장소 위치를 결정하기 위해, 'git http-backend'는 웹 서버에 의해 자동으로 설정되는 PATH_INFO 환경 변수와 웹 서버 설정에서 수동으로 설정해야 하는 GIT_PROJECT_ROOT 환경 변수를 연결합니다.
+GIT_PROJECT_ROOT가 설정되지 않은 경우, 'git http-backend'는 자동으로 설정되는 PATH_TRANSLATED를 읽습니다.
+
+EXAMPLES
+--------
+다음 예시들은 모두 `http://$hostname/git/foo/bar.git`를 `/var/www/git/foo/bar.git`로 매핑합니다.
+
+Apache 2.x::
+	mod_cgi, mod_alias, mod_env가 활성화되었는지 확인하고, GIT_PROJECT_ROOT (또는 DocumentRoot)를 적절하게 설정한 후, CGI로 ScriptAlias를 생성합니다:
++
+----------------------------------------------------------------
+SetEnv GIT_PROJECT_ROOT /var/www/git
+SetEnv GIT_HTTP_EXPORT_ALL
+ScriptAlias /git/ /usr/libexec/git-core/git-http-backend/
+
+# Apache와 최신 버전의 git-http-backend에서는 이것이 엄격하게 필요하지 않습니다.
+# 웹 서버가 HTTP_GIT_PROTOCOL 헤더를 환경으로 전달하고, http-backend는 이를 GIT_PROTOCOL로 복사할 것이기 때문입니다.
+# 하지만 이 줄(또는 다른 웹 서버를 사용하는 경우 유사한 줄)이 필요하거나, 이전 Git 버전을 지원하려는 경우 필요할 수 있습니다.
+#
+# 웹 서버가 GIT_PROTOCOL을 설정하는 것은 최신 버전에서도 완벽히 괜찮습니다 (그리고 HTTP_GIT_PROTOCOL보다 우선순위를 갖기 때문에, 클라이언트의 요청을 재정의하는 데 사용될 수 있습니다).
+SetEnvIf Git-Protocol ".*" GIT_PROTOCOL=$0
+----------------------------------------------------------------
++
+익명 읽기 액세스는 허용하되 인증된 쓰기 액세스를 허용하려면, 초기 ref 광고(쿼리 문자열의 service 매개변수로 감지)와 receive-pack 호출 자체에 대해 모두 권한을 요구해야 합니다:
++
+----------------------------------------------------------------
+RewriteCond %{QUERY_STRING} service=git-receive-pack [OR]
+RewriteCond %{REQUEST_URI} /git-receive-pack$
+RewriteRule ^/git/ - [E=AUTHREQUIRED:yes]
+
+<LocationMatch "^/git/">
+	Order Deny,Allow
+	Deny from env=AUTHREQUIRED
+
+	AuthType Basic
+	AuthName "Git Access"
+	Require group committers
+	Satisfy Any
+	...
+</LocationMatch>
+----------------------------------------------------------------
++
+쿼리 문자열을 매칭하기 위해 `mod_rewrite`를 사용할 수 없는 경우, `git-receive-pack` 자체를 보호하는 것만으로도 충분합니다:
++
+----------------------------------------------------------------
+<LocationMatch "^/git/.*/git-receive-pack$">
+	AuthType Basic
+	AuthName "Git Access"
+	Require group committers
+	...
+</LocationMatch>
+----------------------------------------------------------------
++
+이 모드에서는 서버가 객체 협상 단계까지 인증을 요청하지 않고, 초기 접촉 시에만 인증을 요청합니다.
+이 때문에 푸시를 수락해야 하는 모든 저장소에서 `http.receivepack` 구성 옵션을 활성화해야 합니다. `http.receivepack`이 설정되지 않은 경우의 기본 동작은 인증되지 않은 사용자의 푸시를 거부하는 것입니다. 따라서 초기 요청은 인증 기회를 주지 않고 클라이언트에게 `403 Forbidden`을 보고할 것입니다.
++
+읽기 및 쓰기 모두에 대해 인증을 요구하려면, 저장소 또는 그 상위 디렉토리에 대한 Location 지시문을 사용하십시오:
++
+----------------------------------------------------------------
+<Location /git/private>
+	AuthType Basic
+	AuthName "Private Git Access"
+	Require group committers
+	...
+</Location>
+----------------------------------------------------------------
++
+동일한 URL에서 gitweb을 제공하려면, 'git http-backend'가 처리할 수 있는 URL에만 ScriptAliasMatch를 사용하고 나머지는 gitweb으로 전달합니다:
++
+----------------------------------------------------------------
+ScriptAliasMatch \
+	"(?x)^/git/(.*/(HEAD | \
+			info/refs | \
+			objects/(info/[^/]+ | \
+				 [0-9a-f]{2}/[0-9a-f]{38} | \
+				 pack/pack-[0-9a-f]{40}\.(pack|idx)) | \
+			git-(upload|receive)-pack))$" \
+	/usr/libexec/git-core/git-http-backend/$1
+
+ScriptAlias /git/ /var/www/cgi-bin/gitweb.cgi/
+----------------------------------------------------------------
++
+단일 저장소에서 서로 다른 linkgit:gitnamespaces[7]을 가진 여러 저장소를 제공하려면:
++
+----------------------------------------------------------------
+SetEnvIf Request_URI "^/git/([^/]*)" GIT_NAMESPACE=$1
+ScriptAliasMatch ^/git/[^/]*(.*) /usr/libexec/git-core/git-http-backend/storage.git$1
+----------------------------------------------------------------
+
+Apache 2.x 가속 정적 파일::
+	위와 유사하지만, Apache는 디스크에 저장된 정적 파일을 반환하는 데 사용될 수 있습니다.
+	많은 시스템에서 이는 더 효율적일 수 있습니다. Apache는 커널에게 파일 시스템에서 네트워크로 직접 파일 내용을 복사하도록 요청할 수 있기 때문입니다:
++
+----------------------------------------------------------------
+SetEnv GIT_PROJECT_ROOT /var/www/git
+
+AliasMatch ^/git/(.*/objects/[0-9a-f]{2}/[0-9a-f]{38})$          /var/www/git/$1
+AliasMatch ^/git/(.*/objects/pack/pack-[0-9a-f]{40}.(pack|idx))$ /var/www/git/$1
+ScriptAlias /git/ /usr/libexec/git-core/git-http-backend/
+----------------------------------------------------------------
++
+이는 gitweb 설정과 결합될 수 있습니다:
++
+----------------------------------------------------------------
+SetEnv GIT_PROJECT_ROOT /var/www/git
+
+AliasMatch ^/git/(.*/objects/[0-9a-f]{2}/[0-9a-f]{38})$          /var/www/git/$1
+AliasMatch ^/git/(.*/objects/pack/pack-[0-9a-f]{40}.(pack|idx))$ /var/www/git/$1
+ScriptAliasMatch \
+	"(?x)^/git/(.*/(HEAD | \
+			info/refs | \
+			objects/info/[^/]+ | \
+			git-(upload|receive)-pack))$" \
+	/usr/libexec/git-core/git-http-backend/$1
+ScriptAlias /git/ /var/www/cgi-bin/gitweb.cgi/
+----------------------------------------------------------------
+
+Lighttpd::
+	`mod_cgi`, `mod_alias`, `mod_auth`, `mod_setenv`이 로드되었는지 확인한 후, `GIT_PROJECT_ROOT`를 적절하게 설정하고 모든 요청을 CGI로 전달합니다:
++
+----------------------------------------------------------------
+alias.url += ( "/git" => "/usr/lib/git-core/git-http-backend" )
+$HTTP["url"] =~ "^/git" {
+	cgi.assign = ("" => "")
+	setenv.add-environment = (
+		"GIT_PROJECT_ROOT" => "/var/www/git",
+		"GIT_HTTP_EXPORT_ALL" => ""
+	)
+}
+----------------------------------------------------------------
++
+익명 읽기 액세스는 허용하되 인증된 쓰기 액세스를 허용하려면:
++
+----------------------------------------------------------------
+$HTTP["querystring"] =~ "service=git-receive-pack" {
+	include "git-auth.conf"
+}
+$HTTP["url"] =~ "^/git/.*/git-receive-pack$" {
+	include "git-auth.conf"
+}
+----------------------------------------------------------------
++
+여기서 `git-auth.conf`는 다음과 같습니다:
++
+----------------------------------------------------------------
+auth.require = (
+	"/" => (
+		"method" => "basic",
+		"realm" => "Git Access",
+		"require" => "valid-user"
+	       )
+)
+# ...그리고 auth.backend를 여기에 설정
+----------------------------------------------------------------
++
+읽기 및 쓰기 모두에 대해 인증을 요구하려면:
++
+----------------------------------------------------------------
+$HTTP["url"] =~ "^/git/private" {
+	include "git-auth.conf"
+}
+----------------------------------------------------------------
+
+
+ENVIRONMENT
+-----------
+'git http-backend'는 호출하는 웹 서버에서 설정한 `CGI` 환경 변수에 의존합니다. 여기에는 다음이 포함됩니다:
+
+* PATH_INFO (GIT_PROJECT_ROOT가 설정된 경우, 그렇지 않으면 PATH_TRANSLATED)
+* REMOTE_USER
+* REMOTE_ADDR
+* CONTENT_TYPE
+* QUERY_STRING
+* REQUEST_METHOD
+
+`GIT_HTTP_EXPORT_ALL` 환경 변수는 각 저장소에 대한 "git-daemon-export-ok" 파일 검사를 우회하여 해당 저장소를 내보낼 수 있도록 'git-http-backend'에 전달될 수 있습니다.
+
+`GIT_HTTP_MAX_REQUEST_BUFFER` 환경 변수 (또는 `http.maxRequestBuffer` 설정 옵션)는 fetch 중에 git이 처리할 가장 큰 ref 협상 요청을 변경하기 위해 설정될 수 있습니다. 더 큰 버퍼가 필요한 fetch는 성공하지 않을 것입니다.
+일반적으로 이 값을 변경할 필요는 없지만, 매우 많은 수의 ref를 가진 저장소에서 fetch하는 경우 도움이 될 수 있습니다. 값은 단위(예: `100M`은 100메가바이트)를 사용하여 지정할 수 있습니다. 기본값은 10메가바이트입니다.
+
+클라이언트는 `Git-Protocol` HTTP 헤더를 사용하여 선택적 프로토콜 기능(v2 프로토콜과 같은)을 탐색할 수 있습니다. 이를 지원하려면 해당 헤더의 내용이 `GIT_PROTOCOL` 환경 변수에 포함되어야 합니다.
+대부분의 웹 서버는 이 헤더를 `HTTP_GIT_PROTOCOL` 변수를 통해 CGI로 전달하며, `git-http-backend`는 이를 자동으로 `GIT_PROTOCOL`로 복사합니다.
+하지만 일부 웹 서버는 전달할 헤더를 더 선택적으로 제한할 수 있으며, 이 경우 명시적으로 구성해야 합니다 (이전 EXAMPLES 섹션의 Apache 구성에서 `Git-Protocol`에 대한 언급 참조).
+
+백엔드 프로세스는 GIT_COMMITTER_NAME을 '$REMOTE_USER'로, GIT_COMMITTER_EMAIL을 '$\{REMOTE_USER}@http.$\{REMOTE_ADDR\}'로 설정하여, 'git-receive-pack'에 의해 생성된 모든 reflog에 푸시를 수행한 원격 사용자에 대한 식별 정보를 포함하도록 합니다.
+
+모든 `CGI` 환경 변수는 'git-receive-pack'에 의해 호출된 각 훅에서 사용할 수 있습니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

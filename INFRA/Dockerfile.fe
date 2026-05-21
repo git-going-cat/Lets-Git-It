@@ -1,0 +1,10 @@
+FROM node:24-alpine AS builder
+WORKDIR /app
+
+ARG VITE_WS_URL
+ENV VITE_WS_URL=$VITE_WS_URL
+
+COPY FE/package.json FE/package-lock.json ./
+RUN npm install
+COPY FE .
+RUN npm run build

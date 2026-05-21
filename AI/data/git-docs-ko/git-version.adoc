@@ -1,0 +1,28 @@
+git-version(1)
+==============
+
+NAME
+----
+git-version - Git의 버전 정보를 표시합니다.
+
+SYNOPSIS
+--------
+[verse]
+'git version' [--build-options]
+
+DESCRIPTION
+-----------
+옵션을 지정하지 않으면 'git'의 버전이 표준 출력으로 인쇄됩니다.
+
+`git --version`은 `git version`과 동일합니다. 왜냐하면 전자는 내부적으로 후자로 변환되기 때문입니다.
+
+OPTIONS
+-------
+--build-options::
+	진단 목적으로 Git 빌드 방법에 대한 추가 정보를 포함합니다.
++
+SHA-1 및 SHA-256 알고리즘을 구현하는 데 사용된 라이브러리는 `SHA-1: <option>` 및 `SHA-256: <option>` 형식으로 표시됩니다. SHA-1 옵션 `SHA1_APPLE`, `SHA1_OPENSSL`, `SHA1_BLK`는 충돌 감지 알고리즘을 사용하지 않으므로 알려진 SHA-1 충돌 공격에 취약할 수 있습니다. 충돌 감지가 없는 더 빠른 SHA-1 구현이 비암호화 용도로만 사용되는 경우, 알고리즘은 `non-collision-detecting-SHA-1: <option>` 형식으로 표시됩니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부입니다.

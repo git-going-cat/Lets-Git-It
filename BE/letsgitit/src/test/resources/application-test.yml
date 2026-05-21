@@ -1,0 +1,57 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  mail:
+    host: localhost
+    port: 25
+    username: test@test.com
+    password: test
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-client-id
+            client-secret: test-client-secret
+            redirect-uri: "{baseUrl}/login/oauth2/code/google"
+            scope:
+              - email
+              - profile
+
+server:
+  port: 8080
+
+# 실제 연결 없음 - @MockBean RedissonClient로 Redisson 대체, Lettuce는 lazy 연결
+redis:
+  auth:
+    host: localhost
+    port: 6379
+  game:
+    host: localhost
+    port: 6380
+  ranking:
+    host: localhost
+    port: 6381
+
+jwt:
+  secret: test-secret-key-must-be-at-least-256-bits-long-for-hs256-algorithm
+  access-expiration: 1800000
+  refresh-expiration: 604800000
+
+oauth2:
+  frontend-redirect-uri: http://localhost:5173/auth/callback/google

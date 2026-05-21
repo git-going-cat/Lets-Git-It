@@ -1,0 +1,170 @@
+git-format-rev(1)
+=================
+
+NAME
+----
+git-format-rev - EXPERIMENTAL: 요구에 따라 리비전을 예쁘게 형식화
+
+SYNOPSIS
+--------
+[synopsis]
+(EXPERIMENTAL!) git format-rev --stdin-mode=<mode> --format=<pretty> [--[no-]notes=<ref>] [-z] [--[no-]null-output] [--[no-]null-input]
+
+DESCRIPTION
+-----------
+
+표준 입력으로부터 리비전을 예쁘게 형식화합니다.
+
+이 명령어는 실험적입니다. 동작이 변경될 수 있습니다.
+
+OPTIONS
+-------
+
+`--stdin-mode=<mode>`::
+	표준 입력 데이터를 해석하는 방법:
++
+--
+`revs`;; 각 줄 또는 레코드( <<io,INPUT AND OUTPUT FORMATS>> 섹션 참조)는 커밋으로 해석됩니다. 모든 종류의 리비전
+	표현식이 사용될 수 있습니다 ( linkgit:gitrevisions[7] 참조). Annotated
+	태그는 벗겨집니다 ( linkgit:gitglossary[7] 참조).
++
+`rev` 인자도 허용됩니다.
+
+`text`;; 자유 형식 텍스트에서 발견된 모든 커밋 객체 이름을 형식화합니다. 이것은
+	전체 객체 이름이어야 합니다. 즉, 약식 16진수 객체
+	이름은 해석되지 않습니다.
++
+객체 이름으로 파싱되지만 커밋 객체 이름으로 발견되지 않는 것은 그대로 유지됩니다(echoed).
+--
+
+`--format=<pretty>`::
+	예쁘게 형식화할 문자열입니다.
+
+`--notes=<ref>`::
+`--no-notes`::
+	사용자 정의 노트 ref. `%N`
+	원자를 사용할 때 노트가 표시됩니다. linkgit:git-notes[1] 를 참조하십시오.
+
+`-z`::
+`--null`::
+	줄바꿈 대신 _NUL_ 문자를 사용하여 입력과 출력을 모두 종료합니다. 이 옵션은 부정될 수 없습니다.
++
+이것은 입력과 출력이 줄바꿈을 포함할 수 있거나 이 명령어의 입력이 _NUL_ 문자 종료를 사용하는 경우 유용합니다 (아래 <<io,INPUT AND OUTPUT FORMATS>> 섹션 참조).
++
+`--stdin-mode=text` 모드는 예를 들어 `git last-modified -z` 와 같이 입력을 처리할 때 이 옵션으로 유용할 수 있습니다 (아래 <<examples,EXAMPLES>> 섹션 참조).
+
+`--null-output`::
+`--no-null-output`::
+	줄바꿈 대신 _NUL_ 문자를 사용하여 출력을 종료합니다. 기본값은 `--no-null-output` 입니다.
++
+이것은 출력이 줄바꿈을 포함할 수 있는 경우 유용합니다. 예를 들어 `%n` (줄바꿈) 원자가 사용되는 경우입니다.
+
+`--null-input`::
+`--no-null-input`::
+	줄바꿈 대신 _NUL_ 문자를 사용하여 입력을 종료합니다. 기본값은 `--no-null-input` 입니다.
++
+이것은 입력 리비전 표현식이 줄바꿈을 포함할 수 있는 경우 유용합니다.
+
+[[io]]
+INPUT AND OUTPUT FORMAT
+-----------------------
+
+이 명령은 기본적으로 입력 및 출력 종료에 줄바꿈을 사용합니다. _NUL_ 문자를 종료 문자로 사용하려면 `-z`, `--null-output`, 및 `--null-input` 옵션을 참조하십시오.
+
+`--stdin-mode=revs` 모드는 형식화된 커밋 하나와 종료 문자를 출력합니다. 이것은 "줄"이 줄바꿈 종료를 너무 암시하기 때문에 _줄_ 또는 _레코드_라고 불릴 수 있습니다.
+
+여기서 종료 문자(줄바꿈 또는 _NUL_)는 _구분자_가 아니라 _종료 문자_ 역할을 한다는 점에 유의하십시오. 즉, 마지막 줄 또는 레코드도 종료 문자로 종료됩니다.
+
+`--stdin-mode=text` 모드는 각 객체 이름을 형식화된 커밋으로 대체합니다. 즉, `%s` 형식은 일부 커밋 객체 이름을 종료 없이 `<subject>`로 변환합니다. 다음과 같이:
+
+----
+Did we not fix this in "<subject>"?
+----
+
+이 명령으로부터의 읽기 및 쓰기는 각 레코드가 즉시 플러시되므로 상호작용적으로 안전합니다.
+
+[[examples]]
+EXAMPLES
+--------
+
+`git-last-modified[1]` 명령어는 각 파일이 마지막으로 수정된 커밋을 보여줍니다.
+
+----
+$ git last-modified -- README.md Makefile
+7798034171030be0909c56377a4e0e10e6d2df93	Makefile
+c50fbb2dd225e7e82abba4380423ae105089f4d7	README.md
+----
+
+이 결과를 이 명령으로 파이프하여 객체 이름을 커밋 작성자로 바꿀 수 있습니다.
+
+----
+$ git last-modified -- README.md Makefile |
+    git format-rev --stdin-mode=text --format=%an
+Junio C Hamano	Makefile
+Todd Zullinger	README.md
+----
+
+또 다른 예시는 _커밋 메시지에서 커밋 형식화_입니다. 이 커밋 메시지가 주어졌습니다:
+
+----
+Fix off-by-one error
+
+Fix off-by-one error introduced in
+e83c5163316f89bfbde7d9ab23ca2e25604af290.
+
+We thought we fixed this in 5569bf9bbedd63a00780fc5c110e0cfab3aa97b9 but
+that only covered 1/3 of the faulty cases.
+----
+
+커밋을 형식화하고 par(1)을 사용하여 텍스트를 다시 정렬할 수 있습니다. 예를 들어 `commit-msg` 훅에서:
+
+----
+$ git config set hook.reference-commits.event commit-msg
+$ git config set hook.reference-commits.command reference-commits
+$ cat $(which reference-commits)
+#/bin/sh
+
+msg="$1"
+rewritten=$(mktemp)
+git format-rev --stdin-mode=text --format=reference <"$msg" |
+    par >"$rewritten"
+mv "$rewritten" "$msg"
+----
+
+그러면 다음과 같은 결과가 생성됩니다:
+
+----
+Fix off-by-one error
+
+Fix off-by-one error introduced in e83c5163316 (Implement better memory
+allocator, 2005-04-07).
+
+We thought we fixed this in 5569bf9bbed (Fix memory allocator,
+2005-06-22) but that only covered 1/3 of the faulty cases.
+----
+
+DISCUSSION
+----------
+
+이 명령을 사용하면 하나의 명령 호출을 통해 원하는 만큼의 리비전을 원하는 순서로 형식화할 수 있습니다. 위의 <<examples,EXAMPLES>> 섹션의 linkgit:git-last-modified[1] 사례를 고려하십시오:
+
+1. 파일이 수백 개 있을 수 있습니다
+2. 커밋이 반복될 수 있습니다. 즉, 두 개 이상의 파일이 동일한 커밋에서 마지막으로 수정되었습니다.
+
+커밋을 예쁘게 형식화하는 두 가지 널리 사용되는 명령어는 linkgit:git-log[1] 및 linkgit:git-show[1] 입니다. 이들은 위 사용 사례에 적합하지 않다는 것이 밝혀졌습니다.
+
+- linkgit:git-last-modified[1] 의 출력은 첫 번째 열을 별도로 변환한 다음 작성자를 파일 이름과 연결해야 하므로 단계별로 처리해야 합니다. 그러나 이것은 극복 가능합니다.
+- 각 커밋을 `git show` 또는 `git log --no-walk -1` 에 공급할 수 있습니다. 그러나 이는 각 줄마다 프로세스를 생성해야 함을 의미합니다.
+- 하나의 프로세스를 사용하고 싶다고 가정하겠습니다. 즉, 모든 커밋을 명령에 공급하고 싶습니다. 이제 미리 모든 커밋을 명령에 공급해야 하고 출력을 받기 전에 출력을 받을 수 없다는 문제에 직면하게 됩니다 (이는 `--stdin` 모드에서도 마찬가지입니다). 즉, 각 줄을 반복하고 커밋의 작성자를 얻은 다음 작성자와 파일 이름을 출력할 수 없습니다. 모든 커밋을 공급하고 모든 출력을 받은 다음 출력을 파일 이름과 일치시켜야 합니다.
+- 그러나 다음 문제는 명령이 입력을 중복 제거하고 한 번에 한 번만 커밋을 출력한다는 것입니다. 따라서 원래 입력에서 커밋이 반복되었을 수 있으므로 출력 순서를 입력 순서와 일치시킬 수 없습니다.
+
+요컨대, 각 줄마다 하나의 프로세스를 사용하면 이러한 두 명령어를 사용하는 것이 간단합니다. 하나의 프로세스만 사용하려면 작업량이 훨씬 더 많지만 여전히 가능합니다. 대조적으로, 이 문제는 이 명령어를 사용한 또 다른 쉘 파이프라인으로 해결됩니다.
+
+SEE ALSO
+--------
+linkgit:git-name-rev[1],
+linkgit:git-log[1].
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

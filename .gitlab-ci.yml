@@ -1,0 +1,9 @@
+include:
+  - local: '.gitlab/ci-be.yml'
+  - local: '.gitlab/ci-fe.yml'
+  - local: '.gitlab/deploy-dev.yml'
+  - local: '.gitlab/deploy-prod.yml'
+
+stages:
+  - ci
+  - deploy
