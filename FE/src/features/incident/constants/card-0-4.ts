@@ -74,7 +74,7 @@ const card04: Card = {
   stepIdx: 3,
   title: '의미 있는 메시지로 커밋',
   narrative:
-    '스테이지에 올린 변경사항을 *커밋*으로 저장할 시간이에요.\n좋은 커밋 메시지는 나중에 히스토리를 볼 때 큰 도움이 돼요.',
+    '스테이지에 올린 변경사항을 커밋으로 저장할 시간이에요.\n좋은 커밋 메시지는 나중에 히스토리를 볼 때 큰 도움이 돼요.\n팀에서는 Conventional Commits 형식을 사용해요. `feat:`, `fix:`, `chore:` 같은 접두어로 무엇을 했는지 표현해보세요.',
   canonical: 'git commit -m "feat: add login form"',
   canonicalLabel: 'Conventional Commits',
   placeholder: 'git commit -m "..."',

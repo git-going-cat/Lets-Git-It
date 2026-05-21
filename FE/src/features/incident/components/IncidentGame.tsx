@@ -116,6 +116,7 @@ export default function IncidentGame({
   const coachingText = (() => {
     if (phase !== 'scored' || !scored) return null;
     if (scored.status === 'perfect' || scored.status === 'accepted') return null;
+    if (scored.status === 'lower-retry') return card.explanation;
     if (aiCoachingLoading) return null;
     if (aiCoachingMessage) return aiCoachingMessage;
     return scored.coaching;
