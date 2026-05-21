@@ -1,5 +1,7 @@
 import { checkForbidden, makeWrong } from '../utils/graders';
 
+import { AFTER_RESET_COMMITS } from './card-1-1';
+
 import type { Card, ScoreResult, VizState } from '../types/incident.types';
 
 function grade(raw: string): ScoreResult | null {
@@ -53,17 +55,12 @@ function applyFlyTransition(viz: VizState, ctx: { input: string }): VizState {
     ...viz,
     staging: [],
     commits: [
-      { hash: 'b9e84d3', msg, branch: 'HEAD → main', current: true, isNew: true },
+      { hash: 'c3d72f1', msg, branch: 'HEAD → main', current: true, isNew: true },
       ...updatedCommits,
     ],
     flashIn: 'commits',
   };
 }
-
-const AFTER_RESET_COMMITS = [
-  { hash: 'a1f2c0e', msg: 'feat: prep release', branch: 'HEAD → main', current: true },
-  { hash: '7b3d92a', msg: 'chore: deps bump', branch: '', current: false },
-];
 
 const card14: Card = {
   id: '1-4',

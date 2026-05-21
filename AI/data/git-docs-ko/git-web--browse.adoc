@@ -1,0 +1,115 @@
+git-web{litdd}browse(1)
+=======================
+
+NAME
+----
+git-web{litdd}browse - Git 헬퍼 스크립트: 웹 브라우저 실행
+
+SYNOPSIS
+--------
+[verse]
+'git web{litdd}browse' [<options>] (<URL>|<file>)...
+
+DESCRIPTION
+-----------
+
+이 스크립트는 인수로 전달되는 URL과 FILE을 가능한 한 HTML 페이지로
+이미 열려 있는 웹 브라우저의 새 탭에 표시하려고 시도합니다.
+
+다음 브라우저(또는 명령)가 현재 지원됩니다:
+
+* firefox (X Window에서 KDE를 사용하지 않을 때의 기본값입니다)
+* iceweasel
+* seamonkey
+* iceape
+* chromium (chromium-browser로도 지원됩니다)
+* google-chrome (chrome으로도 지원됩니다)
+* konqueror (KDE에서의 기본값입니다. 아래 'konqueror에 대한 참고'를 참조하십시오)
+* opera
+* w3m (그래픽 환경이 아닐 때의 기본값입니다)
+* elinks
+* links
+* lynx
+* dillo
+* open (Mac OS X GUI에서의 기본값입니다)
+* start (MinGW에서의 기본값입니다)
+* cygstart (Cygwin에서의 기본값입니다)
+* xdg-open
+
+사용자 정의 명령도 지정할 수 있습니다.
+
+OPTIONS
+-------
+-b <browser>::
+--browser=<browser>::
+	지정된 브라우저를 사용합니다. 지원되는 브라우저 목록에 있어야 합니다.
+
+-t <browser>::
+--tool=<browser>::
+	위와 동일합니다.
+
+-c <conf.var>::
+--config=<conf.var>::
+	CONF.VAR는 Git 구성 파일에서 조회됩니다. 설정되어 있으면
+	해당 값이 사용될 브라우저를 지정합니다.
+
+CONFIGURATION VARIABLES
+-----------------------
+
+CONF.VAR (from -c option) and web.browser
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+웹 브라우저는 -c (또는 --config) 명령줄 옵션으로 전달되는 구성 변수
+또는 전자가 사용되지 않는 경우 `web.browser` 구성 변수를 사용하여 지정할 수 있습니다.
+
+browser.<tool>.path
+~~~~~~~~~~~~~~~~~~~
+
+`browser.<tool>.path` 구성 변수를 설정하여 선호하는 브라우저의 전체 경로를
+명시적으로 제공할 수 있습니다. 예를 들어, 'browser.firefox.path'를 설정하여
+firefox의 절대 경로를 구성할 수 있습니다. 그렇지 않으면 'git web{litdd}browse'는
+도구가 PATH에서 사용 가능하다고 가정합니다.
+
+browser.<tool>.cmd
+~~~~~~~~~~~~~~~~~~
+
+옵션이나 구성 변수로 지정된 브라우저가 지원되는 브라우저 목록에 없는 경우,
+해당 `browser.<tool>.cmd` 구성 변수가 조회됩니다. 이 변수가 존재하면
+'git web{litdd}browse'는 지정된 도구를 사용자 정의 명령으로 취급하고
+쉘 eval을 사용하여 URL을 인수로 전달하여 명령을 실행합니다.
+
+NOTE ABOUT KONQUEROR
+--------------------
+
+'konqueror'가 명령줄 옵션이나 구성 변수로 지정된 경우, 이미 열려 있는
+konqueror의 새 탭에 HTML man 페이지를 가능한 경우 열도록 'kfmclient'를 실행합니다.
+
+일관성을 위해, 'browser.konqueror.path'가 `A_PATH_TO/konqueror`와 같은 것으로
+설정된 경우에도 이와 유사한 트릭을 시도합니다. 즉, `A_PATH_TO/kfmclient`를
+대신 실행하려고 시도합니다.
+
+정말로 'konqueror'를 사용하고 싶다면 다음과 같이 사용할 수 있습니다:
+
+------------------------------------------------
+	[web]
+		browser = konq
+
+	[browser "konq"]
+		cmd = A_PATH_TO/konqueror
+------------------------------------------------
+
+Note about git-config --global
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+이러한 구성 변수는 사용자별 설정일 가능성이 높으므로 저장소별 설정보다는
+`--global` 플래그를 사용하여 설정하는 것이 좋을 수 있습니다. 예를 들어 다음과 같습니다:
+
+------------------------------------------------
+$ git config --global web.browser firefox
+------------------------------------------------
+
+자세한 내용은 linkgit:git-config[1]을 참조하십시오.
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

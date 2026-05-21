@@ -1,0 +1,211 @@
+git-merge-base(1)
+=================
+
+NAME
+----
+git-merge-base - Find as good common ancestors as possible for a merge
+
+
+SYNOPSIS
+--------
+[verse]
+'git merge-base' [-a | --all] <commit> <commit>...
+'git merge-base' [-a | --all] --octopus <commit>...
+'git merge-base' --is-ancestor <commit> <commit>
+'git merge-base' --independent <commit>...
+'git merge-base' --fork-point <ref> [<commit>]
+
+DESCRIPTION
+-----------
+
+'git merge-base'은 삼방향 머지(three-way merge)에 사용할 최적의 공통 조상(common ancestor)을 두 커밋 간에서 찾습니다.
+하나의 공통 조상은 다른 하나의 공통 조상보다 '더 좋다'고 할 수 있는데, 이는 후자가 전자(former)의 조상일 경우입니다.
+더 나은 공통 조상이 없는 공통 조상을 '최적의 공통 조상', 즉 '머지 베이스(merge base)'라고 합니다.
+두 커밋 간에 여러 개의 머지 베이스가 존재할 수 있음을 유의하십시오.
+
+OPERATION MODES
+---------------
+
+가장 일반적인 특수한 경우로, 명령줄에 두 개의 커밋만 지정하면 주어진 두 커밋 간의 머지 베이스를 계산합니다.
+
+더 일반적으로, 머지 베이스를 계산할 두 커밋 중 하나는 명령줄의 첫 번째 커밋 인자로 지정됩니다.
+다른 커밋은 명령줄의 나머지 모든 커밋에 대한 머지의 (가상적인) 커밋입니다.
+
+따라서, 두 개 이상의 커밋이 지정된 경우 '머지 베이스'가 각 커밋 인자에 반드시 포함되는 것은 아닙니다.
+이는 `--merge-base` 옵션을 사용한 linkgit:git-show-branch[1]와 다릅니다.
+
+--octopus::
+	n-way 머지를 준비하기 위해 제공된 모든 커밋의 최적 공통 조상을 계산합니다.
+	이는 'git show-branch --merge-base'의 동작을 모방합니다.
+
+--independent::
+	머지 베이스 출력 대신, 동일한 조상을 가진 제공된 커밋의 최소 부분 집합을 출력합니다.
+	즉, 주어진 커밋 중에서 다른 커밋으로부터 도달할 수 없는 커밋을 나열합니다.
+	이는 'git show-branch --independent'의 동작을 모방합니다.
+
+--is-ancestor::
+	첫 번째 <commit>이 두 번째 <commit>의 조상인지 확인하고,
+	참이면 상태 코드 0으로 종료하고, 거짓이면 1로 종료합니다.
+	오류는 1이 아닌 0이 아닌 상태 코드로 신호됩니다.
+
+--fork-point::
+	브랜치 (또는 <commit>으로 이어지는 어떤 히스토리)가 다른 브랜치 (또는 다른 참조) <ref>에서 분기된 지점을 찾습니다.
+	이것은 단순히 두 커밋의 공통 조상만 찾는 것이 아니라,
+	<ref>의 reflog를 고려하여 <commit>으로 이어지는 히스토리가
+	브랜치 <ref>의 이전 인스턴스에서 분기되었는지 확인합니다 (아래 모드에 대한 설명 참조).
+
+OPTIONS
+-------
+-a::
+--all::
+	하나만 출력하는 대신, 커밋들에 대한 모든 머지 베이스를 출력합니다.
+
+DISCUSSION
+----------
+
+두 커밋 'A'와 'B'가 주어졌을 때, `git merge-base A B`는 'A'와 'B' 모두에서 부모 관계를 통해 도달 가능한 커밋을 출력합니다.
+
+예를 들어, 다음과 같은 토폴로지에서:
+
+....
+	 o---o---o---B
+	/
+---o---1---o---o---o---A
+....
+
+'A'와 'B' 간의 머지 베이스는 '1'입니다.
+
+세 개의 커밋 'A', 'B', 'C'가 주어졌을 때, `git merge-base A B C`는 'B'와 'C'의 머지인 가상 커밋 'M'과 'A' 간의 머지 베이스를 계산합니다.
+예를 들어, 다음과 같은 토폴로지에서:
+
+....
+       o---o---o---o---C
+      /
+     /   o---o---o---B
+    /   /
+---2---1---o---o---o---A
+....
+
+`git merge-base A B C`의 결과는 '1'입니다.
+이는 'B'와 'C' 사이의 머지 커밋 'M'을 가진 동등한 토폴로지가 다음과 같기 때문입니다:
+
+....
+       o---o---o---o---o
+      /                 \
+     /   o---o---o---o---M
+    /   /
+---2---1---o---o---o---A
+....
+
+그리고 `git merge-base A M`의 결과는 '1'입니다. '2' 또한 'A'와 'M' 사이의 공통 조상이지만, '1'이 더 나은 공통 조상입니다. 왜냐하면 '2'는 '1'의 조상이기 때문입니다. 따라서 '2'는 머지 베이스가 아닙니다.
+
+`git merge-base --octopus A B C`의 결과는 '2'입니다. 왜냐하면 '2'는 모든 커밋의 최적 공통 조상이므로.
+
+히스토리에 교차 메지(criss-cross merges)가 포함된 경우, 두 커밋에 대해 여러 개의 '최적' 공통 조상이 존재할 수 있습니다.
+예를 들어, 다음과 같은 토폴로지에서:
+
+....
+---1---o---A
+    \ /
+     X
+    / \
+---2---o---o---B
+....
+
+'1'과 '2' 모두 A와 B의 머지 베이스입니다. 둘 중 어느 것도 다른 하나보다 더 낫지 않습니다 (둘 다 '최적'의 머지 베이스입니다). `--all` 옵션이 주어지지 않으면, 출력되는 최적 머지 베이스는 지정되지 않습니다.
+
+두 커밋 A와 B 간의 "패스트-포워드(fast-forward-ness)"를 확인하는 일반적인 관용구는 (적어도 예전에는) A와 B 간의 머지 베이스를 계산하고 A와 같은지 확인하는 것이었습니다. 만약 같다면, A는 B의 조상입니다. 이 관용구는 오래된 스크립트에서 자주 볼 수 있습니다.
+
+....
+A=$(git rev-parse --verify A)
+if test "$A" = "$(git merge-base A B)"
+then
+	... A는 B의 조상입니다 ...
+fi
+....
+
+최신 git에서는 다음과 같이 더 직접적인 방법으로 표현할 수 있습니다.
+
+....
+if git merge-base --is-ancestor A B
+then
+	... A는 B의 조상입니다 ...
+fi
+....
+
+대신.
+
+Discussion on fork-point mode
+-----------------------------
+
+`git switch -c topic origin/master`로 생성된 `topic` 브랜치에서 작업한 후,
+원격 추적 브랜치 `origin/master`의 히스토리가 재작성되어 다음과 같은 모양의 히스토리가 될 수 있습니다:
+
+....
+		 o---B2
+		/
+---o---o---B1--o---o---o---B (origin/master)
+	\
+	 B0
+	  \
+	   D0---D1---D (topic)
+....
+
+여기서 `origin/master`는 커밋 B0, B1, B2를 가리켰고 이제 B를 가리키며,
+`origin/master`가 B0에 있을 때 당신의 `topic` 브랜치가 시작되었고,
+그 위에 D0, D1, D 세 개의 커밋을 작성했습니다.
+이제 당신은 업데이트된 `origin/master` 위에 topic에서 작업한 내용을 리베이스(rebase)하고 싶다고 상상해보십시오.
+
+이런 경우, `git merge-base origin/master topic`은 위 그림에서 B0의 부모를 반환하지만,
+B0^..D는 B 위에 다시 플레이(replay)하고 싶은 커밋 범위가 아닙니다.
+(B0를 포함하는데, 이것은 당신이 작성한 것이 아니며,
+상대방이 B0에서 B1으로 팁을 옮길 때 버린 커밋입니다.)
+
+이런 경우를 돕기 위해 `git merge-base --fork-point origin/master topic`이 설계되었습니다.
+이것은 B뿐만 아니라 B0, B1, B2 (즉, 저장소의 reflog가 알고 있는 원격 추적 브랜치의 이전 팁들)을 고려하여
+당신의 topic 브랜치가 어느 커밋에서 빌드되었는지 확인하고 B0을 찾아냅니다.
+이를 통해 당신이 작성한 커밋만 리플레이하고, 상대방이 나중에 버린 커밋은 제외할 수 있습니다.
+
+따라서
+
+    $ fork_point=$(git merge-base --fork-point origin/master topic)
+
+는 B0을 찾고,
+
+    $ git rebase --onto origin/master $fork_point topic
+
+는 D0, D1, D를 B 위에 리플레이하여 다음과 같은 모양의 새로운 히스토리를 생성합니다:
+
+....
+		 o---B2
+		/
+---o---o---B1--o---o---o---B (origin/master)
+	\                   \
+	 B0                  D0'--D1'--D' (topic - updated)
+	  \
+	   D0---D1---D (topic - old)
+....
+
+단점은 저장소의 오래된 reflog 항목이 `git gc`에 의해 만료될 수 있다는 것입니다.
+만약 B0이 더 이상 원격 추적 브랜치 `origin/master`의 reflog에 나타나지 않으면,
+`--fork-point` 모드는 당연히 그것을 찾을 수 없고 실패하며, 무작위적이고 쓸모없는 결과를 주는 것을 피합니다
+(예를 들어, `--fork-point` 옵션 없이 같은 명령이 주는 B0의 부모).
+
+또한, `--fork-point` 모드와 함께 사용하는 원격 추적 브랜치는
+당신의 topic 브랜치가 그 팁에서 분기된 **그것**이어야 합니다.
+만약 팁보다 오래된 커밋에서 분기했다면, 이 모드는 분기 지점을 찾지 못할 것입니다
+(위 샘플 히스토리에서 B0이 존재하지 않고, origin/master가 B1에서 시작하여 B2로 이동했다가 B로 이동했고,
+당신이 topic을 origin/master가 B1이었을 때 `origin/master^`에서 분기했다고 상상해보십시오.
+히스토리의 모양은 위와 같을 것이고, B0이 없을 것이며,
+`git merge-base origin/master topic`이 올바르게 찾는 것은 B1의 부모이지만,
+`--fork-point` 모드는 그것이 origin/master의 팁이었던 커밋 중 하나가 아니기 때문에 찾지 못할 것입니다).
+
+See also
+--------
+linkgit:git-rev-list[1],
+linkgit:git-show-branch[1],
+linkgit:git-merge[1]
+
+GIT
+---
+Part of the linkgit:git[1] suite

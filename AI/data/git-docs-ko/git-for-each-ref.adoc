@@ -1,0 +1,437 @@
+git-for-each-ref(1)
+===================
+
+NAME
+----
+git-for-each-ref - 모든 ref에 대한 정보 출력
+
+SYNOPSIS
+--------
+[synopsis]
+git for-each-ref [--count=<count>] [--shell|--perl|--python|--tcl]
+		   [(--sort=<key>)...] [--format=<format>]
+		   [--include-root-refs] [--points-at=<object>]
+		   [--merged[=<object>]] [--no-merged[=<object>]]
+		   [--contains[=<object>]] [--no-contains[=<object>]]
+		   [(--exclude=<pattern>)...] [--start-after=<marker>]
+		   [ --stdin | (<pattern>...)]
+
+DESCRIPTION
+-----------
+
+_<pattern>_과 일치하는 모든 ref를 반복하며, 지정된 _<key>_에 따라 정렬한 후
+지정된 _<format>_에 따라 표시합니다. _<count>_가 지정되면 해당 개수만큼
+ref를 표시한 후 중지합니다. _<format>_의 보간된 값은 지정된 호스트 언어에서
+직접 평가할 수 있도록 문자열 리터럴로 선택적으로 인용될 수 있습니다.
+
+OPTIONS
+-------
+include::for-each-ref-options.adoc[]
+
+FIELD NAMES
+-----------
+
+참조된 객체의 구조화된 필드에서 다양한 값을 결과 출력에 보간하거나
+정렬 키로 사용할 수 있습니다.
+
+모든 객체의 경우 다음과 같은 이름을 사용할 수 있습니다.
+
+`refname`::
+	ref의 이름 (`$GIT_DIR/` 뒤의 부분).
+	ref의 모호하지 않은 짧은 이름을 원하면 `:short`를 추가하십시오.
+	`core.warnAmbiguousRefs` 옵션은 엄격한 약어 모드를 선택하는 데 사용됩니다.
+	`lstrip=<n>` (`rstrip=<n>`)이 추가되면 refname의 앞(뒤)에서 _<n>_개의
+	슬래시 구분 경로 구성 요소를 제거합니다 (예: `%(refname:lstrip=2)`는
+	`refs/tags/foo`를 `foo`로, `%(refname:rstrip=2)`는 `refs/tags/foo`를
+	`refs`로 변경합니다).
+	_<n>_이 음수이면, 지정된 끝에서 필요한 만큼의 경로 구성 요소를
+	제거하여 _<n>_개의 경로 구성 요소를 남깁니다 (예: `%(refname:lstrip=-2)`는
+	`refs/tags/foo`를 `tags/foo`로, `%(refname:rstrip=-1)`는 `refs/tags/foo`를
+	`refs`로 변경합니다). ref가 충분한 구성 요소를 가지고 있지 않으면,
+	양수 _<n>_으로 제거 시 결과는 빈 문자열이 되고, 음수 _<N>_으로
+	제거 시 전체 refname이 됩니다. 둘 다 오류가 아닙니다.
++
+`strip`은 `lstrip`의 동의어로 사용할 수 있습니다.
+
+`objecttype`::
+	객체의 타입 (`blob`, `tree`, `commit`, `tag`).
+
+`objectsize`::
+	객체의 크기 (`git cat-file -s`가 보고하는 값과 동일).
+	`disk`를 추가하면 객체가 디스크에서 차지하는 크기를 바이트 단위로 얻습니다.
+	아래 'CAVEATS' 섹션의 디스크 크기에 대한 참고 사항을 참조하십시오.
+`objectname`::
+	객체의 이름 (SHA-1이라고도 함).
+	객체 이름의 모호하지 않은 약어는 `:short`를 추가하십시오.
+	원하는 길이의 객체 이름 약어는 `:short=<length>`를 추가하십시오.
+	여기서 최소 길이는 `MINIMUM_ABBREV`입니다. 고유한 객체 이름을 보장하기 위해
+	길이가 초과될 수 있습니다.
+`deltabase`::
+	주어진 객체가 델타로 저장된 경우, 해당 델타의 베이스 객체의
+	이름으로 확장됩니다. 그렇지 않으면 null 객체 이름(모든 0)으로 확장됩니다.
+
+`upstream`::
+	표시되는 ref에 대해 "업스트림"으로 간주될 수 있는 로컬 ref의 이름.
+	`refname`과 동일한 방식으로 `:short`, `:lstrip`, `:rstrip`을 존중합니다.
+	또한, "[ahead N, behind M]"을 표시하도록 `:track`과 축약 버전인 ">" (ahead),
+	"<" (behind), "<>" (ahead and behind), 또는 "=" (in sync)을 표시하도록
+	`:trackshort`를 존중합니다. `:track`은 알 수 없는 업스트림 ref가
+	발견될 때 "[gone]"을 출력합니다. 추적 정보를 대괄호 없이 표시하려면
+	`:track,nobracket`을 추가하십시오 (예: "ahead N, behind M").
++
+원격 추적 브랜치 `%(upstream)`의 경우, `%(upstream:remotename)` 및
+`%(upstream:remoteref)`는 각각 원격의 이름과 추적되는 원격 ref의 이름입니다.
+즉, 원격 추적 브랜치는 `%(upstream:remotename)`에서 페치하기 위해
+`%(upstream:remoteref):%(upstream)` refspec을 사용하여 명시적으로
+개별적으로 업데이트될 수 있습니다.
++
+해당 ref에 추적 정보가 연결되어 있지 않으면 아무런 효과가 없습니다.
+`nobracket`을 제외한 모든 옵션은 상호 배타적이지만, 함께 사용되면
+마지막 옵션이 선택됩니다.
+
+`push`::
+	표시되는 ref에 대한 `@{push}` 위치를 나타내는 로컬 ref의 이름.
+	`upstream`과 동일한 방식으로 `:short`, `:lstrip`, `:rstrip`, `:track`,
+	`:trackshort`, `:remotename` 및 `:remoteref` 옵션을 존중합니다.
+	`@{push}` ref가 구성되어 있지 않으면 빈 문자열을 생성합니다.
+
+`HEAD`::
+	`HEAD`가 현재 ref(체크아웃된 브랜치)와 일치하면 `*`, 그렇지 않으면 ' '입니다.
+
+`color`::
+	출력 색상을 변경합니다. `:<colorname>`을 따르며, 색상 이름은
+	linkgit:git-config[1]의 "CONFIGURATION FILE" 섹션의 Values 아래에
+	설명되어 있습니다. 예를 들어, `%(color:bold red)`입니다.
+
+`align`::
+	`%(align:...)`와 `%(end)` 사이의 내용을 왼쪽, 중간 또는 오른쪽으로 정렬합니다.
+	"`align:`" 뒤에는 `width=<width>`와 `position=<position>`이
+	콤마로 구분되어 어떤 순서로든 올 수 있으며, _<position>_은
+	`left`, `right` 또는 `middle` 중 하나이며 기본값은 `left`이고,
+	_<width>_는 정렬될 내용의 총 길이입니다. 간결성을 위해
+	"width=" 및/또는 "position=" 접두사는 생략될 수 있으며,
+	맨 _<width>_와 _<position>_이 사용될 수 있습니다. 예를 들어,
+	`%(align:<width>,<position>)`입니다. 내용의 길이가 너비보다
+	크면 정렬이 수행되지 않습니다. `--quote`와 함께 사용하면
+	`%(align:...)`와 `%(end)` 사이의 모든 것이 인용되지만, 중첩되면
+	최상위 레벨만 인용됩니다.
+
+`if`::
+	`%(if)...%(then)...%(end)` 또는 `%(if)...%(then)...%(else)...%(end)`로 사용됩니다.
+	`%(if)` 뒤에 값이 있거나 문자열 리터럴이 있는 원자가 있으면 `%(then)`
+	뒤의 모든 것이 출력되고, `%(else)` 원자가 사용되면 `%(else)` 뒤의
+	모든 것이 출력됩니다. `%(then)` 앞에 있는 문자열을 평가할 때 공백을
+	무시합니다. 이는 `%(HEAD)` 원자를 사용할 때 유용하며, 이 원자는 "`*`" 또는 " "을
+	출력하며 'if' 조건을 `HEAD` ref에만 적용하려는 경우에 사용됩니다.
+	`%(if:...)`와 `%(then)` 원자 사이의 값을 주어진 문자열과 비교하기 위해
+	"`:equals=<string>`" 또는 "`:notequals=<string>`"을 추가할 수 있습니다.
+
+`symref`::
+	주어진 심볼릭 ref가 참조하는 ref. 심볼릭 ref가 아니면 아무것도 출력되지 않습니다.
+	`refname`과 동일한 방식으로 `:short`, `:lstrip` 및 `:rstrip` 옵션을 존중합니다.
+
+`signature`::
+	커밋의 GPG 서명.
+
+`signature:grade`::
+	다음과 같이 표시됩니다.
+`G`;;	유효한 서명
+`B`;;	잘못된 서명
+`U`;;	유효하지만 알 수 없는 서명
+`X`;;	만료된 유효한 서명
+`Y`;;	만료된 키로 생성된 유효한 서명
+`R`;;	취소된 키로 생성된 유효한 서명
+`E`;;	서명을 확인할 수 없는 경우 (예: 키 누락)
+`N`;;	서명 없음.
+
+`signature:signer`::
+	커밋의 GPG 서명의 서명자.
+
+`signature:key`::
+	커밋의 GPG 서명의 키.
+
+`signature:fingerprint`::
+	커밋의 GPG 서명의 지문.
+
+`signature:primarykeyfingerprint`::
+	커밋의 GPG 서명의 주 키 지문.
+
+`signature:trustlevel`::
+	커밋의 GPG 서명의 신뢰 수준. 가능한 출력은 `ultimate`, `fully`,
+	`marginal`, `never`, `undefined`입니다.
+
+`worktreepath`::
+	ref가 체크아웃된 워크트리의 절대 경로. 연결된 워크트리에
+	체크아웃된 경우. 그렇지 않으면 빈 문자열입니다.
+
+`ahead-behind:<commit-ish>`::
+	두 개의 정수가 공백으로 구분되며, 각각 출력 ref와 형식에 지정된
+	_<committish>_를 비교할 때 앞선 커밋 수와 뒤처진 커밋 수를 나타냅니다.
+
+`is-base:<commit-ish>`::
+	최대 한 줄에, `(<commit-ish>)`이 표시되어 _<committish>_ 브랜치의
+	구현에 사용된 시작점으로 가장 가능성이 높은 ref를 나타냅니다. 이 선택은
+	휴리스틱을 사용하여 이루어집니다: _<committish>_의 first-parent 히스토리에서
+	ref의 first-parent 히스토리에 없는 커밋 수를 최소화하는 ref를 선택합니다.
++
+예를 들어, 여러 ref의 first-parent 히스토리가 다음과 같은 그림을
+고려해 보십시오:
++
+----
+*--*--*--*--*--* refs/heads/A
+\
+ \
+  *--*--*--* refs/heads/B
+   \     \
+    \     \
+     *     * refs/heads/C
+      \
+       \
+	*--* refs/heads/D
+----
++
+여기서, `A`, `B`, `C`가 필터링된 참조이고, 형식 문자열이 `%(refname):%(is-base:D)`이면
+출력은 다음과 같습니다.
++
+----
+refs/heads/A:
+refs/heads/B:(D)
+refs/heads/C:
+----
++
+이는 `D`의 first-parent 히스토리가 필터링된 ref들의 first-parent 히스토리와
+가장 초기에 교차하는 지점이 `B`와 `C`의 공통 first-parent 조상이고,
+동점은 정렬된 순서에서 가장 빠른 ref로 결정되기 때문입니다.
++
+_<commit-ish>_의 first-parent 히스토리가 필터링된 ref들의 first-parent
+히스토리와 교차하지 않는 경우 이 토큰이 나타나지 않습니다.
+
+`describe[:<option>,...]`::
+	linkgit:git-describe[1]와 같은 사람이 읽을 수 있는 이름;
+	설명할 수 없는 커밋의 경우 빈 문자열. `describe` 문자열 뒤에 콜론과
+	하나 이상의 쉼표로 구분된 옵션이 올 수 있습니다.
++
+--
+`tags=<bool-value>`;;
+	주석 태그만 고려하는 대신, 경량 태그도 고려합니다. linkgit:git-describe[1]의
+	해당 옵션을 참조하여 자세한 내용을 확인하십시오.
+`abbrev=<number>`;;
+	최소 _<number>_개의 16진수 숫자를 사용합니다. linkgit:git-describe[1]의
+	해당 옵션을 참조하여 자세한 내용을 확인하십시오.
+`match=<pattern>`;;
+	`refs/tags/` 접두사를 제외하고 `glob`(7) _<pattern>_과 일치하는
+	태그만 고려합니다. linkgit:git-describe[1]의 해당 옵션을 참조하여
+	자세한 내용을 확인하십시오.
+`exclude=<pattern>`;;
+	`refs/tags/` 접두사를 제외하고 `glob`(7) _<pattern>_과 일치하는
+	태그는 고려하지 않습니다. linkgit:git-describe[1]의 해당 옵션을
+	참조하여 자세한 내용을 확인하십시오.
+--
+
+이 외에도, 커밋 및 태그 객체의 경우 헤더 필드 이름 (`tree`, `parent`,
+`object`, `type`, `tag`)을 사용하여 헤더 필드의 값을 지정할 수 있습니다.
+`tree` 및 `parent` 필드는 `objectname`과 마찬가지로 `:short` 및
+`:short=<length>` 수정자와 함께 사용할 수 있습니다.
+
+커밋 및 태그 객체의 경우, 특수 필드인 `creatordate` 및 `creator`는
+객체 타입에 따라 `committer` 또는 `tagger` 필드의 해당 날짜 또는
+이름-이메일-날짜 튜플에 해당합니다. 이들은 주석 태그와 경량 태그가
+혼합된 상태에서 작업하는 데 사용됩니다.
+
+태그 객체의 경우, 별표 (`*`)로 접두사가 붙은 `fieldname`은 태그
+객체 자체의 값이 아닌, 벗겨진(peeled) 객체의 `fieldname` 값으로 확장됩니다.
+
+이름-이메일-날짜 튜플을 값으로 갖는 필드 (`author`, `committer`,
+`tagger`)는 `name`, `email`, `date`를 접미사로 붙여 해당 구성 요소를
+추출할 수 있습니다. 이메일 필드 (`authoremail`, `committeremail`,
+`taggeremail`)의 경우, `:trim`을 추가하여 꺾쇠 괄호 없는 이메일을 얻거나,
+`:localpart`를 추가하여 트리밍된 이메일에서 `@` 기호 앞 부분을 얻을 수
+있습니다. 이 외에도, `:mailmap` 옵션과 해당 `:mailmap,trim`, `:mailmap,localpart`
+(순서는 중요하지 않음)를 사용하여 .mailmap 파일 또는 mailmap.file 또는
+mailmap.blob 구성 변수에 설정된 파일에 따른 이름 및 이메일 값을 얻을 수
+있습니다 (linkgit:gitmailmap[5] 참조).
+
+객체의 원시 데이터는 `raw`입니다.
+
+`raw:size`::
+	객체의 원시 데이터 크기.
+
+`--python`, `--shell`, `--tcl`과 함께 `--format=%(raw)`를 사용할 수 없습니다.
+그러한 언어는 문자열 변수 타입에서 임의의 이진 데이터를 지원하지 않을 수 있기 때문입니다.
+
+커밋 또는 태그 객체의 메시지는 `contents`이며, 여기서 `contents:<part>`를
+사용하여 다양한 부분을 추출할 수 있습니다:
+
+`contents:size`::
+	커밋 또는 태그 메시지의 바이트 단위 크기.
+
+`contents:subject`::
+	메시지의 첫 번째 문단 (일반적으로 한 줄)은 커밋 또는 태그 메시지의
+	"제목"으로 간주됩니다.
+	`contents:subject` 대신 `subject` 필드를 사용하여 동일한 결과를 얻을 수도 있습니다.
+	`:sanitize`를 `subject`에 추가하여 파일 이름에 적합한 제목 줄을 얻을 수 있습니다.
+
+`contents:body`::
+	"제목" 뒤에 오는 커밋 또는 태그 메시지의 나머지 부분.
+
+`contents:signature`::
+	태그의 선택적 GPG 서명.
+
+`contents:lines=<n>`::
+	메시지의 첫 _<n>_ 줄.
+
+추가적으로, linkgit:git-interpret-trailers[1]에 의해 해석된 트레일러는
+`trailers[:<option>,...]` (또는 레거시 별칭 `contents:trailers[:<option>,...]`)으로
+얻어집니다. 유효한 _<option>_ 값은 linkgit:git-log[1]의 `trailers` 섹션을
+참조하십시오.
+
+정렬 목적으로, 숫자 값을 가진 필드는 숫자 순서로 정렬됩니다 (`objectsize`,
+`authordate`, `committerdate`, `creatordate`, `taggerdate`).
+나머지 모든 필드는 바이트 값 순서로 정렬됩니다.
+
+버전별로 정렬하는 옵션도 있습니다. 이는 `version:refname` 필드 이름 또는
+그 별칭 `v:refname`을 사용하여 수행할 수 있습니다.
+
+어떤 경우든, ref가 참조하는 객체에 적용 불가능한 필드를 참조하는 필드 이름은
+오류를 발생시키지 않습니다. 대신 빈 문자열을 반환합니다.
+
+날짜 타입 필드의 특별한 경우로서, `:` 뒤에 날짜 형식 이름을 추가하여
+날짜 형식을 지정할 수 있습니다 (linkgit:git-rev-list[1]의 `--date` 옵션 값을
+참조). 이러한 형식이 `--sort` 키에 제공되면, 참조는 기본 타임스탬프의
+숫자 값 대신 형식화된 문자열의 바이트 값에 따라 정렬됩니다.
+
+`%(align)` 및 `%(if)`와 같은 일부 원자에는 항상 일치하는 `%(end)`가 필요합니다.
+이를 "열기 원자"라고 하며 때로는 `%($open)`으로 표시합니다.
+
+스크립트 언어별 인용이 적용되는 경우, 최상위 열기 원자와 일치하는
+`%(end)` 사이의 모든 것은 열기 원자의 의미에 따라 평가되며, 최상위 결과만
+인용됩니다.
+
+
+EXAMPLES
+--------
+
+형식화된 텍스트를 직접 생성하는 예제. 가장 최근의
+3개 태그 커밋을 표시합니다:
+
+------------
+#!/bin/sh
+
+git for-each-ref --count=3 --sort='-*authordate' \
+`--format='From: %(*authorname) %(*authoremail)
+Subject: %(*subject)
+Date: %(*authordate)
+Ref: %(*refname)
+
+%(*body)
+' 'refs/tags'
+------------
+
+
+" --shell" 사용을 시연하는 쉘 eval 출력을 보여주는 간단한 예제.
+모든 헤드의 접두사를 나열합니다:
+
+------------
+#!/bin/sh
+
+git for-each-ref --shell --format="ref=%(refname)" refs/heads | \
+while read entry
+do
+	eval "$entry"
+	echo `dirname $ref`
+done
+------------
+
+
+태그에 대한 조금 더 정교한 보고서. 형식은 전체 스크립트가 될 수 있음을 시연합니다:
+
+------------
+#!/bin/sh
+
+fmt='
+	r=%(refname)
+	t=%(*objecttype)
+	T=${r#refs/tags/}
+
+	o=%(*objectname)
+	n=%(*authorname)
+	e=%(*authoremail)
+	s=%(*subject)
+	d=%(*authordate)
+	b=%(*body)
+
+	kind=Tag
+	if test "z$t" = z
+	then
+		# could be a lightweight tag
+		t=%(objecttype)
+		kind="Lightweight tag"
+		o=%(objectname)
+		n=%(authorname)
+		e=%(authoremail)
+		s=%(subject)
+		d=%(authordate)
+		b=%(body)
+	fi
+	echo "$kind $T points at a $t object $o"
+	if test "z$t" = zcommit
+	then
+		echo "The commit was authored by $n $e
+at $d, and titled
+
+    $s
+
+Its message reads as:
+"
+		echo "$b" | sed -e "s/^/    /"
+		echo
+	fi
+'
+
+eval=`git for-each-ref --shell --format="$fmt" \
+	--sort='*objecttype' \
+	--sort=-taggerdate \
+	refs/tags`
+eval "$eval"
+------------
+
+
+" %(if)...%(then)...%(else)...%(end)" 사용을 보여주는 예제.
+현재 브랜치에 앞에 별표를 붙입니다.
+
+------------
+git for-each-ref --format="%(if)%(HEAD)%(then)* %(else)  %(end)%(refname:short)" refs/heads/
+------------
+
+
+" %(if)...%(then)...%(end)" 사용을 보여주는 예제.
+작성자가 있는 경우 작성자 이름을 출력합니다.
+
+------------
+git for-each-ref --format="%(refname)%(if)%(authorname)%(then) Authored by: %(authorname)%(end)"
+------------
+
+CAVEATS
+-------
+
+디스크상의 객체 크기는 정확하게 보고되지만, 어떤 ref 또는 객체가
+디스크 사용량에 책임이 있는지 결론을 내릴 때는 주의해야 합니다.
+팩킹된 비델타 객체의 크기는 그것에 델타하는 객체의 크기보다 훨씬 클 수 있지만,
+어떤 객체를 베이스로 하고 어떤 객체를 델타로 할지의 선택은 임의적이며
+재패킹 중에 변경될 수 있습니다.
+
+또한 객체 데이터베이스에 객체의 여러 복사본이 존재할 수 있습니다. 이러한 경우,
+어떤 복사본의 크기 또는 델타 베이스가 보고될지는 정의되지 않습니다.
+
+NOTES
+-----
+
+include::ref-reachability-filters.adoc[]
+
+SEE ALSO
+--------
+linkgit:git-show-ref[1]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

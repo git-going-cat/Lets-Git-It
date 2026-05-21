@@ -1,0 +1,187 @@
+git-replay(1)
+=============
+
+NAME
+----
+git-replay - EXPERIMENTAL: Replay commits on a new base, works with bare repos too
+
+
+SYNOPSIS
+--------
+[verse]
+(EXPERIMENTAL!) 'git replay' ([--contained] --onto=<newbase> | --advance=<branch> | --revert=<branch>)
+			     [--ref=<ref>] [--ref-action=<mode>] <revision-range>
+
+DESCRIPTION
+-----------
+
+Takes a range of commits and replays them onto a new location. Leaves
+the working tree and the index untouched. By default, updates the
+relevant references using an atomic transaction (all refs update or
+none). Use `--ref-action=print` to avoid automatic ref updates and
+instead get update commands that can be piped to `git update-ref --stdin`
+(see the <<output,OUTPUT>> section below).
+
+THIS COMMAND IS EXPERIMENTAL. THE BEHAVIOR MAY CHANGE.
+
+OPTIONS
+-------
+
+--onto=<newbase>::
+	새 커밋을 생성할 시작점입니다. 기존 브랜치 이름뿐만 아니라 유효한 커밋이라면 무엇이든 될 수 있습니다.
++
+When `--onto` is specified, the branch(es) in the revision range will be
+updated to point at the new commits, similar to the way `git rebase --update-refs`
+updates multiple branches in the affected range.
+
+--advance=<branch>::
+	새 커밋을 생성할 시작점입니다. 반드시 브랜치 이름이어야 합니다.
++
+The history is replayed on top of the <branch> and <branch> is updated to
+point at the tip of the resulting history. This is different from `--onto`,
+which uses the target only as a starting point without updating it.
+
+--revert=<branch>::
+	되돌린 커밋을 생성할 시작점입니다. 반드시 브랜치 이름이어야 합니다.
++
+When `--revert` is specified, the commits in the revision range are reverted
+(their changes are undone) and the reverted commits are created on top of
+<branch>. The <branch> is then updated to point at the new commits. This is
+the same as running `git revert <revision-range>` but does not update the
+working tree.
++
+The commit messages follow `git revert` conventions: they are prefixed with
+"Revert" and include "This reverts commit <hash>." When reverting a commit
+whose message starts with "Revert", the new message uses "Reapply" instead.
+Unlike cherry-pick which preserves the original author, revert commits use
+the current user as the author, matching the behavior of `git revert`.
++
+This option is mutually exclusive with `--onto` and `--advance`. It is also
+incompatible with `--contained` (which is a modifier for `--onto` only).
+
+--contained::
+	<revision-range> 내의 커밋을 가리키는 모든 브랜치를 업데이트합니다. `--onto`가 필요합니다.
+
+--ref=<ref>::
+	리플레이 결과로 업데이트될 참조를 재정의합니다.
+	참조는 전체 정규화된 이름이어야 합니다.
+	When used with `--onto`, the `<revision-range>` should have a
+	single tip and only the specified reference is updated instead of
+	inferring refs from the revision range.
+	When used with `--advance` or `--revert`, the specified reference is
+	updated instead of the branch given to those options.
+	This option is incompatible with `--contained`.
+
+--ref-action[=<mode>]::
+	참조가 업데이트되는 방식을 제어합니다. 모드는 다음과 같습니다:
++
+--
+	* `update` (기본값): 원자적 트랜잭션을 사용하여 참조를 직접 업데이트합니다.
+	  모든 참조가 업데이트되거나 아무것도 업데이트되지 않습니다 (all-or-nothing 동작).
+	* `print`: 파이프라인 사용을 위한 update-ref 명령을 출력합니다. 이는 출력을 `git update-ref --stdin`에 파이프할 수 있는 전통적인 동작입니다.
+--
++
+기본 모드는 `replay.refAction` 구성 변수를 통해 설정할 수 있습니다.
+
+<revision-range>::
+	리플레이할 커밋 범위; linkgit:git-rev-parse[1]의 "Specifying Ranges"를 참조하십시오.
+	`--advance=<branch>` 또는 `--revert=<branch>` 모드에서 범위는 단일 팁을 가져야 하므로,
+	advancing 또는 reverted <branch>가 어떤 팁을 가리켜야 하는지 명확합니다.
+	범위 내에서 리플레이 대상 브랜치에 이미 변경 사항이 존재하는 커밋은 삭제됩니다.
+
+:git-replay: 1
+include::rev-list-options.adoc[]
+
+[[output]]
+OUTPUT
+------
+
+기본적으로 또는 `--ref-action=update`를 사용하면, 이 명령은 성공 시 출력을 생성하지 않습니다. 참조는 원자적 트랜잭션을 사용하여 직접 업데이트되기 때문입니다.
+
+`--ref-action=print`를 사용할 때, 출력은 `git update-ref --stdin`의 입력으로 사용할 수 있습니다. 형식은 다음과 같습니다:
+
+	update refs/heads/branch1 ${NEW_branch1_HASH} ${OLD_branch1_HASH}
+	update refs/heads/branch2 ${NEW_branch2_HASH} ${OLD_branch2_HASH}
+	update refs/heads/branch3 ${NEW_branch3_HASH} ${OLD_branch3_HASH}
+
+여기서 업데이트되는 참조의 수는 전달된 인자와 리플레이되는 히스토리의 모양에 따라 달라집니다. `--advance` 또는 `--revert`를 사용할 때, 업데이트되는 참조의 수는 항상 하나이지만, `--onto`의 경우 하나 이상일 수 있습니다 (여러 브랜치를 동시에 리베이스하는 것이 지원됩니다).
+
+충돌 발생 시 stderr 출력은 없습니다. 아래의 <<exit-status,EXIT STATUS>> 섹션을 참조하십시오.
+
+[[exit-status]]
+EXIT STATUS
+-----------
+
+성공적이고 충돌이 없는 리플레이의 경우, 종료 상태는 0입니다. 리플레이에 충돌이 있는 경우, 종료 상태는 1입니다. 어떤 종류의 오류로 인해 리플레이를 완료할 수 없거나 (또는 시작할 수 없거나) 실패하면, 종료 상태는 0 또는 1 이외의 값입니다.
+
+EXAMPLES
+--------
+
+`mybranch`를 `target` 위에 간단히 리베이스하려면:
+
+------------
+$ git replay --onto=target origin/main..mybranch
+------------
+
+참조는 원자적으로 업데이트되며 성공 시 출력이 생성되지 않습니다.
+
+실제로 업데이트하지 않고 무엇이 업데이트될지 보려면:
+
+------------
+$ git replay --ref-action=print --onto=target origin/main..mybranch
+update refs/heads/mybranch ${NEW_mybranch_HASH} ${OLD_mybranch_HASH}
+------------
+
+mybranch의 커밋들을 target 위에 체리픽하려면:
+
+------------
+$ git replay --advance=target origin/main..mybranch
+------------
+
+주의: 첫 두 예시는 정확히 동일한 커밋을 동일한 새 베이스 위에 리플레이하며, 첫 번째는 mybranch를 새 커밋을 가리키도록 업데이트하고 두 번째는 target을 새 커밋을 가리키도록 업데이트한다는 점만 다릅니다.
+
+만약 한 브랜치가 다른 브랜치에 의존하는 스택이 있고, 전체 세트를 리베이스하고 싶다면 어떻게 해야 할까요?
+
+------------
+$ git replay --contained --onto=origin/main origin/main..tipbranch
+------------
+
+세 개의 브랜치(`branch1`, `branch2`, `tipbranch`) 모두 원자적으로 업데이트됩니다.
+
+`git replay`를 호출할 때, `A..B` 구문을 사용하여 리플레이할 커밋 범위를 지정할 필요가 없습니다. 모든 범위 표현식이 작동합니다:
+
+------------
+$ git replay --onto=origin/main ^base branch1 branch2 branch3
+------------
+
+This will simultaneously rebase `branch1`, `branch2`, and `branch3`,
+all commits they have since `base`, playing them on top of
+`origin/main`. These three branches may have commits on top of `base`
+that they have in common, but that does not need to be the case.
+
+브랜치의 커밋을 되돌리려면:
+
+------------
+$ git replay --revert=main topic~2..topic
+------------
+
+This reverts the last two commits from `topic`, creating revert commits on
+top of `main`, and updates `main` to point at the result. This is useful when
+commits from `topic` were previously merged or cherry-picked into `main` and
+need to be undone.
+
+참고: 단일 커밋으로 전체 병합 요청을 되돌리려면 (커밋별로가 아닌), `git merge-tree --merge-base $TIP HEAD $BASE`를 사용하는 것을 고려하십시오. 이는 불필요한 병합 충돌을 피할 수 있습니다.
+
+특정 커밋 위에 리플레이하면서 다른 참조를 업데이트하려면:
+
+------------
+$ git replay --onto=112233 --ref=refs/heads/mybranch aabbcc..ddeeff
+------------
+
+This replays the range `aabbcc..ddeeff` onto commit `112233` and updates
+`refs/heads/mybranch` to point at the result. This can be useful when you want
+to use bare commit IDs instead of branch names.
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

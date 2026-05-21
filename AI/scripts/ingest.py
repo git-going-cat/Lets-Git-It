@@ -23,6 +23,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 REPO_URL = "https://github.com/progit/progit2-ko.git"
 REPO_DIR = Path("progit2-ko")
+GIT_DOCS_KO_DIR = Path("data/git-docs-ko")
 DATA_DIR = Path("data")
 CHUNKS_FILE = DATA_DIR / "chunks.json"
 EMBEDDINGS_FILE = DATA_DIR / "embeddings.npy"
@@ -56,6 +57,8 @@ MIN_CHUNK_TOKENS = 50  # 이 미만은 청크에서 제외
 
 def _strip_markup(text: str) -> str:
     """인라인 AsciiDoc 마크업 제거, 가독성 있는 텍스트 유지."""
+    # linkgit:git-xxx[1] → git-xxx (git manpage 참조 매크로)
+    text = re.sub(r"linkgit:([^\[]+)\[\d+\]", r"\1", text)
     # bold/italic/mono 제거: *text*, _text_, `text`
     text = re.sub(r"[*_`]", "", text)
     # 상호참조: <<anchor,label>> → label, <<anchor>> 삭제
@@ -68,6 +71,59 @@ def _strip_markup(text: str) -> str:
     # 이미지 매크로 삭제
     text = re.sub(r"image::[^\[]+\[[^\]]*\]", "", text)
     return text
+
+
+def _preprocess_setext(lines: list[str]) -> list[str]:
+    """setext-style 헤더를 ATX-style로 변환 (git manpage AsciiDoc 대응).
+
+    git-xxx.adoc 구조:
+      git-restore(1)        →  = git-restore(1)
+      ==============
+      NAME                  →  == NAME
+      ----
+    코드블록 내부 ---- 는 변환하지 않음 (preceding line이 [ 로 시작하거나 빈 줄).
+    """
+    result: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        next_line = lines[i + 1] if i + 1 < len(lines) else ""
+
+        stripped = line.strip()
+        next_stripped = next_line.strip()
+
+        # setext level 1: 다음 줄이 == 만으로 구성
+        if (
+            stripped
+            and not stripped.startswith("[")
+            and not stripped.startswith("=")
+            and next_stripped
+            and re.match(r"^=+$", next_stripped)
+            and len(next_stripped) >= 3
+        ):
+            result.append(f"= {stripped}")
+            i += 2
+            continue
+
+        # setext level 2: 다음 줄이 -- 만으로 구성
+        # 단, 현재 줄이 [source...] / 빈 줄이면 코드블록 구분자 → 변환 안 함
+        if (
+            stripped
+            and not stripped.startswith("[")
+            and not stripped.startswith("=")
+            and not stripped.startswith("-")
+            and next_stripped
+            and re.match(r"^-+$", next_stripped)
+            and len(next_stripped) >= 3
+        ):
+            result.append(f"== {stripped}")
+            i += 2
+            continue
+
+        result.append(line)
+        i += 1
+
+    return result
 
 
 def _parse_file(
@@ -111,7 +167,10 @@ def _parse_file(
                 }
             )
 
-    for line in raw.splitlines():
+    # setext-style 헤더를 ATX-style로 변환 (git manpage 대응)
+    preprocessed_lines = _preprocess_setext(raw.splitlines())
+
+    for line in preprocessed_lines:
         # 슬래시만으로 이루어진 줄: 주석 블록 토글 (////, //////////  등)
         if re.match(r"^/{4,}\s*$", line):
             in_comment_block = not in_comment_block
@@ -163,6 +222,18 @@ def _parse_file(
         if re.match(r"^\[(preface|dedication|colophon|appendix|abstract|partintro)\]", line):
             continue
 
+        # git manpage 블록 마커 건너뜀: [synopsis], [verse] 등 — 내용은 유지
+        if re.match(r"^\[(synopsis|verse|abstract|open|sidebar)\]", line, re.IGNORECASE):
+            continue
+
+        # `+` 옵션 연속 마커 → 빈 줄 처리
+        if line.strip() == "+":
+            current_lines.append("")
+            continue
+
+        # dlist (::) 정규화: `term::` → `term:`
+        line = re.sub(r"::(\s*)$", r":\1", line)
+
         # NOTE/TIP/WARNING 등 사이드바 → 본문 포함
         m = re.match(r"^(NOTE|TIP|WARNING|IMPORTANT|CAUTION):\s*(.*)", line)
         if m:
@@ -193,6 +264,19 @@ def parse_progit(repo_root: Path) -> list[dict]:
     return sections
 
 
+def parse_git_docs_ko(docs_ko_dir: Path) -> list[dict]:
+    """data/git-docs-ko/git-*.adoc 파싱. 각 파일이 하나의 명령어 매뉴얼."""
+    sections: list[dict] = []
+    for f in sorted(docs_ko_dir.glob("git-*.adoc")):
+        command = f.stem  # git-restore, git-commit, ...
+        file_sections = _parse_file(f, docs_ko_dir)
+        for sec in file_sections:
+            sec["chapter"] = command
+            sec["source_type"] = "git-docs-ko"
+        sections.extend(file_sections)
+    return sections
+
+
 # ---------------------------------------------------------------------------
 # Phase 2-3: 청킹
 # ---------------------------------------------------------------------------
@@ -214,6 +298,7 @@ def _make_chunks(sections: list[dict], enc: tiktoken.Encoding) -> list[dict]:
     buf_chapter: str = ""
     buf_section: str = ""
     buf_source: str = ""
+    buf_source_type: str = ""
 
     def emit_buffer() -> None:
         nonlocal chunk_id, buf_texts, buf_tokens
@@ -230,6 +315,7 @@ def _make_chunks(sections: list[dict], enc: tiktoken.Encoding) -> list[dict]:
                         "chapter": buf_chapter,
                         "section": buf_section,
                         "source": buf_source,
+                        "source_type": buf_source_type,
                         "token_count": tok_count,
                     },
                 }
@@ -272,6 +358,7 @@ def _make_chunks(sections: list[dict], enc: tiktoken.Encoding) -> list[dict]:
                                 "chapter": chapter_title,
                                 "section": sec["title"],
                                 "source": sec["source"],
+                                "source_type": sec.get("source_type", ""),
                                 "token_count": len(chunk_tok),
                             },
                         }
@@ -289,6 +376,7 @@ def _make_chunks(sections: list[dict], enc: tiktoken.Encoding) -> list[dict]:
                 buf_chapter = chapter_title
                 buf_section = sec["title"]
                 buf_source = sec["source"]
+                buf_source_type = sec.get("source_type", "")
 
             buf_texts.append(full_text)
             buf_tokens += sec_tokens
@@ -298,19 +386,37 @@ def _make_chunks(sections: list[dict], enc: tiktoken.Encoding) -> list[dict]:
 
 
 def build_chunks() -> None:
-    if not REPO_DIR.exists():
-        print("[ERROR] progit2-ko not found. Run --clone first.")
-        sys.exit(1)
-
     DATA_DIR.mkdir(exist_ok=True)
     enc = tiktoken.get_encoding("cl100k_base")
 
-    print("Parsing AsciiDoc ...")
-    sections = parse_progit(REPO_DIR)
-    print(f"  → {len(sections)} sections parsed")
+    all_sections: list[dict] = []
 
-    print("Chunking ...")
-    chunks = _make_chunks(sections, enc)
+    # Pro Git 한국어판
+    if REPO_DIR.exists():
+        print("Parsing progit2-ko ...")
+        progit_sections = parse_progit(REPO_DIR)
+        for sec in progit_sections:
+            sec.setdefault("source_type", "progit")
+        all_sections.extend(progit_sections)
+        print(f"  → {len(progit_sections)} sections (progit)")
+    else:
+        print(f"[SKIP] {REPO_DIR} not found — run --clone first if needed")
+
+    # Git 공식 docs 한국어 번역본
+    if GIT_DOCS_KO_DIR.exists():
+        print("Parsing git-docs-ko ...")
+        gitdocs_sections = parse_git_docs_ko(GIT_DOCS_KO_DIR)
+        all_sections.extend(gitdocs_sections)
+        print(f"  → {len(gitdocs_sections)} sections (git-docs-ko)")
+    else:
+        print(f"[SKIP] {GIT_DOCS_KO_DIR} not found — run translate_git_docs.py first")
+
+    if not all_sections:
+        print("[ERROR] No sections found. Check data sources.")
+        sys.exit(1)
+
+    print(f"Chunking {len(all_sections)} total sections ...")
+    chunks = _make_chunks(all_sections, enc)
 
     if not chunks:
         print("[ERROR] No chunks generated. Check parser output.")
@@ -318,9 +424,13 @@ def build_chunks() -> None:
 
     token_counts = [c["metadata"]["token_count"] for c in chunks]
     avg = sum(token_counts) / len(token_counts)
+
+    progit_count = sum(1 for c in chunks if c["metadata"].get("source_type") == "progit")
+    gitdocs_count = sum(1 for c in chunks if c["metadata"].get("source_type") == "git-docs-ko")
     print(
-        f"  → {len(chunks)} chunks | avg {avg:.0f} tok | "
-        f"min {min(token_counts)} | max {max(token_counts)}"
+        f"  → {len(chunks)} chunks total "
+        f"(progit={progit_count}, git-docs-ko={gitdocs_count}) | "
+        f"avg {avg:.0f} tok | min {min(token_counts)} | max {max(token_counts)}"
     )
 
     CHUNKS_FILE.write_text(

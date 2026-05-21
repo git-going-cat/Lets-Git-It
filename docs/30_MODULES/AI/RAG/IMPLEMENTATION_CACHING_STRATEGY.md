@@ -12,20 +12,33 @@
 
 ### Decision
 
-**Redis 기반 exact-match 캐시** (SHA-256 해시 키, TTL 7일, JSON 직렬화)
+**Redis 기반 exact-match 캐시** (SHA-256 해시 키, TTL 7일, JSON 직렬화). `/ask`(자연어 질문)와 `/coaching`(명령어)에서 모두 사용. 키 네임스페이스로 용도 구분.
 
-| 항목 | 값 |
-|---|---|
-| 캐시 키 | `rag:cache:<sha256(query.strip().lower())>` |
-| 값 | `{"answer": str, "sources": list}` JSON |
-| TTL | 604800초 (7일) |
-| 직렬화 | `json.dumps(ensure_ascii=False)` |
+| 키 prefix | 함수 | 용도 |
+|---|---|---|
+| `rag:cache:<sha256>` | `make_cache_key(query)` | `/ask` 응답 캐시 |
+| `rag:coaching:<sha256>` | `make_coaching_cache_key(userInput, correctCommand)` | `/coaching` 개인화 응답 |
+| `rag:command:<sha256>` | `make_command_cache_key(correctCommand)` | `/coaching` edge case 응답 (correctCommand 설명) |
 
-키 생성 (`app/rag/cache.py:10-11`):
+값은 모두 `{"answer"/"coaching": str, "sources"/"sourceChunks": list, ...}` JSON. TTL 604800초 (7일).
+
+키 생성 (`app/rag/cache.py`):
 ```python
+def _norm(s: str) -> str:
+    return " ".join(s.split())  # 공백만 정규화, 대소문자 보존
+
 def make_cache_key(query: str) -> str:
-    return "rag:cache:" + hashlib.sha256(query.strip().lower().encode()).hexdigest()
+    return "rag:cache:" + hashlib.sha256(_norm(query).encode()).hexdigest()
+
+def make_coaching_cache_key(user_input: str, correct_command: str) -> str:
+    normalized = f"{_norm(user_input)}:{_norm(correct_command)}"
+    return "rag:coaching:" + hashlib.sha256(normalized.encode()).hexdigest()
+
+def make_command_cache_key(correct_command: str) -> str:
+    return "rag:command:" + hashlib.sha256(_norm(correct_command).encode()).hexdigest()
 ```
+
+`_norm()`은 중복 공백 제거만 함. **대소문자는 보존** — `HEAD` vs `head`, `README.md` vs `readme.md`, `Feature` vs `feature`는 Git에서 의미상 다를 수 있어 의도적으로 소문자화하지 않음. `"git restore  --staged"` (공백 2개) 와 `"git restore --staged"`만 동일 키로 매칭됨.
 
 흐름:
 1. 요청 도착 → `make_cache_key(query)`
@@ -44,13 +57,15 @@ def make_cache_key(query: str) -> str:
 
 **우리 서비스의 입력은 자연어 질문이 아니라 명령어**다 (예: `git rebase main`). 명령어는 표현 다양성이 거의 없어 exact-match 적중률이 충분히 높다. semantic cache는 매 요청마다 임베딩 API를 또 호출해야 하는데, 이는 캐시의 가장 큰 효용(LLM 호출 회피)을 깎아먹는다.
 
-#### 키 정규화 (`strip().lower()`)
+#### 키 정규화 (`_norm()`)
 
-- 앞뒤 공백 제거
-- 영문 대소문자 통일 (`git push` == `GIT PUSH`)
-- 다만 한글에는 영향 없음, 중간 공백 정규화 안 함 (`git  push` ≠ `git push`)
+- 중복 공백 제거 (`git  push` == `git push`) — `" ".join(s.split())`
+- 앞뒤 공백 자동 처리 (`split()`이 무시)
+- **대소문자 보존** — Git의 ref/path/branch는 대소문자 구분 (HEAD ≠ head, Feature ≠ feature, README.md ≠ readme.md on Linux). 소문자화 시 잘못된 캐시 적중 위험
 
-이 수준에서 충분. 더 강한 정규화(중복 공백 제거, 특수문자 제거 등)는 명령어 의미를 왜곡할 수 있어 적용하지 않음.
+코칭 엔드포인트에서 사용자가 의도적/실수로 공백을 다르게 입력해도 동일 키로 모임 → 캐시 적중률 ↑. `/ask`도 동일 적용으로 일관성 유지.
+
+더 강한 정규화(특수문자 제거, 소문자화 등)는 명령어 의미를 왜곡할 수 있어 적용하지 않음.
 
 #### TTL = 7일
 

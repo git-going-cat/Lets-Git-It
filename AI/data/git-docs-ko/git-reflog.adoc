@@ -1,0 +1,105 @@
+git-reflog(1)
+=============
+
+NAME
+----
+git-reflog - reflog 정보를 관리합니다
+
+
+SYNOPSIS
+--------
+[synopsis]
+git reflog [show] [<log-options>] [<ref>]
+git reflog list
+git reflog exists <ref>
+git reflog write <ref> <old-oid> <new-oid> <message>
+git reflog delete [--rewrite] [--updateref]
+	[--dry-run | -n] [--verbose] <ref>@{<specifier>}...
+git reflog drop [--all [--single-worktree] | <refs>...]
+git reflog expire [--expire=<time>] [--expire-unreachable=<time>]
+	[--rewrite] [--updateref] [--stale-fix]
+	[--dry-run | -n] [--verbose] [--all [--single-worktree] | <refs>...]
+
+DESCRIPTION
+-----------
+이 명령어는 reflog에 기록된 정보를 관리합니다.
+
+Reference log, 또는 "reflog"는 로컬 저장소에서 브랜치 및 다른 참조의 팁이 업데이트된 시점을 기록합니다. Reflog는 다양한 Git 명령어에서 참조의 이전 값을 지정하는 데 유용합니다. 예를 들어, `HEAD@{2}`는 "HEAD가 두 단계 이전 위치"를 의미하고, `master@{one.week.ago}`는 "이 로컬 저장소에서 일주일 전 master가 가리켰던 위치"를 의미합니다. 자세한 내용은 linkgit:gitrevisions[7]을 참조하십시오.
+
+이 명령어는 하위 명령어와 함께 사용되며, 하위 명령어에 따라 다른 옵션을 사용합니다.
+
+"show" 하위 명령어 (아무런 하위 명령어가 없을 때 기본값)는 명령어 라인에서 제공된 참조(또는 기본값 `HEAD`)의 로그를 보여줍니다. reflog는 모든 최근 작업을 포함하며, 추가로 `HEAD` reflog는 브랜치 전환을 기록합니다. `git reflog show`는 `git log -g --abbrev-commit --pretty=oneline`의 별칭입니다. 자세한 내용은 linkgit:git-log[1]을 참조하십시오.
+
+"list" 하위 명령어는 해당 reflog가 있는 모든 ref를 나열합니다.
+
+"exists" 하위 명령어는 ref에 reflog가 있는지 확인합니다. reflog가 존재하면 0 상태로 종료하고, 존재하지 않으면 0이 아닌 상태로 종료합니다.
+
+"write" 하위 명령어는 주어진 참조의 reflog에 단일 항목을 씁니다. 이 새 항목은 reflog에 추가되어 가장 최근 항목이 됩니다. 참조 이름은 완전히 정규화되어야 합니다. old와 new 오브젝트 ID는 모두 약어 없이 existent 오브젝트를 가리켜야 합니다. reflog 메시지는 정규화됩니다.
+
+"delete" 하위 명령어는 reflog 자체는 삭제하지 않고 reflog에서 개별 항목을 삭제합니다. 이 명령어의 인자는 _정확한_ 항목이어야 합니다 (예: "`git reflog delete master@{2}`"). 이 하위 명령어는 일반적으로 최종 사용자에게 직접 사용되지 않습니다.
+
+"drop" 하위 명령어는 지정된 참조의 reflog를 완전히 제거합니다. 이는 "expire" 및 "delete"와 대조적입니다. 이 두 명령어는 reflog 항목을 삭제할 수 있지만 reflog 자체는 삭제하지 않습니다.
+
+"expire" 하위 명령어는 이전 reflog 항목을 제거합니다. `expire` 시간보다 오래된 항목, 또는 `expire-unreachable` 시간보다 오래되고 현재 팁에서 도달할 수 없는 항목이 reflog에서 제거됩니다. 일반적으로 최종 사용자에게 직접 사용되지 않습니다 - 대신 linkgit:git-gc[1]을 참조하십시오.
+
+OPTIONS
+-------
+
+`show`에 대한 옵션
+~~~~~~~~~~~~~~~~~~
+
+`git reflog show`는 `git log`가 허용하는 모든 옵션을 사용할 수 있습니다.
+
+
+`delete`에 대한 옵션
+~~~~~~~~~~~~~~~~~~~~
+
+`git reflog delete`는 `--updateref`, `--rewrite`, `-n`, `--dry-run`, `--verbose` 옵션을 `expire`와 동일한 의미로 사용할 수 있습니다.
+
+`drop`에 대한 옵션
+~~~~~~~~~~~~~~~~~~
+
+`--all`::
+	모든 워킹 트리의 모든 참조에 대한 reflog를 삭제합니다.
+
+`--single-worktree`::
+	기본적으로 `--all`이 지정되면 모든 작업 트리의 reflog가 삭제됩니다. 이 옵션은 현재 작업 트리의 reflog에 대한 처리만 제한합니다.
+
+
+`expire`에 대한 옵션
+~~~~~~~~~~~~~~~~~~~~
+
+`--all`::
+	모든 참조의 reflog를 처리합니다.
+
+`--single-worktree`::
+	기본적으로 `--all`이 지정되면 모든 작업 트리의 reflog가 처리됩니다. 이 옵션은 현재 작업 트리의 reflog에 대한 처리만 제한합니다.
+
+`--expire=<time>`::
+	지정된 시간보다 오래된 항목을 삭제합니다. 이 옵션이 지정되지 않으면 만료 시간은 `gc.reflogExpire` 구성 설정에서 가져오며, 기본값은 90일입니다. `--expire=all`은 나이에 관계없이 항목을 삭제합니다. `--expire=never`는 도달 가능한 항목의 삭제를 비활성화합니다 (하지만 `--expire-unreachable`을 참조하십시오).
+
+`--expire-unreachable=<time>`::
+	현재 브랜치의 팁에서 도달할 수 없는 `<time>`보다 오래된 항목을 삭제합니다. 이 옵션이 지정되지 않으면 만료 시간은 `gc.reflogExpireUnreachable` 구성 설정에서 가져오며, 기본값은 30일입니다. `--expire-unreachable=all`은 나이에 관계없이 도달할 수 없는 항목을 삭제합니다. `--expire-unreachable=never`는 도달할 수 없는 항목의 조기 삭제를 비활성화합니다 (하지만 `--expire`을 참조하십시오).
+
+`--updateref`::
+	이전 최상위 항목이 삭제된 경우 참조를 최상위 reflog 항목(<ref>@\{0\})의 값으로 업데이트합니다. (이 옵션은 심볼릭 참조의 경우 무시됩니다.)
+
+`--rewrite`::
+	reflog 항목의 이전 항목이 삭제된 경우, 이제 이전 항목이 된 항목의 "new" SHA-1과 동일하도록 "old" SHA-1을 조정합니다.
+
+`--stale-fix`::
+	"손상된 커밋"을 가리키는 reflog 항목을 삭제합니다. 손상된 커밋은 참조 팁 중 어느 것에서도 도달할 수 없으며 누락된 커밋, 트리 또는 블롭 오브젝트를 직접 또는 간접적으로 참조하는 커밋입니다.
++
+이 계산은 모든 도달 가능한 오브젝트를 순회해야 하므로 'git prune'과 동일한 비용이 듭니다. reflog에 의해 참조되는 오브젝트를 보호하지 않았던 Git의 이전 버전을 사용하여 가비지 수집으로 인해 발생한 손상을 수정하는 데 주로 사용됩니다.
+
+`-n`::
+`--dry-run`::
+	실제로 항목을 삭제하지 않고, 삭제될 항목만 표시합니다.
+
+`--verbose`::
+	화면에 추가 정보를 출력합니다.
+
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

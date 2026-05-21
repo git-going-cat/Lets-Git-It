@@ -1,0 +1,296 @@
+git-daemon(1)
+=============
+
+NAME
+----
+git-daemon - 매우 간단한 Git 저장소 서버
+
+SYNOPSIS
+--------
+[synopsis]
+git daemon [--verbose] [--syslog] [--export-all]
+	   [--timeout=<n>] [--init-timeout=<n>] [--max-connections=<n>]
+	   [--strict-paths] [--base-path=<path>] [--base-path-relaxed]
+	   [--user-path | --user-path=<path>]
+	   [--interpolated-path=<pathtemplate>]
+	   [--reuseaddr] [--detach] [--pid-file=<file>]
+	   [--enable=<service>] [--disable=<service>]
+	   [--allow-override=<service>] [--forbid-override=<service>]
+	   [--access-hook=<path>] [--[no-]informative-errors]
+	   [--inetd |
+	     [--listen=<host-or-ipaddr>] [--port=<n>]
+	     [--user=<user> [--group=<group>]]]
+	   [--log-destination=(stderr|syslog|none)]
+	   [<directory>...]
+
+DESCRIPTION
+-----------
+"DEFAULT_GIT_PORT" 또는 9418번 포트에서 수신 대기하는 매우 간단한 TCP Git 데몬입니다.
+서비스 요청 연결을 기다리며, 해당 서비스가 활성화되어 있으면 제공합니다.
+
+`git-daemon`은 디렉토리에 "git-daemon-export-ok"라는 매직 파일이 있는지 확인합니다.
+이 파일을 명시적으로 사용하여 내보내도록 표시되지 않은 Git 디렉토리는 내보내기를 거부합니다.
+(`--export-all` 매개변수가 지정되지 않은 경우). `git daemon` 인수로 일부 디렉토리 경로를 전달하면,
+제공되는 항목은 해당 디렉토리 내의 저장소로 제한됩니다.
+
+기본적으로 `upload-pack` 서비스만 활성화되어 있으며, 이는 `git fetch-pack` 및
+`git ls-remote` 클라이언트를 제공합니다. 이들은 `git fetch`, `git pull`, `git clone`에서 호출됩니다.
+
+읽기 전용 업데이트, 즉 Git 저장소에서 가져오는 데 이상적으로 적합합니다.
+
+`upload-archive` 서비스도 `git archive`를 제공하기 위해 존재합니다.
+
+OPTIONS
+-------
+`--strict-paths`::
+	경로를 정확하게 일치시킵니다. (즉, 실제 경로가 "/foo/repo.git" 또는 "/foo/repo/.git"일 때 "/foo/repo"를 허용하지 않음)
+	또한 사용자 상대 경로도 허용하지 않습니다.
+	이 옵션이 활성화된 상태에서 디렉토리 인수가 제공되지 않으면 `git daemon`은 시작을 거부합니다.
+
+`--base-path=<path>`::
+	모든 경로 요청을 지정된 경로를 기준으로 다시 매핑합니다.
+	"Git root"와 유사합니다. `example.com`에서 `--base-path=/srv/git`으로
+	`git daemon`을 실행하는 경우, 나중에 `git://example.com/hello.git`에서
+	가져오려고 하면, `git daemon`은 경로를 `/srv/git/hello.git`으로 해석합니다.
+
+`--base-path-relaxed`::
+	`--base-path`가 활성화되어 있고 저장소 조회에 실패하면, 이 옵션을 사용하면
+	`git daemon`은 기본 경로를 앞에 붙이지 않고 조회를 시도합니다.
+	이전 경로를 계속 지원하면서 `--base-path` 사용으로 전환하는 데 유용합니다.
+
+`--interpolated-path=<pathtemplate>`::
+	가상 호스팅을 지원하기 위해, 보간된 경로 템플릿을 사용하여
+	대체 경로를 동적으로 구성할 수 있습니다. 템플릿은 클라이언트에서 제공한
+	호스트 이름(모두 소문자로 변환됨)에 대한 `%H`, 정식 호스트 이름에 대한 `%CH`,
+	서버의 IP 주소에 대한 `%IP`, 포트 번호에 대한 `%P`,
+	그리고 명명된 저장소의 절대 경로에 대한 `%D`를 지원합니다.
+	보간 후, 경로는 디렉토리 목록과 비교하여 검증됩니다.
+
+`--export-all`::
+	'objects' 및 'refs' 하위 디렉토리를 가진 것처럼 보이는 모든 디렉토리에서
+	가져오기를 허용합니다. `git-daemon-export-ok` 파일이 없더라도 허용합니다.
+
+`--inetd`::
+	서버를 inetd 서비스로 실행합니다. `--syslog`를 의미하지만
+	(`--log-destination=`으로 재정의될 수 있음).
+	`--detach`, `--port`, `--listen`, `--user` 및 `--group` 옵션과 호환되지 않습니다.
+
+`--listen=<host-or-ipaddr>`::
+	특정 IP 주소 또는 호스트 이름에서 수신 대기합니다. IP 주소는
+	IPv4 주소 또는 지원되는 경우 IPv6 주소일 수 있습니다. IPv6을
+	지원하지 않으면 `--listen=<hostname>`도 지원되지 않으며
+	`--listen`은 IPv4 주소를 지정해야 합니다.
+	여러 번 지정할 수 있습니다.
+	`--inetd` 옵션과 호환되지 않습니다.
+
+`--port=<n>`::
+	대체 포트에서 수신 대기합니다. `--inetd` 옵션과 호환되지 않습니다.
+
+`--init-timeout=<n>`::
+	연결이 설정된 순간부터 클라이언트 요청이 수신될 때까지의 시간(초)입니다.
+	(일반적으로 상당히 낮은 값이어야 합니다. 기본적으로 즉시 이루어져야 하기 때문입니다.)
+
+`--timeout=<n>`::
+	특정 클라이언트 하위 요청에 대한 시간(초)입니다. 여기에는
+	서버가 하위 요청을 처리하는 데 걸리는 시간과 다음 클라이언트 요청을
+	기다리는 데 걸리는 시간이 포함됩니다.
+
+`--max-connections=<n>`::
+	동시 클라이언트의 최대 수입니다. 기본값은 32입니다.
+	제한이 없으려면 0으로 설정하십시오.
+
+`--syslog`::
+	`--log-destination=syslog`의 약어입니다.
+
+`--log-destination=<destination>`::
+	지정된 대상(destination)으로 로그 메시지를 보냅니다.
+	이 옵션은 `--verbose`를 의미하지 않으므로,
+	기본적으로 오류 조건만 로깅됩니다.
+	_<destination>_는 다음 중 하나여야 합니다:
++
+--
+`stderr`::
+	표준 오류로 씁니다.
+	`--detach`가 지정된 경우,
+	프로세스가 실제 표준 오류에서 분리되므로 이 대상은
+	실질적으로 `none`과 동일하게 됩니다.
+`syslog`::
+	`git-daemon` 식별자를 사용하여 syslog로 씁니다.
+`none`::
+	모든 로깅을 비활성화합니다.
+--
++
+기본 대상은 `--inetd` 또는 `--detach`가 지정된 경우 `syslog`이며,
+그렇지 않은 경우 `stderr`입니다.
+
+`--user-path`::
+`--user-path=<path>`::
+	요청에서 {tilde}user 표기법을 사용하도록 허용합니다.
+	매개변수 없이 지정되면, git://host/{tilde}alice/foo에 대한 요청은
+	사용자 `alice`의 홈 디렉토리에 있는 'foo' 저장소에 액세스하는 것으로 해석됩니다.
+	`--user-path=<path>`가 지정되면, 동일한 요청은
+	사용자 `alice`의 홈 디렉토리에 있는 `<path>/foo` 저장소에 액세스하는 것으로 해석됩니다.
+
+`--verbose`::
+	들어오는 연결 및 요청된 파일에 대한 세부 정보를 로깅합니다.
+
+`--reuseaddr`::
+	수신 소켓을 바인딩할 때 `SO_REUSEADDR`를 사용합니다.
+	이를 통해 서버는 오래된 연결이 시간 초과될 때까지 기다리지 않고 다시 시작할 수 있습니다.
+
+`--detach`::
+	쉘에서 분리합니다. `--syslog`를 의미합니다.
+
+`--pid-file=<file>`::
+	프로세스 ID를 _<file>_에 저장합니다. 데몬이 `--inetd`로 실행되면 무시됩니다.
+
+`--user=<user>`::
+`--group=<group>`::
+	서비스 루프에 들어가기 전에 데몬의 uid 및 gid를 변경합니다.
+	`--group` 없이 `--user`만 제공되면,
+	해당 사용자의 기본 그룹 ID가 사용됩니다.
+	옵션의 값은 `getpwnam(3)` 및 `getgrnam(3)`에 전달되며 숫자 ID는 지원되지 않습니다.
++
+이 옵션을 제공하는 것은 `--inetd`와 함께 사용될 때 오류입니다. 필요한 경우 inet 데몬의 기능을 사용하여
+`git daemon`을 스폰하기 전에 동일한 작업을 수행하십시오.
++
+사용자 ID를 전환하는 많은 프로그램과 마찬가지로, 데몬은 서비스 프로그램을 실행할 때
+`HOME`과 같은 환경 변수를 재설정하지 않습니다 (예: `upload-pack` 및 `receive-pack`). 이 옵션을 사용할 때,
+데몬을 시작하기 전에 `HOME`을 _<user>_의 홈 디렉토리를 가리키도록 설정하고 내보내야 할 수도 있으며,
+해당 디렉토리의 Git 구성 파일이 _<user>_에 의해 읽을 수 있는지 확인해야 합니다.
+
+`--enable=<service>`::
+`--disable=<service>`::
+	기본적으로 사이트 전체에서 서비스를 활성화/비활성화합니다.
+	주의: 사이트 전체에서 비활성화된 서비스는
+	재정의 가능하도록 표시되고 저장소가 구성 항목으로 서비스를 활성화하는 경우
+	저장소별로 여전히 활성화될 수 있습니다.
+
+`--allow-override=<service>`::
+`--forbid-override=<service>`::
+	사이트 전체 기본값을 저장소별 구성으로 재정의하도록 허용/금지합니다.
+	기본적으로 모든 서비스는 재정의될 수 있습니다.
+
+`--informative-errors`::
+`--no-informative-errors`::
+	정보성 오류가 활성화되면, git-daemon은 클라이언트에 더 자세한 오류를 보고하여
+	"저장소가 없음"과 "저장소가 내보내지지 않음"과 같은 조건을 구분합니다.
+	이는 클라이언트에게 더 편리하지만 내보내지지 않은 저장소의 존재에 대한 정보를 유출할 수 있습니다.
+	정보성 오류가 활성화되지 않은 경우, 모든 오류는 클라이언트에게 "접근 거부됨"을 보고합니다.
+	기본값은 `--no-informative-errors`입니다.
+
+`--access-hook=<path>`::
+	클라이언트가 연결할 때마다, 먼저 <path>에 지정된 외부 프로그램을
+	서비스 이름 (예: "upload-pack"), 저장소 경로, 호스트 이름 (`%H`),
+	정식 호스트 이름 (`%CH`), IP 주소 (`%IP`), TCP 포트 (`%P`)를
+	명령줄 인수로 실행합니다. 외부 프로그램은 0이 아닌 상태로 종료하여 (또는 0으로 종료하여 허용)
+	서비스를 거부할지 여부를 결정할 수 있습니다.
+	또한 요청자에 대해 `$REMOTE_ADDR` 및 `$REMOTE_PORT` 환경 변수를 검토하여
+	결정할 수 있습니다.
++
+외부 프로그램은 서비스를 거부할 때 요청자에게 오류 메시지로 전송될 단일 줄을
+	표준 출력으로 선택적으로 작성할 수 있습니다.
+
+_<directory>_::
+	나머지 인수는 디렉토리 목록을 제공합니다. 디렉토리가 지정된 경우,
+	`git-daemon` 프로세스는 요청된 디렉토리가 이러한 디렉토리 중 하나에 포함된 경우에만 해당 디렉토리를 제공합니다.
+	`--strict-paths`가 지정된 경우, 요청된 디렉토리는 이러한 디렉토리와 정확히 일치해야 합니다.
+
+SERVICES
+--------
+
+이 서비스들은 이 명령의 명령줄 옵션을 사용하여 전역적으로 활성화/비활성화될 수 있습니다.
+더 세분화된 제어가 필요한 경우 (예: 데몬이 제공하는 몇몇 선택된 저장소에서만 `git archive`를 실행하도록 허용),
+저장소별 구성 파일을 사용하여 활성화하거나 비활성화할 수 있습니다.
+
+upload-pack::
+	`git fetch-pack` 및 `git ls-remote` 클라이언트를 제공합니다.
+	기본적으로 활성화되어 있지만, 저장소는 `daemon.uploadpack` 구성 항목을
+	`false`로 설정하여 비활성화할 수 있습니다.
+
+upload-archive::
+	`git archive --remote`를 제공합니다.
+	기본적으로 비활성화되어 있지만, 저장소는 `daemon.uploadarch` 구성 항목을
+	`true`로 설정하여 활성화할 수 있습니다.
+
+receive-pack::
+	`git send-pack` 클라이언트를 제공하여 익명 푸시를 허용합니다.
+	프로토콜에 인증이 없기 때문에 (즉, 누구나 저장소에 무엇이든 푸시할 수 있으며, refs 제거 포함)
+	기본적으로 비활성화되어 있습니다. 이는 모든 사람이 친근한 폐쇄형 LAN 환경만을 대상으로 합니다.
+	이 서비스는 `daemon.receivepack` 구성 항목을 `true`로 설정하여 활성화할 수 있습니다.
+
+EXAMPLES
+--------
+/etc/services에 다음이 있다고 가정합니다:
++
+------------
+$ grep 9418 /etc/services
+git		9418/tcp		# Git Version Control System
+------------
+
+inetd 서버로서의 'git daemon'::
+	'/pub/foo' 또는 '/pub/bar' 내의 모든 저장소를 처리하는 inetd 서비스로
+	'git daemon'을 설정하려면, `/etc/inetd`에 다음 항목과 유사한 것을 한 줄로 배치하십시오:
++
+------------------------------------------------
+	git stream tcp nowait nobody  /usr/bin/git
+		git daemon --inetd --verbose --export-all
+		/pub/foo /pub/bar
+------------------------------------------------
+
+
+가상 호스트용 inetd 서버로서의 'git daemon'::
+	다른 가상 호스트, `www.example.com` 및 `www.example.org`에 대한
+	저장소를 처리하는 inetd 서비스로 'git daemon'을 설정하려면,
+	`/etc/inetd`에 다음 항목과 유사한 것을 한 줄로 배치하십시오:
++
+------------------------------------------------
+	git stream tcp nowait nobody /usr/bin/git
+		git daemon --inetd --verbose --export-all
+		--interpolated-path=/pub/%H%D
+		/pub/www.example.org/software
+		/pub/www.example.com/software
+		/software
+------------------------------------------------
++
+이 예에서, 루트 디렉토리 `/pub`는 지원되는 각 가상 호스트 이름에 대한
+	하위 디렉토리를 포함합니다.
+	또한, 두 호스트 모두 저장소를 단순히 `git://www.example.com/software/repo.git`으로 광고합니다.
+	1.4.0 이전 클라이언트를 위해, `/software`에서 해당 기본 저장소로의 심볼릭 링크도 만들 수 있습니다.
+
+
+가상 호스트용 일반 데몬으로서의 'git daemon'::
+	IP 주소를 기반으로 여러 가상 호스트의 저장소를 처리하는 일반, 비-inetd 서비스로
+	`git daemon`을 설정하려면, 데몬을 다음과 같이 시작하십시오:
++
+------------------------------------------------
+	git daemon --verbose --export-all
+		--interpolated-path=/pub/%IP/%D
+		/pub/192.168.1.200/software
+		/pub/10.10.220.23/software
+------------------------------------------------
++
+이 예에서, 루트 디렉토리 `/pub`는 지원되는 각 가상 호스트 IP 주소에 대한
+	하위 디렉토리를 포함합니다.
+	저장소는 호스트 이름이 이러한 IP 주소에 해당한다고 가정하면 호스트 이름으로도 액세스할 수 있습니다.
+
+저장소별 서비스 선택적 활성화/비활성화::
+	저장소에 대해 `git archive --remote`를 활성화하고 `git fetch`를 비활성화하려면,
+	저장소 내의 구성 파일 (즉, 'HEAD', 'refs' 및 'objects' 옆의 'config' 파일)에
+	다음 내용을 포함하십시오.
++
+----------------------------------------------------------------
+	[daemon]
+		uploadpack = false
+		uploadarch = true
+----------------------------------------------------------------
+
+
+ENVIRONMENT
+-----------
+`git daemon`은 IP 주소를 사용할 수 있는 경우, 연결된 클라이언트의 IP 주소로
+`REMOTE_ADDR`를 설정합니다. `REMOTE_ADDR`는 서비스가 수행될 때 호출되는 훅의 환경에서 사용할 수 있습니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

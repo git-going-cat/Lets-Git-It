@@ -1,0 +1,127 @@
+git-cherry(1)
+=============
+
+NAME
+----
+git-cherry - 아직 업스트림에 적용되지 않은 커밋 찾기
+
+SYNOPSIS
+--------
+[verse]
+'git cherry' [-v] [<upstream> [<head> [<limit>]]]
+
+DESCRIPTION
+-----------
+`<limit>..<head>` 범위의 커밋과 동일한 커밋이 `<head>..<upstream>` 범위에 있는지 확인합니다.
+
+동일성 테스트는 공백과 줄 번호를 제거한 후의 diff를 기반으로 합니다. 따라서 `git cherry`는 `git-cherry-pick`[1], `git-am`[1] 또는 `git-rebase`[1]에 의해 커밋이 "복사"되었는지 감지합니다.
+
+`<limit>..<head>` 범위의 모든 커밋 SHA1을 출력하며, `<upstream>`에 동일한 커밋이 있는 경우 `-`로, 없는 경우 `+`로 접두사를 붙입니다.
+
+OPTIONS
+-------
+-v::
+	커밋 제목을 SHA1 옆에 표시합니다.
+
+<upstream>::
+	동일한 커밋을 검색할 업스트림 브랜치.
+	기본값은 HEAD의 업스트림 브랜치입니다.
+
+<head>::
+	작업 브랜치; 기본값은 HEAD입니다.
+
+<limit>::
+	limit까지 (limit 포함)의 커밋을 보고하지 않습니다.
+
+EXAMPLES
+--------
+
+패치 워크플로우
+~~~~~~~~~~~~~~~
+
+`git cherry`는 패치 기반 워크플로우(참조: `gitworkflows`[7])에서 일련의 패치가 업스트림 유지보수자에 의해 적용되었는지 확인하는 데 자주 사용됩니다. 이러한 워크플로우에서 다음과 같이 토픽 브랜치를 생성하고 보낼 수 있습니다.
+
+------------
+$ git checkout -b topic origin/master
+# 작업 및 일부 커밋 생성
+$ git format-patch origin/master
+$ git send-email ... 00*
+------------
+
+나중에 (아직 `topic` 브랜치에 있는 상태에서) 변경 사항이 적용되었는지 확인하려면 다음을 수행하십시오.
+
+------------
+$ git fetch  # origin/master에 대한 인식 업데이트
+$ git cherry -v
+------------
+
+구체적인 예
+~~~~~~~~~~~~~~~~
+
+토픽이 세 개의 커밋으로 구성되었고, 유지보수자가 그중 두 개를 적용한 경우 상황은 다음과 같습니다.
+
+------------
+$ git log --graph --oneline --decorate --boundary origin/master...topic
+* 7654321 (origin/master) 업스트림 팁 커밋
+[... 다른 커밋 일부 생략 ...]
+* cccc111 C의 cherry-pick
+* aaaa111 A의 cherry-pick
+[... 많은 내용 생략 ...]
+| * cccc000 (topic) 커밋 C
+| * bbbb000 커밋 B
+| * aaaa000 커밋 A
+|/
+o 1234567 브랜치 지점
+------------
+
+이러한 경우 `git cherry`는 아직 적용되지 않은 내용에 대한 간결한 요약을 제공합니다.
+
+------------
+$ git cherry origin/master topic
+- cccc000... 커밋 C
++ bbbb000... 커밋 B
+- aaaa000... 커밋 A
+------------
+
+여기서 A와 C 커밋(`-`로 표시)은 `origin/master`에 대해 브랜치를 리베이스할 때 `topic` 브랜치에서 삭제할 수 있으며, 커밋 B(`+`로 표시)는 `origin/master`에 적용하기 위해 전송될 수 있도록 유지해야 합니다.
+
+
+limit 사용
+~~~~~~~~~~~~~
+
+선택 사항인 `<limit>`은 토픽이 업스트림에 없는 다른 작업에 기반한 경우에 유용합니다. 이전 예제를 확장하면 다음과 같을 수 있습니다.
+
+------------
+$ git log --graph --oneline --decorate --boundary origin/master...topic
+* 7654321 (origin/master) 업스트림 팁 커밋
+[... 다른 커밋 일부 생략 ...]
+* cccc111 C의 cherry-pick
+* aaaa111 A의 cherry-pick
+[... 많은 내용 생략 ...]
+| * cccc000 (topic) 커밋 C
+| * bbbb000 커밋 B
+| * aaaa000 커밋 A
+| * 0000fff (base) 게시되지 않은 내용 F
+[... 생략 ...]
+| * 0000aaa 게시되지 않은 내용 A
+|/
+o 1234567 업스트림과 topic 사이의 merge-base
+------------
+
+`base`를 limit로 지정하면 `base`와 `topic` 사이의 커밋을 나열하지 않도록 할 수 있습니다.
+
+------------
+$ git cherry origin/master topic base
+- cccc000... 커밋 C
++ bbbb000... 커밋 B
+- aaaa000... 커밋 A
+------------
+
+
+SEE ALSO
+--------
+linkgit:git-patch-id[1]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

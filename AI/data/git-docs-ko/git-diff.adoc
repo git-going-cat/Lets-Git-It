@@ -1,0 +1,224 @@
+git-diff(1)
+===========
+
+NAME
+----
+git-diff - 커밋 간, 커밋과 워킹 트리 간 등의 변경 사항 표시
+
+
+SYNOPSIS
+--------
+[synopsis]
+git diff [<options>] [<commit>] [--] [<path>...]
+git diff [<options>] --cached [--merge-base] [<commit>] [--] [<path>...]
+git diff [<options>] [--merge-base] <commit> [<commit>...] <commit> [--] [<path>...]
+git diff [<options>] <commit>...<commit> [--] [<path>...]
+git diff [<options>] <blob> <blob>
+git diff [<options>] --no-index [--] <path> <path> [<pathspec>...]
+
+DESCRIPTION
+-----------
+working tree와 index 간의 변경 사항, index와 tree 간의 변경 사항, 두 tree 간의 변경 사항, merge로 인한 변경 사항, 두 blob 객체 간의 변경 사항, 또는 디스크 상의 두 파일 간의 변경 사항을 표시합니다.
+
+`git diff [<options>] [--] [<path>...]`::
+
+	이 형태는 index(다음 커밋을 위한 스테이징 영역) 대비
+	수정한 내용을 보는데 사용됩니다. 즉, Git에 추가할 수 있지만
+	아직 추가하지 않은 변경 사항을 보여줍니다. linkgit:git-add[1]을
+	사용하여 이러한 변경 사항을 스테이징할 수 있습니다.
+
+`git diff [<options>] --no-index [--] <path> <path> [<pathspec>...]`::
+
+	이 형태는 파일 시스템 상의 주어진 두 경로를 비교하는 데 사용됩니다.
+	Git이 관리하는 working tree 내에서 명령을 실행하고 경로 중 하나 이상이
+	working tree 외부를 가리키거나, Git이 관리하는 working tree 외부에서
+	명령을 실행할 때 `--no-index` 옵션을 생략할 수 있습니다. 이 형태는
+	`--exit-code`를 의미합니다. 두 경로 모두 디렉토리를 가리키는 경우
+	추가적인 pathspec을 제공할 수 있습니다. 이는 diff에 포함될 파일을 제한합니다.
+	이러한 모든 pathspec은 양쪽 diff에 적용되므로 상대 경로여야 합니다.
+
+`git diff [<options>] --cached [--merge-base] [<commit>] [--] [<path>...]`::
+
+	이 형태는 명명된 _<commit>_ 대비 다음 커밋을 위해 스테이징된 변경 사항을
+	보는데 사용됩니다. 일반적으로 마지막 커밋과의 비교를 원할 것이므로,
+	_<commit>_을 지정하지 않으면 기본값은 `HEAD`입니다.
+	`HEAD`가 존재하지 않고(예: unborn branches) _<commit>_이 지정되지 않으면,
+	모든 스테이징된 변경 사항을 보여줍니다.
+	`--staged`는 `--cached`의 동의어입니다.
++
+`--merge-base`가 지정되면, _<commit>_ 대신 _<commit>_과 `HEAD`의 merge base를
+사용합니다. `git diff --cached --merge-base A`는 `git diff --cached $(git merge-base A HEAD)`와 같습니다.
+
+`git diff [<options>] [--merge-base] <commit> [--] [<path>...]`::
+
+	이 형태는 working tree의 변경 사항을 명명된 _<commit>_ 대비
+	보는데 사용됩니다. 가장 최근 커밋과 비교하려면 `HEAD`를 사용하거나,
+	다른 브랜치의 최신 커밋과 비교하려면 브랜치 이름을 사용할 수 있습니다.
++
+`--merge-base`가 지정되면, _<commit>_ 대신 _<commit>_과 `HEAD`의 merge base를
+사용합니다. `git diff --merge-base A`는 `git diff $(git merge-base A HEAD)`와 같습니다.
+
+`git diff [<options>] [--merge-base] <commit> <commit> [--] [<path>...]`::
+
+	두 개의 임의의 _<commit>_ 간의 변경 사항을 보는데 사용됩니다.
++
+`--merge-base`가 지정되면, "이전" 측에 대해 두 커밋의 merge base를 사용합니다.
+`git diff --merge-base A B`는 `git diff $(git merge-base A B) B`와 같습니다.
+
+`git diff [<options>] <commit> <commit>...<commit> [--] [<path>...]`::
+
+	이 형태는 첫 번째 나열된 _<commit>_이 merge 자체여야 하며,
+	나머지 두 개 이상의 커밋은 해당 부모여야 합니다.
+	원하는 리비전 집합을 생성하는 편리한 방법은 접미사 `@`와 `^!`를 사용하는 것입니다.
+	`A`가 merge commit이면, `git diff A A^@`, `git diff A^!` 및 `git show A`는
+	모두 동일한 combined diff를 제공합니다.
+
+`git diff [<options>] <commit>..<commit> [--] [<path>...]`::
+
+	임의의 두 _<commit>_ 간의 변경 사항을 보는데 사용되는 이전 형태(점 `..` 없음)의
+	동의어입니다. 한쪽의 _<commit>_이 생략되면 `HEAD`를 사용하는 것과 동일한 효과를 가집니다.
+
+`git diff [<options>] <commit>...<commit> [--] [<path>...]`::
+
+	이 형태는 두 _<commit>_의 공통 조상부터 시작하여 두 번째 _<commit>_까지,
+	그리고 두 번째 _<commit>_을 포함하는 브랜치의 변경 사항을 보는데 사용됩니다.
+	`git diff A...B`는 `git diff $(git merge-base A B) B`와 같습니다.
+	_<commit>_ 중 하나를 생략할 수 있으며, 이는 `HEAD`를 사용하는 것과 동일한 효과를 가집니다.
+
+만약 비정상적인 작업을 하고 있다면, 위 설명에서 _<commit>_은 `--merge-base` 케이스와
+`..` 표기를 사용하는 마지막 두 형태를 제외하고는 모든 _<tree>_가 될 수 있음을
+주지해야 합니다. 관심 있는 tree로는 `ort` merge 전략이 merge 충돌이 발생할 때
+작성하는 `AUTO_MERGE`라는 이름의 ref가 가리키는 tree가 있습니다 (linkgit:git-merge[1] 참조).
+last commit과 `AUTO_MERGE`를 비교하면 텍스트 충돌을 해결하기 위해 지금까지 수정한
+변경 사항을 볼 수 있습니다 (아래 예제 참조).
+
+_<commit>_을 지정하는 더 완벽한 방법은 linkgit:gitrevisions[7]의 "SPECIFYING REVISIONS"
+섹션을 참조하십시오. 그러나 `diff`는 범위가 아닌 두 _endpoint_를 비교하는 것에 관한 것이고,
+범위 표기법 (`<commit>..<commit>` 및 `<commit>...<commit>`)은 linkgit:gitrevisions[7]의
+"SPECIFYING RANGES" 섹션에 정의된 범위를 의미하지 않습니다.
+
+`git diff [<options>] <blob> <blob>`::
+
+	이 형태는 두 blob 객체의 원시 콘텐츠 간의 차이를 보는데 사용됩니다.
+
+OPTIONS
+-------
+:git-diff: 1
+include::diff-options.adoc[]
+
+-1::
+`--base`::
+-2::
+`--ours`::
+-3::
+`--theirs`::
+	working tree를 다음 중 하나와 비교합니다:
++
+--
+ * "base" 버전 (stage #1) `-1` 또는 `--base` 사용 시,
+ * "our branch" (stage #2) `-2` 또는 `--ours` 사용 시, 또는
+ * "their branch" (stage #3) `-3` 또는 `--theirs` 사용 시.
+--
++
+index는 unmerged 항목에 대해서만 이러한 stage를 포함합니다. 즉,
+충돌을 해결하는 동안입니다. 자세한 정보는 linkgit:git-read-tree[1]의
+"3-Way Merge" 섹션을 참조하십시오.
+
+-0::
+	unmerged 항목에 대한 diff 출력을 생략하고 "Unmerged"만 표시합니다.
+	working tree와 index를 비교할 때만 사용할 수 있습니다.
+
+`<path>...`::
+	_<path>_ 매개변수가 주어지면, 명명된 경로로 diff를 제한하는 데 사용됩니다
+	(디렉터리 이름을 지정하고 그 아래 모든 파일에 대한 diff를 얻을 수 있습니다).
+
+
+include::diff-format.adoc[]
+
+EXAMPLES
+--------
+
+working tree를 확인하는 여러 방법::
++
+------------
+$ git diff            <1>
+$ git diff --cached   <2>
+$ git diff HEAD       <3>
+$ git diff AUTO_MERGE <4>
+------------
++
+<1> 다음 커밋에 대해 스테이징되지 않은 working tree의 변경 사항.
+<2> index와 마지막 커밋 간의 변경 사항; `git commit`을 `-a` 옵션 없이 실행할 때
+    커밋하게 될 내용.
+<3> 마지막 커밋 이후 working tree의 변경 사항; `git commit -a`를 실행할 때
+    커밋하게 될 내용.
+<4> 텍스트 충돌을 해결하기 위해 작업한 working tree의 변경 사항.
+
+임의의 커밋과 비교::
++
+------------
+$ git diff test            <1>
+$ git diff HEAD -- ./test  <2>
+$ git diff HEAD^ HEAD      <3>
+------------
++
+<1> 현재 브랜치의 최신 커밋 대신 "test" 브랜치의 최신 커밋과 비교합니다.
+<2> "test" 브랜치의 최신 커밋 대신 현재 브랜치의 최신 커밋과 비교하지만,
+    "test" 파일로 비교를 제한합니다.
+<3> 마지막 커밋 이전 버전과 마지막 커밋을 비교합니다.
+
+브랜치 비교::
++
+------------
+$ git diff topic master    <1>
+$ git diff topic..master   <2>
+$ git diff topic...master  <3>
+------------
++
+<1> topic 및 master 브랜치의 최신 커밋 간의 변경 사항.
+<2> 위와 동일.
+<3> topic 브랜치가 master 브랜치에서 시작된 시점 이후 master 브랜치에서 발생한 변경 사항.
+
+diff 출력 제한::
++
+------------
+$ git diff --diff-filter=MRC            <1>
+$ git diff --name-status                <2>
+$ git diff arch/i386 include/asm-i386   <3>
+------------
++
+<1> 수정, 이름 변경, 복사만 표시하고 추가 또는 삭제는 제외합니다.
+<2> 변경의 종류와 이름만 표시하고 실제 diff 출력은 표시하지 않습니다.
+<3> 명명된 하위 트리로 diff 출력을 제한합니다.
+
+diff 출력 수정::
++
+------------
+$ git diff --find-copies-harder -B -C  <1>
+$ git diff -R                          <2>
+------------
++
+<1> 이름 변경, 복사 및 전체 재작성을 찾기 위해 추가 시간을 소모합니다 (매우 오래 걸림).
+<2> diff 출력을 반대로 합니다.
+
+CONFIGURATION
+-------------
+
+include::includes/cmd-config-section-all.adoc[]
+
+:git-diff: 1
+include::config/diff.adoc[]
+
+SEE ALSO
+--------
+`diff`(1),
+linkgit:git-difftool[1],
+linkgit:git-log[1],
+linkgit:gitdiffcore[7],
+linkgit:git-format-patch[1],
+linkgit:git-apply[1],
+linkgit:git-show[1]
+
+GIT
+---
+linkgit:git[1] suite의 일부

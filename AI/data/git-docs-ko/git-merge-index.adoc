@@ -1,0 +1,68 @@
+git-merge-index(1)
+==================
+
+NAME
+----
+git-merge-index - 머지가 필요한 파일에 대한 머지 실행
+
+
+SYNOPSIS
+--------
+[verse]
+'git merge-index' [-o] [-q] <merge-program> (-a | ( [--] <file>...) )
+
+DESCRIPTION
+-----------
+이 명령어는 인덱스에서 <file>(s)을 찾고, 머지 항목이 있는 경우 해당 파일들의 SHA-1 해시를 인자 1, 2, 3 (파일이 없는 경우 빈 인자), 그리고 <file>을 인자 4로 전달합니다. 세 파일의 파일 모드는 인자 5, 6, 7로 전달됩니다.
+
+OPTIONS
+-------
+--::
+	더 이상 인자를 옵션으로 해석하지 않습니다.
+
+-a::
+	인덱스에서 머지가 필요한 모든 파일에 대해 머지를 실행합니다.
+
+-o::
+	실패한 첫 번째 머지에서 멈추는 대신, 모든 머지를 한 번에 실행합니다. 이전 머지가
+	에러를 반환하더라도 머지 작업을 계속 진행하고, 모든 머지가 끝난 후에만 에러 코드를 반환합니다.
+
+-q::
+	실패한 머지 프로그램에 대해 불평하지 않습니다. (머지 프로그램 실패는 보통 머지 중 충돌을 나타냅니다.) 이는
+	사용자 지정 메시지를 내보내고 싶을 수 있는 상위 레벨 도구들을 위한 것입니다.
+
+'git merge-index'가 여러 개의 <file> (또는 -a)으로 호출된 경우, 머지가 0이 아닌 종료 코드를 반환할 때만 중단하고 순서대로 처리합니다.
+
+일반적으로 이것은 RCS 패키지의 'merge' 명령어를 모방하는 Git을 호출하는 스크립트와 함께 실행됩니다.
+
+'git merge-one-file'이라는 샘플 스크립트가 배포판에 포함되어 있습니다.
+
+경고 경고 경고! Git의 "머지 객체 순서"는
+RCS 'merge' 프로그램의 머지 객체 순서와 다릅니다. 위 순서에서 원본이 먼저입니다. 하지만 3-way 머지 프로그램 'merge'의 인자 순서는 원본을 가운데에 둡니다. 그 이유를 묻지 마세요.
+
+Examples:
+
+----
+torvalds@ppc970:~/merge-test> git merge-index cat MM
+This is MM from the original tree.		# original
+This is modified MM in the branch A.		# merge1
+This is modified MM in the branch B.		# merge2
+This is modified MM in the branch B.		# current contents
+----
+
+또는
+
+----
+torvalds@ppc970:~/merge-test> git merge-index cat AA MM
+cat: : No such file or directory
+This is added AA in the branch A.
+This is added AA in the branch B.
+This is added AA in the branch B.
+fatal: merge program failed
+----
+
+여기서 후자의 예는 'git merge-index'가 무언가가 에러를 반환하면 머지를 시도하는 것을 즉시 중단하는 방법을 보여줍니다 (즉, AA 파일이 원본에 존재하지 않았기 때문에 `cat`이 AA 파일에 대해 에러를 반환했고, 따라서 'git merge-index'는 MM에 대한 머지를 시도조차 하지 않았습니다).
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

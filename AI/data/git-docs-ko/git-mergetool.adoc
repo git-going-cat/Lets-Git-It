@@ -1,0 +1,116 @@
+git-mergetool(1)
+================
+
+NAME
+----
+git-mergetool - 병합 충돌을 해결하기 위한 머지 충돌 해결 도구 실행
+
+SYNOPSIS
+--------
+[synopsis]
+git mergetool [--tool=<tool>] [-y | --[no-]prompt] [<file>...]
+
+DESCRIPTION
+-----------
+
+`git mergetool` 명령을 사용하여 여러 머지 유틸리티 중 하나를 실행하여
+머지 충돌을 해결합니다. 일반적으로 `git merge` 명령 후에 실행됩니다.
+
+하나 이상의 <file> 매개변수가 주어지면, 머지 도구 프로그램이
+각 파일의 차이점을 해결하기 위해 실행됩니다 (충돌이 없는 파일은 건너뜁니다).
+디렉토리를 지정하면 해당 경로의 해결되지 않은 모든 파일을 포함합니다.
+만약 _<file>_ 이름이 지정되지 않으면, `git mergetool`은 머지 충돌이 있는
+모든 파일에 대해 머지 도구 프로그램을 실행합니다.
+
+OPTIONS
+-------
+`-t <tool>`::
+`--tool=<tool>`::
+	_<tool>_ 로 지정된 머지 해결 프로그램을 사용합니다.
+	유효한 값으로는 `emerge`, `gvimdiff`, `kdiff3`,
+	`meld`, `vimdiff`, `tortoisemerge` 등이 있습니다. 유효한
+	_<tool>_ 설정 목록은 `git mergetool --tool-help` 를 실행하여
+	확인할 수 있습니다.
++
+머지 해결 프로그램이 지정되지 않으면, `git mergetool` 은
+`merge.tool` 설정 변수를 사용합니다. `merge.tool` 설정 변수가
+설정되지 않으면, `git mergetool` 은 적절한 기본값을 선택합니다.
++
+설정 변수 `mergetool.<tool>.path` 를 설정하여 도구에 대한 전체 경로를
+명시적으로 제공할 수 있습니다. 예를 들어, `mergetool.kdiff3.path` 를
+설정하여 kdiff3 의 절대 경로를 구성할 수 있습니다. 그렇지 않으면,
+`git mergetool` 은 해당 도구가 `$PATH` 에서 사용 가능하다고 가정합니다.
++
+알려진 머지 도구 프로그램 중 하나를 실행하는 대신, 설정 변수
+`mergetool.<tool>.cmd` 에서 호출할 명령줄을 지정하여 `git mergetool` 을
+대체 프로그램으로 실행하도록 사용자 정의할 수 있습니다.
++
+이 도구와 함께 `git mergetool` 이 호출될 때 (`-t` 또는 `--tool` 옵션 또는
+`merge.tool` 설정 변수를 통해), 구성된 명령줄은 머지의 일반적인 기본값(base)을
+포함하는 임시 파일의 이름인 `BASE` 와, 현재 브랜치의 파일 내용을 포함하는
+임시 파일의 이름인 `LOCAL`, 병합될 파일의 내용을 포함하는 임시 파일의 이름인
+`REMOTE`, 그리고 머지 도구가 머지 해결 결과 쓰기를 수행해야 하는 파일의 이름인
+`MERGED` 를 설정하여 호출됩니다.
++
+사용자 정의 머지 도구가 종료 코드를 사용하여 머지 해결의 성공 여부를 올바르게
+표시하면, `mergetool.<tool>.trustExitCode` 설정 변수를 `true` 로 설정할 수 있습니다.
+그렇지 않으면, 사용자 정의 도구가 종료된 후 `git mergetool` 은 사용자에게
+성공 여부를 표시하도록 프롬프트를 표시합니다.
+
+`--tool-help`::
+	`--tool` 과 함께 사용할 수 있는 머지 도구 목록을 출력합니다.
+
+`-y`::
+`--no-prompt`::
+	머지 해결 프로그램의 각 호출 전에 프롬프트를 표시하지 않습니다.
+	머지 해결 프로그램이 `--tool` 옵션이나 `merge.tool` 설정 변수로
+	명시적으로 지정된 경우 이것이 기본값입니다.
+
+`--prompt`::
+	각 머지 해결 프로그램 호출 전에 프롬프트를 표시하여 사용자가
+	경로를 건너뛸 기회를 제공합니다.
+
+`-g`::
+`--gui`::
+	`git-mergetool` 이 `-g` 또는 `--gui` 옵션으로 호출될 때,
+	기본 머지 도구는 `merge.tool` 변수 대신 구성된
+	`merge.guitool` 변수에서 읽어옵니다. `merge.guitool` 이 설정되지
+	않으면, `merge.tool` 아래에 구성된 도구를 대체로 사용합니다.
+	`mergetool.guiDefault` 설정 변수를 사용하여 이를 자동 선택할 수 있습니다.
+
+`--no-gui`::
+	이것은 이전의 `-g` 또는 `--gui` 설정이나 `mergetool.guiDefault`
+	설정을 재정의하고 구성된 `merge.tool` 변수에서 기본 머지 도구를 읽습니다.
+
+`-O<orderfile>`::
+	_<orderfile>_ 에 지정된 순서대로 파일을 처리하며,
+	이 파일에는 한 줄에 하나의 쉘 glob 패턴이 포함됩니다.
+	이것은 `diff.orderFile` 설정 변수 (linkgit:git-config[1] 참조) 를
+	재정의합니다. `diff.orderFile` 을 취소하려면 `-O/dev/null` 을 사용하십시오.
+
+CONFIGURATION
+-------------
+:git-mergetool: 1
+
+include::includes/cmd-config-section-all.adoc[]
+
+include::config/mergetool.adoc[]
+
+TEMPORARY FILES
+---------------
+`git mergetool` 은 머지를 해결하는 동안 `*.orig` 백업 파일을 생성합니다.
+이 파일들은 파일이 병합되고 `git mergetool` 세션이 완료된 후에 제거해도 안전합니다.
+
+`mergetool.keepBackup` 설정 변수를 `false` 로 설정하면 `git mergetool` 이
+파일이 성공적으로 병합될 때 백업 파일을 자동으로 제거합니다.
+
+BACKEND SPECIFIC HINTS
+----------------------
+
+vimdiff
+~~~~~~~
+include::mergetools/vimdiff.adoc[]
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

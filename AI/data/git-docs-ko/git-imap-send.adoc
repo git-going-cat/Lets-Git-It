@@ -1,0 +1,219 @@
+git-imap-send(1)
+================
+
+NAME
+----
+git-imap-send - 표준 입력에서 IMAP 폴더로 패치 모음 전송
+
+
+SYNOPSIS
+--------
+[verse]
+'git imap-send' [-v] [-q] [--[no-]curl] [(--folder|-f) <folder>]
+'git imap-send' --list
+
+
+DESCRIPTION
+-----------
+이 명령어는 `git format-patch`로 생성된 메일박스를 IMAP 초안 폴더에 업로드합니다.
+이를 통해 메일 클라이언트가 메일박스 파일을 직접 읽을 수 없는 경우,
+다른 이메일이 전송될 때와 같이 패치를 전송할 수 있습니다.
+이 명령어는 `From`, `Date`, `Subject` 필드가 해당 순서대로 있는 일반적인 메일박스에서도 작동합니다.
+
+일반적인 사용 예시는 다음과 같습니다:
+
+------
+$ git format-patch --signoff --stdout --attach origin | git imap-send
+------
+
+
+OPTIONS
+-------
+
+-v::
+--verbose::
+	상세 모드로 실행합니다.
+
+-q::
+--quiet::
+	조용히 실행합니다.
+
+-f <folder>::
+--folder=<folder>::
+	이메일을 저장할 폴더를 지정합니다.
+	예시: `--folder=[Gmail]/Drafts` 또는 `-f INBOX/Drafts`.
+
+--curl::
+	IMAP 서버와 통신할 때 libcurl을 사용합니다. 터널링하는 경우는 제외합니다.
+	Git이 USE_CURL_FOR_IMAP_SEND 옵션 없이 빌드된 경우 무시됩니다.
+
+--no-curl::
+	libcurl을 사용하지 않고 Git 자체 IMAP 루틴을 사용하여 IMAP 서버와 통신합니다.
+	Git이 NO_OPENSSL 옵션과 함께 빌드된 경우 무시됩니다.
+
+--list::
+	IMAP LIST 명령을 실행하여 존재하는 모든 폴더 목록을 출력합니다.
+
+CONFIGURATION
+-------------
+
+이 도구를 사용하려면 `imap.folder`와 `imap.tunnel` 또는 `imap.host`가
+적절한 값으로 설정되어야 합니다.
+
+include::includes/cmd-config-section-rest.adoc[]
+
+include::config/imap.adoc[]
+
+사용 가능한 폴더 목록 가져오기
+-----------------------------------
+
+특정 폴더로 이메일을 보내려면
+해당 메일함의 올바른 폴더 이름을 알아야 합니다.
+다양한 이메일 클라이언트에서 표시하는 "Junk", "Trash" 등과 같은 이름은
+실제로 이메일 제공업체의 메일 서버에 저장된 폴더의 이름과 다를 수 있습니다.
+
+`git imap-send`와 함께 사용할 올바른 폴더 이름을 얻으려면
+`git imap-send --list`를 실행할 수 있습니다.
+이 명령은 유효한 폴더 이름 목록을 표시합니다.
+Gmail 계정에서 실행했을 때의 출력 예시는 다음과 같습니다:
+
+.........................
+* LIST (\HasNoChildren) "/" "INBOX"
+* LIST (\HasChildren \Noselect) "/" "[Gmail]"
+* LIST (\All \HasNoChildren) "/" "[Gmail]/All Mail"
+* LIST (\Drafts \HasNoChildren) "/" "[Gmail]/Drafts"
+* LIST (\HasNoChildren \Important) "/" "[Gmail]/Important"
+* LIST (\HasNoChildren \Sent) "/" "[Gmail]/Sent Mail"
+* LIST (\HasNoChildren \Junk) "/" "[Gmail]/Spam"
+* LIST (\Flagged \HasNoChildren) "/" "[Gmail]/Starred"
+* LIST (\HasNoChildren \Trash) "/" "[Gmail]/Trash"
+.........................
+
+여기서 "Junk" 폴더의 올바른 이름은 `[Gmail]/Spam`이고
+"Trash" 폴더의 올바른 이름은 `[Gmail]/Trash`임을 알 수 있습니다.
+다른 폴더를 결정하는 데도 유사한 논리를 사용할 수 있습니다.
+
+EXAMPLES
+--------
+터널 모드 사용:
+
+..........................
+[imap]
+    folder = "INBOX.Drafts"
+    tunnel = "ssh -q -C user@example.com /usr/bin/imapd ./Maildir 2> /dev/null"
+..........................
+
+직접 모드 사용:
+
+.........................
+[imap]
+    folder = "INBOX.Drafts"
+    host = imap://imap.example.com
+    user = bob
+    pass = p4ssw0rd
+.........................
+
+SSL을 사용한 직접 모드 사용:
+
+.........................
+[imap]
+    folder = "INBOX.Drafts"
+    host = imaps://imap.example.com
+    user = bob
+    pass = p4ssw0rd
+    port = 123
+    ; sslVerify = false
+.........................
+
+
+[NOTE]
+개인 서버 `example.com`에서 사용 중이거나 설정한 인증서가
+올바르게 검증되지 않아 연결에 문제가 있다고 생각되는 경우,
+문제 해결 중에 `sslVerify=false`를 사용하는 것이 좋습니다.
+
+Gmail의 IMAP 인터페이스 사용:
+
+---------
+[imap]
+    folder = "[Gmail]/Drafts"
+    host = imaps://imap.gmail.com
+    user = user@gmail.com
+    port = 993
+---------
+
+Gmail은 `git imap-send`에 일반 비밀번호를 사용하는 것을 허용하지 않습니다.
+Gmail 계정에 다단계 인증이 설정되어 있다면,
+`git imap-send`에 사용할 앱별 비밀번호를 생성할 수 있습니다.
+https://security.google.com/settings/security/apppasswords 에서 생성할 수 있습니다.
+또는 아래 설명된 OAuth2.0 인증을 사용하십시오.
+
+[NOTE]
+"Folder doesn't exist" 오류가 발생하는 경우
+`folder = "[Google Mail]/Drafts"`를 대신 사용해야 할 수 있습니다.
+사용 가능한 폴더 목록을 얻기 위해 `git imap-send --list`를 실행할 수도 있습니다.
+
+[NOTE]
+Gmail 계정이 영어 이외의 언어로 설정된 경우, "Drafts" 폴더의 이름은
+지역화됩니다.
+
+OAuth2.0 기반 인증을 사용하려면
+설정에서 `OAUTHBEARER` 또는 `XOAUTH2` 메커니즘을 지정할 수 있습니다.
+이는 앱별 비밀번호를 사용하는 것보다 안전하며,
+다단계 인증이 필요하지 않습니다.
+이 인증을 사용할 때는 비밀번호 대신 OAuth2.0 액세스 토큰을 사용해야 합니다.
+
+---------
+[imap]
+    folder = "[Gmail]/Drafts"
+    host = imaps://imap.gmail.com
+    user = user@gmail.com
+    port = 993
+    authmethod = OAUTHBEARER
+---------
+
+Outlook의 IMAP 인터페이스 사용:
+
+Gmail과 달리 Outlook은 OAuth2.0 기반 인증만 지원합니다.
+또한 `XOAUTH2` 메커니즘만 지원합니다.
+
+---------
+[imap]
+    folder = "Drafts"
+    host = imaps://outlook.office365.com
+    user = user@outlook.com
+    port = 993
+    authmethod = XOAUTH2
+---------
+
+커밋이 전송 준비가 되면 다음 명령을 실행합니다:
+
+  $ git format-patch --cover-letter -M --stdout origin/master | git imap-send
+
+이메일 클라이언트에서 줄 바꿈을 비활성화해야 합니다.
+(Gmail 웹 인터페이스는 무엇을 하든 줄 바꿈을 수행하므로 실제 IMAP 클라이언트를 사용해야 합니다.)
+
+OAuth2.0 인증을 사용하는 경우, 토큰을 생성하기 위해
+자격 증명 도우미를 사용하는 것이 더 쉽습니다.
+linkgit:git-send-email[1]에서 추천하는 자격 증명 도우미는
+`git imap-send`에도 사용할 수 있습니다.
+
+CAUTION
+-------
+이메일 프로그램에서 보내는 메시지가 프로젝트 표준을
+충족하는지 확인하는 것은 여전히 귀하의 책임입니다.
+많은 프로젝트에서 첨부된 패치를 좋아하지 않습니다.
+일부 메일 에이전트는 패치를 변환하여 (예: 줄 바꿈,
+format=flowed로 보내기) 실패하게 만듭니다.
+이것을 확인하지 않으면 당신을 조롱하는 격렬한 비난을 받게 될 것입니다.
+
+특히 Thunderbird는 문제가 있는 것으로 알려져 있습니다.
+Thunderbird 사용자는 더 많은 정보를 위해 이 웹 페이지를 방문할 수 있습니다:
+  https://kb.mozillazine.org/Plain_text_e-mail_-_Thunderbird#Completely_plain_email
+
+SEE ALSO
+--------
+linkgit:git-format-patch[1], linkgit:git-send-email[1], mbox(5)
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

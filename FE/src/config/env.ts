@@ -8,6 +8,8 @@ const envSchema = z.object({
   VITE_PUBLIC_POSTHOG_HOST: z.string().default(''),
   VITE_SENTRY_DSN: z.string().default(''),
   VITE_FARO_URL: z.string().default(''),
+  VITE_AI_API_URL: z.string().default(''),
+  VITE_AI_API_KEY: z.string().default(''),
   MODE: z.string(),
 });
 
@@ -28,7 +30,7 @@ const data = parsed.data;
  * 검증된 환경변수.
  *
  * - 필수(누락/형식 오류 시 앱 시작 실패): `API_BASE_URL`, `WS_URL`, `BOARD_SURVEY_URL`
- * - 선택(빈 문자열 허용, 호출 측에서 truthy 가드 후 사용): `POSTHOG_KEY`, `POSTHOG_HOST`, `SENTRY_DSN`, `FARO_URL`
+ * - 선택(빈 문자열 허용, 호출 측에서 truthy 가드 후 사용): `POSTHOG_KEY`, `POSTHOG_HOST`, `SENTRY_DSN`, `FARO_URL`, `AI_API_URL`, `AI_API_KEY`
  * - `import.meta.env` 직접 접근 금지 — 본 모듈만 경유 (컨벤션 12장)
  */
 export const env = {
@@ -39,5 +41,7 @@ export const env = {
   POSTHOG_HOST: data.VITE_PUBLIC_POSTHOG_HOST,
   SENTRY_DSN: data.VITE_SENTRY_DSN,
   FARO_URL: data.VITE_FARO_URL,
+  AI_API_URL: data.VITE_AI_API_URL,
+  AI_API_KEY: data.VITE_AI_API_KEY,
   MODE: data.MODE,
 } as const;
