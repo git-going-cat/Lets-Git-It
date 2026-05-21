@@ -6,6 +6,11 @@ server {
     ssl_certificate_key ${SSL_KEY};
 
     location / {
+         # OPTIONS preflight → FastAPI까지 넘겨서 CORS 헤더 처리
+        if ($request_method = OPTIONS) {
+                return 204;
+        }
+
         limit_req zone=api_limit burst=30 nodelay;
         proxy_pass http://rag-fastapi:8000;
         proxy_set_header Host $host;

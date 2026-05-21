@@ -48,6 +48,7 @@ def cosine_search(query_vec: list[float], top_k: int = 5) -> list[dict[str, Any]
             "section": _chunks[i]["metadata"]["section"],
             "text": _chunks[i]["text"],
             "source": _chunks[i]["metadata"]["source"],
+            "source_type": _chunks[i]["metadata"].get("source_type", ""),
             "score": float(scores[i]),
         }
         for i in top_indices

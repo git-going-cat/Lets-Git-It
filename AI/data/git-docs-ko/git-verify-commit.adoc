@@ -1,0 +1,28 @@
+git-verify-commit(1)
+====================
+
+NAME
+----
+git-verify-commit - 커밋의 GPG 서명 확인
+
+SYNOPSIS
+--------
+[synopsis]
+git verify-commit [-v | --verbose] [--raw] <commit>...
+
+DESCRIPTION
+-----------
+명령줄에서 주어진 커밋 객체에 대해 `git commit -S`로 생성된 GPG 서명을 검증합니다.
+
+OPTIONS
+-------
+`--raw`::
+	일반적인 사람이 읽을 수 있는 출력 대신 원시 gpg 상태 출력을 표준 오류로 출력합니다.
+
+`-v`::
+`--verbose`::
+	커밋 객체를 검증하기 전에 해당 객체의 내용을 출력합니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

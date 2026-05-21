@@ -1,0 +1,151 @@
+git-replace(1)
+==============
+
+NAME
+----
+git-replace - replace 객체에 대한 참조를 생성, 나열, 삭제합니다.
+
+SYNOPSIS
+--------
+[verse]
+'git replace' [-f] <object> <replacement>
+'git replace' [-f] --edit <object>
+'git replace' [-f] --graft <commit> [<parent>...]
+'git replace' [-f] --convert-graft-file
+'git replace' -d <object>...
+'git replace' [--format=<format>] [-l [<pattern>]]
+
+DESCRIPTION
+-----------
+`refs/replace/` 네임스페이스에 'replace' 참조를 추가합니다.
+
+'replace' 참조의 이름은 대체되는 객체의 SHA-1입니다.
+'replace' 참조의 내용은 대체 객체의 SHA-1입니다.
+
+대체되는 객체와 대체 객체는 동일한 타입이어야 합니다.
+이 제약 조건은 `-f`를 사용하여 우회할 수 있습니다.
+
+`-f`가 주어지지 않으면, 'replace' 참조는 아직 존재하지 않아야 합니다.
+
+대체되는 객체와 대체 객체에 대한 다른 제약 조건은 없습니다.
+머지 커밋은 비머지 커밋으로, 그 반대도 가능합니다.
+
+Replace 참조는 기본적으로 모든 Git 명령어에서 사용되지만,
+reachability traversal (prune, pack transfer, fsck)을 수행하는 명령어는 예외입니다.
+
+'git' 바로 다음에 `--no-replace-objects` 옵션을 사용하여
+어떤 명령에서도 replace 참조의 사용을 비활성화할 수 있습니다.
+
+예를 들어 커밋 'foo'가 커밋 'bar'로 대체되었다고 가정해 봅시다:
+
+------------------------------------------------
+$ git --no-replace-objects cat-file commit foo
+------------------------------------------------
+
+는 커밋 'foo'에 대한 정보를 보여주는 반면,
+
+------------------------------------------------
+$ git cat-file commit foo
+------------------------------------------------
+
+는 커밋 'bar'에 대한 정보를 보여줍니다.
+
+`GIT_NO_REPLACE_OBJECTS` 환경 변수를 설정하면
+`--no-replace-objects` 옵션과 동일한 효과를 얻을 수 있습니다.
+
+OPTIONS
+-------
+-f::
+--force::
+	해당 객체에 대한 기존 replace 참조가 존재하면,
+	(실패하는 대신) 덮어씁니다.
+
+-d::
+--delete::
+	지정된 객체에 대한 기존 replace 참조를 삭제합니다.
+
+--edit <object>::
+	객체의 내용을 대화형으로 편집합니다. <object>의 기존 내용은
+	임시 파일에 pretty-printed 되어 편집기가 해당 파일에서 실행되고,
+	결과는 구문 분석되어 <object>와 동일한 타입의 새로운 객체를 생성합니다.
+	그 다음, <object>를 새로 생성된 객체로 대체하기 위한 replace 참조가 생성됩니다.
+	편집기가 어떻게 선택될지에 대한 자세한 내용은 linkgit:git-var[1]을 참조하십시오.
+
+--raw::
+	편집할 때 pretty-printed된 내용 대신 원시 객체 내용을 제공합니다.
+	현재 이는 트리에는 영향을 미치며, 이진 형식으로 표시됩니다.
+	작업하기는 더 어렵지만, pretty-print할 수 없을 정도로 손상된 트리를 복구하는 데 도움이 될 수 있습니다.
+	편집기가 이진 데이터를 깨끗하게 읽고 쓸 수 있도록 구성해야 할 수 있습니다.
+
+--graft <commit> [<parent>...]::
+	graft 커밋을 생성합니다. <commit>과 동일한 내용을 가진 새로운 커밋이 생성되지만,
+	부모는 <commit>의 부모 대신 [<parent>...]가 됩니다.
+	그 다음, <commit>을 새로 생성된 커밋으로 대체하기 위한 replace 참조가 생성됩니다.
+	`$GIT_DIR/info/grafts` 파일을 변환하고 replace 참조를 사용하려면
+	`--convert-graft-file`을 사용하십시오.
+
+--convert-graft-file::
+	`$GIT_DIR/info/grafts`의 모든 항목에 대한 graft 커밋을 생성하고,
+	성공 시 해당 파일을 삭제합니다. 목적은 이제 사용되지 않는 graft 파일을
+	더 이상 사용하지 않는 사용자들을 돕기 위함입니다.
+
+-l <pattern>::
+--list <pattern>::
+	주어진 패턴과 일치하는 객체에 대한 replace 참조를 나열합니다 (패턴이 없으면 모든 객체).
+	인수 없이 "git replace"를 입력해도 모든 replace 참조를 나열합니다.
+
+--format=<format>::
+	나열할 때, 'short', 'medium', 'long' 중 하나인 지정된 <format>을 사용합니다.
+	생략하면 형식은 기본적으로 'short'입니다.
+
+FORMATS
+-------
+
+다음 형식들을 사용할 수 있습니다:
+
+* 'short':
+	<replaced-sha1>
+* 'medium':
+	<replaced-sha1> -> <replacement-sha1>
+* 'long':
+	<replaced-sha1> (<replaced-type>) -> <replacement-sha1> (<replacement-type>)
+
+CREATING REPLACEMENT OBJECTS
+----------------------------
+
+linkgit:git-hash-object[1], linkgit:git-rebase[1], 및
+https://github.com/newren/git-filter-repo[git-filter-repo]와 같은 git 명령을 사용하여
+기존 객체로부터 대체 객체를 생성할 수 있습니다. `--edit` 옵션은
+기존 객체를 편집하여 대체 객체를 생성하기 위해 'git replace'와 함께 사용할 수도 있습니다.
+
+커밋 문자열의 일부인 많은 blob, 트리 또는 커밋을 대체하려는 경우,
+대체 커밋 문자열을 생성한 다음 대상 문자열 커밋의 끝을
+대체 문자열 커밋의 끝으로만 대체하면 됩니다.
+
+BUGS
+----
+대체된 blob 또는 트리를 대체하는 것과 비교하는 것은 올바르게 작동하지 않습니다.
+`git reset --hard`를 사용하여 대체된 커밋으로 돌아가면,
+대체된 커밋이 아닌 대체 커밋으로 브랜치가 이동합니다.
+
+보류 중인 객체와 관련된 'git rev-list' 사용 시 다른 문제가 발생할 수 있습니다.
+
+CAVEATS
+-------
+replace 객체 또는 commit graft의 존재는 commit-graph의 읽기 또는 쓰기를 비활성화하여
+성능 문제를 야기할 수 있습니다. linkgit:git-commit-graph[1]을 참조하십시오.
+
+SEE ALSO
+--------
+linkgit:git-hash-object[1]
+linkgit:git-rebase[1]
+linkgit:git-tag[1]
+linkgit:git-branch[1]
+linkgit:git-commit[1]
+linkgit:git-var[1]
+linkgit:git[1]
+https://github.com/newren/git-filter-repo[git-filter-repo]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부입니다.

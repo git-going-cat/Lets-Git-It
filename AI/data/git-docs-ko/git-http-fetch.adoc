@@ -1,0 +1,55 @@
+git-http-fetch(1)
+=================
+
+NAME
+----
+git-http-fetch - HTTP를 통해 원격 Git 저장소에서 다운로드
+
+SYNOPSIS
+--------
+[verse]
+'git http-fetch' [-c] [-t] [-a] [-d] [-v] [-w <filename>] [--recover] [--stdin | --packfile=<hash> | <commit>] <URL>
+
+DESCRIPTION
+-----------
+HTTP를 통해 원격 Git 저장소를 다운로드합니다.
+
+이 명령은 항상 모든 객체를 가져옵니다. 과거에는 어떤 객체를 다운로드할지 선택하기 위한 세 가지 옵션인 `-a`, `-c`, `-t`가 있었습니다. 이들은 이제 조용히 무시됩니다.
+
+OPTIONS
+-------
+commit-id::
+        [URL]/refs/ 아래의 해시 또는 파일 이름을
+        가져옵니다.
+
+-a::
+-c::
+-t::
+	이 옵션들은 역사적인 이유로 무시됩니다.
+
+-v::
+	다운로드되는 내용을 보고합니다.
+
+-w <filename>::
+	전송이 완료된 후 로컬 끝의 $GIT_DIR/refs/<filename> 아래에 지정된 파일 이름에 commit-id를 씁니다.
+
+--stdin::
+	명령줄의 commit id 대신 (이 경우 예상되지 않음), 'git http-fetch'는 stdin에서 다음 형식의 줄을 예상합니다.
+
+		<commit-id>['\t'<filename-as-in--w>]
+
+--packfile=<hash>::
+	내부 용도로만 사용됩니다. 명령줄의 commit id 대신 (이 경우 예상되지 않음), 'git http-fetch'는 주어진
+	URL에서 packfile을 직접 가져와 해당 .idx 및 .keep 파일을 생성하기 위해 index-pack을 사용합니다.
+	해시는 임시 파일 이름을 결정하는 데 사용되며 임의적입니다. index-pack의 출력은 stdout으로 출력됩니다.
+	--index-pack-args가 필요합니다.
+
+--index-pack-args=<args>::
+	내부 용도로만 사용됩니다. 다운로드된 pack의 내용에 대해 실행할 명령입니다. 인수는 공백으로 구분된 URL 인코딩된 것입니다.
+
+--recover::
+	대상에서 도달 가능한 모든 것이 가져와졌는지 확인합니다. 이전에 가져오기 작업이 중단된 후 사용됩니다.
+
+GIT
+---
+linkgit:git[1] 시리즈의 일부

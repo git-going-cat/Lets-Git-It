@@ -1,0 +1,392 @@
+git-interpret-trailers(1)
+=========================
+
+NAME
+----
+git-interpret-trailers - 커밋 메시지에 구조화된 정보 추가 또는 파싱
+
+SYNOPSIS
+--------
+[synopsis]
+git interpret-trailers [--in-place] [--trim-empty]
+			[(--trailer (<key>|<key-alias>)[(=|:)<value>])...]
+			[--parse] [<file>...]
+
+DESCRIPTION
+-----------
+RFC 822 이메일 헤더와 유사하게 보이는 _trailer_ 줄을 커밋 메시지의
+자유 형식 부분 끝에 추가하거나 파싱합니다. 예를 들어, 다음 커밋 메시지에서
+
+------------------------------------------------
+subject
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+Signed-off-by: Alice <alice@example.com>
+Signed-off-by: Bob <bob@example.com>
+------------------------------------------------
+
+`Signed-off-by`로 시작하는 마지막 두 줄이 trailer입니다.
+
+이 명령은 _<file>_ 인수가 없으면 표준 입력에서, _<file>_ 인수가 지정되면
+해당 파일에서 커밋 메시지를 읽어옵니다.
+`--parse`가 지정되면, 출력은 입력에서 파싱된 trailer로 구성되며,
+명령줄 옵션이나 설정 변수에 영향을 받지 않습니다.
+
+그렇지 않으면, 이 명령은 `trailer.<key-alias>` 설정 변수(새로운
+trailer를 추가하거나 위치를 재지정할 수 있음)와 설정 변수를
+재정의할 수 있는 명령줄 인자(`--trailer=...`와 같이 새로운
+trailer를 추가할 수도 있음)를 각 입력 파일에 적용합니다. 결과는
+표준 출력으로 방출됩니다.
+
+이 명령은 플레인 커밋 메시지보다 더 정교한
+linkgit:git-format-patch[1]의 출력에서도 작동할 수 있습니다. 특히,
+그러한 출력에는 커밋 메시지(위와 같음), `---` 구분선, 그리고 패치 부분이
+포함됩니다. 이러한 입력에 대해, `--no-divider`가 지정되지 않은 한,
+구분선과 패치 부분은 이 명령에 의해 수정되지 않고 그대로 출력으로
+방출됩니다.
+
+일부 설정 변수는 `--trailer` 인자가 각 입력에 적용되는 방식과
+입력에 있는 기존 trailer가 변경되는 방식을 제어합니다. 또한
+일부 trailer를 자동으로 추가할 수 있습니다.
+
+기본적으로 `--trailer`를 사용하여 주어진 `<key>=<value>` 또는
+`<key>:<value>` 인자는 마지막 trailer가 다른 (_<key>_, _<value>_) 쌍을
+가지고 있거나 (또는 기존 trailer가 없는 경우) 기존 trailer 뒤에
+추가됩니다. _<key>_와 _<value>_ 부분은 앞뒤 공백을 제거하기 위해
+트림되며, 결과적으로 트림된 _<key>_와 _<value>_는 다음과 같이 출력에
+표시됩니다.
+
+------------------------------------------------
+key: value
+------------------------------------------------
+
+이는 트림된 _<key>_와 _<value>_가 "`:`{nbsp}" (콜론 하나와 공백 하나)로
+구분됨을 의미합니다.
+
+편의를 위해 _<key-alias>_를 설정하여 명령줄에서 `--trailer`를
+입력하는 것을 더 짧게 만들 수 있습니다. 이것은 `trailer.<key-alias>.key`
+설정 변수를 사용하여 구성할 수 있습니다. _<key-alias>_는 전체 _<key>_
+문자열의 접두사여야 하지만, 대소문자는 구분하지 않습니다. 예를 들어,
+설정 파일에
+
+------------------------------------------------
+trailer.sign.key "Signed-off-by: "
+------------------------------------------------
+
+가 있다면, `--trailer="Signed-off-by: foo"` 대신 `--trailer="sign: foo"`만
+명령줄에 지정하면 됩니다.
+
+기본적으로 새로운 trailer는 모든 기존 trailer 뒤에 나타납니다.
+기존 trailer가 없으면 새로운 trailer는 입력의 끝에 나타납니다.
+새로운 trailer 앞에 빈 줄이 없으면 빈 줄이 추가됩니다.
+
+기존 trailer는 (i) 모든 것이 trailer이거나, (ii) Git에서 생성되었거나
+사용자가 구성한 trailer가 적어도 하나 포함되어 있고 trailer의 비율이
+25% 이상인, 하나 이상의 줄 그룹을 찾아 입력에서 추출됩니다.
+이 그룹은 하나 이상의 빈 줄(또는 공백만 있는 줄)에 의해 선행되어야 합니다.
+이 그룹은 입력의 끝에 있거나 `---` (뒤에 공백 또는 줄 끝이 오는)로
+시작하는 줄 앞의 마지막 비공백 줄이어야 합니다.
+
+trailer를 읽을 때, _<key>_ 앞에 또는 내부에 공백이 없어야 하지만,
+_<key>_와 구분자 사이에는 어떤 수의 일반 공백 및 탭 문자가 허용됩니다.
+_<value>_ 앞, 내부 또는 뒤에 공백이 있을 수 있습니다. _<value>_는
+RFC 822의 "접힘(folding)"과 같이 각 후속 줄이 적어도 하나의 공백으로
+시작하는 여러 줄에 걸쳐 나뉠 수 있습니다. 예시:
+
+------------------------------------------------
+key: This is a very long value, with spaces and
+  newlines in it.
+------------------------------------------------
+
+trailer는 RFC 822 헤더의 많은 규칙을 따르지 않으며(따르도록 의도하지도
+않음)에 유의하십시오. 예를 들어, 인코딩 규칙을 따르지 않습니다.
+
+OPTIONS
+-------
+`--in-place`::
+`--no-in-place`::
+	파일을 제자리에서 편집합니다. 기본값은 `--no-in-place`입니다.
+
+`--trim-empty`::
+`--no-trim-empty`::
+	모든 trailer의 _<value>_ 부분이 공백만 포함하는 경우,
+	전체 trailer가 출력에서 제거됩니다.
+	이는 기존 trailer와 새로운 trailer 모두에 적용됩니다.
++
+기본값은 `--no-trim-empty`입니다.
+
+`--trailer=<key>[(=|:)<value>]`::
+`--no-trailer`::
+	입력에 trailer로 적용될 (_<key>_, _<value>_) 쌍을 지정합니다.
+	이 명령의 설명을 참조하십시오. 여러 번 지정할 수 있습니다.
++
+`--no-trailer`를 사용하여 목록을 재설정합니다.
+
+`--where=<placement>`::
+`--no-where`::
+	모든 새 trailer가 추가될 위치를 지정합니다.
+	`--where`로 제공된 설정은 `trailer.where` 및 해당
+	`trailer.<key-alias>.where` 설정 변수를 재정의하며,
+	`--where` 또는 `--no-where`의 다음 발생 전까지 모든
+	`--trailer` 옵션에 적용됩니다. 가능한 위치는 `after`,
+	`before`, `end` 또는 `start`입니다.
++
+`--no-where`를 사용하여 이전 `--where` 사용의 효과를 지우면,
+	관련 설정 변수가 더 이상 재정의되지 않습니다.
+
+`--if-exists=<action>`::
+`--no-if-exists`::
+	입력에 이미 같은 _<key>_를 가진 trailer가 적어도 하나 이상 있을 때
+	수행될 동작을 지정합니다. `--if-exists`로 제공된 설정은
+	`trailer.ifExists` 및 해당 `trailer.<key-alias>.ifExists` 설정 변수를
+	재정의하며, `--if-exists` 또는 `--no-if-exists`의 다음 발생 전까지
+	모든 `--trailer` 옵션에 적용됩니다. 가능한 동작은 `addIfDifferent`,
+	`addIfDifferentNeighbor`, `add`, `replace` 및 `doNothing`입니다.
++
+`--no-if-exists`를 사용하여 이전 `--if-exists` 사용의 효과를 지우면,
+	관련 설정 변수가 더 이상 재정의되지 않습니다.
+
+`--if-missing=<action>`::
+`--no-if-missing`::
+	입력에 같은 _<key>_를 가진 다른 trailer가 없을 때 수행될 동작을
+	지정합니다. `--if-missing`으로 제공된 설정은 `trailer.ifMissing` 및
+	해당 `trailer.<key-alias>.ifMissing` 설정 변수를 재정의하며,
+	`--if-missing` 또는 `--no-if-missing`의 다음 발생 전까지 모든
+	`--trailer` 옵션에 적용됩니다. 가능한 동작은 `doNothing` 또는 `add`입니다.
++
+`--no-if-missing`을 사용하여 이전 `--if-missing` 사용의 효과를 지우면,
+	관련 설정 변수가 더 이상 재정의되지 않습니다.
+
+`--only-trailers`::
+`--no-only-trailers`::
+	입력의 다른 부분은 출력하지 않고 trailer만 출력합니다.
+	기본값은 `--no-only-trailers`입니다.
+
+`--only-input`::
+`--no-only-input`::
+	입력에 존재하는 trailer만 출력합니다. 명령줄에서 추가하거나
+	`trailer.<key-alias>` 설정 변수를 적용하여 추가하지 않습니다.
+	기본값은 `--no-only-input`입니다.
+
+`--unfold`::
+`--no-unfold`::
+	trailer에 여러 줄에 걸친 값(일명 "접힌" 값)이 있는 경우,
+	값을 단일 줄로 재포맷합니다. 기본값은 `--no-unfold`입니다.
+
+`--parse`::
+	`--only-trailers --only-input --unfold`의 편의 별칭입니다.
+	이는 명령줄 옵션이나 설정 변수에 영향을 받지 않고 입력에서 오는
+	trailer만 쉽게 볼 수 있도록 하며, `--unfold`를 사용하여 출력을
+	기계 친화적으로 만듭니다.
++
+이 별칭을 부정하는 편의 별칭은 없습니다.
+
+`--divider`::
+`--no-divider`::
+	`---`를 커밋 메시지의 끝으로 취급합니다. 이것이 기본값입니다.
+	입력에 커밋 메시지 자체만 포함되어 있고 (이메일이나
+	linkgit:git-format-patch[1]의 출력이 아님)을 알고 있을 때
+	`--no-divider`를 사용하십시오.
+
+CONFIGURATION VARIABLES
+-----------------------
+
+include::includes/cmd-config-section-all.adoc[]
+
+include::config/trailer.adoc[]
+
+EXAMPLES
+--------
+
+* `sign` trailer를 `Signed-off-by` 키로 구성한 후,
+  이 두 개의 trailer를 커밋 메시지 파일에 추가합니다.
++
+------------
+$ git config trailer.sign.key "Signed-off-by"
+$ cat msg.txt
+subject
+
+body text
+$ git interpret-trailers --trailer 'sign: Alice <alice@example.com>' --trailer 'sign: Bob <bob@example.com>' <msg.txt
+subject
+
+body text
+
+Signed-off-by: Alice <alice@example.com>
+Signed-off-by: Bob <bob@example.com>
+------------
+
+* `--in-place` 옵션을 사용하여 커밋 메시지 파일을 제자리에서 편집합니다.
++
+------------
+$ cat msg.txt
+subject
+
+body text
+
+Signed-off-by: Bob <bob@example.com>
+$ git interpret-trailers --trailer 'Acked-by: Alice <alice@example.com>' --in-place msg.txt
+$ cat msg.txt
+subject
+
+body text
+
+Signed-off-by: Bob <bob@example.com>
+Acked-by: Alice <alice@example.com>
+------------
+
+* 마지막 커밋을 패치로 추출하고, 여기에 `Cc` 및
+  `Reviewed-by` trailer를 추가합니다.
++
+------------
+$ git format-patch -1
+0001-foo.patch
+$ git interpret-trailers --trailer 'Cc: Alice <alice@example.com>' --trailer 'Reviewed-by: Bob <bob@example.com>' 0001-foo.patch >0001-bar.patch
+------------
+
+* `sign` trailer를 구성하여 `Signed-off-by: `가 없는 경우에만
+  작성자 정보를 자동으로 추가하고, 작동 방식을 보여줍니다.
++
+------------
+$ cat msg1.txt
+subject
+
+body text
+$ git config trailer.sign.key "Signed-off-by: "
+$ git config trailer.sign.ifmissing add
+$ git config trailer.sign.ifexists doNothing
+$ git config trailer.sign.cmd 'echo "$(git config user.name) <$(git config user.email)>"'
+$ git interpret-trailers --trailer sign <msg1.txt
+subject
+
+body text
+
+Signed-off-by: Bob <bob@example.com>
+$ cat msg2.txt
+subject
+
+body text
+
+Signed-off-by: Alice <alice@example.com>
+$ git interpret-trailers --trailer sign <msg2.txt
+subject
+
+body text
+
+Signed-off-by: Alice <alice@example.com>
+------------
+
+* `#`를 포함하고 해당 문자 뒤에 공백이 없는 키를 가진 `fix` trailer를
+  구성하고, 작동 방식을 보여줍니다.
++
+------------
+$ git config trailer.separators ":#"
+$ git config trailer.fix.key "Fix #"
+$ echo "subject" | git interpret-trailers --trailer fix=42
+subject
+
+Fix #42
+------------
+
+* `glog-find-author` 스크립트를 사용하여 Git 저장소의 Git 로그에서
+  지정된 작성자 정보를 검색하는 `help` trailer를 구성하고, 작동 방식을 보여줍니다.
++
+------------
+$ cat ~/bin/glog-find-author
+#!/bin/sh
+test -n "$1" && git log --author="$1" --pretty="%an <%ae>" -1 || true
+$ cat msg.txt
+subject
+
+body text
+$ git config trailer.help.key "Helped-by: "
+$ git config trailer.help.ifExists "addIfDifferentNeighbor"
+$ git config trailer.help.cmd "~/bin/glog-find-author"
+$ git interpret-trailers --trailer="help:Junio" --trailer="help:Couder" <msg.txt
+subject
+
+body text
+
+Helped-by: Junio C Hamano <gitster@pobox.com>
+Helped-by: Christian Couder <christian.couder@gmail.com>
+------------
+
+* `glog-grep` 스크립트를 사용하여 Git 저장소의 Git 로그에서 마지막 관련
+  커밋을 검색하는 `ref` trailer를 구성하고, 작동 방식을 보여줍니다.
++
+------------
+$ cat ~/bin/glog-grep
+#!/bin/sh
+test -n "$1" && git log --grep "$1" --pretty=reference -1 || true
+$ cat msg.txt
+subject
+
+body text
+$ git config trailer.ref.key "Reference-to: "
+$ git config trailer.ref.ifExists "replace"
+$ git config trailer.ref.cmd "~/bin/glog-grep"
+$ git interpret-trailers --trailer="ref:Add copyright notices." <msg.txt
+subject
+
+body text
+
+Reference-to: 8bc9a0c769 (Add copyright notices., 2005-04-07)
+------------
+
+* 관련 커밋의 제목을 표시하는 명령을 사용하여 `see` trailer를 구성하고,
+  작동 방식을 보여줍니다.
++
+------------
+$ cat msg.txt
+subject
+
+body text
+
+see: HEAD~2
+$ cat ~/bin/glog-ref
+#!/bin/sh
+git log -1 --oneline --format="%h (%s)" --abbrev-commit --abbrev=14
+$ git config trailer.see.key "See-also: "
+$ git config trailer.see.ifExists "replace"
+$ git config trailer.see.ifMissing "doNothing"
+$ git config trailer.see.cmd "glog-ref"
+$ git interpret-trailers --trailer=see <msg.txt
+subject
+
+body text
+
+See-also: fe3187489d69c4 (subject of related commit)
+------------
+
+* 빈 값을 가진 trailer가 있는 커밋 템플릿을 구성하고 (sed를 사용하여
+  trailer 끝의 후행 공백을 표시하고 유지), 빈 값을 가진 trailer를
+  제거하고 `git-version` trailer를 추가하기 위해 git-interpret-trailers(1)를
+  사용하는 commit-msg 훅을 구성합니다.
++
+------------
+$ cat temp.txt
+***subject***
+
+***message***
+
+Fixes: Z
+Cc: Z
+Reviewed-by: Z
+Signed-off-by: Z
+$ sed -e 's/ Z$/ /' temp.txt > commit_template.txt
+$ git config commit.template commit_template.txt
+$ cat .git/hooks/commit-msg
+#!/bin/sh
+git interpret-trailers --trim-empty --trailer "git-version: \$(git describe)" "\$1" > "\$1.new"
+mv "\$1.new" "\$1"
+$ chmod +x .git/hooks/commit-msg
+------------
+
+SEE ALSO
+--------
+linkgit:git-commit[1], linkgit:git-format-patch[1], linkgit:git-config[1]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

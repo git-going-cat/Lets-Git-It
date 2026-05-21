@@ -1,0 +1,62 @@
+git-upload-archive(1)
+=====================
+
+NAME
+----
+git-upload-archive - 아카이브를 git-archive로 전송
+
+SYNOPSIS
+--------
+[verse]
+'git upload-archive' <repository>
+
+DESCRIPTION
+-----------
+'git archive --remote'에 의해 호출되며 Git 프로토콜을 통해
+상대방에게 생성된 아카이브를 전송합니다.
+
+이 명령은 일반적으로 최종 사용자에게 직접 호출되지 않습니다.
+프로토콜의 UI는 'git archive' 측에 있으며, 이 프로그램 쌍은
+원격 저장소에서 아카이브를 가져오는 데 사용됩니다.
+
+SECURITY
+--------
+
+기록에서 제거되었지만 아직 가지치기(pruned)되지 않았을 수 있는
+객체의 개인 정보를 보호하기 위해, `git-upload-archive`는
+저장소의 ref에서 도달할 수 없는 커밋 및 트리(commit or trees)에 대한
+아카이브 제공을 피합니다. 하지만 객체 도달 가능성(object reachability)을
+계산하는 것은 계산적으로 비용이 많이 들기 때문에,
+`git-upload-archive`는 더 엄격하지만 더 쉽게 확인할 수 있는 규칙 집합을
+구현합니다:
+
+  1. 클라이언트는 ref에 의해 직접 가리키는 커밋 또는 트리를
+     요청할 수 있습니다. 예: `git archive --remote=origin v1.0`.
+
+  2. 클라이언트는 `ref:path` 구문을 사용하여 커밋 또는 트리 내의
+     서브 트리(sub-tree)를 요청할 수 있습니다. 예: `git archive --remote=origin v1.0:Documentation`.
+
+  3. 클라이언트는 결과적으로 도달 가능하더라도 다른 sha1 표현식을
+     사용할 수 _없습니다_. 예를 들어, `master^`와 같은 상대 커밋이나
+     `abcd1234`와 같은 리터럴 sha1은 결과가 ref에서 도달 가능하더라도
+     허용되지 않습니다.
+
+규칙 3은 개인 정보 침해와 관련이 없는 많은 경우를 금지한다는 점에 유의하십시오.
+이러한 규칙은 git의 향후 버전에서 변경될 수 있으며,
+`git archive --remote`에 의해 액세스되는 서버는 이러한 정확한 규칙을
+따를 수도 있고 따르지 않을 수도 있습니다.
+
+`uploadArchive.allowUnreachable` 설정 옵션이 true이면,
+이러한 규칙은 무시되며, 클라이언트는 임의의 sha1 표현식을
+사용할 수 있습니다. 이는 도달할 수 없는 객체의 개인 정보에 신경 쓰지 않거나,
+객체 데이터베이스가 이미 non-smart-http를 통해 액세스할 수 있는 경우
+유용합니다.
+
+OPTIONS
+-------
+<repository>::
+	tar 아카이브를 가져올 저장소입니다.
+
+GIT
+---
+linkgit:git[1] 관련 도구 모음의 일부입니다.

@@ -1,0 +1,377 @@
+git-reset(1)
+============
+
+NAME
+----
+git-reset - `HEAD` 또는 인덱스를 알려진 상태로 설정
+
+SYNOPSIS
+--------
+[synopsis]
+git reset [--soft | --mixed [-N] | --hard | --merge | --keep] [-q] [<commit>]
+git reset [-q] [<tree-ish>] [--] <pathspec>...
+git reset [-q] [--pathspec-from-file=<file> [--pathspec-file-nul]] [<tree-ish>]
+git reset (--patch | -p) [<tree-ish>] [--] [<pathspec>...]
+
+DESCRIPTION
+-----------
+`git reset`는 다음 중 하나를 수행합니다:
+
+1. `git reset [<mode>] <commit>`는 `HEAD`가 가리키는 커밋을 변경합니다. 이를 통해 커밋, 머지, 리베이스, 풀과 같은 다양한 Git 작업을 취소할 수 있습니다.
+2. 파일 또는 디렉토리를 지정하거나 `--patch`를 전달할 때, `git reset`는 지정된 파일의 스테이징된 버전을 업데이트합니다.
+
+`git reset [<mode>] [<commit>]`::
+	현재 브랜치 헤드 (`HEAD`)를 _<commit>_을 가리키도록 설정합니다.
+	_<mode>_에 따라 워킹 디렉토리 및/또는 인덱스를 _<commit>_의 내용과 일치하도록 업데이트합니다.
+	_<commit>_은 기본값으로 `HEAD`입니다.
+	이 작업 이전에 `ORIG_HEAD`는 현재 브랜치의 팁으로 설정됩니다.
++
+_<mode>_는 다음 중 하나여야 합니다 (기본값 `--mixed`):
++
+
+--
+`--mixed`::
+	워킹 디렉토리를 변경하지 않습니다.
+	인덱스를 새로운 `HEAD`에 맞게 업데이트하므로 아무것도 스테이징되지 않습니다.
++
+`-N`을 지정하면, 삭제된 경로는 추가할 의도로 표시됩니다 (linkgit:git-add[1] 참조).
+
+`--soft`::
+	워킹 트리 파일과 인덱스를 변경하지 않습니다.
+	예를 들어, 스테이징된 변경 사항이 없다면,
+	`git reset --soft HEAD~5; git commit`
+	을 사용하여 마지막 5개의 커밋을 1개의 커밋으로 결합할 수 있습니다. 이는 워킹 트리의 변경 사항이 untouched 상태로 유지되므로 변경 사항이 있는 경우에도 작동하지만, 이러한 사용은 혼란을 야기할 수 있습니다.
+
+`--hard`::
+	모든 파일과 디렉토리를 _<commit>_의 버전으로 덮어씁니다. 추적되지 않는 파일을 덮어쓸 수도 있습니다. _<commit>_에 없는 추적된 파일은 워킹 트리가 _<commit>_과 일치하도록 제거됩니다.
+	인덱스를 새로운 `HEAD`에 맞게 업데이트하므로 아무것도 스테이징되지 않습니다.
+
+`--merge`::
+	_ <commit> _과 `HEAD` 사이에 다른 파일의 인덱스를 재설정하고 워킹 트리를 업데이트하지만, 인덱스와 워킹 트리 사이에 다른 파일 (즉, 추가되지 않은 변경 사항이 있는 파일)은 유지합니다.
+	주로 `git am -3` 또는 특정 상황에서 `git switch -m`에 의해 남겨진 머지되지 않은 인덱스 항목을 재설정하기 위해 존재합니다.
+	 _<commit>_과 인덱스 사이에 다른 파일에 스테이징되지 않은 변경 사항이 있으면, 재설정이 중단됩니다.
+
+`--keep`::
+	_ <commit> _과 `HEAD` 사이에 다른 파일의 인덱스 항목을 재설정하고 워킹 트리를 업데이트합니다.
+	 _<commit>_과 `HEAD` 사이에 다른 파일에 로컬 변경 사항이 있으면, 재설정이 중단됩니다.
+
+`--recurse-submodules`::
+`--no-recurse-submodules`::
+	워킹 트리가 업데이트될 때, `--recurse-submodules`를 사용하면 수퍼프로젝트에 기록된 커밋에 따라 모든 활성 서브모듈의 워킹 트리도 재귀적으로 재설정되며, 서브모듈의 `HEAD`도 해당 커밋에서 분리됩니다.
+--
+
+`git reset [-q] [<tree-ish>] [--] <pathspec>...`::
+`git reset [-q] [--pathspec-from-file=<file> [--pathspec-file-nul]] [<tree-ish>]`::
+	지정된 모든 파일 또는 디렉토리에 대해, 스테이징된 버전을 주어진 커밋 또는 트리 (기본값 `HEAD`)의 버전으로 설정합니다.
++
+이는 `git reset <pathspec>`이 `git add <pathspec>`의 반대임을 의미합니다: 지정된 파일(들) 또는 디렉토리의 모든 변경 사항을 스테이징 해제합니다. 이는 `git restore --staged <pathspec>...`와 동일합니다.
++
+이 모드에서 `git reset`은 인덱스만 업데이트합니다 (`HEAD` 또는 워킹 트리 파일은 업데이트하지 않음). 파일과 인덱스 항목을 모두 업데이트하려면 linkgit:git-restore[1]을 사용하십시오.
+
+`git reset (--patch | -p) [<tree-ish>] [--] [<pathspec>...]`::
+	인덱스와 지정된 커밋 또는 트리 (기본값 `HEAD`) 사이의 차이점 중에서 변경 사항을 대화형으로 선택합니다.
+	선택된 변경 사항을 사용하여 인덱스가 수정됩니다.
++
+이는 `git reset -p`가 `git add -p`의 반대임을 의미합니다. 즉, 변경 사항을 선택적으로 스테이징 해제하는 데 사용할 수 있습니다. `--patch` 옵션을 사용하는 방법은 linkgit:git-add[1]의 "Interactive Mode" 섹션을 참조하십시오.
+
+세 명령 간의 차이점은 linkgit:git[1]의 "Reset, restore and revert"를 참조하십시오.
+
+
+OPTIONS
+-------
+
+`-q`::
+`--quiet`::
+	조용하게, 오류만 보고합니다.
+
+`--refresh`::
+`--no-refresh`::
+	혼합 재설정 후 인덱스를 새로 고칩니다. 기본적으로 활성화됩니다.
+
+`--pathspec-from-file=<file>`::
+	Pathspec은 명령줄 인수가 아닌 _<file>_에서 전달됩니다. _<file>_이 정확히 `-`이면 표준 입력이 사용됩니다. Pathspec 구성 요소는 _LF_ 또는 _CR_/_LF_에 의해 구분됩니다. Pathspec 구성 요소는 `core.quotePath` 구성 변수 (linkgit:git-config[1] 참조)에 설명된 대로 인용될 수 있습니다. `--pathspec-file-nul` 및 전역 `--literal-pathspecs`도 참조하십시오.
+
+`--pathspec-file-nul`::
+	`--pathspec-from-file`과 함께 사용될 때만 유효합니다. Pathspec 구성 요소는 _NUL_ 문자로 구분되며 다른 모든 문자는 (줄 바꿈 및 따옴표 포함) 그대로 해석됩니다.
+
+include::diff-context-options.adoc[]
+
+`--`::
+	더 이상의 인수를 옵션으로 해석하지 않습니다.
+
+`<pathspec>...`::
+	작업에 영향을 받는 경로를 제한합니다.
++
+자세한 내용은 linkgit:gitglossary[7]의 'pathspec' 항목을 참조하십시오.
+
+EXAMPLES
+--------
+
+Add 취소::
++
+------------
+$ edit                                     <1>
+$ git add frotz.c filfre.c
+$ mailx                                    <2>
+$ git reset                                <3>
+$ git pull git://info.example.com/ nitfol  <4>
+------------
++
+<1> 행복하게 무언가를 작업 중이었고, 이러한 파일들의 변경 사항이 제 순서대로 있다고 생각했습니다. `git diff`를 실행할 때 보고 싶지 않았으며, 다른 파일에서 작업할 계획이었고 이 파일들의 변경 사항이 방해가 되지 않도록 하고 싶었습니다.
+<2> 누군가가 풀링 요청을 했고, 변경 내용이 병합할 가치가 있다고 생각했습니다.
+<3> 하지만 이미 인덱스가 오염되었습니다 (즉, 인덱스가 `HEAD` 커밋과 일치하지 않습니다). 하지만 앞으로 할 풀이 `frotz.c` 또는 `filfre.c`에 영향을 미치지 않는다는 것을 알고 있으므로, 이 두 파일에 대한 인덱스 변경 사항을 되돌립니다. 워킹 트리의 변경 사항은 그대로 유지됩니다.
+<4> 그런 다음 풀링 및 병합을 할 수 있으며, `frotz.c`와 `filfre.c` 변경 사항은 워킹 트리에 남아 있습니다.
+
+커밋 취소 및 재실행::
++
+------------
+$ git commit ...
+$ git reset --soft HEAD^      <1>
+$ edit                        <2>
+$ git commit -a -c ORIG_HEAD  <3>
+------------
++
+<1> 방금 커밋한 내용이 불완전하거나 커밋 메시지를 오타했거나 둘 다인 경우에 가장 자주 수행됩니다. "reset" 이전에 워킹 트리가 그대로 유지됩니다.
+<2> 워킹 트리 파일에 대한 수정을 합니다.
+<3> "reset"은 이전 헤드를 `.git/ORIG_HEAD`로 복사합니다. 원래 로그 메시지를 사용하여 커밋을 다시 실행합니다. 메시지를 더 이상 편집할 필요가 없다면 `-C` 옵션을 대신 사용할 수 있습니다.
++
+linkgit:git-commit[1]의 `--amend` 옵션도 참조하십시오.
+
+커밋 취소 및 토픽 브랜치 만들기::
++
+------------
+$ git branch topic/wip          <1>
+$ git reset --hard HEAD~3       <2>
+$ git switch topic/wip          <3>
+------------
++
+<1> 일부 커밋을 만들었지만, `master` 브랜치에 포함하기에는 너무 미리했다고 깨달았습니다. 토픽 브랜치에서 계속 작업하고 싶으므로 현재 `HEAD`에서 `topic/wip` 브랜치를 생성합니다.
+<2> 마스터 브랜치를 되돌려 해당 세 개의 커밋을 제거합니다.
+<3> `topic/wip` 브랜치로 전환하고 계속 작업합니다.
+
+커밋 영구적으로 취소::
++
+------------
+$ git commit ...
+$ git reset --hard HEAD~3   <1>
+------------
++
+<1> 마지막 세 개의 커밋 (`HEAD`, `HEAD^`, `HEAD~2`)이 잘못되었고 다시 보고 싶지 않습니다. 이미 다른 사람에게 이 커밋을 전달했다면 *이렇게 하지 마십시오*. (이렇게 했을 때의 영향은 linkgit:git-rebase[1]의 "RECOVERING FROM UPSTREAM REBASE" 섹션을 참조하십시오.)
+
+머지 또는 풀 취소::
++
+------------
+$ git pull                         <1>
+Auto-merging nitfol
+CONFLICT (content): Merge conflict in nitfol
+Automatic merge failed; fix conflicts and then commit the result.
+$ git reset --hard                 <2>
+$ git pull . topic/branch          <3>
+Updating from 41223... to 13134...
+Fast-forward
+$ git reset --hard ORIG_HEAD       <4>
+------------
++
+<1> 업스트림에서 업데이트하려 했지만 많은 충돌이 발생했습니다. 지금 당장 많은 시간을 병합에 소비할 준비가 되지 않았으므로 나중에 하기로 결정했습니다.
+<2> "pull"이 머지 커밋을 만들지 않았으므로, `git reset --hard` ( `git reset --hard HEAD` 의 별칭)는 인덱스 파일과 워킹 트리에서 문제를 제거합니다.
+<3> 현재 브랜치에 토픽 브랜치를 병합하여 빠른 전달이 발생했습니다.
+<4> 하지만 토픽 브랜치가 아직 공개하기에는 준비되지 않았다고 결정했습니다. "pull" 또는 "merge"는 항상 현재 브랜치의 원래 팁을 `ORIG_HEAD`에 남기므로, 이를 하드 리셋하면 인덱스 파일과 워킹 트리가 해당 상태로 돌아가고 브랜치 팁이 해당 커밋으로 재설정됩니다.
+
+더티한 워킹 트리 내에서의 머지 또는 풀 취소::
++
+------------
+$ git pull                         <1>
+Auto-merging nitfol
+Merge made by recursive.
+ nitfol                |   20 +++++----
+ ...
+$ git reset --merge ORIG_HEAD      <2>
+------------
++
+<1> 워킹 트리에 로컬 수정 사항이 있더라도, 다른 브랜치의 변경 사항이 이를 겹치지 않는다는 것을 알고 있다면 안전하게 `git pull`을 실행할 수 있습니다.
+<2> 병합 결과를 검토한 후, 다른 브랜치의 변경 사항이 만족스럽지 않다고 판단할 수 있습니다. `git reset --hard ORIG_HEAD`를 실행하면 원래 상태로 돌아갈 수 있지만, 원치 않는 로컬 변경 사항은 삭제됩니다. `git reset --merge`는 로컬 변경 사항을 유지합니다.
+
+
+중단된 워크플로우::
++
+중요한 수정 요청으로 인해 긴 변경 작업을 중간에 중단해야 하는 상황을 가정해 보겠습니다. 워킹 트리 파일은 아직 커밋할 준비가 되지 않았지만, 빠른 버그 수정을 위해 다른 브랜치로 전환해야 합니다.
++
+------------
+$ git switch feature  ;# "feature" 브랜치에서 작업 중이었고
+$ work work work      ;# 중단되었습니다
+$ git commit -a -m "snapshot WIP"                 <1>
+$ git switch master
+$ fix fix fix
+$ git commit ;# 실제 로그로 커밋
+$ git switch feature
+$ git reset --soft HEAD^ ;# WIP 상태로 돌아가기  <2>
+$ git reset                                       <3>
+------------
++
+<1> 이 커밋은 버려질 것이므로 임시 로그 메시지로 충분합니다.
+<2> 이 작업은 'WIP' 커밋을 커밋 히스토리에서 제거하고, 해당 스냅샷을 만들기 직전의 상태로 워킹 트리를 설정합니다.
+<3> 이 시점에서 인덱스 파일에는 여전히 'snapshot WIP'로 커밋된 모든 WIP 변경 사항이 포함되어 있습니다. 이 작업은 WIP 파일을 커밋되지 않은 상태로 표시하도록 인덱스를 업데이트합니다.
++
+linkgit:git-stash[1]도 참조하십시오.
+
+인덱스의 단일 파일 재설정::
++
+파일을 인덱스에 추가했지만 나중에 커밋에 추가하고 싶지 않다고 결정했다고 가정해 봅시다. `git reset`을 사용하여 변경 사항을 유지하면서 파일을 인덱스에서 제거할 수 있습니다.
++
+------------
+$ git reset -- frotz.c                      <1>
+$ git commit -m "Commit files in index"     <2>
+$ git add frotz.c                           <3>
+------------
++
+<1> 이 작업은 워킹 디렉토리의 파일을 유지하면서 인덱스에서 파일을 제거합니다.
+<2> 인덱스의 다른 모든 변경 사항을 커밋합니다.
+<3> 파일을 다시 인덱스에 추가합니다.
+
+이전 커밋 일부를 폐기하면서 워킹 트리에 변경 사항 유지::
++
+어떤 작업을 작업하고 커밋한 다음, 조금 더 작업했지만 이제 워킹 트리에서 이전 커밋과 전혀 관련 없는 다른 브랜치에 있어야 한다고 생각한다고 가정해 봅시다. 새 브랜치를 시작하고 변경 사항을 워킹 트리에 유지하면서 재설정할 수 있습니다.
++
+------------
+$ git tag start
+$ git switch -c branch1
+$ edit
+$ git commit ...                            <1>
+$ edit
+$ git switch -c branch2                     <2>
+$ git reset --keep start                    <3>
+------------
++
+<1> 이 작업은 `branch1`에서 첫 번째 편집 사항을 커밋합니다.
+<2> 이상적인 경우, `branch2`를 생성하고 전환할 때 (즉, `git switch -c branch2 start`), 이전 커밋이 새 토픽에 속하지 않는다는 것을 깨달았을 수 있습니다. 하지만 완벽한 사람은 없습니다.
+<3> 하지만 `branch2`로 전환한 후 `reset --keep`을 사용하여 원치 않는 커밋을 제거할 수 있습니다.
+
+커밋을 일련의 커밋으로 분할::
++
+논리적으로 분리된 많은 변경 사항을 만들고 함께 커밋했다고 가정해 봅시다. 나중에 각 논리적 덩어리가 자체 커밋과 연결되는 것이 더 낫다고 결정했습니다. `git reset`을 사용하여 로컬 파일의 내용을 변경하지 않고 히스토리를 되돌린 다음, `git add -p`를 사용하여 각 커밋에 포함할 덩어리를 대화형으로 선택하고, `git commit -c`를 사용하여 커밋 메시지를 미리 채울 수 있습니다.
++
+------------
+$ git reset -N HEAD^                        <1>
+$ git add -p                                <2>
+$ git diff --cached                         <3>
+$ git commit -c HEAD@{1}                    <4>
+...                                         <5>
+$ git add ...                               <6>
+$ git diff --cached                         <7>
+$ git commit ...                            <8>
+------------
++
+<1> 먼저, 히스토리를 한 커밋 뒤로 재설정하여 원본 커밋을 제거하지만 워킹 트리는 모든 변경 사항과 함께 유지합니다. `-N`은 `HEAD`로 추가된 새 파일이 `git add -p`에서 찾을 수 있도록 표시되는 것을 보장합니다.
+<2> 다음으로 `git add -p` 기능을 사용하여 diff 덩어리를 대화형으로 선택합니다. 각 diff 덩어리에 대해 순서대로 질문하며 "예, 포함합니다", "아니요, 포함하지 않습니다" 또는 매우 강력한 "편집" 기능을 사용할 수 있습니다.
+<3> 포함하려는 덩어리에 만족하면, `git diff --cached`를 사용하여 첫 번째 커밋을 위해 준비된 내용을 확인해야 합니다. 이는 인덱스로 이동되어 곧 커밋될 모든 변경 사항을 보여줍니다.
+<4> 다음으로, 인덱스에 저장된 변경 사항을 커밋합니다. `-c` 옵션은 첫 번째 커밋으로 시작한 원래 메시지에서 커밋 메시지를 미리 채우도록 지정합니다. 잘못 타이핑하는 것을 피하는 데 도움이 됩니다. `HEAD@{1}`은 원본 리셋 커밋 (1 변경 전) 이전의 `HEAD`가 있던 커밋에 대한 특수 표기입니다. linkgit:git-reflog[1]에서 자세한 내용을 참조하십시오. 다른 유효한 커밋 참조를 사용할 수도 있습니다.
+<5> 2-4단계를 여러 번 반복하여 원본 코드를 여러 커밋으로 나눌 수 있습니다.
+<6> 이제 많은 변경 사항을 자체 커밋으로 분할했으며, 나머지 커밋되지 않은 모든 변경 사항을 선택하기 위해 `git add`의 패치 모드를 더 이상 사용하지 않을 수 있습니다.
+<7> 다시 한번, 원하는 것을 포함했는지 확인합니다. 나중에 커밋할 남은 변경 사항이 없고 `git diff`가 비어 있는지 확인하고 싶을 수도 있습니다.
+<8> 마지막으로 최종 커밋을 생성합니다.
+
+
+DISCUSSION
+----------
+
+아래 표에는 다음을 실행할 때 발생하는 일이 표시됩니다:
+
+----------
+git reset --option target
+----------
+
+다양한 리셋 옵션을 사용하여 `HEAD`를 다른 커밋 (`target`)으로 재설정하며, 파일 상태에 따라 달라집니다.
+
+이 표에서 `A`, `B`, `C`, `D`는 파일의 다른 상태입니다. 예를 들어, 첫 번째 표의 첫 번째 줄은 파일이 워킹 트리에서 상태 `A`이고, 인덱스에서 상태 `B`이고, `HEAD`에서 상태 `C`이고, 대상에서 상태 `D`인 경우, `git reset --soft target`은 워킹 트리의 파일을 상태 `A`로, 인덱스의 파일을 상태 `B`로 유지한다는 것을 의미합니다. `HEAD` (현재 브랜치의 팁, 하나에 있는 경우)를 상태 `D`의 파일이 있는 `target`으로 재설정합니다 (즉, 이동합니다).
+
+....
+working index HEAD target         working index HEAD
+----------------------------------------------------
+ A       B     C    D     --soft   A       B     D
+			  --mixed  A       D     D
+			  --hard   D       D     D
+			  --merge (disallowed)
+			  --keep  (disallowed)
+....
+
+....
+working index HEAD target         working index HEAD
+----------------------------------------------------
+ A       B     C    C     --soft   A       B     C
+			  --mixed  A       C     C
+			  --hard   C       C     C
+			  --merge (disallowed)
+			  --keep   A       C     C
+....
+
+....
+working index HEAD target         working index HEAD
+----------------------------------------------------
+ B       B     C    D     --soft   B       B     D
+			  --mixed  B       D     D
+			  --hard   D       D     D
+			  --merge  D       D     D
+			  --keep  (disallowed)
+....
+
+....
+working index HEAD target         working index HEAD
+----------------------------------------------------
+ B       B     C    C     --soft   B       B     C
+			  --mixed  B       C     C
+			  --hard   C       C     C
+			  --merge  C       C     C
+			  --keep   B       C     C
+....
+
+....
+working index HEAD target         working index HEAD
+----------------------------------------------------
+ B       C     C    D     --soft   B       C     D
+			  --mixed  B       D     D
+			  --hard   D       D     D
+			  --merge (disallowed)
+			  --keep  (disallowed)
+....
+
+....
+working index HEAD target         working index HEAD
+----------------------------------------------------
+ B       C     C    C     --soft   B       C     C
+			  --mixed  B       C     C
+			  --hard   C       C     C
+			  --merge  B       C     C
+			  --keep   B       C     C
+....
+
+`git reset --merge`는 충돌이 발생한 머지에서 재설정할 때 사용하도록 설계되었습니다. 머지 작업은 머지에 포함된 워킹 트리 파일이 시작하기 전에 인덱스와의 로컬 변경 사항이 없음을 보장하고, 결과를 워킹 트리로 출력합니다. 따라서 인덱스와 대상 사이에 차이가 있고, 인덱스와 워킹 트리 사이에도 차이가 있다면, 이는 머지 작업이 충돌로 실패한 후 남겨진 상태에서 재설정하지 않음을 의미합니다. 그렇기 때문에 이 경우 `--merge` 옵션이 허용되지 않습니다.
+
+`git reset --keep`은 현재 브랜치에서 마지막 커밋 중 일부를 제거하면서 워킹 트리의 변경 사항을 유지하려고 할 때 사용하도록 설계되었습니다. 제거하려는 커밋의 변경 사항과 유지하려는 워킹 트리의 변경 사항 사이에 충돌이 발생할 수 있다면, 재설정이 허용되지 않습니다. 그렇기 때문에 워킹 트리와 `HEAD` 사이에 변경 사항이 있고, `HEAD`와 대상 사이에 변경 사항이 있는 경우 모두 허용되지 않습니다. 안전을 위해 병합되지 않은 항목이 있는 경우에도 허용되지 않습니다.
+
+다음 표는 병합되지 않은 항목이 있을 때 발생하는 일을 보여줍니다:
+
+....
+working index HEAD target         working index HEAD
+----------------------------------------------------
+ X       U     A    B     --soft  (disallowed)
+			  --mixed  X       B     B
+			  --hard   B       B     B
+			  --merge  B       B     B
+			  --keep  (disallowed)
+....
+
+....
+working index HEAD target         working index HEAD
+----------------------------------------------------
+ X       U     A    A     --soft  (disallowed)
+			  --mixed  X       A     A
+			  --hard   A       A     A
+			  --merge  A       A     A
+			  --keep  (disallowed)
+....
+
+`X`는 모든 상태를 의미하고 `U`는 병합되지 않은 인덱스를 의미합니다.
+
+GIT
+---
+linkgit:git[1] 도구 모음의 일부

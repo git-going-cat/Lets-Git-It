@@ -1,0 +1,43 @@
+git-mergetool{litdd}lib(1)
+==========================
+
+NAME
+----
+git-mergetool--lib - 공통 Git 머지 도구 쉘 스크립트릿
+
+SYNOPSIS
+--------
+[verse]
+'TOOL_MODE=(diff|merge) . "$(git --exec-path)/git-mergetool{litdd}lib"'
+
+DESCRIPTION
+-----------
+
+이는 사용자가 실행하고 싶어하는 명령이 아닙니다. 절대.
+이 문서는 Porcelain-ish 스크립트를 연구하거나 새로 작성하는 사람들을 위한 것입니다.
+
+'git-mergetool{litdd}lib' 스크립트릿은 Git 머지 도구와 함께 작동하기 위한 함수를 설정하기 위해 다른 쉘 스크립트에서 소스( `.`)를 사용하여 로드되도록 설계되었습니다.
+
+'git-mergetool{litdd}lib'를 소스하기 전에 스크립트에서 `TOOL_MODE`를 설정하여 아래 나열된 함수에 대한 작업 모드를 정의해야 합니다. 'diff'와 'merge'가 유효한 값입니다.
+
+FUNCTIONS
+---------
+get_merge_tool::
+	머지 도구를 반환합니다. 추측한 머지 도구를 반환한 경우 반환 코드는 1이고, 그렇지 않으면 0입니다. 적절한 GUI 도구를 검색하기 위해 '$GIT_MERGETOOL_GUI'를 'true'로 설정할 수 있습니다.
+
+get_merge_tool_cmd::
+	머지 도구에 대한 사용자 지정 명령을 반환합니다.
+
+get_merge_tool_path::
+	머지 도구에 대한 사용자 지정 경로를 반환합니다.
+
+initialize_merge_tool::
+	머지 도구별 함수를 범위 내로 가져와 사용하거나 재정의할 수 있도록 합니다.
+
+run_merge_tool::
+	도구 이름과 머지 베이스의 존재 여부를 나타내는 true/false 플래그가 주어진 머지 도구를 실행합니다.
+	머지 도구에서 사용하기 위해 '$MERGED', '$LOCAL', '$REMOTE', 및 '$BASE'가 정의되어야 합니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

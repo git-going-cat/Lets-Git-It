@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Request
+from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
 from app.middleware.auth import verify_api_key
@@ -30,6 +31,7 @@ class CoachingRequest(BaseModel):
 @router.post("/coaching", dependencies=[Depends(verify_api_key)])
 async def coaching(body: CoachingRequest, request: Request):
     await check_rate_limit(request)
+    logger.info(f"coaching: card={body.cardId} score={body.score} input={body.userInput!r}")
     return await generate_coaching(
         user_input=body.userInput,
         correct_command=body.correctCommand,

@@ -1,0 +1,22 @@
+git-init-db(1)
+==============
+
+NAME
+----
+git-init-db - 빈 Git 저장소를 생성합니다.
+
+
+SYNOPSIS
+--------
+[verse]
+'git init-db' [-q | --quiet] [--bare] [--template=<template-directory>] [--separate-git-dir <git-dir>] [--shared[=<permissions>]]
+
+
+DESCRIPTION
+-----------
+
+이것은 linkgit:git-init[1]의 동의어입니다. 해당 명령의 문서를 참조하십시오.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

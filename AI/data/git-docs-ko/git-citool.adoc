@@ -1,0 +1,25 @@
+git-citool(1)
+=============
+
+NAME
+----
+git-citool - git-commit의 그래픽 대체 도구
+
+SYNOPSIS
+--------
+[verse]
+'git citool'
+
+DESCRIPTION
+-----------
+Tcl/Tk 기반의 그래픽 인터페이스로, 수정된 파일을 검토하고,
+스테이징 영역(index)으로 스테이징하고, 커밋 메시지를 입력하고,
+현재 브랜치에 새로운 커밋을 기록합니다. 이 인터페이스는
+상호작용이 덜한 `git commit` 프로그램의 대안입니다.
+
+'git citool'은 실제로는 `git gui citool`의 표준 별칭입니다.
+더 자세한 내용은 linkgit:git-gui[1]를 참조하십시오.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

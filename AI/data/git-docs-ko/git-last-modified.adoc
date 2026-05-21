@@ -1,0 +1,70 @@
+git-last-modified(1)
+====================
+
+NAME
+----
+git-last-modified - EXPERIMENTAL: 파일이 마지막으로 수정된 시점을 표시
+
+SYNOPSIS
+--------
+[synopsis]
+git last-modified [--recursive] [--show-trees] [--max-depth=<depth>] [-z]
+		  [<revision-range>] [[--] <pathspec>...]
+
+DESCRIPTION
+-----------
+
+관련 파일 및 하위 디렉토리의 각 항목을 마지막으로 수정한 커밋을 표시합니다.
+경로를 이름 바꾸거나 모드를 변경한 커밋도 고려됩니다.
+
+이 명령어는 실험적입니다. 동작이 변경될 수 있습니다.
+
+OPTIONS
+-------
+
+`-r`::
+`--recursive`::
+	모든 하위 트리를 재귀적으로 탐색합니다. 기본적으로 이 명령어는 `<pathspec>`과 일치하는 트리 항목만 표시합니다. 이 옵션을 사용하면 하위 트리로 내려가 해당 트리에 있는 모든 항목을 표시합니다.
+	`--max-depth=-1`과 동일합니다.
+
+`-t`::
+`--show-trees`::
+	하위 트리로 재귀적으로 탐색할 때 트리 항목도 표시합니다.
+
+`--max-depth=<depth>`::
+	명령줄에서 제공된 각 pathspec에 대해 하위 트리를 최대 `<depth>` 레벨까지 탐색합니다. 음수 값은 제한이 없음을 의미합니다.
+	기본값은 0이며, 이는 하위 트리로 내려가지 않고 pathspec과 일치하는 모든 경로를 표시합니다.
+
+`-z`::
+	각 줄을 개행 문자 대신 _NUL_ 문자로 종료합니다.
+
+`<revision-range>`::
+	지정된 리비전 범위의 커밋만 탐색합니다. `<revision-range>`가 지정되지 않으면 `HEAD` (현재 커밋으로 이어지는 전체 히스토리)가 기본값입니다. `<revision-range>`를 지정하는 모든 방법에 대한 전체 목록은 linkgit:gitrevisions[7]의 'Specifying Ranges' 섹션을 참조하십시오.
+
+`[--] <pathspec>...`::
+	_<pathspec>_과 일치하는 각 경로를 마지막으로 수정한 커밋을 표시합니다.
+	 _<pathspec>_이 제공되지 않으면 모든 파일 및 하위 디렉토리가 포함됩니다. pathspec 구문에 대한 자세한 내용은 linkgit:gitglossary[7]을 참조하십시오.
+
+OUTPUT
+------
+
+출력 형식은 다음과 같습니다:
+
+------------
+ <oid> TAB <path> LF
+------------
+
+경로에 특수 문자가 포함된 경우 경로는 C 스타일로 따옴표 처리됩니다. 따옴표 처리를 피하려면 `-z` 옵션을 전달하여 각 줄을 NUL 문자로 종료하십시오.
+
+------------
+ <oid> TAB <path> NUL
+------------
+
+SEE ALSO
+--------
+linkgit:git-blame[1],
+linkgit:git-log[1].
+
+GIT
+---
+linkgit:git[1] 제품군의 일부입니다.

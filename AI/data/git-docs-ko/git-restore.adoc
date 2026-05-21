@@ -1,0 +1,158 @@
+git-restore(1)
+==============
+
+NAME
+----
+git-restore - 워킹 트리 파일 복원
+
+SYNOPSIS
+--------
+[synopsis]
+git restore [<options>] [--source=<tree>] [--staged] [--worktree] [--] <pathspec>...
+git restore [<options>] [--source=<tree>] [--staged] [--worktree] --pathspec-from-file=<file> [--pathspec-file-nul]
+git restore (-p|--patch) [<options>] [--source=<tree>] [--staged] [--worktree] [--] [<pathspec>...]
+
+DESCRIPTION
+-----------
+복원 소스에서 일부 내용으로 워킹 트리의 지정된 경로를 복원합니다. 경로가 추적되었지만 복원 소스에 존재하지 않으면, 소스에 맞춰 제거됩니다.
+
+이 명령은 `--staged` 옵션을 사용하여 인덱스의 내용을 복원하거나, `--staged --worktree` 옵션을 사용하여 워킹 트리와 인덱스를 모두 복원하는 데에도 사용할 수 있습니다.
+
+기본적으로 `--staged`가 주어지면 `HEAD`에서 내용이 복원되고, 그렇지 않으면 인덱스에서 복원됩니다. `--source`를 사용하여 다른 커밋에서 복원할 수 있습니다.
+
+세 명령 간의 차이점은 linkgit:git[1]의 "Reset, restore and revert" 섹션을 참조하십시오.
+
+OPTIONS
+-------
+`-s <tree>`::
+`--source=<tree>`::
+	주어진 트리의 내용으로 워킹 트리 파일을 복원합니다. 소스 트리를 해당 트리를 나타내는 커밋, 브랜치 또는 태그의 이름으로 지정하는 것이 일반적입니다.
++
+지정하지 않으면 `--staged`가 주어지면 `HEAD`에서 내용이 복원되고, 그렇지 않으면 인덱스에서 복원됩니다.
++
+특별한 경우로, _<rev-A>_와 _<rev-B>_의 병합 기본(merge base)에 대한 바로가기로 `"<rev-A>...<rev-B>"`를 사용할 수 있습니다. 단, 병합 기본이 정확히 하나만 있을 때 가능합니다. _<rev-A>_와 _<rev-B>_ 중 하나는 생략할 수 있으며, 이때는 `HEAD`로 기본 설정됩니다.
+
+`-p`::
+`--patch`::
+	복원 소스와 복원 위치 간의 차이에서 험크(hunk)를 대화형으로 선택합니다. `--patch` 모드 작동 방식은 linkgit:git-add[1]의 "Interactive Mode" 섹션을 참조하십시오.
+
+include::diff-context-options.adoc[]
+
+`-W`::
+`--worktree`::
+`-S`::
+`--staged`::
+	복원 위치를 지정합니다. 이 옵션이 지정되지 않으면 기본적으로 워킹 트리가 복원됩니다. `--staged`를 지정하면 인덱스만 복원합니다. 둘 다 지정하면 둘 다 복원합니다.
+
+`-q`::
+`--quiet`::
+	조용하게, 피드백 메시지를 억제합니다. `--no-progress`를 암시합니다.
+
+`--progress`::
+`--no-progress`::
+	프로세스 상태는 기본적으로 터미널에 연결되어 있을 경우 표준 오류 스트림에 보고됩니다. `--quiet`이 지정되지 않은 경우입니다. 이 플래그는 터미널에 연결되어 있지 않더라도, `--quiet`과 관계없이 진행 상황 보고를 활성화합니다.
+
+`--ours`::
+`--theirs`::
+	인덱스에서 워킹 트리 파일을 복원할 때, 병합되지 않은 경로에 대해 스테이지 #2(`ours`) 또는 #3(`theirs`)을 사용합니다.
+	트리-이시(tree-ish) (즉, `--source` 옵션 사용)에서 경로를 체크아웃할 때는 이 옵션을 사용할 수 없습니다.
++
+`git rebase` 및 `git pull --rebase` 중에 `ours`와 `theirs`가 바뀌어 보일 수 있습니다. 자세한 내용은 linkgit:git-checkout[1]의 동일한 옵션 설명을 참조하십시오.
+
+`-m`::
+`--merge`::
+	인덱스에서 워킹 트리 파일 복원 시, 병합되지 않은 경로에서 충돌한 병합을 다시 생성합니다.
+	트리-이시 (즉, `--source` 옵션 사용)에서 경로를 체크아웃할 때는 이 옵션을 사용할 수 없습니다.
+
+`--conflict=<style>`::
+	`--merge` 옵션과 동일하지만, 충돌한 험크가 표시되는 방식을 변경하고 `merge.conflictStyle` 구성 변수를 덮어씁니다. 가능한 값은 `merge`(기본값), `diff3`, `zdiff3`입니다.
+
+`--ignore-unmerged`::
+	인덱스에서 워킹 트리 파일 복원 시, 병합되지 않은 항목이 있고 `--ours`, `--theirs`, `--merge` 또는 `--conflict`가 지정되지 않은 경우에도 작업을 중단하지 않습니다. 워킹 트리에서 병합되지 않은 경로는 그대로 둡니다.
+
+`--ignore-skip-worktree-bits`::
+	희소 체크아웃(sparse checkout) 모드에서는 기본적으로 _<pathspec>_ 및 `$GIT_DIR/info/sparse-checkout`의 희소 패턴과 일치하는 항목만 업데이트됩니다. 이 옵션은 희소 패턴을 무시하고 _<pathspec>_의 파일을 조건 없이 복원합니다.
+
+`--recurse-submodules`::
+`--no-recurse-submodules`::
+	_<pathspec>_이 활성 서브모듈을 명명하고 복원 위치가 워킹 트리를 포함하는 경우, 이 옵션이 주어지면 서브모듈이 업데이트됩니다. 이때 서브모듈의 워킹 트리는 상위 프로젝트에 기록된 커밋으로 복원되며, 모든 로컬 수정 사항은 덮어쓰여집니다. 아무것도 지정되지 않거나 (`--no-recurse-submodules`가 사용된 경우) 서브모듈 워킹 트리는 업데이트되지 않습니다. linkgit:git-checkout[1]과 마찬가지로, 서브모듈의 `HEAD`는 분리됩니다.
+
+`--overlay`::
+`--no-overlay`::
+	오버레이 모드에서는 파일을 복원할 때 절대 제거하지 않습니다. no-overlay 모드에서는 `--source=<tree>`의 _<tree>_에 나타나지 않는 추적된 파일을 제거하여 _<tree>_와 정확히 일치시킵니다. 기본값은 no-overlay 모드입니다.
+
+`--pathspec-from-file=<file>`::
+	Pathspec은 명령줄 인수 대신 _<file>_에서 전달됩니다. _<file>_이 정확히 `-`이면 표준 입력을 사용합니다. Pathspec 요소는 _LF_ 또는 _CR_/_LF_로 구분됩니다. Pathspec 요소는 `core.quotePath` 구성 변수 (linkgit:git-config[1] 참조)에 설명된 대로 인용될 수 있습니다. `--pathspec-file-nul` 및 전역 `--literal-pathspecs`도 참조하십시오.
+
+`--pathspec-file-nul`::
+	`--pathspec-from-file`과 함께 사용할 때만 의미가 있습니다. Pathspec 요소는 _NUL_ 문자로 구분되며 다른 모든 문자는 문자 그대로 취급됩니다 (줄바꿈 및 따옴표 포함).
+
+`--`::
+	더 이상의 인수를 옵션으로 해석하지 않습니다.
+
+`<pathspec>...`::
+	작업에 영향을 받는 경로를 제한합니다.
++
+더 자세한 내용은 linkgit:gitglossary[7]의 'pathspec' 항목을 참조하십시오.
+
+EXAMPLES
+--------
+
+다음 순서는 `master` 브랜치로 전환하고, `Makefile`을 두 리비전 이전으로 되돌리고, `hello.c`를 실수로 삭제하고, 인덱스에서 다시 가져오는 과정을 보여줍니다.
+
+------------
+$ git switch master
+$ git restore --source master~2 Makefile  <1>
+$ rm -f hello.c
+$ git restore hello.c                     <2>
+------------
+
+<1> 다른 커밋의 파일을 가져오기
+<2> `hello.c`를 인덱스에서 복원
+
+인덱스 버전과 일치하도록 모든 C 소스 파일을 복원하려면 다음과 같이 할 수 있습니다.
+
+------------
+$ git restore '*.c'
+------------
+
+`*.c` 주위의 따옴표에 유의하십시오. 파일 globbing이 쉘에 의한 워킹 트리가 아닌 인덱스의 항목과 일치시키는 데 사용되므로, `hello.c` 파일도 복원됩니다.
+
+현재 디렉토리의 모든 파일을 복원하려면
+
+------------
+$ git restore .
+------------
+
+또는 'top' pathspec 매직 (linkgit:gitglossary[7] 참조)을 사용하여 모든 워킹 트리 파일을 복원하려면
+
+------------
+$ git restore :/
+------------
+
+인덱스의 파일을 `HEAD` 버전과 일치하도록 복원하려면 (이는 linkgit:git-reset[1] 사용과 동일합니다)
+
+------------
+$ git restore --staged hello.c
+------------
+
+또는 인덱스와 워킹 트리를 모두 복원하려면 (이는 linkgit:git-checkout[1] 사용과 동일합니다)
+
+------------
+$ git restore --source=HEAD --staged --worktree hello.c
+------------
+
+또는 더 실용적이지만 덜 읽기 쉬운 짧은 형태:
+
+------------
+$ git restore -s@ -SW hello.c
+------------
+
+SEE ALSO
+--------
+linkgit:git-checkout[1],
+linkgit:git-reset[1]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

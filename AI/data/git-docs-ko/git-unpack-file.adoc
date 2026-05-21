@@ -1,0 +1,28 @@
+git-unpack-file(1)
+==================
+
+NAME
+----
+git-unpack-file - 블롭(blob)의 내용을 담은 임시 파일 생성
+
+
+
+SYNOPSIS
+--------
+[verse]
+'git unpack-file' <blob>
+
+DESCRIPTION
+-----------
+sha1으로 지정된 블롭(blob)의 내용을 담은 파일을 생성합니다.
+	.merge_file_XXXXX
+형식으로 임시 파일 이름을 반환합니다.
+
+OPTIONS
+-------
+<blob>::
+	블롭(blob) id여야 합니다.
+
+GIT
+---
+linkgit:git[1] 스위트의 일부
