@@ -1,0 +1,49 @@
+git-quiltimport(1)
+==================
+
+NAME
+----
+git-quiltimport - 현재 브랜치에 quilt 패치셋 적용
+
+
+SYNOPSIS
+--------
+[verse]
+'git quiltimport' [--dry-run | -n] [--author <author>] [--patches <dir>]
+		[--series <file>] [--keep-non-patch]
+
+
+DESCRIPTION
+-----------
+현재 Git 브랜치에 quilt 패치셋을 적용하며, quilt 패치셋에 있는 패치 경계, 패치 순서, 패치 설명을 그대로 유지합니다.
+
+각 패치에 대해 코드에서는 패치 설명에서 작성자를 추출하려고 시도합니다. 실패하면 `--author`로 지정된 작성자를 사용합니다. `--author` 플래그가 주어지지 않았다면 패치 설명이 표시되고 사용자에게 패치 작성자를 대화형으로 입력하도록 요청합니다.
+
+패치 설명에서 제목을 찾을 수 없는 경우, 패치 이름이 Git 설명의 1줄 제목으로 유지됩니다.
+
+OPTIONS
+-------
+
+-n::
+--dry-run::
+	시리즈의 패치를 검토하고 패치를 커밋하는 데 필요한 모든 정보를 찾을 수 없는 경우 경고합니다. 이 글을 쓰는 시점에서는 누락된 작성자 정보에 대해서만 경고합니다.
+
+--author 'Author Name <Author Email>'::
+	패치 설명에서 작성자 정보를 찾을 수 없을 때 사용할 작성자 이름과 이메일 주소입니다.
+
+--patches <dir>::
+	quilt 패치를 찾을 디렉토리입니다.
++
+패치 디렉토리의 기본값은 'patches'이거나 `$QUILT_PATCHES` 환경 변수의 값입니다.
+
+--series <file>::
+	quilt 시리즈 파일입니다.
++
+시리즈 파일의 기본값은 <patches>/series이거나 `$QUILT_SERIES` 환경 변수의 값입니다.
+
+--keep-non-patch::
+	'git mailinfo'에 `-b` 플래그를 전달합니다 (linkgit:git-mailinfo[1] 참조).
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

@@ -1,0 +1,368 @@
+git-send-email(1)
+=================
+
+NAME
+----
+git-send-email - Send a collection of patches as emails
+
+
+SYNOPSIS
+--------
+[verse]
+'git send-email' [<options>] (<file>|<directory>)...
+'git send-email' [<options>] <format-patch-options>
+'git send-email' --dump-aliases
+'git send-email' --translate-aliases
+
+
+DESCRIPTION
+-----------
+명령줄에서 제공된 패치를 이메일로 보냅니다.
+패치는 파일, 디렉토리(디렉토리 내의 모든 파일을 보냄), 또는 직접적인 리비전 목록으로 지정할 수 있습니다. 마지막 경우, linkgit:git-format-patch[1]에서 허용하는 모든 형식과 linkgit:git-format-patch[1]에서 이해하는 옵션을 `git send-email`에 전달할 수 있습니다.
+
+이메일 헤더는 명령줄 옵션을 통해 구성 가능합니다. 명령줄에서 지정되지 않으면 사용자에게 ReadLine이 활성화된 인터페이스를 통해 필요한 정보 제공을 요청합니다.
+
+패치 파일은 두 가지 형식을 허용합니다:
+
+1. mbox 형식 파일
++
+이것은 linkgit:git-format-patch[1]가 생성하는 것입니다. 대부분의 헤더와 MIME 형식은 무시됩니다.
+
+2. Greg Kroah-Hartman의 `send_lots_of_email.pl` 스크립트에서 사용된 원본 형식
++
+이 형식은 파일의 첫 번째 줄에 `Cc:` 값이 포함되고 두 번째 줄에 메시지의 `Subject:`가 포함될 것으로 예상합니다.
+
+
+OPTIONS
+-------
+
+Composing
+~~~~~~~~~
+
+--annotate::
+	보내기 전에 각 패치를 검토하고 편집합니다. 기본값은 `sendemail.annotate`의 값입니다. `sendemail.multiEdit`에 대한 CONFIGURATION 섹션을 참조하십시오.
+
+--bcc=<address>,...::
+	각 이메일에 대한 `Bcc:` 값을 지정합니다. 기본값은 `sendemail.bcc`의 값입니다.
++
+이 옵션은 여러 번 지정할 수 있습니다.
+
+--cc=<address>,...::
+	각 이메일에 대한 시작 `Cc:` 값을 지정합니다.
+	기본값은 `sendemail.cc`의 값입니다.
++
+이 옵션은 여러 번 지정할 수 있습니다.
+
+--compose::
+	텍스트 편집기(linkgit:git-var[1]의 GIT_EDITOR 참조)를 호출하여 패치 시리즈에 대한 소개 메시지를 편집합니다.
++
+`--compose`가 사용되면 `git send-email`은 메시지에서 지정된 `From`, `To`, `Cc`, `Bcc`, `Subject`, `Reply-To`, `In-Reply-To` 헤더를 사용합니다. 메시지 본문(헤더와 빈 줄 뒤에 입력하는 내용)이 비어 있거나 (`Git:` 접두사가 붙은) 줄만 포함하는 경우, 해당 헤더가 제거되지 않는 한 요약이 전송되지 않고 위에 언급된 헤더가 사용됩니다.
++
+누락된 `From` 또는 `In-Reply-To` 헤더는 프롬프트됩니다.
++
+`sendemail.multiEdit`에 대한 CONFIGURATION 섹션을 참조하십시오.
+
+--from=<address>::
+	이메일 송신자를 지정합니다. 명령줄에서 지정되지 않으면 `sendemail.from` 구성 옵션의 값이 사용됩니다. 명령줄 옵션과 `sendemail.from` 둘 다 설정되지 않으면 값이 프롬프트됩니다. 프롬프트의 기본값은 `linkgit:git var -l`에 의해 반환된 `GIT_AUTHOR_IDENT`의 값이고, 이 값이 설정되지 않은 경우 `GIT_COMMITTER_IDENT`의 값이 됩니다.
+
+--reply-to=<address>::
+	수신자의 답장이 가야 할 주소를 지정합니다.
+	메시지에 대한 답장이 `--from` 매개변수로 지정된 주소와 다른 주소로 가야 하는 경우 사용합니다.
+
+--in-reply-to=<identifier>::
+	첫 번째 메일(또는 `--no-thread`가 있는 모든 메일)이 지정된 Message-ID에 대한 답장으로 표시되어, 새로운 패치 시리즈를 제공하기 위해 스레드를 끊지 않도록 합니다.
+	두 번째 및 후속 이메일은 `--[no-]chain-reply-to` 설정에 따라 답장으로 전송됩니다.
++
+예를 들어, `--thread`와 `--no-chain-reply-to`가 지정된 경우, 두 번째 및 후속 패치는 첫 번째 패치에 대한 답장으로 전송됩니다. 아래 그림에서 `[PATCH v2 0/3]`은 `[PATCH 0/2]`에 대한 답장입니다:
++
+  [PATCH 0/2] Here is what I did...
+    [PATCH 1/2] Clean up and tests
+    [PATCH 2/2] Implementation
+    [PATCH v2 0/3] Here is a reroll
+      [PATCH v2 1/3] Clean up
+      [PATCH v2 2/3] New tests
+      [PATCH v2 3/3] Implementation
++
+`--compose`도 설정된 경우에만 필요합니다. `--compose`가 설정되지 않은 경우, 프롬프트됩니다.
+
+--outlook-id-fix::
+--no-outlook-id-fix::
+	Microsoft Outlook SMTP 서버는 이메일을 통해 전송된 Message-ID를 폐기하고 새 무작위 Message-ID를 할당하여 스레드를 끊습니다.
++
+`--outlook-id-fix`를 사용하면, `git send-email`은 Outlook 서버에 특정한 메커니즘을 사용하여 서버가 할당한 Message-ID를 학습하여 스레딩을 수정합니다. 서버가 Outlook 서버와 동일한 재작성된 Message-ID를 보고한다고 확신하는 경우에만 사용하십시오.
++
+이 옵션이 지정되지 않으면, 'smtp.office365.com' 또는 'smtp-mail.outlook.com'에 연결할 때 기본적으로 수정이 수행됩니다. 이러한 두 서버에 연결할 때도 수정을 비활성화하려면 `--no-outlook-id-fix`를 사용하십시오.
+
+--subject=<string>::
+	이메일 스레드의 초기 제목을 지정합니다.
+	`--compose`도 설정된 경우에만 필요합니다. `--compose`가 설정되지 않은 경우, 프롬프트됩니다.
+
+--to=<address>,...::
+	생성된 이메일의 기본 수신자를 지정합니다. 일반적으로 이는 관련 프로젝트의 업스트림 유지보수자입니다. 기본값은 `sendemail.to` 구성 값입니다. 해당 값이 지정되지 않고 `--to-cmd`가 지정되지 않은 경우, 프롬프트됩니다.
++
+이 옵션은 여러 번 지정할 수 있습니다.
+
+--8bit-encoding=<encoding>::
+	ASCII가 아닌 메시지나 인코딩을 선언하지 않은 제목을 만날 때, 해당 인코딩으로 처리되었음을 나타내는 헤더/따옴표를 추가합니다. 기본값은 `sendemail.assume8bitEncoding`의 값입니다. 해당 값이 지정되지 않으면, ASCII가 아닌 파일이 발견될 경우 프롬프트됩니다.
++
+인코딩을 확인하는 어떠한 시도도 이루어지지 않음에 유의하십시오.
+
+--compose-encoding=<encoding>::
+	컴포즈 메시지의 인코딩을 지정합니다. 기본값은 `sendemail.composeEncoding`의 값입니다. 해당 값이 지정되지 않으면 UTF-8이 가정됩니다.
+
+--transfer-encoding=(7bit|8bit|quoted-printable|base64|auto)::
+	SMTP를 통해 메시지를 보내는 데 사용되는 전송 인코딩을 지정합니다.
+	`7bit`는 ASCII가 아닌 메시지를 만나면 실패합니다. `quoted-printable`은 캐리지 리턴을 포함하는 파일을 저장소에 포함할 때 유용할 수 있지만, MUA에서 저장한 원시 패치 이메일 파일이 수동으로 검사하기 훨씬 어렵게 만듭니다. `base64`는 더욱 확실하지만, 더욱 불투명합니다. `auto`는 가능한 경우 `8bit`를 사용하고, 그렇지 않은 경우 `quoted-printable`을 사용합니다.
++
+기본값은 `sendemail.transferEncoding` 구성 값입니다. 해당 값이 지정되지 않으면 `auto`로 기본 설정됩니다.
+
+--xmailer::
+--no-xmailer::
+	`X-Mailer:` 헤더를 추가하거나(추가 방지) 합니다. 기본적으로 헤더가 추가되지만, `sendemail.xmailer` 구성 변수를 `false`로 설정하여 비활성화할 수 있습니다.
+
+Sending
+~~~~~~~
+
+--envelope-sender=<address>::
+	이메일을 보내는 데 사용되는 봉투 발신자를 지정합니다.
+	기본 주소가 목록에 구독되어 있지 않은 주소인 경우 유용합니다. `From` 주소를 사용하려면 값을 `auto`로 설정하십시오. `sendmail` 바이너리를 사용하는 경우 `-f` 매개변수에 대해 적절한 권한이 있어야 합니다. 기본값은 `sendemail.envelopeSender` 구성 변수의 값입니다. 해당 값이 지정되지 않으면, 봉투 발신자 선택은 MTA에 맡겨집니다.
+
+--sendmail-cmd=<command>::
+	이메일을 보내기 위해 실행할 명령을 지정합니다. 명령은 sendmail과 유사해야 합니다. 특히, `-i` 옵션을 지원해야 합니다.
+	필요한 경우 명령이 쉘에서 실행됩니다. 기본값은 `sendemail.sendmailCmd`의 값입니다. 지정되지 않고 `--smtp-server`도 지정되지 않은 경우, `git send-email`은 `/usr/sbin`, `/usr/lib` 및 `$PATH`에서 `sendmail`을 검색합니다.
+
+--smtp-encryption=<encryption>::
+	SMTP 연결을 암호화하는 방식을 지정합니다.
+	유효한 값은 `ssl` 및 `tls`입니다. 다른 값은 일반(암호화되지 않은) SMTP로 되돌아가며, 기본적으로 포트 25를 사용합니다.
+	이름에도 불구하고, 두 값 모두 동일한 최신 버전의 TLS를 사용하지만, 역사적인 이유로 이러한 이름이 붙었습니다. `ssl`은 기본적으로 포트 465를 사용하는 "암묵적" 암호화(때때로 SMTPS라고 함)를 참조합니다. `tls`는 기본적으로 포트 25를 사용하는 "명시적" 암호화(종종 STARTTLS라고 함)를 참조합니다. SMTP 서버는 기본값이 아닌 다른 포트를 사용할 수 있습니다. `tls` 및 암호화되지 않은 연결에 대해 일반적으로 사용되는 대체 포트는 587입니다. 자신의 경우를 확인하기 위해 제공자의 문서를 확인하거나 서버 구성을 확인해야 합니다. 기본값은 `sendemail.smtpEncryption`의 값입니다.
+
+--smtp-domain=<FQDN>::
+	SMTP 서버에 대한 HELO/EHLO 명령에 사용되는 정규화된 도메인 이름(FQDN)을 지정합니다. 일부 서버는 FQDN이 IP 주소와 일치해야 합니다. 설정되지 않으면 `git send-email`은 FQDN을 자동으로 결정하려고 시도합니다. 기본값은 `sendemail.smtpDomain`의 값입니다.
+
+--smtp-auth=<mechanisms>::
+	허용되는 SMTP-AUTH 메커니즘의 공백으로 구분된 목록입니다. 이 설정은 나열된 메커니즘만 사용하도록 강제합니다. 예:
++
+------
+$ git send-email --smtp-auth="PLAIN LOGIN GSSAPI" ...
+------
++
+지정된 메커니즘 중 하나라도 SMTP 서버가 광고하는 것과 일치하고 사용된 SASL 라이브러리에서 지원하는 경우, 해당 메커니즘이 인증에 사용됩니다. `sendemail.smtpAuth` 또는 `--smtp-auth`가 지정되지 않으면, SASL 라이브러리에서 지원하는 모든 메커니즘을 사용할 수 있습니다. `none`이라는 특수 값을 지정하여 `--smtp-user`와 상관없이 인증을 완전히 비활성화할 수 있습니다.
+
+--smtp-pass[=<password>]::
+	SMTP-AUTH용 비밀번호. 인수는 선택 사항입니다: 인수 없이 지정되면 빈 문자열이 비밀번호로 사용됩니다. 기본값은 `sendemail.smtpPass`의 값입니다. 그러나 `--smtp-pass`는 항상 이 값을 재정의합니다.
++
+또한, 비밀번호는 설정 파일이나 명령줄에 지정할 필요가 없습니다. 사용자 이름이 지정되었지만( `--smtp-user` 또는 `sendemail.smtpUser` 사용) 비밀번호가 지정되지 않은 경우( `--smtp-pass` 또는 `sendemail.smtpPass` 사용), linkgit:git-credential[1]을 사용하여 비밀번호를 얻습니다.
+
+--no-smtp-auth::
+	SMTP 인증을 비활성화합니다. `--smtp-auth=none`의 바로 가기입니다.
+
+--smtp-server=<host>::
+	사용할 아웃바운드 SMTP 서버를 지정합니다(예: `smtp.example.com` 또는 IP 주소). 지정되지 않고 `--sendmail-cmd`도 지정되지 않은 경우, sendmail과 같은 프로그램이 사용 가능한 경우 `/usr/sbin`, `/usr/lib` 및 `$PATH`에서 `sendmail`을 검색하고, 그렇지 않으면 `localhost`로 대체됩니다.
++
+하위 호환성을 위해 이 옵션은 sendmail과 같은 프로그램의 전체 경로명을 지정할 수도 있습니다. 프로그램은 `-i` 옵션을 지원해야 합니다. 이 방법은 인수를 전달하거나 일반 명령 이름을 사용하는 것을 지원하지 않습니다. 이러한 사용 사례의 경우 `--sendmail-cmd`를 대신 사용하는 것을 고려하십시오.
+
+--smtp-server-port=<port>::
+	기본 포트와 다른 포트를 지정합니다(SMTP 서버는 일반적으로 smtp 포트 25를 사용하지만, submission 포트 587 또는 일반 SSL smtp 포트 465를 사용할 수도 있습니다). 기호 포트 이름(예: 587 대신 `submission`)도 허용됩니다. 포트는 `sendemail.smtpServerPort` 구성 변수에서도 설정할 수 있습니다.
+
+--smtp-server-option=<option>::
+	사용할 아웃바운드 SMTP 서버 옵션을 지정합니다.
+	기본값은 `sendemail.smtpServerOption` 구성 옵션에 의해 지정될 수 있습니다.
++
+`--smtp-server-option` 옵션은 전달하려는 각 옵션에 대해 반복해야 합니다. 마찬가지로, 설정 파일의 다른 줄은 각 옵션에 대해 사용되어야 합니다.
+
+--smtp-ssl::
+	`--smtp-encryption ssl`의 레거시 별칭입니다.
+
+--smtp-ssl-cert-path <path>::
+	SMTP SSL/TLS 인증서 유효성 검사를 위한 신뢰할 수 있는 CA 인증서 저장소의 경로입니다( `c_rehash`에 의해 처리된 디렉토리 또는 PEM 형식 인증서가 연결된 단일 파일: https://docs.openssl.org/master/man1/openssl-verify/ [OpenSSL의 verify(1) 매뉴얼 페이지]의 `-CAfile` _<file>_ 및 `-CApath` _<dir>_ 옵션에 대한 자세한 내용은 참조하십시오).
+	인증서 유효성 검사를 비활성화하려면 빈 문자열로 설정하십시오.
+	기본값은 `sendemail.smtpSSLCertPath` 구성 변수의 값이고, 설정되어 있지 않으면 SSL 라이브러리의 컴파일 시 기본값이 사용됩니다(대부분의 플랫폼에서 최선의 선택이어야 합니다).
+
+--smtp-ssl-client-cert <path>::
+	서버에서 요청할 때 제시할 클라이언트 인증서 파일의 경로입니다. 서버가 클라이언트 인증서를 확인하도록 설정된 경우 이 옵션이 필요합니다. 해당 개인 키가 파일에 포함되어 있지 않으면, `sendemail.smtpSSLClientKey` 구성 변수 또는 `--smtp-ssl-client-key` 옵션을 사용하여 제공해야 합니다. 기본값은 `sendemail.smtpSSLClientCert` 구성 변수의 값입니다.
+
+--smtp-ssl-client-key <path>::
+	클라이언트 인증서에 해당하는 클라이언트 개인 키 파일의 경로입니다. 잘못된 구성을 방지하기 위해 이 옵션은 `sendemail.smtpSSLClientKey` 구성 변수 또는 `--smtp-ssl-client-cert` 옵션과 함께 사용해야 합니다. 클라이언트 키가 클라이언트 인증서에 포함된 경우, 개인 키 선택은 인증서 형식에 따라 달라집니다. 자세한 내용은 https://metacpan.org/pod/IO::Socket::SSL 를 참조하십시오. 기본값은 `sendemail.smtpSSLClientKey` 구성 변수의 값입니다.
+
+--smtp-user=<user>::
+	SMTP-AUTH용 사용자 이름입니다. 기본값은 `sendemail.smtpUser`의 값입니다. 사용자 이름이 지정되지 않으면( `--smtp-user` 또는 `sendemail.smtpUser` 사용), 인증이 시도되지 않습니다.
+
+--smtp-debug=(0|1)::
+	디버그 출력을 활성화(1)하거나 비활성화(0)합니다. 활성화된 경우 SMTP 명령과 응답이 출력됩니다. TLS 연결 및 인증 문제 디버깅에 유용합니다.
+
+--imap-sent-folder=<folder>::
+	일부 이메일 제공업체(예: iCloud)는 SMTP를 사용하여 보낸 이메일의 복사본을 사서함의 `Sent` 폴더 등에 저장하지 않습니다. 이 옵션을 사용하여 `git imap-send`를 사용하여 이메일의 복사본을 이 옵션으로 지정된 폴더로 보냅니다. `git imap-send --list`를 실행하여 유효한 폴더 이름 목록을 가져올 수 있으며, 사서함의 `Sent` 폴더 정확한 이름을 포함합니다. 또한 이 옵션을 사용하여 원하는 전용 IMAP 폴더로 이메일을 보낼 수 있습니다.
++
+이 기능은 `git imap-send` 설정을 필요로 합니다. 지침은 linkgit:git-imap-send[1] 를 참조하십시오.
+
+--use-imap-only::
+--no-use-imap-only::
+	이 옵션이 설정되면, 모든 이메일은 `--imap-sent-folder` 또는 `sendemail.imapSentFolder`로 지정된 IMAP 폴더에만 복사되며 수신자에게 전송되지 않습니다. 이메일의 초안을 만들고 다른 이메일 클라이언트를 사용하여 발송하려는 경우 유용합니다.
+	`--no-use-imap-only`로 비활성화하면 이메일이 정상적으로 전송됩니다.
+	기본값은 비활성화되어 있지만, `sendemail.useImapOnly` 구성 변수를 사용하여 활성화할 수 있습니다.
++
+이 기능은 `git imap-send` 설정을 필요로 합니다. 지침은 linkgit:git-imap-send[1] 를 참조하십시오.
+
+--batch-size=<num>::
+	일부 이메일 서버(예: 'smtp.163.com')는 세션(연결)당 보낼 수 있는 이메일 수에 제한이 있어 많은 메시지를 보낼 때 실패합니다. 이 옵션을 사용하면 send-email은 _<num>_개의 메시지를 보낸 후 연결을 끊고 몇 초 동안 기다린 후( `--relogin-delay` 참조) 다시 연결하여 이러한 제한을 우회합니다. 이 경우마다 비밀번호를 다시 입력하지 않도록 자격 증명 도우미를 사용하는 것이 좋습니다. 기본값은 `sendemail.smtpBatchSize` 구성 변수입니다.
+
+--relogin-delay=<int>::
+	SMTP 서버에 다시 연결하기 전에 _<int>_초 동안 기다립니다. `--batch-size` 옵션과 함께 사용됩니다. 기본값은 `sendemail.smtpReloginDelay` 구성 변수입니다.
+
+Automating
+~~~~~~~~~~
+
+--no-to::
+--no-cc::
+--no-bcc::
+	이전에 설정을 통해 설정된 `To:`, `Cc:`, `Bcc:` 주소 목록을 지웁니다.
+
+--no-identity::
+	이전에 설정을 통해 읽혀진 `sendemail.identity` 값을 지웁니다.
+
+--to-cmd=<command>::
+	패치 파일마다 이메일 특정 `To:` 항목을 생성해야 하는 명령을 실행합니다.
+	이 명령의 출력은 줄당 하나의 이메일 주소여야 합니다.
+	기본값은 `sendemail.toCmd` 구성 값입니다.
+
+--cc-cmd=<command>::
+	패치 파일마다 이메일 특정 `Cc:` 항목을 생성해야 하는 명령을 실행합니다.
+	이 명령의 출력은 줄당 하나의 이메일 주소여야 합니다.
+	기본값은 `sendemail.ccCmd` 구성 값입니다.
+
+--header-cmd=<command>::
+	발신 메시지마다 한 번씩 실행되어 RFC 2822 스타일 헤더 줄을 생성해야 하는 명령을 지정합니다. `sendemail.headerCmd` 구성 변수가 설정되면 해당 값이 항상 사용됩니다. `--header-cmd`가 명령줄에서 제공되면 해당 값이 `sendemail.headerCmd` 구성 변수보다 우선합니다.
+
+--no-header-cmd::
+	사용 중인 헤더 명령을 비활성화합니다.
+
+--chain-reply-to::
+--no-chain-reply-to::
+	이 옵션이 설정되면, 각 이메일은 이전에 보낸 이메일에 대한 답장으로 전송됩니다. `--no-chain-reply-to`로 비활성화되면, 첫 번째 이메일 이후의 모든 이메일은 첫 번째 이메일에 대한 답장으로 전송됩니다. 이 옵션을 사용할 때는 첫 번째 파일이 전체 패치 시리즈의 개요여야 합니다. 기본값은 비활성화되어 있지만, `sendemail.chainReplyTo` 구성 변수를 사용하여 활성화할 수 있습니다.
+
+--identity=<identity>::
+	구성 식별자입니다. 지정되면, `sendemail.<identity>` 섹션의 값이 `sendemail` 섹션의 값보다 우선합니다. 기본 식별자는 `sendemail.identity`의 값입니다.
+
+--signed-off-by-cc::
+--no-signed-off-by-cc::
+	이 옵션이 설정되면, `Signed-off-by` 트레일러 또는 `Cc:` 줄에서 발견된 이메일을 cc 목록에 추가합니다. 기본값은 `sendemail.signedOffByCc` 구성 값입니다. 해당 값이 지정되지 않으면 `--signed-off-by-cc`로 기본 설정됩니다.
+
+--cc-cover::
+--no-cc-cover::
+	이 옵션이 설정되면, 시리즈의 첫 번째 패치(일반적으로 커버 레터)에 있는 `Cc:` 헤더의 이메일이 각 이메일 세트에 대한 cc 목록에 추가됩니다. 기본값은 `sendemail.ccCover` 구성 값입니다. 해당 값이 지정되지 않으면 `--no-cc-cover`로 기본 설정됩니다.
+
+--to-cover::
+--no-to-cover::
+	이 옵션이 설정되면, 시리즈의 첫 번째 패치(일반적으로 커버 레터)에 있는 `To:` 헤더의 이메일이 각 이메일 세트에 대한 to 목록에 추가됩니다. 기본값은 `sendemail.toCover` 구성 값입니다. 해당 값이 지정되지 않으면 `--no-to-cover`로 기본 설정됩니다.
+
+--suppress-cc=<category>::
+	자동 CC를 억제할 추가 수신자 범주를 지정합니다:
++
+--
+- `author`는 패치 작성자를 포함하지 않습니다.
+- `self`는 발신자를 포함하지 않습니다.
+- `cc`는 패치 헤더의 Cc 줄에 언급된 사람을 포함하지 않습니다 (자신 제외, 이를 위해 `self` 사용).
+- `bodycc`는 패치 본문(커밋 메시지)의 Cc 줄에 언급된 사람을 포함하지 않습니다 (자신 제외, 이를 위해 `self` 사용).
+- `sob`는 패치 본문의 Signed-off-by 트레일러에 언급된 사람을 포함하지 않습니다 (자신 제외, 이를 위해 `self` 사용).
+- `misc-by`는 패치 본문의 Acked-by, Reviewed-by, Tested-by 및 기타 "-by" 줄에 언급된 사람을 포함하지 않습니다 (Signed-off-by 제외; 이를 위해 `sob` 사용).
+- `cccmd`는 `--cc-cmd` 실행을 방지합니다.
+- `body`는 `sob` + `bodycc` + `misc-by`와 동일합니다.
+- `all`은 모든 자동 cc 값을 억제합니다.
+--
++
+기본값은 `sendemail.suppressCc` 구성 값입니다. 해당 값이 지정되지 않으면, `--suppress-from`이 지정된 경우 `self`로 기본 설정되고, `--no-signed-off-by-cc`가 지정된 경우 `body`로 기본 설정됩니다.
+
+--suppress-from::
+--no-suppress-from::
+	이 옵션이 설정되면 `From:` 주소가 `Cc:` 목록에 추가되지 않습니다.
+	기본값은 `sendemail.suppressFrom` 구성 값입니다. 해당 값이 지정되지 않으면 `--no-suppress-from`으로 기본 설정됩니다.
+
+--thread::
+--no-thread::
+	이 옵션이 설정되면, `In-Reply-To` 및 `References` 헤더가 각 이메일에 추가됩니다. 각 메일이 이전 이메일(`git format-patch` 용어에 따른 `deep` 스레딩) 또는 첫 번째 이메일(`shallow` 스레딩)을 참조하는지 여부는 `--[no-]chain-reply-to`에 의해 제어됩니다.
++
+`--no-thread`로 비활성화되면, 해당 헤더가 추가되지 않습니다( `--in-reply-to`로 지정된 경우 제외). 기본값은 `sendemail.thread` 구성 값입니다. 해당 값이 지정되지 않으면 `--thread`로 기본 설정됩니다.
++
+`git send-email`이 `In-Reply-To` 헤더를 추가하도록 요청할 때 해당 헤더가 이미 존재하지 않도록 하는 것은 사용자의 책임입니다 (특히 `git format-patch`가 자체적으로 스레딩을 수행하도록 구성할 수 있음에 유의하십시오).
+	그렇게 하지 않으면 수신자의 MUA에서 예상치 못한 결과가 발생할 수 있습니다.
+
+--mailmap::
+--no-mailmap::
+	mailmap 파일(linkgit:gitmailmap[5] 참조)을 사용하여 모든 주소를 해당 표준 real name 및 이메일 주소로 매핑합니다. `git send-email`에 대한 추가 mailmap 데이터는 `sendemail.mailmap.file` 또는 `sendemail.mailmap.blob` 구성 값을 통해 제공될 수 있습니다. 기본값은 `sendemail.mailmap`입니다.
+
+Administering
+~~~~~~~~~~~~~
+
+--confirm=<mode>::
+	보내기 직전에 확인합니다:
++
+--
+- `always`는 보내기 전에 항상 확인합니다.
+- `never`는 보내기 전에 절대 확인하지 않습니다.
+- `cc`는 send-email이 패치에서 Cc 목록으로 주소를 자동으로 추가했을 때 보내기 전에 확인합니다.
+- `compose`는 --compose를 사용할 때 첫 번째 메시지를 보내기 전에 확인합니다.
+- `auto`는 `cc` + `compose`와 동일합니다.
+--
++
+기본값은 `sendemail.confirm` 구성 값입니다. 해당 값이 지정되지 않으면, 어떤 suppress 옵션도 지정되지 않은 경우를 제외하고 `auto`로 기본 설정됩니다. 이 경우 `compose`로 기본 설정됩니다.
+
+--dry-run::
+	실제로 이메일을 보내는 것을 제외하고 모든 작업을 수행합니다.
+
+--format-patch::
+--no-format-patch::
+	인수가 참조 또는 파일 이름으로 이해될 수 있는 경우, format-patch 인수(`--format-patch`) 또는 파일 이름(`--no-format-patch`)으로 이해하도록 선택합니다. 기본적으로 그러한 충돌이 발생하면 `git send-email`은 실패합니다.
+
+--quiet::
+	`git send-email`의 상세도를 줄입니다. 이메일당 한 줄만 출력되어야 합니다.
+
+--validate::
+--no-validate::
+	패치에 대한 유효성 검사를 수행합니다.
+	현재, 유효성 검사는 다음을 의미합니다:
++
+--
+* sendemail-validate 훅이 있으면 호출합니다 (linkgit:githooks[5] 참조).
+* SMTP 제한( https://www.ietf.org/rfc/rfc5322.txt 에 설명된 대로)으로 인해 적절한 전송 인코딩(`auto`, `base64`, 또는 `quoted-printable`)이 사용되지 않는 한 998자보다 긴 줄을 포함하는 패치에 대해 경고합니다.
+--
++
+기본값은 `sendemail.validate`의 값입니다. 설정되지 않은 경우 `--validate`로 기본 설정됩니다.
+
+--force::
+	안전 검사로 인해 막히더라도 이메일을 보냅니다.
+
+
+Information
+~~~~~~~~~~~
+
+--dump-aliases::
+	정상적인 작동 대신, 설정된 별칭 파일에서 별칭 이름들을 알파벳 순서로 한 줄에 하나씩 덤프합니다. 이것은 별칭 이름만 포함하며 확장된 이메일 주소는 포함하지 않습니다. 별칭에 대한 자세한 내용은 `sendemail.aliasesFile`을 참조하십시오.
+
+--translate-aliases::
+	정상적인 작동 대신, 표준 입력에서 읽어 각 줄을 이메일 별칭으로 해석합니다. 설정된 별칭 파일에 따라 이를 변환합니다. 변환된 이름과 이메일 주소를 각 줄에 하나씩 표준 출력에 출력합니다. 별칭에 대한 자세한 내용은 `sendemail.aliasFile`을 참조하십시오.
+
+CONFIGURATION
+-------------
+
+include::includes/cmd-config-section-all.adoc[]
+
+include::config/sendemail.adoc[]
+
+EXAMPLES OF SMTP SERVERS
+------------------------
+Gmail을 SMTP 서버로 사용
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+`git send-email`을 사용하여 Gmail SMTP 서버를 통해 패치를 보내려면, `~/.gitconfig`를 편집하여 계정 설정을 지정하십시오:
+
+----
+[sendemail]
+	smtpEncryption = ssl
+	smtpServer = smtp.gmail.com
+	smtpUser = yourname@gmail.com
+	smtpServerPort = 465
+----
+
+Gmail은 `git send-email`에 일반 비밀번호 사용을 허용하지 않습니다.
+Gmail 계정에 다단계 인증이 설정되어 있는 경우, `git send-email`에 사용할 앱별 비밀번호를 생성할 수 있습니다. 이를 생성하려면 https://security.google.com/settings/security/apppasswords 를 방문하십시오.
+
+대신, 앱별 비밀번호를 사용하는 대신 OAuth2.0 인증을 Gmail과 함께 사용할 수 있습니다. OAuth2.0은 앱별 비밀번호보다 안전하며 다단계 인증 설정 여부에 관계없이 작동합니다. `OAUTHBEARER` 및 `XOAUTH2`는 흔히 사용되는 메커니즘입니다.

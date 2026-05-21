@@ -8,4 +8,5 @@ venv/
 dist/
 build/
 progit2-ko/
+git-source/
 data/embeddings.npy

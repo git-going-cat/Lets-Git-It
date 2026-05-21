@@ -1,0 +1,221 @@
+git-pull(1)
+===========
+
+NAME
+----
+git-pull - 다른 저장소 또는 로컬 브랜치에서 가져오고 통합합니다.
+
+
+SYNOPSIS
+--------
+[synopsis]
+git pull [<options>] [<repository> [<refspec>...]]
+
+
+DESCRIPTION
+-----------
+
+현재 브랜치로 원격 저장소의 변경 사항을 통합합니다.
+
+먼저, `git pull`은 동일한 인자(머지 옵션 제외)로 `git fetch`를 실행하여 원격 브랜치를 가져옵니다.
+그런 다음 어떤 원격 브랜치를 통합할지 결정합니다: `git pull`을
+인자 없이 실행하면 기본적으로 현재 브랜치의 <<UPSTREAM-BRANCHES,업스트림>> 브랜치가 됩니다.
+그런 다음 해당 브랜치를 현재 브랜치에 통합합니다.
+
+원격 브랜치를 통합하는 4가지 주요 옵션이 있습니다:
+
+1. `git pull --ff-only`는 "fast-forward" 업데이트만 수행합니다.
+   로컬 브랜치가 원격 브랜치와 분기된 경우 실패합니다.
+   이것이 기본값입니다.
+2. `git pull --rebase`는 `git rebase`를 실행합니다.
+3. `git pull --no-rebase`는 `git merge`를 실행합니다.
+4. `git pull --squash`는 `git merge --squash`를 실행합니다.
+
+또한 `pull.rebase`, `pull.squash` 또는 `pull.ff` 설정 옵션을 사용하여
+선호하는 동작을 설정할 수 있습니다.
+
+머지 또는 리베이스 중에 해결하고 싶지 않은 충돌이 발생하면
+`git merge --abort` 또는 `git rebase --abort`로 안전하게 중단할 수 있습니다.
+
+OPTIONS
+-------
+
+_<repository>_::
+	가져올 "원격" 저장소입니다. 이는
+	URL(아래 <<URLS,GIT URLS>> 섹션 참조) 또는
+	원격의 이름(아래 <<REMOTES,REMOTES>> 섹션 참조)일 수 있습니다.
++
+현재 브랜치의 구성된 업스트림 또는 `origin`으로 기본 설정됩니다.
+업스트림을 구성하는 방법에 대한 자세한 내용은 아래 <<UPSTREAM-BRANCHES,UPSTREAM BRANCHES>>를 참조하십시오.
+
+_<refspec>_::
+	현재 브랜치로 가져와서 통합할 브랜치 또는 다른 참조입니다. 예를 들어 `git pull origin main`의 `main`입니다.
+	현재 브랜치의 구성된 업스트림으로 기본 설정됩니다.
++
+브랜치, 태그 또는 다른 참조 모음일 수 있습니다.
+전체 구문은 "가져오기와 관련된 옵션" 아래의 <<fetch-refspec,_<refspec>_>>를 참조하고,
+`git pull`이 이 인자를 사용하여 어떤 원격 브랜치를 통합할지를 결정하는 방법에 대해서는
+아래 <<DEFAULT-BEHAVIOUR,기본 동작>>을 참조하십시오.
+
+`-q`::
+`--quiet`::
+	전송 중 보고를 억제하기 위해 내부 `git-fetch`와
+	머지 중 출력을 억제하기 위해 내부 `git-merge`에 전달됩니다.
+
+`-v`::
+`--verbose`::
+	`git fetch`와 `git merge`에 `--verbose`를 전달합니다.
+
+`--recurse-submodules[=(yes|on-demand|no)]`::
+`--no-recurse-submodules`::
+	이 옵션은 팝업된 하위 모듈의 새 커밋을 가져올지 여부와
+	활성 하위 모듈의 워킹 트리를 업데이트할지 여부를 제어합니다(
+	linkgit:git-fetch[1], linkgit:git-config[1] 및
+	linkgit:gitmodules[5] 참조).
++
+리베이스를 통해 체크아웃되는 경우 로컬 하위 모듈 커밋도 리베이스됩니다.
++
+머지를 통해 업데이트되는 경우 하위 모듈 충돌이 해결되고 체크아웃됩니다.
+
+머지와 관련된 옵션
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:git-pull: 1
+
+include::merge-options.adoc[]
+
+`-r`::
+`--rebase[=(true|merges|false|interactive)]`::
+`true`;; 가져오기 후 현재 브랜치를 업스트림
+	브랜치 위에 리베이스합니다. 업스트림 브랜치에 해당되는
+	원격 추적 브랜치가 있고 마지막으로 가져온 이후 업스트림 브랜치가
+	리베이스된 경우, 리베이스는 해당 정보를 사용하여 로컬 변경 사항을
+	리베이스하지 않도록 합니다. 이것이 기본값입니다.
+
+`merges`;; 리베이스 시 로컬 머지 커밋을 포함하도록
+	`git rebase --rebase-merges`를 사용하여 리베이스합니다(
+	자세한 내용은 linkgit:git-rebase[1] 참조).
+`false`;; 업스트림 브랜치를 현재 브랜치로 병합합니다.
+`interactive`;; 리베이스의 대화형 모드를 활성화합니다.
+
++
+`git pull`이 항상 머지 대신 `--rebase`를 사용하도록 하려면
+	linkgit:git-config[1]의 `pull.rebase`, `branch.<name>.rebase` 및 `branch.autoSetupRebase`를 참조하십시오.
++
+[NOTE]
+이것은 잠재적으로 _위험한_ 작업 모드입니다.
+히스토리를 다시 작성하므로 이미 게시된 히스토리를
+다룰 때는 좋지 않습니다. linkgit:git-rebase[1]를 주의 깊게 읽지 않은 이상
+이 옵션을 사용하지 마십시오.
+
+`--no-rebase`::
+	`--rebase=false`의 약어입니다.
+
+가져오기와 관련된 옵션
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+include::fetch-options.adoc[]
+
+include::pull-fetch-param.adoc[]
+
+include::urls-remotes.adoc[]
+
+include::merge-strategies.adoc[]
+
+[[DEFAULT-BEHAVIOUR]]
+DEFAULT BEHAVIOUR
+-----------------
+
+많은 사람들이 아무런 매개변수 없이 `git pull`을 사용합니다.
+전통적으로 이것은 `git pull origin`과 동일했습니다.
+하지만 현재 브랜치에서 `branch.<name>.remote` 설정이 존재하면
+`origin` 대신 해당 값이 사용됩니다.
+
+가져올 URL을 결정하기 위해 `remote.<origin>.url` 설정 값이
+참조되며, 그러한 변수가 없다면 `$GIT_DIR/remotes/<origin>`의
+`URL:` 줄에 있는 값이 사용됩니다.
+
+명령이 리펙스펙 매개변수 없이 실행될 때 가져올
+(그리고 선택적으로 원격 추적 브랜치에 저장할) 원격 브랜치를 결정하기 위해
+`remote.<origin>.fetch` 설정 변수 값이 참조되며,
+그렇지 않다면 `$GIT_DIR/remotes/<origin>`이 참조되고 해당
+`Pull:` 줄이 사용됩니다.
+OPTIONS 섹션에 설명된 리펙스펙 형식 외에도 다음과 같은 globbing 리펙스펙을 사용할 수 있습니다:
+
+------------
+refs/heads/*:refs/remotes/origin/*
+------------
+
+Globbing 리펙스펙은 비어 있지 않은 RHS(즉, 원격 추적 브랜치에 가져온 것을 저장해야 함)를 가져야 하며, LHS와 RHS는 `/*`로 끝나야 합니다. 위는 모든 원격
+브랜치가 `refs/remotes/origin/` 계층 구조에서 동일한 이름으로
+추적됨을 지정합니다.
+
+가져오기 후 어떤 원격 브랜치를 병합할지를 결정하는 규칙은
+호환성을 깨뜨리지 않기 위해 약간 복잡합니다.
+
+명령어 줄에 명시적인 리펙스펙이 제공된 경우, 모두 병합됩니다.
+
+명령줄에 리펙스펙이 제공되지 않은 경우, `git pull`은 설정 또는
+`$GIT_DIR/remotes/<origin>`의 리펙스펙을 사용합니다. 이러한 경우 다음
+규칙이 적용됩니다:
+
+. 현재 브랜치 _<name>_에 대해 `branch.<name>.merge` 설정이 존재하는 경우,
+  이는 원격 사이트에서 병합될 브랜치의 이름입니다.
+
+. 리펙스펙이 globbing인 경우, 아무것도 병합되지 않습니다.
+
+. 그렇지 않으면 첫 번째 리펙스펙의 원격 브랜치가 병합됩니다.
+
+
+EXAMPLES
+--------
+
+* 복제한 저장소의 원격 추적 브랜치를 업데이트한 다음,
+  그 중 하나를 현재 브랜치에 병합합니다:
++
+------------------------------------------------
+$ git pull
+$ git pull origin
+------------------------------------------------
++
+일반적으로 병합되는 브랜치는 원격 저장소의 `HEAD`이지만,
+선택은 `branch.<name>.remote` 및 `branch.<name>.merge` 옵션에 의해 결정됩니다.
+자세한 내용은 linkgit:git-config[1]를 참조하십시오.
+
+* 현재 브랜치에 원격 브랜치 `next`를 병합합니다:
++
+------------------------------------------------
+$ git pull origin next
+------------------------------------------------
++
+이것은 `next`의 복사본을 임시로 `FETCH_HEAD`에 남기고
+원격 추적 브랜치 `origin/next`를 업데이트합니다.
+가져오기와 병합을 호출하여 동일하게 수행할 수 있습니다:
++
+------------------------------------------------
+$ git fetch origin
+$ git merge origin/next
+------------------------------------------------
+
+
+복잡한 충돌을 일으킨 풀을 시도했고 다시 시작하고 싶다면,
+`git reset`으로 복구할 수 있습니다.
+
+
+include::transfer-data-leaks.adoc[]
+
+BUGS
+----
+`--recurse-submodules`를 사용하면 현재 체크아웃된 하위 모듈의
+새 커밋만 가져올 수 있습니다. 예를 들어 업스트림이 수퍼프로젝트의
+최근 가져온 커밋에 새 하위 모듈을 추가한 경우 하위 모듈 자체를
+가져올 수 없으므로 다시 가져오지 않고는 해당 하위 모듈을 체크아웃할 수 없습니다.
+이는 향후 Git 버전에서 수정될 것으로 예상됩니다.
+
+SEE ALSO
+--------
+linkgit:git-fetch[1], linkgit:git-merge[1], linkgit:git-config[1]
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

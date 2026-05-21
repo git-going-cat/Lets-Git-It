@@ -1,0 +1,51 @@
+git-whatchanged(1)
+==================
+
+NAME
+----
+git-whatchanged - 각 커밋이 도입한 변경 사항과 함께 로그 표시
+
+
+SYNOPSIS
+--------
+[synopsis]
+git whatchanged <option>...
+
+WARNING
+-------
+`git whatchanged`는 더 이상 사용되지 않으며 Git의 향후 버전에
+서 제거될 예정입니다. 이는 단순히 기본값이 다를 뿐인 `git log`입니다.
+
+DESCRIPTION
+-----------
+
+각 커밋이 도입한 커밋 로그와 diff 출력을 보여줍니다.
+
+신규 사용자는 대신 linkgit:git-log[1] 사용을 권장합니다.
+`whatchanged` 명령어는 본질적으로 linkgit:git-log[1]과 동일하지만,
+raw 형식의 diff 출력을 보여주고 머지를 건너뛰는 것을 기본값으로 합니다:
+
+----
+git log --raw --no-merges
+----
+
+이 명령어는 주로 역사적인 이유로 유지됩니다. `git log`가 발명되기
+훨씬 이전에 Linux 커널 메일링 리스트를 읽으면서 Git을 배운
+많은 사람들의 손가락은 이 명령어를 입력하는 데 익숙합니다.
+
+
+Examples
+--------
+`git whatchanged -p v2.6.12.. include/scsi drivers/scsi`::
+
+	버전 'v2.6.12' 이후 include/scsi 또는 drivers/scsi 하위 디렉토리의
+	어떤 파일이든 변경한 커밋을 패치 형태로 표시
+
+`git whatchanged --since="2 weeks ago" -- gitk`::
+
+	'gitk' 파일에 대해 지난 2주 동안의 변경 사항 표시.
+	'gitk'라는 이름의 *브랜치*와의 혼동을 피하기 위해 "--"가 필요함
+
+GIT
+---
+linkgit:git[1] 모음의 일부

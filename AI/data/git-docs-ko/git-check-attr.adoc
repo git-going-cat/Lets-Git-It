@@ -1,0 +1,125 @@
+git-check-attr(1)
+=================
+
+NAME
+----
+git-check-attr - gitattributes 정보 표시
+
+
+SYNOPSIS
+--------
+[verse]
+'git check-attr' [--source <tree-ish>] [-a | --all | <attr>...] [--] <pathname>...
+'git check-attr' --stdin [-z] [--source <tree-ish>] [-a | --all | <attr>...]
+
+DESCRIPTION
+-----------
+각 pathname에 대해, 이 명령은 해당 pathname에 대한 gitattribute로서 각 속성이
+'unspecified', 'set', 또는 'unset'인지 나열합니다.
+
+OPTIONS
+-------
+-a::
+--all::
+	지정된 경로에 연관된 모든 속성을 나열합니다.
+	이 옵션이 사용되면 'unspecified' 속성은 출력에 포함되지 않습니다.
+
+--cached::
+	워킹 트리를 무시하고 인덱스에 있는 `.gitattributes`만 고려합니다.
+
+--stdin::
+	명령줄 대신 표준 입력에서 한 줄에 하나씩 pathname을 읽습니다.
+
+-z::
+	출력 형식이 머신이 파싱할 수 있도록 수정됩니다.
+	`--stdin`도 주어진 경우, 입력 경로는 라인 피드 문자 대신 NUL 문자로 구분됩니다.
+
+--source=<tree-ish>::
+	지정된 tree-ish에 대해 속성을 확인합니다.
+	일반적으로 연관된 커밋, 브랜치 또는 태그를 이름으로 지정하여
+	소스 트리를 지정합니다.
+
+\--::
+	앞선 모든 인수를 속성으로, 그리고 뒤따르는 모든 인수를 경로명으로 해석합니다.
+
+`--stdin`, `--all`, 또는 `--`가 사용되지 않으면, 첫 번째 인수는 속성으로,
+나머지 인수는 경로명으로 처리됩니다.
+
+OUTPUT
+------
+
+출력 형식은 다음과 같습니다:
+<path> COLON SP <attribute> COLON SP <info> LF
+
+`-z`가 적용되는 경우, NUL이 구분자로 사용됩니다:
+<path> NUL <attribute> NUL <info> NUL
+
+
+<path>는 쿼리 중인 파일의 경로이고, <attribute>는 쿼리 중인 속성이며, <info>는 다음 중 하나입니다:
+
+'unspecified';;	속성이 경로에 대해 정의되어 있지 않은 경우.
+'unset';;		속성이 false로 정의된 경우.
+'set';;		속성이 true로 정의된 경우.
+<value>;;		속성에 값이 할당된 경우.
+
+버퍼링은 linkgit:git[1]의 `GIT_FLUSH` 옵션에 문서화된 대로 발생합니다.
+호출자는 입력 버퍼를 너무 많이 채우거나 빈 출력 버퍼에서 읽어서 발생하는
+데드락을 피할 책임이 있습니다.
+
+EXAMPLES
+--------
+
+예제에서는 다음 '.gitattributes' 파일이 사용됩니다:
+
+---------------
+*.java diff=java -crlf myAttr
+NoMyAttr.java !myAttr
+README caveat=unspecified
+---------------
+
+* 단일 속성 나열:
++
+---------------
+$ git check-attr diff org/example/MyClass.java
+org/example/MyClass.java: diff: java
+---------------
+
+* 파일에 대한 여러 속성 나열:
++
+---------------
+$ git check-attr crlf diff myAttr -- org/example/MyClass.java
+org/example/MyClass.java: crlf: unset
+org/example/MyClass.java: diff: java
+org/example/MyClass.java: myAttr: set
+---------------
+
+* 파일에 대한 모든 속성 나열:
++
+---------------
+$ git check-attr --all -- org/example/MyClass.java
+org/example/MyClass.java: diff: java
+org/example/MyClass.java: myAttr: set
+---------------
+
+* 여러 파일에 대한 속성 나열:
++
+---------------
+$ git check-attr myAttr -- org/example/MyClass.java org/example/NoMyAttr.java
+org/example/MyClass.java: myAttr: set
+org/example/NoMyAttr.java: myAttr: unspecified
+---------------
+
+* 모든 값이 명확한 것은 아닙니다:
++
+---------------
+$ git check-attr caveat README
+README: caveat: unspecified
+---------------
+
+SEE ALSO
+--------
+linkgit:gitattributes[5].
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useSetAtom } from 'jotai';
 
 import { incidentBus } from '../bridge/incidentBus';
+import { incidentAiCoachingAtom } from '../store/incidentAiCoachingAtom';
 import { incidentHintAtom } from '../store/incidentHintAtom';
 import { incidentInputAtom } from '../store/incidentInputAtom';
 import { incidentCardIndexAtom } from '../store/incidentNavAtom';
@@ -27,6 +28,7 @@ export function useIncidentNavigation(
   const setScored = useSetAtom(incidentScoredAtom);
   const setBestScore = useSetAtom(incidentBestScoreAtom);
   const setShowHint = useSetAtom(incidentHintAtom);
+  const setAiCoaching = useSetAtom(incidentAiCoachingAtom);
 
   const next = useCallback(() => {
     const { cardIndex } = stateRef.current;
@@ -50,6 +52,7 @@ export function useIncidentNavigation(
     setScored(null);
     setBestScore(0);
     setShowHint(false);
+    setAiCoaching({ status: 'idle', message: null });
 
     incidentBus.emit('card:next', { cardIndex: nextIdx });
   }, [
@@ -62,6 +65,7 @@ export function useIncidentNavigation(
     setScored,
     setBestScore,
     setShowHint,
+    setAiCoaching,
   ]);
 
   return { next };

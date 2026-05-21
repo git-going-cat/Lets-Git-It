@@ -1,0 +1,127 @@
+git-fetch-pack(1)
+=================
+
+NAME
+----
+git-fetch-pack - 다른 저장소로부터 누락된 객체를 받습니다.
+
+
+SYNOPSIS
+--------
+[verse]
+'git fetch-pack' [--all] [--quiet|-q] [--keep|-k] [--thin] [--include-tag]
+	[--upload-pack=<git-upload-pack>]
+	[--depth=<n>] [--no-progress]
+	[-v] <repository> [<refs>...]
+
+DESCRIPTION
+-----------
+일반적으로 이 명령어의 상위 레벨 래퍼인 'git fetch'를 사용하는 것이 좋습니다.
+
+선택적인 원격 저장소에서 'git-upload-pack'을 호출하고
+이 저장소에 없는 객체를 이 저장소로 보내,
+지정된 헤드를 업데이트하도록 요청합니다. 로컬에서 사용 가능한 커밋 목록은
+로컬 refs/ 계층 구조를 스캔하여 파악되며,
+상대방에서 실행되는 'git-upload-pack'으로 전송됩니다.
+
+로컬 측에 공통 조상 커밋이 없을 경우,
+이 명령어는 요청된 refs를 완료하기 위해 원격 측으로부터 모든 것을 다운로드하는 방식으로 동작합니다.
+
+
+OPTIONS
+-------
+--all::
+	모든 원격 refs를 가져옵니다.
+
+--stdin::
+	표준 입력으로부터 refs 목록을 받습니다. 각 ref는 한 줄에 하나씩입니다.
+	이 옵션 외에 명령줄에서 refs가 지정된 경우,
+	표준 입력으로부터 오는 refs는 명령줄에서 오는 refs 다음에 처리됩니다.
++
+`--stateless-rpc`가 이 옵션과 함께 지정된 경우,
+	refs 목록은 packet 형식(pkt-line)이어야 합니다. 각 ref는
+	별도의 packet에 있어야 하며, 목록은 flush packet으로 끝나야 합니다.
+
+-q::
+--quiet::
+	'git unpack-objects'에 `-q` 플래그를 전달합니다. 이로 인해
+	클로닝 과정이 덜 장황해집니다.
+
+-k::
+--keep::
+	수신된 데이터를 'git unpack-objects'로 풀지 않고,
+	데이터를 하나의 packfile로 만들어 객체 데이터베이스에 저장합니다.
+	두 번 제공되면 pack는 repacking에 대해 잠깁니다.
+
+--thin::
+	"thin" pack을 가져옵니다. 이는 네트워크 트래픽을 줄이기 위해
+	pack에 포함되지 않은 객체를 기반으로 객체를 deltified 형식으로 기록합니다.
+
+--include-tag::
+	원격 측에서 지원하는 경우, 태그가 참조하는 객체가 다운로드될 때
+	다른 객체와 동일한 연결을 통해 annotated tag 객체가 다운로드됩니다.
+	호출자는 이 옵션으로 인해 사용 가능해진 태그를 별도로 결정해야 합니다.
+
+--upload-pack=<git-upload-pack>::
+	원격 측의 'git-upload-pack'을 찾을 수 없는 경우,
+	'git-upload-pack'에 대한 경로를 지정하는 데 사용합니다.
+	sshd 설치는 로그인 쉘에 대한 사용자의 환경 설정 스크립트(예: .bash_profile)를
+	무시하며, 사용자가 사적으로 설치한 git은 시스템 기본 $PATH에서
+	찾을 수 없을 수 있습니다. 다른 해결 방법으로는 ".bashrc" 파일에
+	$PATH를 설정하는 것이 제안되지만, 이 플래그는
+	lean .bashrc 파일을 통해 비대화형 쉘에 대한 오버헤드를
+	지불하고 싶지 않은 사람들을 위한 것입니다(대부분의 설정을
+	.bash_profile에서 설정함).
+
+--exec=<git-upload-pack>::
+	--upload-pack=<git-upload-pack>과 동일합니다.
+
+--depth=<n>::
+	가져오기를 n보다 길지 않은 조상 체인으로 제한합니다.
+	'git-upload-pack'은 2147483647이라는 특별한 깊이를 무한대로 취급하지만,
+	그만큼 긴 조상 체인이 존재하더라도 마찬가지입니다.
+
+--shallow-since=<date>::
+	shallow 저장소의 히스토리를 <date> 이후의 모든 도달 가능한 커밋을
+	포함하도록 얕게 만들거나 깊게 만듭니다.
+
+--shallow-exclude=<ref>::
+	shallow 저장소의 히스토리를 지정된 원격 브랜치 또는 태그로부터
+	도달 가능한 커밋을 제외하도록 얕게 만들거나 깊게 만듭니다.
+	이 옵션은 여러 번 지정할 수 있습니다.
+
+--deepen-relative::
+	--depth 인자는 각 원격 브랜치 히스토리의 최신 커밋이 아닌,
+	현재 shallow 경계로부터의 커밋 수를 지정합니다.
+
+--refetch::
+	모든 일치하는 객체들을 가져오기 위해 서버와의 커밋 협상을 건너뜁니다.
+	새로운 partial clone blob/tree 필터를 다시 적용하는 데 사용합니다.
+
+--no-progress::
+	진행 상황을 표시하지 않습니다.
+
+--check-self-contained-and-connected::
+	수신된 pack이 자체 포함되어 있고 연결되어 있으면 "connectivity-ok"을 출력합니다.
+
+-v::
+	상세하게 실행합니다.
+
+<repository>::
+	원격 저장소의 URL입니다.
+
+<refs>...::
+	업데이트할 원격 헤드입니다. 이는 $GIT_DIR에 상대적입니다 (예: "HEAD", "refs/heads/master").
+	지정되지 않은 경우, 원격 측이 가진 모든 헤드로부터 업데이트합니다.
++
+원격 측에서 `uploadpack.allowTipSHA1InWant`,
+`uploadpack.allowReachableSHA1InWant`, 또는 `uploadpack.allowAnySHA1InWant` 옵션을 활성화한 경우,
+	대신 원격에 있는 40자리의 16진수 sha1을 사용할 수도 있습니다.
+
+SEE ALSO
+--------
+linkgit:git-fetch[1]
+
+GIT
+---
+linkgit:git[1] suite의 일부입니다.

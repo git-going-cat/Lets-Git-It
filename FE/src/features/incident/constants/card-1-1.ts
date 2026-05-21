@@ -8,6 +8,11 @@ export const SCENARIO1_BASE_COMMITS = [
   { hash: '7b3d92a', msg: 'chore: deps bump', branch: '', current: false },
 ];
 
+export const AFTER_RESET_COMMITS = [
+  { hash: 'a1f2c0e', msg: 'feat: prep release', branch: 'HEAD → main', current: true },
+  { hash: '7b3d92a', msg: 'chore: deps bump', branch: '', current: false },
+];
+
 function grade(raw: string): ScoreResult | null {
   const cmd = raw.trim();
   if (!cmd) return null;
@@ -25,9 +30,9 @@ function grade(raw: string): ScoreResult | null {
   const base = isShow || isLog ? 40 : 0;
 
   const hasPatch = /(-p\b|--patch\b)/.test(cmd);
-  const hasHead = /\bHEAD\b/.test(cmd);
+  const hasHead = /\bHEAD\b(?![~^@])/.test(cmd);
   const hasLimit = /(-1\b|-n\s*1\b)/.test(cmd);
-  const must = (isShow && hasHead) || (isLog && (hasPatch || hasLimit)) ? 40 : 0;
+  const must = (isShow && hasHead) || (isLog && hasPatch) ? 40 : 0;
 
   const isExactShow = cmd === 'git show HEAD';
   const isExactLog = isLog && hasPatch && hasHead && hasLimit;

@@ -164,6 +164,45 @@ data: {"cached": false, "error": true}
 | 422 | query 누락 / 빈 문자열 / 공백만 / 500자 초과 |
 | 429 | IP 일일 한도 초과 (`DAILY_LIMIT_PER_IP`, 기본 100) |
 
+### `POST /coaching`
+
+게임 카드 정답 채점 후 사용자에게 1~2문장 코칭을 반환. 자세한 설계는 [코칭 엔드포인트 문서](RAG/IMPLEMENTATION_COACHING.md) 참조.
+
+**Headers:** `X-API-Key: <AI_API_KEY>`
+
+**Request**
+```json
+{
+  "userInput": "git restore --staged .env",
+  "correctCommand": "git restore --staged .env",
+  "cardId": "card-3",
+  "score": 100
+}
+```
+
+**Response** — `application/json` (단일 응답, SSE 아님)
+```json
+{
+  "coaching": "...",
+  "modelUsed": "google/gemini-2.5-flash-lite",
+  "latencyMs": 729,
+  "sourceChunks": [{"chapter": "git-restore", "section": "OPTIONS"}],
+  "cached": false
+}
+```
+
+LLM/검색 실패 시: 200 + `modelUsed: "fallback"` + `coaching: "정답 명령어: \`...\`"`
+
+**에러 코드**
+
+| 코드 | 원인 |
+|---|---|
+| 401 | X-API-Key 누락/오류 |
+| 422 | 필드 누락 / 1~200자 범위 벗어남 / 빈 문자열 |
+| 429 | IP 분당 30회 초과 |
+
+(한글/자연어 입력은 422가 아니라 200 + correctCommand 설명으로 fallback)
+
 ### `GET /healthz`
 ```json
 {"status": "ok"}
@@ -174,18 +213,23 @@ data: {"cached": false, "error": true}
 ```
 AI/
 ├── app/
-│   ├── main.py              FastAPI 앱 + CORS
-│   ├── prompts.py           SYSTEM_PROMPT 정의
+│   ├── main.py              FastAPI 앱 + CORS + 라우터 등록
+│   ├── prompts.py           SYSTEM_PROMPT / COACHING_SYSTEM_PROMPT / COACHING_PERSONAL_PROMPT
+│   ├── llm.py               OpenRouter 클라이언트 + json_mode 지원
+│   ├── git_validator.py     is_git_like() 화이트리스트 검증 (라우터/코칭 공유)
 │   ├── redis_client.py      Redis 싱글톤 (cache + rate_limit 공유)
 │   ├── middleware/
-│   │   ├── auth.py          BE 인증 통합용 placeholder
-│   │   └── rate_limit.py    IP별 일일 한도 (Lua script atomic)
+│   │   ├── auth.py          X-API-Key 검증
+│   │   └── rate_limit.py    IP별 분당 한도 (Lua script atomic)
 │   ├── rag/
-│   │   ├── search.py        query 임베딩 + Pinecone 검색
-│   │   ├── cache.py         get/set + SHA256 해시 키
-│   │   └── answer.py        gpt-4o-mini SSE 스트리밍 + 캐시 저장
+│   │   ├── search.py        query 임베딩 + 인메모리 numpy 코사인 검색
+│   │   ├── cache.py         3종 cache key 함수 + _norm() 정규화
+│   │   ├── context.py       chunks → 컨텍스트 문자열 (answer/coaching 공용)
+│   │   ├── answer.py        /ask용 SSE 스트리밍 + 캐시 저장
+│   │   └── coaching.py      /coaching 분기 로직 + fallback
 │   └── routers/
-│       ├── ask.py           POST /ask 엔드포인트 (전체 조립)
+│       ├── ask.py           POST /ask 엔드포인트
+│       ├── coaching.py      POST /coaching 엔드포인트
 │       └── health.py        GET /healthz
 ├── scripts/
 │   ├── ingest.py            clone + parse + chunk + index 파이프라인
@@ -235,6 +279,7 @@ docker compose up
 - [SSE 스트리밍 프로토콜](RAG/IMPLEMENTATION_STREAMING_PROTOCOL.md) — Phase 5
 - [Rate Limiting](RAG/IMPLEMENTATION_RATE_LIMITING.md) — Phase 5
 - [에러 처리 설계](RAG/IMPLEMENTATION_ERROR_HANDLING.md)
+- [코칭 엔드포인트 (`/coaching`)](RAG/IMPLEMENTATION_COACHING.md) — Phase 6
 
 ### 운영
 - [인프라 팀 핸드오프 가이드](handoff-to-infra.md)

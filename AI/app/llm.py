@@ -26,15 +26,19 @@ def _get_client() -> AsyncOpenAI:
 async def call_chat_json(
     messages: list[dict[str, str]],
     max_tokens: int = 512,
+    json_mode: bool = False,
 ) -> tuple[str, str, int]:
     """Returns (text, model_used, latency_ms)."""
     start = time.monotonic()
-    response = await _get_client().chat.completions.create(
-        model=PREFERRED_MODELS[0],
-        messages=messages,
-        max_tokens=max_tokens,
-        extra_body={"models": PREFERRED_MODELS},
-    )
+    kwargs: dict = {
+        "model": PREFERRED_MODELS[0],
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "extra_body": {"models": PREFERRED_MODELS},
+    }
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+    response = await _get_client().chat.completions.create(**kwargs)
     latency_ms = int((time.monotonic() - start) * 1000)
     text = response.choices[0].message.content or ""
     return text, response.model, latency_ms

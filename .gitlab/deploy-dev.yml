@@ -28,8 +28,6 @@ deploy-dev-fe:
   tags: [dev]
   before_script:
     - apk add --no-cache git curl bash
-    - git config --global user.email "wls7911@naver.com"
-    - git config --global user.name "조수진"
     - git config --global --add safe.directory /home/ubuntu/develop/S14P31A304
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"

@@ -1,0 +1,56 @@
+git-backfill(1)
+===============
+
+NAME
+----
+git-backfill - 부분 복제에서 누락된 객체 다운로드
+
+
+SYNOPSIS
+--------
+[synopsis]
+git backfill [--min-batch-size=<n>] [--[no-]sparse] [--[no-]include-edges] [<revision-range>]
+
+DESCRIPTION
+-----------
+
+`git clone --filter=blob:none`을 사용하여 blobless 부분 복제를 생성하고, Git 클라이언트가 로컬 작업에 필요한 경우가 아니면 blob 객체를 다운로드하지 않도록 로컬 저장소를 구성합니다. 처음에는 복제 및 후속 fetch가 도달 가능한 커밋과 트리는 다운로드하지만 blob은 다운로드하지 않음을 의미합니다. 나중에 `git checkout` 또는 `git merge`와 같이 `HEAD` 포인터를 변경하는 작업은 작업을 완료하기 위해 누락된 blob을 다운로드해야 할 수 있습니다.
+
+최악의 경우 `git blame`과 같이 blob diff를 계산하는 명령은 Git 명령이 필요할 때 누락된 객체를 충족하기 위해 단일 blob 요청에서 누락된 blob을 다운로드하므로 매우 느려집니다. 이는 여러 다운로드 요청으로 이어지며 Git 서버가 이러한 객체 간에 델타 압축을 제공할 수 없습니다.
+
+`git backfill` 명령은 사용자가 누락된 blob(선택적 필터 포함)을 다운로드하도록 요청하는 방법을 제공하여 파일의 이전 버전을 나타내는 누락된 blob을 배치로 다운로드할 수 있습니다. `backfill` 명령은 동일한 경로에서 발생하는 blob을 그룹화하여 요청을 최적화하려고 시도하며, 이는 서버에서 보낸 packfile에서 좋은 델타 압축으로 이어질 가능성이 높습니다.
+
+이러한 방식으로 `git backfill`은 큰 복제를 더 작은 청크로 분할하는 메커니즘을 제공합니다. `git clone --filter=blob:none`으로 blobless 부분 복제를 시작하고 로컬 저장소에서 `git backfill`을 실행하면 복제 시 전체 저장소를 다운로드하는 것보다 훨씬 적은 네트워크 호출로 도달 가능한 모든 객체를 다운로드하는 방법이 제공됩니다.
+
+기본적으로 `git backfill`은 `HEAD` 커밋에서 도달 가능한 모든 blob을 다운로드합니다. 이 집합은 아래의 다양한 옵션을 사용하여 제한하거나 확장할 수 있습니다.
+
+이 명령은 실험적입니다. 향후 동작이 변경될 수 있습니다.
+
+
+OPTIONS
+-------
+
+`--min-batch-size=<n>`::
+	서버에서 요청할 누락된 객체 배치에 대한 최소 크기를 지정합니다. 이 크기는 특정 경로에서 마지막으로 본 blob 집합에 의해 초과될 수 있습니다. 기본 최소 배치 크기는 50,000입니다.
+
+`--sparse`::
+`--no-sparse`::
+	현재 sparse-checkout과 일치하는 경로에 있는 객체만 다운로드합니다. sparse-checkout 기능이 활성화된 경우 `--sparse`가 가정되며 `--no-sparse`로 비활성화할 수 있습니다.
+
+`--include-edges`::
+`--no-include-edges`::
+	백필에 경계 커밋의 blob을 포함합니다. `git log -p A..B` 또는 `git replay --onto TARGET A..B`와 같은 명령을 준비하는 데 유용합니다. 여기서 A..B는 일반적으로 A를 제외하지만 A의 blob도 필요합니다. `--include-edges`가 기본값입니다.
+
+`<revision-range>`::
+	지정된 revision range의 커밋에서 도달 가능한 blob만 backfill합니다. _<revision-range>_가 지정되지 않으면 `HEAD`(즉, 현재 커밋으로 이어지는 전체 기록)로 기본 설정됩니다. _<revision-range>_를 지정하는 모든 방법에 대한 전체 목록은 linkgit:gitrevisions[7]의 "Specifying Ranges" 섹션을 참조하십시오.
++
+linkgit:git-rev-list[1]에서 인식하는 `--first-parent`, `--since` 또는 pathspecs와 같은 커밋 제한 옵션을 사용할 수도 있습니다.
+
+SEE ALSO
+--------
+linkgit:git-clone[1],
+linkgit:git-rev-list[1]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

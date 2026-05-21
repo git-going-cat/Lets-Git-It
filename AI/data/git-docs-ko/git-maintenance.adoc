@@ -1,0 +1,243 @@
+git-maintenance(1)
+==================
+
+NAME
+----
+git-maintenance - Git 저장소 데이터를 최적화하기 위한 작업 실행
+
+
+SYNOPSIS
+--------
+[verse]
+'git maintenance' run [<options>]
+'git maintenance' start [--scheduler=<scheduler>]
+'git maintenance' (stop|register|unregister) [<options>]
+'git maintenance' is-needed [<options>]
+
+
+DESCRIPTION
+-----------
+Git 저장소 데이터를 최적화하기 위한 작업을 실행하여 다른 Git 명령을 더 빠르게 실행하고 저장소의 저장 공간 요구 사항을 줄입니다.
+
+`git add` 또는 `git fetch`와 같이 저장소 데이터를 추가하는 Git 명령은 사용자 경험에 반응하도록 최적화되어 있습니다. 이러한 명령은 Git 데이터를 최적화하는 데 시간을 들이지 않습니다. 왜냐하면 이러한 최적화는 저장소의 전체 크기에 따라 확장되지만 사용자 명령은 각각 상대적으로 작은 작업을 수행하기 때문입니다.
+
+`git maintenance` 명령은 Git 저장소를 최적화하는 방법에 대한 유연성을 제공합니다.
+
+SUBCOMMANDS
+-----------
+
+run::
+	하나 이상의 유지보수 작업을 실행합니다. `--task` 옵션이 하나 이상 지정되면 해당 작업이 해당 순서로 실행됩니다. 그렇지 않으면 `maintenance.<task>.enabled` 설정 옵션 중 true인 옵션에 의해 작업이 결정됩니다. 기본적으로 `maintenance.gc.enabled`만 true입니다.
+
+start::
+	현재 저장소에서 유지보수 실행을 시작합니다. 이 작업은 `register` 하위 명령과 동일한 설정 업데이트를 수행한 후, `git maintenance run --scheduled`를 매시간 실행하도록 백그라운드 스케줄러를 업데이트합니다.
+
+stop::
+	백그라운드 유지보수 스케줄을 중지합니다. 백그라운드 유지보수가 나중에 다시 시작될 경우를 대비해 현재 저장소는 유지보수 대상 저장소 목록에서 제거되지 않습니다.
+
+register::
+	예정된 유지보수가 이 저장소에서 실행되도록 Git 설정 값을 초기화합니다. 이 작업은 현재 사용자의 전역 설정 또는 --config-file 옵션으로 지정된 설정에 저장소 `maintenance.repo` 설정 변수를 추가하고, `maintenance.<task>.schedule`에 대한 몇 가지 권장 설정 값을 활성화합니다. 활성화된 작업은 전면 프로세스를 방해하지 않고 백그라운드에서 실행하기에 안전합니다.
++
+`register` 하위 명령은 `maintenance.strategy` 설정 값이 이전에 설정되지 않았다면 `incremental`로 설정합니다. `incremental` 전략은 각 유지보수 작업에 대해 다음 스케줄을 사용합니다:
++
+--
+* `gc`: 비활성화됨.
+* `commit-graph`: 매시간.
+* `prefetch`: 매시간.
+* `loose-objects`: 매일.
+* `incremental-repack`: 매일.
+--
++
+`git maintenance register`는 현재 저장소에서 `maintenance.auto = false`를 설정하여 전면 유지보수를 비활성화합니다. 이 설정은 `git maintenance unregister` 명령 이후에도 유지됩니다.
+
+unregister::
+	백그라운드 유지보수에서 현재 저장소를 제거합니다. 이 작업은 설정된 목록에서 저장소만 제거합니다. 백그라운드 유지보수 프로세스의 실행을 중지하지는 않습니다.
++
+현재 저장소가 이미 등록되어 있지 않으면 `unregister` 하위 명령은 오류를 보고합니다. 현재 저장소가 등록되어 있지 않아도 성공을 반환하려면 `--force` 옵션을 사용하십시오.
+
+is-needed::
+    실제로 실행하지 않고 유지보수를 실행해야 하는지 확인합니다.
+    유지보수를 실행해야 하는 경우 0 상태 코드로 종료하고, 그렇지 않으면 1로 종료합니다.
+    '--auto' 플래그와 함께 사용하는 것이 좋습니다.
++
+`--task` 옵션이 하나 이상 지정되면 해당 작업이 해당 순서로 확인됩니다. 그렇지 않으면 `maintenance.<task>.enabled` 설정 옵션 중 true인 옵션에 의해 작업이 결정됩니다. 기본적으로 `maintenance.gc.enabled`만 true입니다.
+
+TASKS
+-----
+
+commit-graph::
+	`commit-graph` 작업은 `commit-graph` 파일을 점진적으로 업데이트한 다음, 기록된 데이터가 정확한지 확인합니다. 점진적 쓰기는 동시 Git 프로세스와 함께 실행해도 안전합니다. 왜냐하면 이전 `commit-graph-chain` 파일에 있던 `.graph` 파일을 만료시키지 않기 때문입니다. 나중에 만료 지연을 기반으로 한 실행에 의해 삭제됩니다.
+
+prefetch::
+	`prefetch` 작업은 등록된 모든 원격 저장소의 최신 객체로 객체 디렉토리를 업데이트합니다. 각 원격 저장소에 대해 `git fetch` 명령이 실행됩니다. 구성된 refspec은 요청된 모든 ref를 `refs/prefetch/` 내에 배치하도록 수정됩니다. 또한 태그는 업데이트되지 않습니다.
++
+이는 원격 추적 브랜치를 방해하는 것을 피하기 위함입니다. 최종 사용자는 가져오기를 시작하지 않는 한 이러한 ref가 움직이지 않기를 기대합니다. 그러나 prefetch 작업을 사용하면 나중에 실제 가져오기를 완료하는 데 필요한 객체가 이미 얻어졌으므로 실제 가져오기가 더 빨라집니다. 이상적인 경우, 객체 전송 없이 단순히 많은 원격 추적 브랜치의 업데이트가 될 것입니다.
++
+`remote.<name>.skipFetchAll` 설정을 사용하여 특정 원격 저장소가 prefetch되지 않도록 제외할 수 있습니다.
+
+gc::
+	불필요한 파일을 정리하고 로컬 저장소를 최적화합니다. "GC"는 "garbage collection"을 의미하지만, 이 작업은 훨씬 더 작은 작업들을 수행합니다. 이 작업은 대규모 저장소의 경우 비용이 많이 들 수 있습니다. 왜냐하면 모든 Git 객체를 단일 pack-file로 다시 패킹하기 때문입니다. 또한 경우에 따라 오래된 데이터를 삭제하므로 방해가 될 수 있습니다. Git에서의 가비지 컬렉션에 대한 자세한 내용은 linkgit:git-gc[1]를 참조하십시오.
+
+loose-objects::
+	`loose-objects` 작업은 느슨한 객체를 정리하고 pack-files로 넣습니다. 동시 Git 명령과의 경쟁 조건을 방지하기 위해 단계별 프로세스를 따릅니다. 먼저, 이미 pack-file에 존재하는 모든 느슨한 객체를 삭제합니다. 동시 Git 프로세스는 느슨한 객체 대신 객체 데이터를 위해 pack-file을 검사합니다. 두 번째로, 느슨한 객체들을 배치로 포함하는 새 pack-file("loose-"로 시작)을 생성합니다.
++
+배치 크기는 기본적으로 50,000개 객체로 설정되어 있어, 느슨한 객체가 많은 저장소에서 작업이 너무 오래 걸리는 것을 방지합니다. 이 크기를 조정하려면 `maintenance.loose-objects.batchSize` 설정 옵션을 사용하십시오. 제한을 제거하려면 `0` 값을 포함하십시오.
++
+`gc` 작업은 다시 pack-file에 추가되지 않은 경우, 나중에 정리될 느슨한 객체로 도달할 수 없는 객체를 기록합니다. 이 때문에 `loose-objects`와 `gc` 작업을 동시에 활성화하는 것은 권장되지 않습니다.
+
+incremental-repack::
+	`incremental-repack` 작업은 `multi-pack-index` 기능을 사용하여 객체 디렉토리를 다시 패킹합니다. 동시 Git 명령과의 경쟁 조건을 방지하기 위해 단계별 프로세스를 따릅니다. 먼저, `git multi-pack-index expire`를 호출하여 `multi-pack-index` 파일이 참조하지 않는 pack-file을 삭제합니다. 두 번째로, `git multi-pack-index repack`를 호출하여 몇 개의 작은 pack-file을 선택하고 더 큰 pack-file로 다시 패킹한 다음, 작은 pack-file을 참조하는 `multi-pack-index` 항목을 업데이트하여 새 pack-file을 참조하도록 합니다. 이는 다음 `git multi-pack-index expire` 실행 시 해당 작은 pack-file들을 삭제할 준비를 합니다. 작은 pack-file의 선택은 더 큰 pack-file의 예상 크기가 배치 크기 이상이 되도록 합니다. `linkgit:git-multi-pack-index[1]`의 `repack` 하위 명령의 `--batch-size` 옵션을 참조하십시오. 기본 배치 크기는 0이며, 이는 모든 pack-file을 단일 pack-file로 다시 패킹하려고 시도하는 특별한 경우입니다.
+
+pack-refs::
+	`pack-refs` 작업은 느슨한 참조 파일을 수집하여 단일 파일로 모읍니다. 이는 많은 참조를 반복해야 하는 작업의 속도를 높입니다. 자세한 정보는 linkgit:git-pack-refs[1]를 참조하십시오.
+
+reflog-expire::
+	`reflog-expire` 작업은 만료 임계값보다 오래된 reflog의 모든 항목을 삭제합니다. 자세한 정보는 linkgit:git-reflog[1]를 참조하십시오.
+
+rerere-gc::
+	`rerere-gc` 작업은 rerere 캐시의 오래된 항목에 대해 가비지 컬렉션을 호출합니다. 자세한 정보는 linkgit:git-rerere[1]를 참조하십시오.
+
+worktree-prune::
+	`worktree-prune` 작업은 오래되거나 손상된 worktree를 삭제합니다. 자세한 정보는 linkgit:git-worktree[1]를 참조하십시오.
+
+OPTIONS
+-------
+--auto::
+	`run` 하위 명령과 함께 사용하면 특정 임계값이 충족될 때만 유지보수 작업을 실행합니다. 예를 들어, `gc` 작업은 느슨한 객체의 수가 `gc.auto` 설정의 수보다 많거나, pack-file의 수가 `gc.autoPackLimit` 설정의 수보다 많을 때 실행됩니다. `--schedule` 옵션과 호환되지 않습니다.
+	`is-needed` 하위 명령과 함께 사용하면 실제로 유지보수를 실행하지 않고 필요한 임계값이 충족되었는지 확인합니다.
+
+--schedule::
+	`run` 하위 명령과 함께 사용하면 `maintenance.<task>.schedule` 설정 값으로 지정된 특정 시간 조건이 충족될 때만 유지보수 작업을 실행합니다.
+	이 설정 값은 `maintenance.<task>.lastRun` 설정 값에 따라 해당 작업이 마지막으로 실행된 시간부터 경과한 시간을 초 단위로 지정합니다. 테스트되는 작업은 `--task=<task>` 옵션으로 제공되거나 `maintenance.<task>.enabled`가 true로 설정된 작업입니다.
+
+--quiet::
+	`stderr`로 진행 상황 또는 기타 정보를 보고하지 않습니다.
+
+--task=<task>::
+	이 옵션이 하나 이상 지정되면 지정된 순서대로 해당 작업만 실행됩니다. `--task=<task>` 인수가 지정되지 않으면 `maintenance.<task>.enabled`가 true로 설정된 작업만 고려됩니다.
+	허용되는 `<task>` 값 목록은 'TASKS' 섹션을 참조하십시오.
+
+--scheduler=auto|crontab|systemd-timer|launchctl|schtasks::
+	`start` 하위 명령과 함께 사용하면 `git maintenance run`의 매시간, 매일, 매주 실행을 위한 스케줄러를 지정합니다.
+	`<scheduler>`에 대한 가능한 값은 `auto`, `crontab`(POSIX), `systemd-timer`(Linux), `launchctl`(macOS), `schtasks`(Windows)입니다. `auto`가 지정되면 해당 플랫폼별 스케줄러가 사용됩니다. Linux에서는 `systemd-timer`가 사용 가능하면 사용되고, 그렇지 않으면 `crontab`이 사용됩니다. 기본값은 `auto`입니다.
+
+
+TROUBLESHOOTING
+---------------
+`git maintenance` 명령은 Git 명령 중 사용자 대기 시간을 최소화하면서 저장소 유지보수 패턴을 단순화하도록 설계되었습니다. 이 프로세스를 사용자 정의할 수 있는 다양한 구성 옵션이 있습니다. 기본 유지보수 옵션은 대규모 저장소에서도 빠르게 완료되는 작업에 중점을 둡니다.
+
+사용자는 예정된 유지보수 작업이 의도한 만큼 자주 실행되지 않는 경우를 발견할 수 있습니다. 각 `git maintenance run` 명령은 저장소의 객체 데이터베이스에 잠금을 설정하며, 이는 동일한 저장소에서 실행되는 다른 동시 `git maintenance run` 명령을 방지합니다. 이 안전 장치가 없으면 경쟁 프로세스가 저장소를 예측할 수 없는 상태로 만들 수 있습니다.
+
+백그라운드 유지보수 스케줄은 매시간 `git maintenance run` 프로세스를 실행합니다. 각 실행은 "매시간" 작업을 실행합니다. 자정에 해당 프로세스는 "매일" 작업도 실행합니다. 주의 첫날 자정에 해당 프로세스는 "매주" 작업도 실행합니다. 단일 프로세스가 등록된 각 저장소를 반복하면서 해당 빈도에 대한 예약된 작업을 수행합니다. 프로세스는 여러 클라이언트가 생성할 수 있는 부하를 분산하기 위해 클라이언트당 시간당 무작위 분에 예약됩니다(예: prefetch로부터). 등록된 저장소 수 및 크기에 따라 이 프로세스가 한 시간 이상 걸릴 수 있습니다. 이 경우 동일한 저장소에서 여러 `git maintenance run` 명령이 동시에 실행되어 객체 데이터베이스 잠금을 놓고 충돌할 수 있습니다. 결과적으로 두 작업 중 하나가 실행되지 않습니다.
+
+유지보수 창 중 일부가 완료하는 데 한 시간이 넘는 시간이 걸리는 경우, 유지보수 작업의 복잡성을 줄이는 것을 고려하십시오. 예를 들어, `gc` 작업은 `incremental-repack` 작업보다 훨씬 느립니다. 그러나 이는 객체 데이터베이스가 약간 더 커지는 비용을 수반합니다. 더 비싼 작업을 덜 자주 실행하도록 이동하는 것을 고려하십시오.
+
+숙련된 사용자는 `git maintenance start` 및 Git 구성 옵션을 통해 제공되는 것과 다른 스케줄을 사용하여 자체 유지보수 작업을 예약할 수 있습니다. 이러한 사용자는 객체 데이터베이스 잠금과 동시 `git maintenance run` 명령이 어떻게 작동하는지 알아야 합니다. 또한 `git gc` 명령은 `git maintenance run` 명령과 결합해서는 안 됩니다. `git gc`는 객체 데이터베이스를 수정하지만 `git maintenance run`과 같은 방식으로 잠금을 획득하지는 않습니다. 가능하면 `git gc` 대신 `git maintenance run --task=gc`를 사용하십시오.
+
+다음 섹션에서는 `git maintenance start`에서 백그라운드 유지보수를 실행하기 위해 마련된 메커니즘과 이를 사용자 정의하는 방법을 설명합니다.
+
+BACKGROUND MAINTENANCE ON POSIX SYSTEMS
+---------------------------------------
+
+POSIX 시스템에서 백그라운드 작업을 예약하는 표준 메커니즘은 cron(8)입니다. 이 도구는 주어진 스케줄에 따라 명령을 실행합니다. 사용자 예약 작업의 현재 목록은 `crontab -l`을 실행하여 찾을 수 있습니다. `git maintenance start`가 작성한 스케줄은 다음과 유사합니다:
+
+-----------------------------------------------------------------------
+# BEGIN GIT MAINTENANCE SCHEDULE
+# Following schedule was created by Git
+# Any edits made in this region might be
+# replaced in the future by Git command.
+
+0 1-23 * * * "/<path>/git" --exec-path="/<path>" for-each-repo --config=maintenance.repo maintenance run --schedule=hourly
+0 0 * * 1-6 "/<path>/git" --exec-path="/<path>" for-each-repo --config=maintenance.repo maintenance run --schedule=daily
+0 0 * * 0 "/<path>/git" --exec-path="/<path>" for-each-repo --config=maintenance.repo maintenance run --schedule=weekly
+
+# END GIT MAINTENANCE SCHEDULE
+-----------------------------------------------------------------------
+
+주석은 Git이 작성한 스케줄을 표시하는 영역으로 사용됩니다. 이 영역 내에서 이루어진 모든 수정은 `git maintenance stop` 또는 `git maintenance start`에 의해 삭제되거나 덮어쓰여질 것입니다.
+
+crontab 항목은 `git` 실행 파일의 전체 경로를 지정하여, `PATH`에 관계없이 `git maintenance start`가 실행된 것과 동일한 `git` 명령이 실행되도록 보장합니다. 같은 사용자가 여러 Git 실행 파일로 `git maintenance start`를 실행하는 경우, 가장 최근에 실행된 실행 파일만 사용됩니다.
+
+이 명령들은 `git for-each-repo --config=maintenance.repo`를 사용하여 멀티-밸류 `maintenance.repo` 설정 옵션에 나열된 각 저장소에서 `git maintenance run --schedule=<frequency>`를 실행합니다. 이들은 일반적으로 사용자별 전역 설정에서 로드됩니다. `git maintenance` 프로세스는 각 `<frequency>`에 대해 각 저장소에서 실행되도록 구성된 유지보수 작업을 `maintenance.<task>.schedule` 설정 옵션을 사용하여 결정합니다. 이러한 값은 전역 또는 저장소 설정 값에서 로드됩니다.
+
+설정 값이 원하는 백그라운드 유지보수 스케줄을 달성하기에 충분하지 않다면, 자체 스케줄을 만들 수 있습니다. `crontab -e`를 실행하면 편집기가 사용자별 `cron` 스케줄로 로드됩니다. 해당 편집기에서 자체 스케줄 라인을 추가할 수 있습니다. 위에서 나열된 기본 스케줄을 조정하여 시작하거나 crontab(5) 문서를 읽어 고급 예약 기술을 사용할 수도 있습니다. 올바른 바이너리가 스케줄에서 실행되도록 보장하기 위해 기본 스케줄의 전체 경로 및 `--exec-path` 기술을 사용하는 것이 좋습니다.
+
+
+BACKGROUND MAINTENANCE ON LINUX SYSTEMD SYSTEMS
+-----------------------------------------------
+
+Linux는 `cron`을 지원하지만, 배포판에 따라 `cron`은 선택적 패키지이며 반드시 설치되지 않을 수 있습니다. 최신 Linux 배포판에서는 systemd 타이머가 이를 대체하고 있습니다.
+
+사용자 systemd 타이머를 사용할 수 있다면, `cron` 대신 사용될 것입니다.
+
+이 경우 `git maintenance start`는 사용자 systemd 타이머 유닛을 생성하고 타이머를 시작합니다. 사용자 예약 작업의 현재 목록은 `systemctl --user list-timers`를 실행하여 찾을 수 있습니다. `git maintenance start`가 작성한 타이머는 다음과 유사합니다:
+
+-----------------------------------------------------------------------
+$ systemctl --user list-timers
+NEXT                         LEFT          LAST                         PASSED     UNIT                         ACTIVATES
+Thu 2021-04-29 19:00:00 CEST 42min left    Thu 2021-04-29 18:00:11 CEST 17min ago  git-maintenance@hourly.timer git-maintenance@hourly.service
+Fri 2021-04-30 00:00:00 CEST 5h 42min left Thu 2021-04-29 00:00:11 CEST 18h ago    git-maintenance@daily.timer  git-maintenance@daily.service
+Mon 2021-05-03 00:00:00 CEST 3 days left   Mon 2021-04-26 00:00:11 CEST 3 days ago git-maintenance@weekly.timer git-maintenance@weekly.service
+-----------------------------------------------------------------------
+
+각 `--schedule=<frequency>` 옵션에 대해 하나의 타이머가 등록됩니다.
+
+systemd 유닛의 정의는 다음 파일에서 확인할 수 있습니다:
+
+-----------------------------------------------------------------------
+~/.config/systemd/user/git-maintenance@.timer
+~/.config/systemd/user/git-maintenance@.service
+~/.config/systemd/user/timers.target.wants/git-maintenance@hourly.timer
+~/.config/systemd/user/timers.target.wants/git-maintenance@daily.timer
+~/.config/systemd/user/timers.target.wants/git-maintenance@weekly.timer
+-----------------------------------------------------------------------
+
+`git maintenance start`는 이 파일들을 덮어쓰고 `systemctl --user`로 타이머를 다시 시작하므로, 사용자 정의는 `~/.config/systemd/user/git-maintenance@.service.d` 디렉토리에 `.conf` 확장자를 가진 파일을 생성하여 수행해야 합니다.
+
+`git maintenance stop`는 사용자 systemd 타이머를 중지하고 위에 언급된 파일들을 삭제합니다.
+
+자세한 내용은 `systemd.timer(5)`를 참조하십시오.
+
+
+BACKGROUND MAINTENANCE ON MACOS SYSTEMS
+---------------------------------------
+
+macOS는 기술적으로 `cron`을 지원하지만, `crontab -e`를 사용하려면 관리자 권한이 필요하고 실행되는 프로세스는 완전한 사용자 컨텍스트를 가지지 않습니다. 완전한 사용자 컨텍스트가 없으면 Git과 그 자격 증명 도우미는 저장된 자격 증명에 액세스할 수 없으므로 일부 유지보수 작업은 작동하지 않습니다.
+
+대신, `git maintenance start`는 macOS에서 타이밍된 작업을 예약하는 권장 방법인 `launchctl` 도구와 상호 작용합니다. `git maintenance (start|stop)`를 통한 유지보수 예약은 macOS 10.11 이상에서만 사용 가능한 일부 `launchctl` 기능을 필요로 합니다.
+
+사용자별 예약 작업은 `~/Library/LaunchAgents/`에 XML 형식의 `.plist` 파일로 저장됩니다. 다음 명령을 사용하여 현재 등록된 작업을 볼 수 있습니다:
+
+-----------------------------------------------------------------------
+$ ls ~/Library/LaunchAgents/org.git-scm.git*
+org.git-scm.git.daily.plist
+org.git-scm.git.hourly.plist
+org.git-scm.git.weekly.plist
+-----------------------------------------------------------------------
+
+각 `--schedule=<frequency>` 옵션에 대해 하나의 작업이 등록됩니다. 각 스케줄을 XML 형식이 어떻게 설명하는지 확인하려면 이 `.plist` 파일 중 하나를 편집기에서 열고 `<key>StartCalendarInterval</key>` 요소 다음의 `<array>` 요소를 검사하십시오.
+
+`git maintenance start`는 이 파일들을 덮어쓰고 `launchctl`로 작업을 다시 등록하므로, 사용자 정의는 고유한 이름을 가진 자체 `.plist` 파일을 생성하여 수행해야 합니다. 마찬가지로, `git maintenance stop` 명령은 `launchctl`로 작업을 등록 취소하고 `.plist` 파일들을 삭제합니다.
+
+백그라운드 작업에 대한 고급 사용자 정의를 만들려면 `launchctl.plist(5)`를 참조하십시오.
+
+
+BACKGROUND MAINTENANCE ON WINDOWS SYSTEMS
+-----------------------------------------
+
+Windows는 `cron`을 지원하지 않으며 대신 백그라운드 작업 예약에 대한 자체 시스템을 가지고 있습니다. `git maintenance start` 명령은 `schtasks` 명령을 사용하여 이 시스템에 작업을 제출합니다. 모든 백그라운드 작업은 "Git Maintenance (<frequency>)" 형식의 이름으로 작업 스케줄러 애플리케이션을 사용하여 확인할 수 있습니다. 작업 스케줄러 GUI에는 이러한 작업을 검사하는 방법이 있지만, 작업을 XML 파일로 내보내고 거기서 세부 정보를 볼 수도 있습니다.
+
+Git은 콘솔 애플리케이션이기 때문에 이러한 백그라운드 작업은 현재 사용자에게 보이는 콘솔 창을 생성합니다. 이는 작업 스케줄러에서 "사용자가 로그인했는지 여부에 관계없이 실행" 옵션을 선택하여 수동으로 변경할 수 있습니다. 이 변경에는 암호 입력이 필요하므로 `git maintenance start`는 기본적으로 이 옵션을 선택하지 않습니다.
+
+백그라운드 작업을 사용자 정의하려면, 향후 `git maintenance (start|stop)` 호출이 사용자 정의 작업을 덮어쓰지 않도록 작업 이름을 바꾸십시오.
+
+CONFIGURATION
+-------------
+include::includes/cmd-config-section-all.adoc[]
+
+include::config/maintenance.adoc[]
+
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

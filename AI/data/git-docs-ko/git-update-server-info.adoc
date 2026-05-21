@@ -1,0 +1,38 @@
+git-update-server-info(1)
+=========================
+
+NAME
+----
+git-update-server-info - 멍청한 서버를 돕기 위한 보조 정보 파일을 업데이트합니다.
+
+
+SYNOPSIS
+--------
+[verse]
+'git update-server-info' [-f | --force]
+
+DESCRIPTION
+-----------
+실시간 팩 생성을 하지 않는 멍청한 서버는 클라이언트가 서버가 가진 참조 및 팩을 파악하는 데 도움이 되도록
+$GIT_DIR/info 및 $GIT_OBJECT_DIRECTORY/info 디렉토리에 일부 보조 정보 파일이 있어야 합니다.
+이 명령은 그러한 보조 파일을 생성합니다.
+
+OPTIONS
+-------
+-f::
+--force::
+	모든 정보를 처음부터 다시 업데이트합니다.
+
+OUTPUT
+------
+
+현재 이 명령은 다음 파일을 업데이트합니다.
+무엇을 위한 것인지에 대한 설명은 linkgit:gitrepository-layout[5]를 참조하십시오.
+
+* objects/info/packs
+
+* info/refs
+
+GIT
+---
+linkgit:git[1] 제품군의 일부입니다.

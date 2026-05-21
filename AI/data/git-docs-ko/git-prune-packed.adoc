@@ -1,0 +1,43 @@
+git-prune-packed(1)
+===================
+
+NAME
+----
+git-prune-packed - 팩 파일에 이미 있는 불필요한 객체 제거
+
+
+SYNOPSIS
+--------
+[verse]
+'git prune-packed' [-n | --dry-run] [-q | --quiet]
+
+
+DESCRIPTION
+-----------
+이 프로그램은 `$GIT_OBJECT_DIRECTORY`에서 팩 파일과 독립적인 객체 디렉토리에 모두 존재하는 모든 객체를 검색합니다.
+
+이러한 불필요한 모든 객체가 제거됩니다.
+
+팩은 개별적으로 압축되고 델타 압축이 적용되어 단일 파일로 저장되며 관련 인덱스 파일이 있는 객체 모음입니다.
+
+팩은 미러 시스템, 백업 엔진, 디스크 저장 공간 등의 부하를 줄이는 데 사용됩니다.
+
+
+OPTIONS
+-------
+-n::
+--dry-run::
+        실제로 객체를 제거하지 않고, 제거될 객체만 보여줍니다.
+
+-q::
+--quiet::
+	진행 표시기를 표시하지 않습니다.
+
+SEE ALSO
+--------
+linkgit:git-pack-objects[1]
+linkgit:git-repack[1]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

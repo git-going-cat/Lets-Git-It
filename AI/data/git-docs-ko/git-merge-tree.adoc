@@ -1,0 +1,219 @@
+git-merge-tree(1)
+=================
+
+NAME
+----
+git-merge-tree - 인덱스 또는 워킹 트리를 건드리지 않고 머지를 수행합니다.
+
+
+SYNOPSIS
+--------
+[verse]
+'git merge-tree' [--write-tree] [<options>] <branch1> <branch2>
+'git merge-tree' [--trivial-merge] <base-tree> <branch1> <branch2> (deprecated)
+
+[[NEWMERGE]]
+DESCRIPTION
+-----------
+
+이 명령어는 최신 `--write-tree` 모드와 폐기된 `--trivial-merge` 모드를 가지고 있습니다. 마지막의 <<DEPMERGE,Deprecated Description>> 섹션을 제외하고, 이 문서의 나머지 부분은 최신 `--write-tree` 모드를 설명합니다.
+
+머지를 수행하지만, 새로운 커밋을 생성하지 않고 워킹 트리나 인덱스에서 읽거나 쓰지 않습니다.
+
+수행되는 머지는 "정식" linkgit:git-merge[1]와 동일한 기능을 사용합니다. 다음을 포함합니다:
+
+  * 개별 파일의 세 방향(three-way) 콘텐츠 머지
+  * 이름 변경 감지
+  * 적절한 디렉토리/파일 충돌 처리
+  * 재귀적 조상 통합 (즉, 머지 베이스가 여러 개일 때, 머지 베이스들을 머지하여 가상 머지 베이스를 생성)
+  * 기타
+
+머지가 완료된 후, 새로운 최상위(toplevel) 트리 객체가 생성됩니다. 자세한 내용은 아래 `OUTPUT`을 참조하십시오.
+
+OPTIONS
+-------
+
+--stdin::
+	병합할 커밋을 명령줄이 아닌 표준 입력에서 읽습니다. 더 많은 정보는 아래 <<INPUT,INPUT FORMAT>>을 참조하십시오. `-z`를 포함합니다.
+
+-z::
+	<Conflicted file info> 섹션에서 파일 이름을 따옴표로 묶지 않고, 각 파일 이름을 개행 문자 대신 NUL 문자로 끝냅니다. 메시지 섹스션도 개행 문자 대신 NUL 문자로 시작합니다. 더 많은 정보는 아래 <<OUTPUT,OUTPUT>>을 참조하십시오.
+
+--name-only::
+	Conflicted file info 섹션에서 충돌이 발생한 파일에 대해 (mode, oid, stage, path) 튜플 목록을 출력하는 대신, 충돌이 발생한 파일 이름 목록만 제공합니다 (여러 충돌 스테이지가 있더라도 파일 이름을 여러 번 나열하지 않습니다).
+
+--messages::
+--no-messages::
+	"Auto-merging <path>" 또는 CONFLICT 알림과 같은 정보 메시지를 stdout 끝에 씁니다. 지정되지 않은 경우, 기본값은 머지 충돌이 있을 때 이러한 메시지를 포함하고, 그렇지 않으면 생략하는 것입니다.
+
+--quiet::
+	프로그램의 모든 출력을 비활성화합니다. 결과 코드(exit status)에만 관심이 있을 때 유용합니다. merge-tree가 충돌이 발견되면 일찍 종료되도록 하고, 머지에서 생성된 대부분의 객체 쓰기를 피하도록 합니다.
+
+--allow-unrelated-histories::
+	기본적으로 두 브랜치가 공통 기록을 공유하지 않으면 merge-tree는 오류를 발생시킵니다. 이 플래그는 해당 검사를 재정의하여 머지가 계속 진행되도록 할 수 있습니다.
+
+--merge-base=<tree-ish>::
+	<branch1> 및 <branch2>에 대한 머지 베이스를 찾는 대신, 머지에 대한 머지 베이스를 지정합니다. 이 옵션은 `--stdin`과 호환되지 않습니다.
++
+여러 베이스 지정은 현재 지원되지 않습니다. 즉, 여러 머지 베이스를 가진 두 브랜치를 병합할 때 이 옵션을 사용하면 `git merge`가 계산하는 결과와 다를 수 있습니다. 이는 결과 머지에서 히스토리의 한쪽에서 이루어진 일부 변경 사항을 잃을 수 있습니다.
++
+이 옵션을 사용하면 머지 베이스가 직접 제공되므로 <branch1>과 <branch2>가 커밋을 지정할 필요가 없습니다. 트리만으로 충분합니다.
+
+-X<option>::
+--strategy-option=<option>::
+	머지 전략별 옵션을 머지 전략으로 전달합니다. 자세한 내용은 linkgit:git-merge[1]를 참조하십시오.
+
+[[OUTPUT]]
+OUTPUT
+------
+
+성공적인 머지의 경우, git-merge-tree의 출력은 단순히 한 줄입니다:
+
+	<toplevel tree의 OID>
+
+반면, 충돌이 발생한 머지의 경우, 출력은 기본적으로 다음 형식입니다:
+
+	<toplevel tree의 OID>
+	<Conflicted file info>
+	<Informational messages>
+
+이들은 아래에서 개별적으로 논의됩니다.
+
+하지만 예외가 있습니다. `--stdin`이 전달되면, 앞에 추가 섹션이 있고, 끝에 NUL 문자가 있으며, 모든 섹션이 입력 줄마다 반복됩니다. 따라서 첫 번째 머지에 충돌이 있고 두 번째 머지가 깨끗하면 출력은 다음 형식입니다:
+
+	<Merge status>
+	<toplevel tree의 OID>
+	<Conflicted file info>
+	<Informational messages>
+	NUL
+	<Merge status>
+	<toplevel tree의 OID>
+	NUL
+
+[[MS]]
+Merge status
+~~~~~~~~~~~~
+
+이것은 NUL 문자로 끝나는 정수 상태입니다. 정수 상태는 다음과 같습니다:
+
+     0: 머지에 충돌이 있었습니다
+     1: 머지가 깨끗했습니다
+
+[[OIDTLT]]
+OID of toplevel tree
+~~~~~~~~~~~~~~~~~~~~
+
+이것은 `git merge`가 끝날 때 워킹 트리에서 체크아웃될 것을 나타내는 트리 객체입니다. 충돌이 있었다면, 이 트리 내의 파일에는 충돌 마커가 포함될 수 있습니다. 이 섹션 뒤에는 항상 개행 문자 (또는 `-z`가 전달된 경우 NUL)가 옵니다.
+
+[[CFI]]
+Conflicted file info
+~~~~~~~~~~~~~~~~~~~~
+
+이것은 다음과 같은 형식의 줄 시퀀스입니다:
+
+	<mode> <object> <stage> <filename>
+
+파일 이름은 `core.quotePath` 구성 변수에 설명된 대로 따옴표로 묶입니다 (linkgit:git-config[1] 참조). 그러나 `--name-only` 옵션이 전달되면 mode, object, stage가 생략됩니다. `-z`가 전달되면 "줄"은 개행 문자 대신 NUL 문자로 종료됩니다.
+
+[[IM]]
+Informational messages
+~~~~~~~~~~~~~~~~~~~~~~
+
+이 섹션은 일반적으로 충돌에 대한 정보 메시지를 제공합니다. 섹션의 형식은 `-z`가 전달되었는지 여부에 따라 크게 다릅니다.
+
+`-z`가 전달된 경우:
+
+출력 형식은 0개 이상의 충돌 정보 레코드이며, 각 레코드는 다음과 같은 형식입니다:
+
+	<list-of-paths><conflict-type>NUL<conflict-message>NUL
+
+여기서 <list-of-paths>는 다음과 같은 형식입니다:
+
+	<number-of-paths>NUL<path1>NUL<path2>NUL...<pathN>NUL
+
+<list-of-paths>는 충돌 또는 <conflict-message>의 정보 메시지에 영향을 받은 경로 (또는 브랜치 이름)를 포함합니다. 또한 <conflict-type>은 다음과 같은 충돌 유형을 설명하는 안정적인 문자열입니다:
+
+  * "Auto-merging"
+  * "CONFLICT (rename/delete)"
+  * "CONFLICT (submodule lacks merge base)"
+  * "CONFLICT (binary)"
+
+그리고 <conflict-message>는 충돌에 대한 더 자세한 메시지이며 종종 (항상 그렇지는 않지만) <stable-short-type-description>을 포함합니다. 이 문자열들은 향후 Git 버전에서 변경될 수 있습니다. 몇 가지 예는 다음과 같습니다:
+
+  * "Auto-merging <file>"
+  * "CONFLICT (rename/delete): <oldfile> renamed...but deleted in..."
+  * "Failed to merge submodule <submodule> (no merge base)"
+  * "Warning: cannot merge binary files: <filename>"
+
+`-z`가 전달되지 않은 경우:
+
+이 섹션은 이전 섹션과 구분하기 위해 빈 줄로 시작하고, 이전 섹션의 <conflict-message> 정보만 포함합니다 (개행 문자로 구분됨). 이것들은 스크립트에서 파싱해서는 안 되는 비안정적인 문자열이며, 단지 인간이 소비하도록 되어 있습니다. 또한 <conflict-message> 문자열은 일반적으로 포함된 개행 문자를 포함하지 않지만, 때로는 포함하기도 합니다. (그러나 자유 형식 메시지에는 NUL 문자가 포함되지 않습니다.) 따라서 정보 블록 전체는 모든 충돌 메시지의 종합으로 인간 독자에게 제공됩니다.
+
+EXIT STATUS
+-----------
+
+성공적이고 충돌 없는 머지의 경우, 결과 코드는 0입니다. 머지에 충돌이 있을 경우, 결과 코드는 1입니다. 머지가 어떤 종류의 오류로 인해 완료될 수 없거나 (또는 시작할 수 없으면), 결과 코드는 0 또는 1이 아닌 다른 값입니다 (출력은 미지정). --stdin이 전달되면, 성공적인 머지와 충돌이 있는 머지 모두에 대해 반환 코드는 0이며, 완료할 수 없는 경우 0 또는 1이 아닌 다른 값입니다.
+
+USAGE NOTES
+-----------
+
+이 명령어는 linkgit:git-hash-object[1], linkgit:git-mktree[1], linkgit:git-commit-tree[1], linkgit:git-write-tree[1], linkgit:git-update-ref[1], 및 linkgit:git-mktag[1]와 유사한 저수준 플러밍(plumbing)을 위한 것입니다. 따라서 다음과 같은 일련의 단계의 일부로 사용할 수 있습니다:
+
+       vi message.txt
+       BRANCH1=refs/heads/test
+       BRANCH2=main
+       NEWTREE=$(git merge-tree --write-tree $BRANCH1 $BRANCH2) || {
+           echo "There were conflicts..." 1>&2
+           exit 1
+       }
+       NEWCOMMIT=$(git commit-tree $NEWTREE -F message.txt \
+           -p $BRANCH1 -p $BRANCH2)
+       git update-ref $BRANCH1 $NEWCOMMIT
+
+결과 코드가 0이 아닐 때, 이 시퀀스의 `NEWTREE`에는 트리보다 훨씬 더 많은 출력이 포함된다는 점에 유의하십시오.
+
+충돌의 경우, 출력에는 linkgit:git-merge[1]에서 얻는 것과 동일한 정보가 포함됩니다:
+
+  * 워킹 트리에 기록될 내용 (<<OIDTLT,toplevel tree의 OID>>)
+  * 인덱스에 기록될 상위 순서 스테이지 (<<CFI,Conflicted file info>>)
+  * stdout에 인쇄될 수 있는 메시지 (<<IM,Informational messages>>)
+
+[[INPUT]]
+INPUT FORMAT
+------------
+'git merge-tree --stdin' 입력 형식은 완전한 텍스트 기반입니다. 각 줄은 이 형식을 따릅니다:
+
+	[<base-commit> -- ]<branch1> <branch2>
+
+한 줄이 `--`로 구분된 경우, 구분자 앞의 문자열은 머지 베이스 지정을 위해 사용되고, 구분자 뒤의 문자열은 병합할 브랜치를 설명합니다.
+
+MISTAKES TO AVOID
+-----------------
+
+충돌이 발생한 파일을 찾기 위해 결과 최상위 트리(toplevel tree)를 살펴보지 마십시오. 대신 <<CFI,Conflicted file info>> 섹션을 파싱하십시오. 전체 트리를 파싱하는 것은 대규모 저장소에서 엄청나게 느릴 뿐만 아니라, 충돌 마커로 표현할 수 없는 수많은 유형의 충돌이 있습니다 (수정/삭제, 모드 충돌, 양측에서 변경된 바이너리 파일, 파일/디렉토리 충돌, 다양한 이름 변경 충돌 순열 등).
+
+빈 <<CFI,Conflicted file info>> 목록을 깨끗한 머지로 해석하지 마십시오. 결과 코드를 확인하십시오. 개별 파일이 충돌하지 않아도 머지에 충돌이 발생할 수 있습니다 (디렉토리 이름 변경 충돌의 몇 가지 유형이 이 범주에 속하며, 미래에 다른 유형도 추가될 수 있습니다).
+
+<<CFI,Conflicted file info>> 목록에서 충돌 유형을 추측하거나 사용자가 추측하게 하지 마십시오. 거기서 제공되는 정보는 그렇게 하기에는 불충분합니다. 예를 들어, 이름 변경/이름 변경(1to2) 충돌 (양쪽이 같은 파일을 다르게 이름 변경)은 세 개의 다른 파일에 높은 순서의 스테이지를 갖게 될 것입니다 (각각 하나씩의 높은 순서 스테이지만 가짐). 어떤 세 파일이 관련되어 있는지 결정할 방법이 없습니다 (<<IM,Informational messages>> 섹션 없이는). 파일/디렉토리 충돌도 하나의 높은 순서 스테이지를 가진 파일을 결과로 냅니다. 잠재적 디렉토리 이름 변경 관련 충돌 ("merge.directoryRenames"가 설정되지 않거나 "conflicts"로 설정된 경우)도 하나의 높은 순서 스테이지를 가진 파일을 결과로 냅니다. 모든 경우에 <<IM,Informational messages>> 섹션에는 필요한 정보가 포함되어 있지만, 기계에서 파싱 가능한 방식으로 설계되지는 않았습니다.
+
+<<CFI,Conflicted file info>>의 각 경로와 <<IM,Informational messages>>의 논리적 충돌이 일대일로 매핑된다고 가정하지 마십시오. 또한 일대다 또는 다대일 매핑이 있다고 가정하지 마십시오. 다대다 매핑이 존재하며, 이는 각 경로가 단일 머지에서 여러 논리적 충돌 유형을 가질 수 있고, 각 논리적 충돌 유형이 여러 경로에 영향을 미칠 수 있음을 의미합니다.
+
+<<IM,Informational messages>> 섹션에 나열된 모든 파일 이름이 충돌을 일으켰다고 가정하지 마십시오. "Auto-merging <file>"과 같이 충돌이 없는 파일에 대해서도 메시지가 포함될 수 있습니다.
+
+<<CFI,Conflicted file info>>에서 OID를 가져와서 사용자에게 충돌을 제시하기 위해 다시 병합하는 것을 피하십시오. 이렇게 하면 정보가 손실됩니다. 대신, <<OIDTLT,OID of toplevel tree>> 내에서 찾은 파일 버전을 확인하고 대신 표시하십시오. 특히 후자는 원래 브랜치/커밋이 병합되고, 이름 변경이 관련된 경우 원래 파일 이름이 주석으로 붙을 것입니다. 원본 브랜치/커밋을 충돌 마커 주석에 포함시킬 수 있지만, 원본 파일 이름은 <<CFI,Conflicted file info>>에서 구할 수 없으므로 충돌 해결에 도움이 될 수 있는 정보를 잃게 됩니다.
+
+[[DEPMERGE]]
+DEPRECATED DESCRIPTION
+----------------------
+
+<<NEWMERGE,DESCRIPTION>>에 따르며 이 문서의 나머지 부분과 달리, 이 섹션은 폐기된 `--trivial-merge` 모드를 설명합니다.
+
+선택적 `--trivial-merge`를 제외하고, 이 모드는 옵션을 받지 않습니다.
+
+이 모드는 세 개의 트리-이시(tree-ish)를 읽고, 간단한 머지 결과와 충돌하는 스테이지를 세미-diff 형식으로 표준 출력에 출력합니다. 이것은 상위 수준 스크립트가 소비하고 결과를 다시 인덱스로 병합하도록 설계되었으므로, <branch1>과 일치하는 항목을 생략합니다. 이 두 번째 형식의 결과는 세 방향 'git read-tree -m'과 유사하지만, 결과를 인덱스에 저장하는 대신 명령은 항목을 표준 출력에 출력합니다.
+
+이 형식은 적용 가능한 범위가 제한적이며 (간단한 머지로는 개별 파일의 콘텐츠 머지, 이름 변경 감지, 적절한 디렉토리/파일 충돌 처리 등을 처리할 수 없습니다), 출력 형식도 다루기 어렵습니다. 또한 특히 대규모 저장소에서 성공적인 머지에서도 일반적으로 첫 번째 형식보다 성능이 떨어집니다.
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

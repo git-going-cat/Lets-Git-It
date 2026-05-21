@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
+import { incidentAiCoachingAtom } from '../store/incidentAiCoachingAtom';
 import { incidentHintAtom } from '../store/incidentHintAtom';
 import { incidentInputAtom } from '../store/incidentInputAtom';
 import { incidentCardIndexAtom } from '../store/incidentNavAtom';
@@ -12,6 +13,7 @@ import {
 } from '../store/incidentScoreAtom';
 import { incidentFlyingAtom, incidentVizAtom } from '../store/incidentVizAtom';
 
+import { useIncidentCoaching } from './useIncidentCoaching';
 import { useIncidentInput } from './useIncidentInput';
 import { useIncidentNavigation } from './useIncidentNavigation';
 import { useIncidentPhase } from './useIncidentPhase';
@@ -43,6 +45,7 @@ export function useIncidentGame(cards: Card[], onComplete?: () => void) {
   const setBestScore = useSetAtom(incidentBestScoreAtom);
   const setHistory = useSetAtom(incidentHistoryAtom);
   const setShowHint = useSetAtom(incidentHintAtom);
+  const setAiCoaching = useSetAtom(incidentAiCoachingAtom);
 
   useEffect(() => {
     stateRef.current = { cardIndex: 0, input: '', bestScore: 0, phase: 'idle' };
@@ -55,6 +58,7 @@ export function useIncidentGame(cards: Card[], onComplete?: () => void) {
     setShowHint(false);
     setFlying(null);
     setViz(cards[0].initialViz);
+    setAiCoaching({ status: 'idle', message: null });
   }, [
     cards,
     setCardIndex,
@@ -66,6 +70,7 @@ export function useIncidentGame(cards: Card[], onComplete?: () => void) {
     setShowHint,
     setFlying,
     setViz,
+    setAiCoaching,
   ]);
 
   // phase 원자 변경 시 stateRef 동기화
@@ -80,6 +85,7 @@ export function useIncidentGame(cards: Card[], onComplete?: () => void) {
   const { finalize } = useIncidentScore(stateRef, cards);
   useIncidentVisualization(stateRef, cards);
   const { next } = useIncidentNavigation(stateRef, cards, onComplete);
+  useIncidentCoaching(stateRef, cards);
 
   const [showHint, setShowHintAtom] = useAtom(incidentHintAtom);
   const toggleHint = useCallback(() => setShowHintAtom((s) => !s), [setShowHintAtom]);
@@ -91,6 +97,7 @@ export function useIncidentGame(cards: Card[], onComplete?: () => void) {
   const history = useAtomValue(incidentHistoryAtom);
   const viz = useAtomValue(incidentVizAtom);
   const flying = useAtomValue(incidentFlyingAtom);
+  const aiCoaching = useAtomValue(incidentAiCoachingAtom);
   const card = cards[cardIndex];
 
   return {
@@ -104,6 +111,8 @@ export function useIncidentGame(cards: Card[], onComplete?: () => void) {
     viz,
     flying,
     showHint,
+    aiCoachingLoading: aiCoaching.status === 'loading',
+    aiCoachingMessage: aiCoaching.message,
     setInput,
     toggleHint,
     refine,

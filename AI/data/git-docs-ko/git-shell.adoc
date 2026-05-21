@@ -1,0 +1,86 @@
+git-shell(1)
+============
+
+NAME
+----
+git-shell - Git 전용 SSH 액세스를 위한 제한된 로그인 쉘
+
+
+SYNOPSIS
+--------
+[verse]
+'chsh' -s $(command -v git-shell) <user>
+'git clone' <user>`@localhost:/path/to/repo.git`
+'ssh' <user>`@localhost`
+
+DESCRIPTION
+-----------
+
+이것은 제한된 Git 액세스를 제공하기 위한 SSH 계정의 로그인 쉘입니다.
+이 쉘은 pull/push 기능을 구현하는 서버 측 Git 명령과 사용자 홈 디렉토리에 있는 `git-shell-commands`라는 하위 디렉토리에 있는 사용자 정의 명령만 실행하도록 허용합니다.
+
+COMMANDS
+--------
+
+'git shell'은 `-c` 옵션 다음에 다음 명령을 허용합니다:
+
+'git receive-pack <argument>'::
+'git upload-pack <argument>'::
+'git upload-archive <argument>'::
+	클라이언트의 'git push', 'git fetch', 또는 'git archive --remote' 요청을 지원하기 위해 해당 서버 측 명령을 호출합니다.
+'cvs server'::
+	CVS 서버를 모방합니다. linkgit:git-cvsserver[1]을 참조하십시오.
+
+`~/git-shell-commands` 디렉토리가 있는 경우 'git shell'은 사용자의 홈 디렉토리에서 "`git-shell-commands/<command> <arguments>`"를 실행하여 다른 사용자 정의 명령도 처리합니다.
+
+INTERACTIVE USE
+---------------
+
+기본적으로 위의 명령은 `-c` 옵션으로만 실행할 수 있으며, 쉘은 대화형이 아닙니다.
+
+`~/git-shell-commands` 디렉토리가 있는 경우 'git shell'은 대화형으로 (인수 없이) 실행될 수도 있습니다. `git-shell-commands` 디렉토리에 `help` 명령이 있으면, 허용된 작업에 대한 개요를 제공하기 위해 실행됩니다. 그런 다음 `git-shell-commands` 디렉토리의 명령이나 연결을 닫기 위한 `exit`를 입력할 수 있는 "git> " 프롬프트가 표시됩니다.
+
+일반적으로 이 모드는 사용자가 접근할 수 있는 저장소를 나열하거나, 저장소를 생성, 삭제, 이름을 변경하거나, 저장소 설명 및 권한을 변경할 수 있도록 관리 인터페이스로 사용됩니다.
+
+`no-interactive-login` 명령이 있으면 실행되고 대화형 쉘은 중단됩니다.
+
+EXAMPLES
+--------
+
+대화형 로그인을 비활성화하고 대신 인사말을 표시하려면:
+
+----------------
+$ chsh -s /usr/bin/git-shell
+$ mkdir $HOME/git-shell-commands
+$ cat >$HOME/git-shell-commands/no-interactive-login <<\EOF
+#!/bin/sh
+printf '%s\n' "Hi $USER! You've successfully authenticated, but I do not"
+printf '%s\n' "provide interactive shell access."
+exit 128
+EOF
+$ chmod +x $HOME/git-shell-commands/no-interactive-login
+----------------
+
+git-cvsserver 액세스를 활성화하려면 (일반적으로 위의 `no-interactive-login` 예제를 선행해야 합니다. git-shell-commands 디렉토리를 생성하면 대화형 로그인이 가능해지기 때문입니다):
+
+----------------
+$ cat >$HOME/git-shell-commands/cvs <<\EOF
+if ! test $# = 1 && test "$1" = "server"
+then
+	echo >&2 "git-cvsserver only handles \"server\""
+	exit 1
+fi
+exec git cvsserver server
+EOF
+$ chmod +x $HOME/git-shell-commands/cvs
+----------------
+
+SEE ALSO
+--------
+ssh(1),
+linkgit:git-daemon[1],
+contrib/git-shell-commands/README
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

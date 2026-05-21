@@ -1,0 +1,210 @@
+git-help(1)
+===========
+
+NAME
+----
+git-help - Git에 대한 도움말 정보 표시
+
+SYNOPSIS
+--------
+[verse]
+'git help' [-a|--all] [--[no-]verbose] [--[no-]external-commands] [--[no-]aliases]
+'git help' [[-i|--info] [-m|--man] [-w|--web]] [<command>|<doc>]
+'git help' [-g|--guides]
+'git help' [-c|--config]
+'git help' [--user-interfaces]
+'git help' [--developer-interfaces]
+
+DESCRIPTION
+-----------
+
+옵션이나 '<command>' 또는 '<doc>' 없이 'git' 명령의 구문과 가장 일반적으로 사용되는 Git 명령 목록이
+표준 출력에 인쇄됩니다.
+
+`--all` 또는 `-a` 옵션이 제공되면, 사용 가능한 모든 명령이 표준 출력에 인쇄됩니다.
+
+`--guides` 또는 `-g` 옵션이 제공되면, Git 개념 가이드 목록도 표준 출력에 인쇄됩니다.
+
+명령 또는 다른 문서가 제공되면, 관련 매뉴얼 페이지가 열립니다. 기본적으로 'man' 프로그램이
+이 목적으로 사용되지만, 이는 다른 옵션이나 설정 변수로 재정의될 수 있습니다.
+
+별칭(alias)이 제공되면, git은 별칭의 정의를 표준 출력에 표시합니다. 별칭이 붙은 명령의
+매뉴얼 페이지를 보려면 `git <command> --help`를 사용하십시오.
+
+`git --help ...`는 `git help ...`와 동일한데, 이는 전자가 내부적으로 후자로 변환되기 때문입니다.
+
+linkgit:git[1] 매뉴얼 페이지를 표시하려면 `git help git`를 사용하십시오.
+
+이 페이지는 `git help help` 또는 `git help --help`로 표시할 수 있습니다.
+
+OPTIONS
+-------
+-a::
+--all::
+	사용 가능한 모든 명령을 표준 출력에 인쇄합니다.
+
+--no-external-commands::
+	`--all`과 함께 사용될 때, `$PATH`에서 찾은 외부 "git-*" 명령
+	목록을 제외합니다.
+
+--no-aliases::
+	`--all`과 함께 사용될 때, 구성된 별칭 목록을 제외합니다.
+
+--verbose::
+	`--all`과 함께 사용될 때, 인식된 모든 명령에 대한 설명을 인쇄합니다.
+	이것이 기본값입니다.
+
+-c::
+--config::
+	사용 가능한 모든 설정 변수를 나열합니다. 이는 linkgit:git-config[1] 목록의
+	간단한 요약입니다.
+
+-g::
+--guides::
+	Git 개념 가이드 목록을 표준 출력에 인쇄합니다.
+
+--user-interfaces::
+	저장소, 명령 및 파일 인터페이스 문서 목록을 표준 출력에 인쇄합니다.
++
+	`.git/info/exclude`와 같은 저장소 내 파일 인터페이스가 여기에
+	문서화됩니다 (linkgit:gitrepository-layout[5] 참조). 또한 `.mailmap`과
+	같은 인트리 구성 (linkgit:gitmailmap[5] 참조)도 해당됩니다.
++
+	이 설명서 섹션은 일반적이거나 널리 사용되는 사용자 인터페이스
+	규약 (예: linkgit:gitcli[7])과 `.git/hooks/*` 파일 기반 인터페이스와
+	같은 의사 구성 (linkgit:githooks[5]에서 설명)도 다룹니다.
+
+--developer-interfaces::
+	파일 형식, 프로토콜 및 기타 개발자 인터페이스 문서 목록을
+	표준 출력에 인쇄합니다.
+
+-i::
+--info::
+	'info' 형식으로 명령의 매뉴얼 페이지를 표시합니다. 'info' 프로그램이
+	이 목적으로 사용됩니다.
+
+-m::
+--man::
+	'man' 형식으로 명령의 매뉴얼 페이지를 표시합니다. 이 옵션은
+	`help.format` 설정 변수에 설정된 값을 재정의하는 데 사용될 수 있습니다.
++
+	기본적으로 'man' 프로그램이 매뉴얼 페이지를 표시하는 데 사용되지만,
+	`man.viewer` 설정 변수를 사용하여 다른 표시 프로그램을 선택할 수 있습니다 (아래 참조).
+
+-w::
+--web::
+	'web' (HTML) 형식으로 명령의 매뉴얼 페이지를 표시합니다. 웹 브라우저가
+	이 목적으로 사용됩니다.
++
+	웹 브라우저는 `help.browser` 또는 `web.browser` 설정 변수를
+	사용하여 지정할 수 있습니다 (전자가 설정되지 않은 경우). 이 설정
+	변수 중 어느 것도 설정되지 않은 경우, 'git web{litdd}browse' 헬퍼 스크립트
+	('git help'에서 호출됨)가 적합한 기본값을 선택합니다. 이 스크립트에
+	대한 자세한 내용은 linkgit:git-web{litdd}browse[1]을 참조하십시오.
+
+CONFIGURATION VARIABLES
+-----------------------
+
+help.format
+~~~~~~~~~~~
+
+명령줄 옵션이 전달되지 않으면, `help.format` 설정 변수가 확인됩니다. 이 변수에 대해
+다음 값이 지원되며, 'git help'가 해당 명령줄 옵션처럼 작동하도록 합니다:
+
+* "man"은 '-m|--man'에 해당합니다.
+* "info"는 '-i|--info'에 해당합니다.
+* "web" 또는 "html"은 '-w|--web'에 해당합니다.
+
+help.browser, web.browser, and browser.<tool>.path
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+'web' 형식이 선택된 경우 (명령줄 옵션 또는 설정 변수를 통해),
+`help.browser`, `web.browser` 및 `browser.<tool>.path`도 확인됩니다.
+OPTIONS 섹션의 '-w|--web' 및 linkgit:git-web{litdd}browse[1]을 참조하십시오.
+
+man.viewer
+~~~~~~~~~~
+
+'man' 형식이 선택된 경우 `man.viewer` 설정 변수가 확인됩니다. 현재 지원되는
+값은 다음과 같습니다:
+
+* "man": 평소처럼 'man' 프로그램을 사용합니다.
+* "woman": 'emacsclient'를 사용하여 emacs에서 "woman" 모드를 실행합니다
+  (emacsclient 버전 22부터 작동합니다).
+* "konqueror": 'kfmclient'를 사용하여 konqueror의 새 탭에서
+  매뉴얼 페이지를 엽니다 (아래 'konqueror에 대한 참고' 참조).
+
+다른 도구의 값은 해당 `man.<tool>.cmd` 설정 항목이 있는 경우
+사용될 수 있습니다 (아래 참조).
+
+`man.viewer` 설정 변수에 여러 값을 지정할 수 있습니다. 해당 프로그램은
+설정 파일에 나열된 순서대로 시도됩니다.
+
+예를 들어, 이 설정:
+
+------------------------------------------------
+	[man]
+		viewer = konqueror
+		viewer = woman
+------------------------------------------------
+
+은 먼저 konqueror를 사용하려고 시도합니다. 그러나 이것이 실패하면 (예: DISPLAY가
+설정되지 않은 경우) emacs의 woman 모드가 시도됩니다.
+
+모든 시도가 실패하거나 뷰어가 구성되지 않은 경우, `GIT_MAN_VIEWER` 환경 변수에
+지정된 뷰어가 시도됩니다. 이것도 실패하면 'man' 프로그램이 시도될 것입니다.
+
+man.<tool>.path
+~~~~~~~~~~~~~~~
+
+`man.<tool>.path` 설정 변수를 설정하여 선호하는 man 뷰어의
+전체 경로를 명시적으로 제공할 수 있습니다. 예를 들어, 'man.konqueror.path'를
+설정하여 konqueror의 절대 경로를 구성할 수 있습니다. 그렇지 않으면 'git help'는
+해당 도구가 PATH에 있다고 가정합니다.
+
+man.<tool>.cmd
+~~~~~~~~~~~~~~
+
+`man.viewer` 설정 변수에 의해 지정된 man 뷰어가 지원되는 항목이 아닌 경우,
+해당 `man.<tool>.cmd` 설정 변수가 검색됩니다. 이 변수가 존재하면
+지정된 도구가 사용자 정의 명령으로 취급되며 쉘 eval을 사용하여 man 페이지를
+인수로 전달하여 명령을 실행합니다.
+
+Note about konqueror
+~~~~~~~~~~~~~~~~~~~~
+
+`man.viewer` 설정 변수에 'konqueror'가 지정되면, 'kfmclient'를
+실행하여 가능한 경우 이미 열려 있는 konqueror의 새 탭에서 매뉴얼 페이지를
+열려고 시도합니다.
+
+일관성을 위해, 'man.konqueror.path'가 `A_PATH_TO/konqueror`와 같은
+값으로 설정된 경우에도 이러한 트릭을 시도합니다. 즉, `A_PATH_TO/kfmclient`를
+대신 실행하려고 시도합니다.
+
+정말로 'konqueror'를 사용하려면 다음과 같이 할 수 있습니다:
+
+------------------------------------------------
+	[man]
+		viewer = konq
+
+	[man "konq"]
+		cmd = A_PATH_TO/konqueror
+------------------------------------------------
+
+Note about git config --global
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+이러한 모든 설정 변수는 아마도 `--global` 플래그를 사용하여 설정하는 것이
+좋을 것이며, 예를 들어 다음과 같습니다:
+
+------------------------------------------------
+$ git config --global help.format web
+$ git config --global web.browser firefox
+------------------------------------------------
+
+이 변수들은 저장소별 특성보다는 사용자별 특성이 더 클 가능성이 높기 때문입니다.
+이에 대한 자세한 내용은 linkgit:git-config[1]을 참조하십시오.
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

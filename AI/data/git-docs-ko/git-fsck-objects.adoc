@@ -1,0 +1,21 @@
+git-fsck-objects(1)
+===================
+
+NAME
+----
+git-fsck-objects - 저장소 내 객체의 연결성과 유효성을 검증합니다.
+
+
+SYNOPSIS
+--------
+[verse]
+'git fsck-objects' ...
+
+DESCRIPTION
+-----------
+
+이 명령어는 linkgit:git-fsck[1]의 별칭입니다. 해당 명령어의 문서를 참조하십시오.
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

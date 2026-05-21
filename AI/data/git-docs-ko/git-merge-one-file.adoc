@@ -1,0 +1,20 @@
+git-merge-one-file(1)
+=====================
+
+NAME
+----
+git-merge-one-file - `git-merge-index`와 함께 사용하는 표준 헬퍼 프로그램
+
+
+SYNOPSIS
+--------
+[verse]
+'git merge-one-file'
+
+DESCRIPTION
+-----------
+이것은 `git read-tree -m` 으로 수행된 간단한 머지 후에 머지를 해결하기 위해 `git merge-index`와 함께 사용하는 표준 헬퍼 프로그램입니다.
+
+GIT
+---
+linkgit:git[1] 스위트의 일부

@@ -57,6 +57,8 @@ export default function IncidentGame({
     viz,
     flying,
     showHint,
+    aiCoachingLoading,
+    aiCoachingMessage,
     setInput,
     toggleHint,
     refine,
@@ -111,10 +113,14 @@ export default function IncidentGame({
         ? 'perfect'
         : 'partial';
 
-  const coachingText =
-    phase === 'scored' && scored && scored.status !== 'perfect' && scored.status !== 'accepted'
-      ? scored.coaching
-      : null;
+  const coachingText = (() => {
+    if (phase !== 'scored' || !scored) return null;
+    if (scored.status === 'perfect' || scored.status === 'accepted') return null;
+    if (scored.status === 'lower-retry') return card.explanation;
+    if (aiCoachingLoading) return null;
+    if (aiCoachingMessage) return aiCoachingMessage;
+    return scored.coaching;
+  })();
 
   const canonicalReveal =
     coachingText || showAnswer ? { command: card.canonical, label: card.canonicalLabel } : null;
@@ -179,6 +185,7 @@ export default function IncidentGame({
           isLastCard={cardIndex === totalCards - 1}
           focusTrigger={inputFocusTrigger}
           currentBranch={currentBranch}
+          aiCoachingLoading={aiCoachingLoading}
         />
       </div>
 

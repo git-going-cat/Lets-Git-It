@@ -9,8 +9,12 @@ load_dotenv()
 
 from app.rag.search import search
 from app.rag.answer import stream_answer
+from app.rag.vector_store import load_index
+
+load_index()
 
 QUERIES = [
+    # 자연어 질의 (progit 기반)
     "git rebase와 git merge의 차이점",
     "git stash 사용법",
     "git cherry-pick이 뭐야",
@@ -19,6 +23,12 @@ QUERIES = [
     "git bisect로 버그 찾는 방법",
     "git reflog 언제 쓰는지",
     "서브모듈 추가하는 방법",
+    # 명령어 중심 질의 (git-docs-ko 기반)
+    "git restore --staged",
+    "git reset --soft HEAD~1",
+    "git cherry-pick 충돌 해결",
+    "git rebase -i squash",
+    "git switch -c 새 브랜치",
 ]
 
 async def eval_query(query: str) -> None:
@@ -32,7 +42,13 @@ async def eval_query(query: str) -> None:
         return
 
     top_score = chunks[0]["score"]
-    print(f"Top 유사도: {top_score:.3f} | 챕터: {chunks[0]['chapter']} > {chunks[0]['section']}")
+    source_types = [c.get("source_type", "unknown") for c in chunks]
+    type_dist = {t: source_types.count(t) for t in set(source_types)}
+    print(
+        f"Top 유사도: {top_score:.3f} | "
+        f"챕터: {chunks[0]['chapter']} > {chunks[0]['section']} | "
+        f"출처: {type_dist}"
+    )
 
     import json
     answer = ""
