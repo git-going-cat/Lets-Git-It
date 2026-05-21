@@ -168,7 +168,6 @@ export function useCommandInput() {
     };
 
     const handleMiss = () => {
-      setInputValue('');
       setHistory((prev) => [...prev, { text: 'MISS!', status: 'miss' }]);
       singleBus.emit('command:wrong');
     };
