@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useSetAtom } from 'jotai';
 
 import { incidentBus } from '../bridge/incidentBus';
+import { incidentAiCoachingAtom } from '../store/incidentAiCoachingAtom';
 import { incidentPhaseAtom } from '../store/incidentPhaseAtom';
 
 import type { IncidentStateRef } from '../types/incident.types';
@@ -13,12 +14,14 @@ import type { RefObject } from 'react';
  */
 export function useIncidentPhase(stateRef: RefObject<IncidentStateRef>) {
   const setPhase = useSetAtom(incidentPhaseAtom);
+  const setAiCoaching = useSetAtom(incidentAiCoachingAtom);
 
   const refine = useCallback(() => {
     stateRef.current.phase = 'idle';
     setPhase('idle');
+    setAiCoaching({ status: 'idle', message: null });
     incidentBus.emit('phase:idle');
-  }, [stateRef, setPhase]);
+  }, [stateRef, setPhase, setAiCoaching]);
 
   return { refine };
 }

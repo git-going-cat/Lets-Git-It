@@ -1,6 +1,6 @@
 import { checkForbidden, makeWrong } from '../utils/graders';
 
-import { SCENARIO1_BASE_COMMITS } from './card-1-1';
+import { AFTER_RESET_COMMITS } from './card-1-1';
 
 import type { Card, ScoreResult, VizState } from '../types/incident.types';
 
@@ -83,7 +83,7 @@ const card13: Card = {
       { name: 'README.md', icon: 'M', status: 'modified', kind: 'safe' },
       { name: '.env', icon: '!', status: 'added', kind: 'danger' },
     ],
-    commits: SCENARIO1_BASE_COMMITS,
+    commits: AFTER_RESET_COMMITS,
     stagingWarn: true,
   },
   flyTransition: {

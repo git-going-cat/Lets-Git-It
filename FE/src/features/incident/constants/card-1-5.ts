@@ -50,7 +50,7 @@ function grade(raw: string): ScoreResult | null {
 const AFTER_COMMIT_COMMITS = [
   {
     hash: 'c3d72f1',
-    msg: 'remove .env from tracking',
+    msg: 'chore: update gitignore',
     branch: 'HEAD → main',
     current: true,
     isNew: false,
