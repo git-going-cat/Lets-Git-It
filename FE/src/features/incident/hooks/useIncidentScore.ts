@@ -40,7 +40,7 @@ export function useIncidentScore(stateRef: RefObject<IncidentStateRef>, cards: C
       ? {
           ...result,
           status: 'lower-retry',
-          coaching: '이전 최고점보다 낮아요. 최고 기록에는 반영되지 않아요.',
+          coaching: '',
         }
       : result;
 
