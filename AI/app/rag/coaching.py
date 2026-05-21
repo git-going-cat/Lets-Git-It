@@ -11,38 +11,23 @@ from app.rag.context import build_context
 from app.rag.search import search
 
 
-async def generate_coaching(
-    user_input: str,
-    correct_command: str,
-    card_id: str,
-    score: int,
-    base: int,
-    must: int,
-    bonus: int,
-    explanation: str | None = None,
-) -> dict[str, Any]:
-    cache_key = make_coaching_cache_key(card_id, user_input)
+async def generate_coaching(user_input: str, correct_command: str) -> dict[str, Any]:
+    if is_git_like(user_input):
+        # 정상 git 명령어 입력 — userInput 기준 개인화 코칭
+        cache_key = make_coaching_cache_key(user_input, correct_command)
+        prompt = COACHING_PERSONAL_PROMPT
+        query = f"{user_input} {correct_command}"
+        user_msg = f"사용자 입력: {user_input}\n정답 명령어: {correct_command}"
+    else:
+        # edge case (한글/영어 무관 입력, 자연어) — correctCommand 설명
+        cache_key = make_command_cache_key(correct_command)
+        prompt = COACHING_SYSTEM_PROMPT
+        query = correct_command
+        user_msg = f"명령어: {correct_command}"
+
     cached = await get_cached(cache_key)
     if cached:
         return {**cached, "latencyMs": 0, "cached": True}
-
-    # 두 명령어 concat — 의도적으로 단순. 명령어 토큰이 함께 들어가야
-    # 차이점 청크가 잡힐 확률이 올라감. 자연어 쿼리 생성은 V2.
-    query = f"{user_input} {correct_command}"
-    chunks = await search(query, top_k=3)
-
-    context = build_context(chunks) if chunks else "관련 자료 없음"
-    explanation_block = explanation or "(제공되지 않음)"
-    user_content = (
-        f"사용자 입력: {user_input}\n"
-        f"정답 예시: {correct_command}\n"
-        f"채점 결과: base={base}/40, must={must}/40, bonus={bonus}/20 (총 {score}/100)\n"
-        f"카드 해설 (응답에 인용 금지, 내부 참고만): {explanation_block}"
-    )
-    messages = [
-        {"role": "system", "content": COACHING_SYSTEM_PROMPT.format(context=context)},
-        {"role": "user", "content": user_content},
-    ]
 
     try:
         chunks = await search(query, top_k=3)
