@@ -1,0 +1,13 @@
+be-ci:
+  stage: ci
+  image: amazoncorretto:17-alpine
+  tags: [dev]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - BE/**/*
+  script:
+    - cd $CI_PROJECT_DIR/BE/letsgitit
+    - chmod +x gradlew
+    - ./gradlew test -Dspring.profiles.active=test
+    - ./gradlew spotlessCheck

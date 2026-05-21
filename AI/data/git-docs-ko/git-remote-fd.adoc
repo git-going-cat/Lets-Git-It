@@ -1,0 +1,48 @@
+git-remote-fd(1)
+================
+
+NAME
+----
+git-remote-fd - 호출자로 스마트 전송 스트림 반사
+
+SYNOPSIS
+--------
+"fd::<infd>[,<outfd>][/<anything>]" (URL로)
+
+DESCRIPTION
+-----------
+이 헬퍼는 지정된 파일 디스크립터를 사용하여 원격 Git 서버에 연결합니다.
+이것은 최종 사용자용이 아니라 fetch, push 또는 archive를 호출하는 프로그램 및 스크립트용입니다.
+
+<infd>만 주어지면 원격 Git 서버(git-upload-pack, git-receive-pack 또는 git-upload-archive)에 연결된 양방향 소켓으로 가정됩니다. <infd>와 <outfd>가 모두 주어지면 원격 Git 서버에 연결된 파이프로 가정됩니다(<infd>는 인바운드 파이프이고 <outfd>는 아웃바운드 파이프).
+
+이 헬퍼가 시작되기 전에 모든 핸드셰이크 절차가 이미 완료되었다고 가정합니다(git://에 대한 서비스 요청 보내기와 같은).
+
+<anything>은 임의의 문자열이 될 수 있습니다. 무시됩니다. URL이 어떤 컨텍스트에서 표시될 경우 URL의 사용자에게 정보를 제공하기 위한 것입니다.
+
+ENVIRONMENT VARIABLES
+---------------------
+GIT_TRANSLOOP_DEBUG::
+	설정된 경우, 다양한 읽기/쓰기에 대한 디버깅 정보를 인쇄합니다.
+
+EXAMPLES
+--------
+`git fetch fd::17 master`::
+	git-upload-pack과 통신하기 위해 파일 디스크립터 #17을 사용하여 master를 가져옵니다.
+
+`git fetch fd::17/foo master`::
+	위와 동일합니다.
+
+`git push fd::7,8 master (URL로)`::
+	git-receive-pack에서 데이터를 읽기 위해 파일 디스크립터 #7을 사용하고 동일한 서비스로 데이터를 쓰기 위해 파일 디스크립터 #8을 사용하여 master를 푸시합니다.
+
+`git push fd::7,8/bar master`::
+	위와 동일합니다.
+
+SEE ALSO
+--------
+linkgit:gitremote-helpers[7]
+
+GIT
+---
+linkgit:git[1] suite의 일부

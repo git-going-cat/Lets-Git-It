@@ -1,0 +1,12 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+progit2-ko/
+scripts/
+.git/
+.gitignore
+docker-compose.yml
+README.md

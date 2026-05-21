@@ -1,0 +1,128 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.14'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.diffplug.spotless' version '6.25.0'
+}
+
+group = 'com.gitcat'
+version = '0.0.1-SNAPSHOT'
+description = 'letsgitit'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Web
+    implementation 'org.springframework.boot:spring-boot-starter-web'          // ← webmvc → web
+
+    // JPA
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // DB
+    runtimeOnly 'com.mysql:mysql-connector-j'
+
+    // Redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.redisson:redisson:3.35.0'
+
+    // WebSocket
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
+    // QueryDSL
+    implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
+    annotationProcessor "com.querydsl:querydsl-apt:5.1.0:jakarta"
+    annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
+
+    // Monitoring
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'com.github.loki4j:loki-logback-appender:1.5.1'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Swagger (SpringDoc OpenAPI)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
+
+    // Validation
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Dev
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'     // ← jpa-test, webmvc-test → starter-test 하나로
+    testImplementation 'com.h2database:h2'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Spring Security - 인증/인가 프레임워크
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // JWT 라이브러리 (jjwt) - 토큰 생성, 파싱, 검증
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    // 이메일 발송 (3단계에서 쓰지만 지금 추가해두는 게 편함)
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+    // OAuth2 Client (구글 소셜 로그인)
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+spotless {
+    java {
+        target 'src/**/*.java'
+        eclipse().configFile('style/naver-eclipse-formatter.xml')
+        importOrder('\\#', 'java', 'jakarta', 'org', 'net', 'com', '')
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+def generated = layout.buildDirectory.dir('generated/querydsl')
+
+tasks.withType(JavaCompile).configureEach {
+    options.getGeneratedSourceOutputDirectory().set(generated.get().asFile)
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir generated
+        }
+    }
+}
+
+clean {
+    delete layout.buildDirectory.dir('generated')
+}
+
+bootRun {
+    def envFile = file(".env")
+    if (envFile.exists()) {
+        envFile.readLines().each {
+            if (it && !it.startsWith("#")) {
+                def (key, value) = it.split("=", 2)
+                environment key.trim(), value.trim()
+            }
+        }
+    }
+}

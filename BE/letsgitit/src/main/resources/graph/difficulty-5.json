@@ -1,0 +1,17 @@
+{
+  "viewBox": "0 0 600 300",
+  "nodes": [
+    { "sequence": 1, "x": 80,  "y": 150, "label": "init",   "branch": "main",      "activateOnRound": 1, "activateOnStep": 3 },
+    { "sequence": 2, "x": 200, "y": 60,  "label": "reflog", "branch": "feature/a", "activateOnRound": 2, "activateOnStep": 3 },
+    { "sequence": 3, "x": 320, "y": 60,  "label": "rebase", "branch": "feature/a", "activateOnRound": 3, "activateOnStep": 4 },
+    { "sequence": 4, "x": 200, "y": 240, "label": "commit", "branch": "feature/b", "activateOnRound": 4, "activateOnStep": 3 },
+    { "sequence": 5, "x": 480, "y": 150, "label": "merge",  "branch": "main",      "activateOnRound": 5, "activateOnStep": 3 }
+  ],
+  "edges": [
+    { "from": 1, "to": 2, "type": "curve" },
+    { "from": 2, "to": 3, "type": "solid" },
+    { "from": 1, "to": 4, "type": "curve" },
+    { "from": 3, "to": 5, "type": "curve" },
+    { "from": 4, "to": 5, "type": "dashed" }
+  ]
+}

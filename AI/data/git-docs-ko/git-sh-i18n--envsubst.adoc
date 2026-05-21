@@ -1,0 +1,30 @@
+git-sh-i18n{litdd}envsubst(1)
+=============================
+
+NAME
+----
+git-sh-i18n--envsubst - i18n 폴백을 위한 Git 자체 envsubst(1)
+
+SYNOPSIS
+--------
+[verse]
+eval_gettext () {
+	printf "%s" "$1" | (
+		export PATH $('git sh-i18n{litdd}envsubst' --variables "$1");
+		'git sh-i18n{litdd}envsubst' "$1"
+	)
+}
+
+DESCRIPTION
+-----------
+
+이것은 최종 사용자가 실행하기를 원하는 명령이 아닙니다. 절대.
+이 문서는 내부 스크립트를 연구하거나 새로 작성하는 사람들을 위한 것입니다.
+
+`'git sh-i18n{litdd}envsubst'`는 GNU gettext 패키지에 포함된 GNU `envsubst(1)` 프로그램의 Git 축소 버전입니다. `eval_gettext` 함수에 전달된 변수를 보간하기 위해 linkgit:git-sh-i18n[1]에서 내부적으로 사용됩니다.
+
+인터페이스에 대한 약속은 없으며, 이 프로그램이 다음 Git 버전에서 경고 없이 사라지지 않을 수도 있습니다. 사용하지 마십시오.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

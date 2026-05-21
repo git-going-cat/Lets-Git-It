@@ -1,0 +1,39 @@
+git-pack-refs(1)
+================
+
+NAME
+----
+git-pack-refs - 효율적인 저장소 접근을 위한 헤드와 태그 압축
+
+SYNOPSIS
+--------
+[verse]
+'git pack-refs' [--all] [--no-prune] [--auto] [--include <pattern>] [--exclude <pattern>]
+
+DESCRIPTION
+-----------
+
+전통적으로 브랜치의 팁과 태그(통칭 'refs')는 `$GIT_DIR/refs` 디렉토리 아래의 (서브)디렉토리에 ref당 하나의 파일로 저장되어 왔습니다. 많은 브랜치 팁은 자주 업데이트되는 경향이 있지만, 대부분의 태그와 일부 브랜치 팁은 전혀 업데이트되지 않습니다. 저장소에 수백 또는 수천 개의 태그가 있을 때, 이 ref당 하나의 파일 형식은 스토리지를 낭비하고 성능을 저하시킵니다.
+
+이 명령은 ref를 하나의 파일인 `$GIT_DIR/packed-refs`에 저장하여 스토리지 및 성능 문제를 해결하는 데 사용됩니다. ref가 전통적인 `$GIT_DIR/refs` 디렉토리 계층 구조에서 누락된 경우, 이 파일에서 조회되며 발견되면 사용됩니다.
+
+이후 브랜치에 대한 업데이트는 항상 `$GIT_DIR/refs` 디렉토리 계층 구조 아래에 새 파일을 생성합니다.
+
+너무 많은 ref를 가진 저장소를 처리하는 권장 방법은 `--all` 옵션으로 ref를 한 번 압축하고, 가끔 `git pack-refs`를 실행하는 것입니다. 태그는 정의에 따라 고정되어 있으며 변경될 것으로 예상되지 않습니다. 브랜치 헤드는 초기 `pack-refs --all`과 함께 압축되지만, 현재 활성 브랜치 헤드만 압축이 해제되며, 다음 `pack-refs` ( `--all` 없이)는 이들을 압축 해제된 상태로 둡니다.
+
+
+OPTIONS
+-------
+
+include::pack-refs-options.adoc[]
+
+
+BUGS
+----
+
+packed-refs 메커니즘이 도입되기 전에 작성된 이전 문서에서는 ".git/refs/heads/<branch> file exists"와 같이, "branch <branch> exists"를 의미할 수 있습니다.
+
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

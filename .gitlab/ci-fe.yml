@@ -1,0 +1,16 @@
+fe-ci:
+  stage: ci
+  image: node:24.13.0
+  tags: [dev]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - FE/**/*
+  script:
+    - node -v
+    - npm -v
+    - cd $CI_PROJECT_DIR/FE
+    - npm ci
+    - npm run lint      # ESLint
+    - npm run format    # Prettier
+    - npm run test      # 테스트

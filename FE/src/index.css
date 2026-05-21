@@ -1,0 +1,387 @@
+@import 'tailwindcss';
+@import 'nes.css/css/nes.min.css';
+
+@font-face {
+  font-family: 'NeoDunggeunGothicPro';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2302@1.0/NeoDunggeunmoPro-Regular.woff2')
+    format('woff2');
+  font-weight: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-pixel: 'NeoDunggeunGothicPro', monospace;
+  --grid-template-rows-single-game: auto minmax(0, 1fr) 160px;
+  --width-explorer: 1040px;
+  --width-window-min: 300px;
+  --width-profile-modal: 540px;
+  --width-character-editor: 860px;
+  --width-modal-lg: 900px;
+  --width-modal-md: 600px;
+  --height-ranking-modal: 600px;
+  --height-modal-lg: 560px;
+  --height-modal-md: 480px;
+  /* NES 팔레트 — nes.css is-primary/is-error/is-success 버튼 기본/hover/active 색상 */
+  --color-nes-primary: #209cee;
+  --color-nes-primary-hover: #108de0;
+  --color-nes-primary-active: #0b78c2;
+  --color-nes-error: #e76e55;
+  --color-nes-error-hover: #d85f46;
+  --color-nes-error-active: #c84f36;
+  --color-nes-success: #92cc41;
+  --color-nes-success-hover: #7fb832;
+  --color-nes-success-active: #6fa326;
+  /* NES 팔레트 확장 — 사고처리반 게임 UI */
+  --color-nes-blue: #5fbef0; /* HEAD / 현재 브랜치 포인터 */
+  --color-nes-yellow: #f0c64a; /* 원격 브랜치 / untracked 파일 */
+  --color-nes-green-light: #cce8aa; /* 새 커밋 텍스트 하이라이트 */
+  --color-nes-pink: #ffb4a3; /* danger 파일명 */
+  --color-nes-dark: #0b0f18; /* MENTOR 배지 텍스트 */
+  --color-nes-darker: #1a1a2e; /* 코드 블록 배경 */
+  --color-nes-gray: #48505c; /* 비활성 커밋 노드·연결선 */
+  --color-nes-gray-mid: #7a8290; /* 비활성 커밋 해시 텍스트 */
+  --color-nes-gray-dark: #5a626e; /* 점수 미취득 텍스트 */
+  --color-nes-fg: #e8ecf2; /* 기본 파일명 텍스트 */
+  --color-game-bg: #212529; /* 게임 패널 배경 */
+  --color-nes-danger-tint: #2a1212; /* 위험 파일 pane 배경 */
+  --color-nes-blue-tint: #e8f4fd; /* 내러티브 i 배지 배경 */
+  /* 커밋 그래프 그림자 토큰 */
+  --shadow-commit-new: 0 0 0 4px rgba(146, 204, 65, 0.3);
+  --shadow-commit-current: 0 0 0 3px rgba(95, 190, 240, 0.25);
+  --radius-ranking-modal: 16px;
+  --z-index-window: 100;
+  --z-index-confirm-modal: 120;
+  --animate-restore-heal: restore-heal 700ms ease-out forwards;
+  --animate-stash-bang: stash-bang 400ms ease-out forwards;
+  --animate-paw-stamp: paw-stamp 550ms ease-out forwards;
+  --animate-paw-fade: paw-fade 250ms ease-out forwards;
+  --animate-item-pop: item-pop 0.55s ease-out;
+  --animate-screen-shake: screen-shake 350ms ease-out;
+  --z-index-60: 60;
+  --z-index-80: 80;
+  --z-index-100: 100;
+  --spacing-game-sidebar: 15%;
+  --width-game-center: 70%;
+}
+
+@keyframes restore-heal {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  60% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(3.5);
+    opacity: 0;
+  }
+}
+
+@keyframes stash-bang {
+  0% {
+    transform: scale(3.5);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  65% {
+    transform: scale(0.88);
+  }
+  80% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes paw-stamp {
+  0% {
+    transform: scale(4) translateY(-40px);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.15) translateY(0);
+  }
+  80% {
+    transform: scale(0.82) translateY(0);
+  }
+  90% {
+    transform: scale(1.04) translateY(0);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes paw-fade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes screen-shake {
+  0% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-10px);
+  }
+  30% {
+    transform: translateX(9px);
+  }
+  45% {
+    transform: translateX(-7px);
+  }
+  60% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+  90% {
+    transform: translateX(2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes item-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.4);
+  }
+  65% {
+    transform: scale(0.9);
+  }
+  82% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes pixel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes combo-pop {
+  0% {
+    transform: scale(1.7);
+    filter: brightness(1.8);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+.combo-pop {
+  animation: combo-pop 0.25s ease-out;
+}
+
+.pixel-pulse {
+  animation: pixel-pulse 1s steps(1) infinite;
+}
+
+.pixel-art {
+  image-rendering: pixelated;
+}
+
+/* nes.css button reset을 사용하는 화면에서 버튼 모서리 반경을 보장합니다. */
+.nes-rounded-button {
+  border-radius: 10px !important;
+}
+
+/* ================================================================
+ * 고양이 사고처리반 — 인게임 애니메이션
+ * ============================================================= */
+
+@keyframes warn-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(231, 110, 85, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(231, 110, 85, 0.22);
+  }
+}
+.pane-warn {
+  animation: warn-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes danger-blink {
+  0%,
+  100% {
+    background: rgba(231, 110, 85, 0.18);
+  }
+  50% {
+    background: rgba(231, 110, 85, 0.3);
+  }
+}
+.file-danger {
+  animation: danger-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes score-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.score-pop {
+  animation: score-pop 0.5s ease-out forwards;
+}
+
+@keyframes fly-back {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(-100px) translateY(-30px) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-260px) translateY(0) scale(1);
+    opacity: 0;
+  }
+}
+.file-fly {
+  animation: fly-back 0.7s ease-in forwards;
+}
+
+@keyframes fly-forward {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(100px) translateY(-20px) scale(1.05);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(260px) translateY(0) scale(0.85);
+    opacity: 0;
+  }
+}
+.file-fly-forward {
+  animation: fly-forward 0.8s ease-in forwards;
+}
+
+@keyframes commit-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.commit-pop {
+  animation: commit-pop 0.5s ease-out forwards;
+}
+
+@keyframes arrow-flow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.arrow-flow {
+  animation: arrow-flow 2.2s ease-in-out infinite;
+}
+
+.file-row {
+  transition: transform 120ms;
+}
+
+@keyframes cat-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.cat-bob {
+  animation: cat-bob 1.6s ease-in-out infinite;
+}
+
+/* AI 코칭 로딩 인디케이터 — bouncing dots */
+.loader,
+.loader:before,
+.loader:after {
+  border-radius: 50%;
+  width: 2.5em;
+  height: 2.5em;
+  animation-fill-mode: both;
+  animation: bblFadInOut 1.8s infinite ease-in-out;
+}
+.loader {
+  color: #fff;
+  font-size: 7px;
+  position: relative;
+  text-indent: -9999em;
+  transform: translateZ(0);
+  animation-delay: -0.16s;
+}
+.loader:before,
+.loader:after {
+  content: '';
+  position: absolute;
+  top: 0;
+}
+.loader:before {
+  left: -3.5em;
+  animation-delay: -0.32s;
+}
+.loader:after {
+  left: 3.5em;
+}
+@keyframes bblFadInOut {
+  0%,
+  80%,
+  100% {
+    box-shadow: 0 2.5em 0 -1.3em;
+  }
+  40% {
+    box-shadow: 0 2.5em 0 0;
+  }
+}

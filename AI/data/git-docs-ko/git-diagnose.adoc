@@ -1,0 +1,47 @@
+git-diagnose(1)
+================
+
+NAME
+----
+git-diagnose - 진단 정보의 zip 아카이브 생성
+
+SYNOPSIS
+--------
+[verse]
+'git diagnose' [(-o | --output-directory) <path>] [(-s | --suffix) <format>]
+	       [--mode=<mode>]
+
+DESCRIPTION
+-----------
+사용자의 머신, Git 클라이언트, 그리고 저장소 상태에 대한 상세 정보를 수집하여 zip 아카이브로 패키징합니다. 이렇게 생성된 아카이브는 예를 들어, Git 메일링 리스트와 공유하여 문제를 디버깅하거나 독립적인 디버깅을 위한 참조 자료로 사용할 수 있습니다.
+
+기본적으로 다음과 같은 정보가 아카이브에 캡처됩니다:
+
+  * 'git version --build-options'
+  * 저장소 루트 경로
+  * 파일 시스템의 사용 가능한 디스크 공간
+  * 대체 객체 저장소에 있는 것을 포함하여 각 packfile의 이름과 크기
+  * 느슨한(loose) 객체의 총 개수와 `.git/objects` 하위 디렉토리별 개수
+
+`--mode` 옵션을 사용하여 다른 진단 모드를 선택함으로써 추가 정보를 수집할 수 있습니다.
+
+이 도구는 linkgit:git-bugreport[1]와 달리 저장소 콘텐츠의 크기와 데이터 형태 보고에 중점을 두고 훨씬 더 상세한 정보를 수집합니다.
+
+OPTIONS
+-------
+-o <path>::
+--output-directory <path>::
+	결과로 생성되는 진단 아카이브를 현재 디렉토리가 아닌 `<path>`에 배치합니다.
+
+-s <format>::
+--suffix <format>::
+	진단 아카이브 이름에 대한 대체 접미사를 지정하여 'git-diagnostics-<formatted-suffix>' 라는 이름의 파일을 생성합니다. 이 값은 strftime(3) 형식 문자열이어야 하며, 현재 로컬 시간이 사용됩니다.
+
+--mode=(stats|all)::
+	수집할 진단의 유형을 지정합니다. 'git diagnose'의 기본 동작은 `--mode=stats`와 동일합니다.
++
+`--mode=all` 옵션은 `--mode=stats`에 포함된 모든 것과 `.git`, `.git/hooks`, `.git/info`, `.git/logs`, 그리고 `.git/objects/info` 디렉토리의 복사본을 수집합니다. 이 추가 정보는 진단된 저장소의 전체 내용을 재구성하는 데 사용될 수 있으므로 민감할 수 있습니다. 사용자는 `--mode=all`로 생성된 아카이브를 공유할 때 주의를 기울여야 합니다.
+
+GIT
+---
+linkgit:git[1] 제품군의 일부입니다.

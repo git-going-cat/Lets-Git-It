@@ -1,0 +1,29 @@
+git-annotate(1)
+===============
+
+NAME
+----
+git-annotate - 파일 라인에 커밋 정보 추가
+
+SYNOPSIS
+--------
+[verse]
+'git annotate' [<options>] [<rev-opts>] [<rev>] [--] <file>
+
+DESCRIPTION
+-----------
+주어진 파일의 각 라인에 해당 라인을 도입한 커밋의 정보로 주석을 답니다. 선택적으로 주어진 리비전부터 주석을 달 수 있습니다.
+
+이 명령어와 linkgit:git-blame[1] 간의 유일한 차이점은 약간 다른 출력 형식을 사용하고, 이 명령어는 기존 스크립트를 지원하기 위한 하위 호환성만을 위해 존재하며, 다른 SCM 시스템에서 온 사람들에게 더 익숙한 명령어 이름을 제공한다는 것입니다.
+
+OPTIONS
+-------
+include::blame-options.adoc[]
+
+SEE ALSO
+--------
+linkgit:git-blame[1]
+
+GIT
+---
+linkgit:git[1] 제품군의 일부

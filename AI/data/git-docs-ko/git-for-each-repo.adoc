@@ -1,0 +1,52 @@
+git-for-each-repo(1)
+====================
+
+NAME
+----
+git-for-each-repo - 저장소 목록에 Git 명령 실행
+
+
+SYNOPSIS
+--------
+[verse]
+'git for-each-repo' --config=<config> [--] <arguments>
+
+
+DESCRIPTION
+-----------
+저장소 목록에 Git 명령을 실행합니다. 알려진 옵션 또는 `--` 표시기 뒤에 오는 인수는 Git 하위 프로세스의 인수로 사용됩니다.
+
+이 명령은 실험적인 기능입니다. 동작이 변경될 수 있습니다.
+
+예를 들어, `maintenance.repo` 설정 변수에 저장된 저장소 목록 각각에 대해 유지보수를 실행할 수 있습니다.
+
+-------------
+git for-each-repo --config=maintenance.repo maintenance run
+-------------
+
+이것은 다중 값을 가지는 설정 변수 `maintenance.repo`에 있는 각 `<repo>` 값에 대해 `git -C <repo> maintenance run`을 실행합니다.
+
+
+OPTIONS
+-------
+--config=<config>::
+	주어진 설정 변수를 절대 경로 이름을 저장하는 다중 값 목록으로 사용합니다. 주어진 인수를 실행하기 위해 경로 목록을 반복합니다.
++
+이러한 설정 값은 시스템, 전역 및 로컬 Git 설정에서 사용 가능한 대로 로드됩니다. `git for-each-repo`가 Git 저장소가 아닌 디렉토리에서 실행되면 시스템 및 전역 설정만 사용됩니다.
+
+--keep-going::
+	명령이 특정 저장소에서 실패한 경우에도 나머지 저장소에 대해 계속 진행합니다. 종료 코드는 여전히 전체 작업이 성공적이지 않았음을 나타냅니다.
++
+실패한 명령의 정확한 종료 코드가 `for-each-repo` 명령의 종료 코드로 전달되지 않는다는 점에 유의하십시오: 명령이 지정된 저장소 중 하나라도 실패하면 전체 종료 코드는 1이 됩니다.
+
+SUBPROCESS BEHAVIOR
+-------------------
+
+`git -C <repo> <arguments>` 하위 프로세스가 0이 아닌 종료 코드를 반환하는 경우, `git for-each-repo` 프로세스는 더 이상 하위 프로세스를 실행하지 않고 해당 종료 코드를 반환합니다.
+
+각 `git -C <repo> <arguments>` 하위 프로세스는 표준 파일 디스크립터 `stdin`, `stdout`, `stderr`를 상속합니다.
+
+
+GIT
+---
+linkgit:git[1] 모음의 일부

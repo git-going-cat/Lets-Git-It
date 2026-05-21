@@ -1,0 +1,92 @@
+git-shortlog(1)
+===============
+
+NAME
+----
+git-shortlog - `git log` 출력 요약
+
+SYNOPSIS
+--------
+[synopsis]
+git shortlog [<options>] [<revision-range>] [[--] <path>...]
+git log --pretty=short | git shortlog [<options>]
+
+DESCRIPTION
+-----------
+릴리스 공지에 포함하기에 적합한 형식으로 `git log` 출력을 요약합니다. 각 커밋은 작성자와 제목별로 그룹화됩니다.
+
+추가적으로, "[PATCH]"는 커밋 설명에서 제거됩니다.
+
+명령줄에서 리비전이 전달되지 않고 표준 입력이 터미널이 아니거나 현재 브랜치가 없는 경우, `git shortlog`는 현재 저장소에 대한 참조 없이 표준 입력에서 읽은 로그의 요약을 출력합니다.
+
+OPTIONS
+-------
+
+`-n`::
+`--numbered`::
+	작성자 알파벳 순서 대신 작성자별 커밋 수에 따라 출력을 정렬합니다.
+
+`-s`::
+`--summary`::
+	커밋 설명을 억제하고 커밋 수 요약만 제공합니다.
+
+`-e`::
+`--email`::
+	각 작성자의 이메일 주소를 표시합니다.
+
+`--format[=<format>]`::
+	커밋 제목 대신 각 커밋을 설명하는 다른 정보를 사용합니다. _<format>_은 `git log`의 `--format` 옵션에서 허용하는 모든 문자열이 될 수 있습니다. (linkgit:git-log[1]의 'PRETTY FORMATS' 섹션을 참조하십시오.)
++
+예쁘게 인쇄된 각 커밋은 표시되기 전에 다시 줄 바꿈됩니다.
+
+`--date=<format>`::
+	주어진 날짜 문자열에 따라 형식화된 날짜를 표시합니다. (linkgit:git-log[1]의 'Commit Formatting' 섹션에서 `--date` 옵션을 참조하십시오.) `--group=format:<format>`과 함께 사용하면 유용합니다.
+
+`--group=<type>`::
+	_<type>_에 따라 커밋을 그룹화합니다. `--group` 옵션이 지정되지 않으면 기본값은 `author`입니다. _<type>_은 다음 중 하나입니다:
++
+--
+ - `author`, 작성자별로 커밋을 그룹화합니다.
+ - `committer`, 커미터별로 커밋을 그룹화합니다. (`-c`와 동일)
+ - `trailer:<field>`, _<field>_는 대소문자를 구분하지 않는 커밋 메시지 트레일러로 해석됩니다 (linkgit:git-interpret-trailers[1] 참조). 예를 들어, 프로젝트에서 `Reviewed-by` 트레일러를 사용하는 경우, `git shortlog -ns --group=trailer:reviewed-by`를 사용하여 누가 검토했는지 확인할 수 있습니다.
++
+트레일러를 포함하지 않는 커밋은 집계되지 않습니다.
+마찬가지로, 여러 트레일러가 있는 커밋(예: 여러 번의 서명)은 여러 번 집계될 수 있습니다 (하지만 해당 커밋의 고유한 트레일러 값당 한 번만 집계됩니다).
++
+Shortlog는 각 트레일러 값을 `name <email>` 형식의 식별자로 파싱하려고 시도합니다. 성공하면 메일맵이 적용되고 `--email` 옵션이 지정되지 않는 한 이메일이 생략됩니다. 값이 식별자로 파싱될 수 없으면 리터럴로 완전히 처리됩니다.
+
+ - `format:<format>`, `git log`의 `--format` 옵션에서 허용하는 모든 문자열입니다. (linkgit:git-log[1]의 'PRETTY FORMATS' 섹션을 참조하십시오.)
+--
++
+`--group`이 여러 번 지정되면 각 값 아래에 커밋이 집계됩니다 (하지만 해당 커밋의 고유한 값당 한 번만 집계됩니다). 예를 들어, `git shortlog --group=author --group=trailer:co-authored-by`는 작성자와 공동 작성자를 모두 집계합니다.
+
+`-c`::
+`--committer`::
+	`--group=committer`의 별칭입니다.
+
+`-w[<width>[,<indent1>[,<indent2>]]]`::
+	각 줄을 `width`에서 줄 바꿈하여 출력을 줄 바꿈합니다. 각 항목의 첫 번째 줄은 `indent1` 공백으로 들여쓰기되고, 두 번째 줄부터는 `indent2` 공백으로 들여쓰기됩니다. `width`, `indent1`, `indent2`는 기본적으로 각각 76, 6, 9입니다.
++
+width가 `0` (영)이면 줄을 줄 바꿈하지 않고 출력 줄을 들여씁니다.
+
+`<revision-range>`::
+	지정된 리비전 범위의 커밋만 표시합니다. _<revision-range>_가 지정되지 않으면 기본값은 `HEAD` (즉, 현재 커밋까지의 전체 히스토리)입니다. `origin..HEAD`는 현재 커밋 (`HEAD`)에서 도달 가능하지만 `origin`에서는 도달할 수 없는 모든 커밋을 지정합니다. _<revision-range>_를 지정하는 완전한 목록은 linkgit:gitrevisions[7]의 'Specifying Ranges' 섹션을 참조하십시오.
+
+`[--] <path>...`::
+	지정된 경로와 일치하는 파일의 생성 이유를 설명하기에 충분한 커밋만 고려합니다.
++
+혼동이 발생하는 경우, 옵션이나 리비전 범위와 구분하기 위해 경로에 `--`를 접두사로 붙여야 할 수 있습니다.
+
+:git-shortlog: 1
+include::rev-list-options.adoc[]
+
+MAPPING AUTHORS
+---------------
+
+linkgit:gitmailmap[5]을 참조하십시오.
+
+저장소 외부에서 `git shortlog`를 실행하여 (표준 입력에서 로그 내용을 처리하기 위해) 실행하는 경우, 현재 디렉토리에서 `.mailmap` 파일을 찾습니다.
+
+GIT
+---
+linkgit:git[1] 스위트의 일부입니다.

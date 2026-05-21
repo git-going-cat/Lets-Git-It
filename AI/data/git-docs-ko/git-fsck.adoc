@@ -1,0 +1,131 @@
+git-fsck(1)
+===========
+
+NAME
+----
+git-fsck - 저장소 내 객체의 연결성과 유효성을 검증합니다.
+
+
+SYNOPSIS
+--------
+[verse]
+'git fsck' [--tags] [--root] [--unreachable] [--cache] [--no-reflogs]
+	 [--[no-]full] [--strict] [--verbose] [--lost-found]
+	 [--[no-]dangling] [--[no-]progress] [--connectivity-only]
+	 [--[no-]name-objects] [--[no-]references] [<object>...]
+
+DESCRIPTION
+-----------
+저장소 내 객체의 연결성과 유효성을 검증합니다.
+
+OPTIONS
+-------
+<object>::
+	연결되지 않은 경로 추적의 헤드(head)로 취급할 객체입니다.
++
+객체가 제공되지 않으면, 'git fsck'는 기본적으로 인덱스 파일, `refs` 네임스페이스의 모든 SHA-1 참조, 그리고 모든 reflog(reflogs)를 헤드로 사용합니다 (--no-reflogs가 지정되지 않은 경우).
+
+--unreachable::
+	존재하지만 지정된 참조 노드로부터 도달할 수 없는 객체를 출력합니다.
+
+--dangling::
+--no-dangling::
+	'직접' 사용되지 않는 객체를 출력합니다 (기본값).
+	`--no-dangling`을 사용하여 이 정보를 출력에서 제외할 수 있습니다.
+
+--root::
+	루트 노드(root nodes)를 보고합니다.
+
+--tags::
+	태그(tags)를 보고합니다.
+
+--cache::
+	인덱스에 기록된 모든 객체를 연결되지 않은 경로 추적의 헤드 노드로 간주합니다.
+
+--no-reflogs::
+	reflog의 항목에 의해서만 참조되는 커밋을 도달 가능하다고 간주하지 않습니다. 이 옵션은 기존에는 ref에 속했지만 이제는 그렇지 않지만 해당 reflog에는 여전히 남아 있는 커밋을 찾는 데만 사용됩니다.
+
+--full::
+	GIT_OBJECT_DIRECTORY ($GIT_DIR/objects)에 있는 객체뿐만 아니라, GIT_ALTERNATE_OBJECT_DIRECTORIES 또는 $GIT_DIR/objects/info/alternates에 나열된 대체 객체 풀(alternate object pools)에 있는 객체, 그리고 $GIT_DIR/objects/pack에 있는 Packed Git 아카이브와 대체 객체 풀의 해당 pack 하위 디렉토리에 있는 객체도 검사합니다. 이것이 기본 동작이며, --no-full로 비활성화할 수 있습니다.
+
+--connectivity-only::
+	도달 가능한(reachable) 객체의 연결성만 검사하여, 도달 가능한 태그, 커밋 또는 트리에 의해 참조되는 모든 객체가 존재하는지 확인합니다. 이 옵션은 블롭(blobs)을 완전히 읽는 것을 피함으로써 작동을 빠르게 합니다 (참조된 블롭이 존재하는지는 여전히 확인합니다). 이 옵션을 사용하면 커밋 및 트리의 손상을 감지할 수 있지만, 의미론적 검사(예: 형식 오류)는 수행하지 않습니다. 블롭 객체의 손상은 전혀 감지되지 않습니다.
++
+연결되지 않은 태그, 커밋 및 트리가 댕글링(dangling) 기록의 끝을 찾기 위해 액세스됩니다. 이 출력이 중요하지 않고 더 빠르게 실행하고 싶다면 --no-dangling을 사용하세요.
+
+--strict::
+	더 엄격한 검사를 활성화하여, 이전 버전의 Git에서 생성된 g+w 비트가 설정된 파일 모드를 잡습니다. Linux 커널, Git 자체, 희소 저장소(sparse repository)를 포함한 기존 저장소에는 이 검사를 트리거하는 오래된 객체가 있지만, 새 프로젝트에는 이 플래그를 사용하여 확인하는 것이 좋습니다.
+
+--verbose::
+	상세하게 출력합니다.
+
+--lost-found::
+	댕글링 객체를 타입에 따라 .git/lost-found/commit/ 또는 .git/lost-found/other/에 씁니다. 객체가 블롭인 경우, 객체 이름 대신 내용이 파일에 기록됩니다.
+
+--name-objects::
+	도달 가능한 객체의 이름을 표시할 때, SHA-1 외에도 linkgit:git-rev-parse[1]와 호환되는, 해당 객체가 어떻게 도달 가능한지를 설명하는 이름을 표시합니다. 예: `HEAD@{1234567890}~25^2:src/`.
+
+--progress::
+--no-progress::
+	표준 오류 스트림이 터미널에 연결되어 있을 때 기본적으로 진행 상태가 보고됩니다. --no-progress 또는 --verbose가 지정되지 않은 경우에 해당합니다. --progress는 표준 오류 스트림이 터미널로 향하지 않더라도 진행 상태를 강제로 보고합니다.
+
+--references::
+--no-references::
+	'git refs verify'를 통해 참조 데이터베이스의 일관성을 확인할지 여부를 제어합니다. 자세한 내용은 linkgit:git-refs[1]를 참조하십시오. 기본값은 참조 데이터베이스를 확인하는 것입니다.
+
+CONFIGURATION
+-------------
+
+include::includes/cmd-config-section-all.adoc[]
+
+include::config/fsck.adoc[]
+
+DISCUSSION
+----------
+
+git-fsck는 SHA-1 및 일반 객체의 무결성을 테스트하며, 결과적인 도달 가능성 및 기타 모든 것을 완전히 추적합니다. 발견된 모든 손상(누락되거나 잘못된 객체)을 출력하며, `--unreachable` 플래그를 사용하면 지정된 헤드 노드(또는 위에서 언급한 기본 집합)로부터 도달할 수 없는 객체도 출력합니다.
+
+손상된 객체는 백업이나 다른 저장소에서 찾아야 합니다 (즉, 해당 객체를 제거하고 다른 사이트와 'rsync'를 수행하여 다른 사람이 해당 객체를 가지고 있기를 바랄 수 있습니다).
+
+core.commitGraph가 true이면, 'git commit-graph verify'를 사용하여 커밋-그래프 파일도 검사됩니다. linkgit:git-commit-graph[1]를 참조하십시오.
+
+Extracted Diagnostics
+---------------------
+
+unreachable <type> <object>::
+	<type> 객체 <object>는 실제로는 트리의 어느 커밋이나 트리에 직접 또는 간접적으로 참조되지 않습니다. 이것은 지정하지 않은 다른 루트 노드가 있거나 트리가 손상되었음을 의미할 수 있습니다. 루트 노드를 놓치지 않았다면, 사용할 수 없으므로 연결되지 않은 노드를 삭제해도 괜찮습니다.
+
+missing <type> <object>::
+	<type> 객체 <object>는 참조되었지만 데이터베이스에 존재하지 않습니다.
+
+dangling <type> <object>::
+	<type> 객체 <object>는 데이터베이스에 존재하지만 '직접' 사용된 적이 없습니다. 댕글링 커밋은 루트 노드일 수 있습니다.
+
+hash mismatch <object>::
+	데이터베이스에 객체가 있지만 해시 값이 객체 데이터베이스 값과 일치하지 않습니다.
+	이는 심각한 데이터 무결성 문제를 나타냅니다.
+
+
+FSCK MESSAGES
+-------------
+
+다음은 `git fsck`가 감지하는 오류 유형과 각 오류의 의미 및 기본 심각도를 나열합니다. (FATAL)으로 표시된 오류를 제외한 오류의 심각도는 해당 `fsck.<msg-id>` 구성 변수를 설정하여 조정할 수 있습니다.
+
+include::fsck-msgids.adoc[]
+
+
+Environment Variables
+---------------------
+
+GIT_OBJECT_DIRECTORY::
+	객체 데이터베이스 루트를 지정하는 데 사용됩니다 (일반적으로 $GIT_DIR/objects).
+
+GIT_INDEX_FILE::
+	인덱스의 인덱스 파일을 지정하는 데 사용됩니다.
+
+GIT_ALTERNATE_OBJECT_DIRECTORIES::
+	추가 객체 데이터베이스 루트를 지정하는 데 사용됩니다 (일반적으로 설정되지 않음).
+
+GIT
+---
+linkgit:git[1] 제품군의 일부입니다.
