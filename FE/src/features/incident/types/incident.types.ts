@@ -98,5 +98,6 @@ export interface Scenario {
   difficulty: 1 | 2 | 3 | 4 | 5;
   synopsis: string;
   story: string;
+  clearMemo?: string;
   cards: Card[];
 }

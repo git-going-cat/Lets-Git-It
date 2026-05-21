@@ -120,7 +120,7 @@ export default function InputRow({
                   </span>
                 </div>
                 {h.mockOutput && (
-                  <pre className="m-0 ml-6 whitespace-pre-wrap font-mono text-sm leading-snug text-white/80">
+                  <pre className="m-0 ml-6 overflow-hidden! whitespace-pre-wrap font-mono text-sm leading-snug text-white/80">
                     {h.mockOutput}
                   </pre>
                 )}

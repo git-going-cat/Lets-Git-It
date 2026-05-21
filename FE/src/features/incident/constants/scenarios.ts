@@ -1,3 +1,8 @@
+import card01 from './card-0-1';
+import card02 from './card-0-2';
+import card03 from './card-0-3';
+import card04 from './card-0-4';
+import card05 from './card-0-5';
 import card11 from './card-1-1';
 import card12 from './card-1-2';
 import card13 from './card-1-3';
@@ -12,6 +17,17 @@ import card45 from './card-4-5';
 import type { Scenario } from '../types/incident.types';
 
 export const SCENARIOS: Scenario[] = [
+  {
+    id: 0,
+    title: '첫 출근',
+    difficulty: 1,
+    synopsis: '신입 고양이의 첫 일감',
+    story:
+      '신입 고양이가 첫 일감(`feat/login`)을 받아왔어요.\n저장소를 받아오고, 브랜치를 만들고, 작업하고, 커밋하고, 원격에 올리기까지\ngit의 기본 워크플로우 5단계를 익혀봐요!',
+    clearMemo:
+      '기본 흐름을 익혔어요! 이제 사고가 나도 어디서 어그러진 건지 알 수 있어요.\n다음 시나리오에서 고양이가 친 사고를 같이 수습해봅시다.',
+    cards: [card01, card02, card03, card04, card05],
+  },
   {
     id: 1,
     title: 'API 키 노출 사건',
