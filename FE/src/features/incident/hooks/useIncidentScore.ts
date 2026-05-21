@@ -51,16 +51,15 @@ export function useIncidentScore(stateRef: RefObject<IncidentStateRef>, cards: C
           ? '#f0c64a'
           : '#e76e55';
 
-    const isPositive =
-      effective.status === 'perfect' ||
-      effective.status === 'accepted' ||
-      effective.status === 'partial';
     const entry: HistoryEntry = {
       text: input.trim(),
       color,
       score: result.total,
       cardId: currentCard.id,
-      mockOutput: isPositive ? currentCard.mockOutput : undefined,
+      mockOutput:
+        effective.status === 'perfect' || effective.status === 'accepted'
+          ? currentCard.mockOutput
+          : undefined,
     };
 
     const newBest = isLowerThanBest ? bestScore : result.total;

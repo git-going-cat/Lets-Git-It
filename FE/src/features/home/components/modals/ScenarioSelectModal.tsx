@@ -15,7 +15,7 @@ interface ScenarioSelectModalProps {
 }
 
 // ── 잠금 정책 ─────────────────────────────────────────────
-// 시나리오 1은 항상 해금. 시나리오 4는 1 클리어 후 해금. 2·3은 미구현 잠금.
+// 시나리오 0(튜토리얼)은 항상 해금. 시나리오 1은 0 클리어 후, 4는 1 클리어 후 해금. 2·3은 미구현 잠금.
 
 // 미구현 placeholder: ScenarioSelectModal UI 구성 전용. 실제 카드 없음.
 const UNIMPLEMENTED_PLACEHOLDERS = [
@@ -55,13 +55,17 @@ export default function ScenarioSelectModal({
   );
 
   const isUnlocked = (id: number) => {
-    if (id === 1) return true;
+    if (id === 0) return true;
+    if (id === 1) return isIncidentCleared(0);
     if (id === 4) return isIncidentCleared(1);
     return false;
   };
 
-  const lockedReason = (id: number) =>
-    id === 4 ? '사건 #1을 먼저 해결하세요' : '준비 중인 사건입니다';
+  const lockedReason = (id: number) => {
+    if (id === 1) return '튜토리얼(사건 #0)을 먼저 완료하세요';
+    if (id === 4) return '사건 #1을 먼저 해결하세요';
+    return '준비 중인 사건입니다';
+  };
 
   const handleSelect = async (scenarioId: number) => {
     if (!onStartScenario) return;
