@@ -917,6 +917,31 @@ class RoomServiceImplTest {
 			inOrder.verify(contributionGameService).deleteSession(gameSessionId);
 			inOrder.verify(roomWebSocketEventPublisher).publishContributionGameEnd(ROOM_ID, gameEnd);
 		}
+
+		@Test
+		void leaveGameIfDisconnected_removes_contribution_waiting_room_member() {
+			PlayerInfoDto leftPlayer = player(MEMBER_ID, "member", false);
+			PlayerInfoDto host = player(OTHER_ID, "host", true);
+			Map<Object, Object> beforeMembers = Map.of("member", "before", "host", "before");
+			Map<Object, Object> afterMembers = Map.of("host", "after");
+			given(roomRedisRepository.findJoinedRoomId(MEMBER_ID.toString())).willReturn(Optional.of(ROOM_ID));
+			given(roomRedisRepository.findModeById(ROOM_ID)).willReturn("CONTRIBUTION");
+			given(roomRedisRepository.findRoomStateById(ROOM_ID)).willReturn("WAITING");
+			given(roomRedisRepository.existsById(ROOM_ID)).willReturn(true);
+			given(redissonClient.getLock(anyString())).willReturn(rLock);
+			given(roomRedisRepository.existsMember(ROOM_ID, MEMBER_ID.toString())).willReturn(true);
+			given(roomRedisRepository.findHostIdById(ROOM_ID)).willReturn(OTHER_ID.toString());
+			given(roomRedisRepository.getMembers(ROOM_ID.toString())).willReturn(beforeMembers, afterMembers);
+			given(roomMemberMapper.toPlayerInfoDtos(beforeMembers)).willReturn(List.of(leftPlayer, host));
+			given(roomMemberMapper.toPlayerInfoDtos(afterMembers)).willReturn(List.of(host));
+
+			roomService.leaveGameIfDisconnected(MEMBER_ID.toString());
+
+			then(roomRedisRepository).should().removeMember(ROOM_ID, MEMBER_ID.toString());
+			then(roomWebSocketEventPublisher).should()
+				.publishPlayerLeft(ROOM_ID, MEMBER_ID, "member", List.of(host), "WAITING");
+			then(contributionGameService).shouldHaveNoInteractions();
+		}
 	}
 
 	@Nested
