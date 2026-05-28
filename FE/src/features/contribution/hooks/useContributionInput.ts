@@ -62,7 +62,10 @@ export function useContributionInput() {
       const text = pendingTextsRef.current.get(requestId) ?? '';
       pendingTextsRef.current.delete(requestId);
       if (errorCode === 'INVALID_BRANCH') {
-        setHistory((prev) => [...prev, { text: '잘못된 브랜치입니다!', status: 'wrong-branch' }]);
+        setHistory((prev) => [
+          ...prev,
+          { text: '브랜치를 이동해주세요! (hint: git switch <branch>)', status: 'wrong-branch' },
+        ]);
       } else if (errorCode === 'WRONG_COMMAND') {
         setHistory((prev) => [...prev, { text, status: 'typo' }]);
       } else {

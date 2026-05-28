@@ -111,7 +111,11 @@ export function useGameLifecycle({
       const missCount = stateRef.current.livesLost;
       const typoCount = typoRef.current;
       if (status !== 'SUCCESS') {
-        analytics.gameOver(diff, playTimeMs);
+        analytics.gameOver(
+          diff,
+          playTimeMs,
+          status as 'GAMEOVER' | 'ESCAPE_FAILED' | 'SESSION_EXPIRED'
+        );
         setGameResult({ status, score: 0, grade: 'F', playTimeMs, missCount, typoCount });
       } else {
         const totalCommands = countScoringCommands(useSingleStore.getState().commandSet, diff);
