@@ -2,8 +2,10 @@ import { atom } from 'jotai';
 
 import type { Grade } from '@/shared/types/game.types';
 
+export type GameEndReason = 'SUCCESS' | 'GAMEOVER' | 'ESCAPE_FAILED' | 'SESSION_EXPIRED';
+
 export interface GameResult {
-  status: 'SUCCESS' | 'GAMEOVER' | 'ESCAPE_FAILED' | 'SESSION_EXPIRED';
+  status: GameEndReason;
   score: number;
   grade: Grade;
   playTimeMs: number;

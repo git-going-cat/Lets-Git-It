@@ -31,7 +31,7 @@ VITE_FARO_URL=              # Grafana Alloy 수집 엔드포인트 (BE 팀에서
 ## PostHog
 
 ### 초기화
-`src/providers/PostHogProvider.tsx` — `POSTHOG_KEY && MODE === 'production'` 조건 모두 충족 시에만 init.  
+`src/providers/PostHogProvider.tsx` — `POSTHOG_KEY && MODE === 'production'` 조건 모두 충족 시에만 init.
 `src/routes/__root.tsx` — `PostHogPageView`를 Router context 안에서 렌더.
 
 ### 수집 이벤트
@@ -65,13 +65,6 @@ VITE_FARO_URL=              # Grafana Alloy 수집 엔드포인트 (BE 팀에서
 | `contribution_game_ended` | 결과 모달 최초 표시 | `roomId`, `sessionId`, `isSuccess`, `myRank`, `rankingsCount`, `reason` |
 | `contribution_game_exited` | 결과 모달 또는 게임 중 이탈 | `roomId`, `via: 'home' \| 'back_to_room' \| 'kicked' \| 'force_disconnect'` |
 
-#### Coop 게임 funnel
-| 이벤트 | 발생 시점 | 주요 프로퍼티 |
-|--------|-----------|---------------|
-| `coop_game_started` | 라운드 1 reveal 수신 시 1회 | `roomId`, `sessionId`, `playerCount`, `mapName` |
-| `coop_game_ended` | 게임 종료 | `roomId`, `sessionId`, `isSuccess`, `reason`, `elapsedTimeMs`, `hasNewRecord`, `totalTypoCount`, `totalResetCount` |
-| `coop_order_reset` | 순서 오류로 리셋 발생 | `roomId`, `sessionId`, `round`, `isMe` |
-
 #### Incident (장애 대응) funnel
 | 이벤트 | 발생 시점 | 주요 프로퍼티 |
 |--------|-----------|---------------|
@@ -79,13 +72,15 @@ VITE_FARO_URL=              # Grafana Alloy 수집 엔드포인트 (BE 팀에서
 | `incident_scenario_completed` | 마지막 카드 완료 | `scenarioId`, `scenarioTitle`, `cardCount`, `totalScore`, `maxScore`, `durationMs` |
 | `incident_scenario_abandoned` | 결과 모달 표시 전 나가기 | `scenarioId`, `scenarioTitle`, `currentCardIndex`, `cardCount`, `durationMs` |
 
+> Coop 도메인은 미구현 상태로 이번 작업 범위에서 제외되어 있습니다. 도메인 안정화 시점에 별도 funnel을 추가합니다.
+
 ### 유저 식별
 - 기존 유저 로그인 시: `posthog.identify(memberId)`
 - 신규 유저 닉네임 설정 완료 시: `posthog.identify(memberId)`
 - 로그아웃 시: `posthog.reset()` — 디바이스 공유 시 유저 혼용 방지
 
 ### analytics wrapper
-모든 PostHog 이벤트 호출은 `src/lib/analytics.ts`를 통해 사용합니다.  
+모든 PostHog 이벤트 호출은 `src/lib/analytics.ts`를 통해 사용합니다.
 WS 끊김 이벤트(`reportWsDisconnect`)는 PostHog가 아닌 Faro + Sentry로 전송합니다.
 
 ```ts
@@ -93,7 +88,7 @@ import { analytics } from '@/lib/analytics';
 
 analytics.gameStarted('single', 'EASY');
 analytics.gameCompleted('NORMAL', 1500, 120000);
-analytics.coopGameStarted({ roomId: 1, sessionId: 'abc', playerCount: 4, mapName: '기초편' });
+analytics.contributionGameStarted({ roomId: 1, sessionId: 'abc', playerCount: 4 });
 ```
 
 ---
@@ -122,7 +117,7 @@ analytics.coopGameStarted({ roomId: 1, sessionId: 'abc', playerCount: 4, mapName
 FE 에러 로그를 BE 팀의 Grafana(Loki)로 전송하여 BE 로그와 같은 화면에서 조회합니다.
 
 ### 초기화
-`src/lib/faro.ts` — `VITE_FARO_URL`이 설정된 경우에만 초기화.  
+`src/lib/faro.ts` — `VITE_FARO_URL`이 설정된 경우에만 초기화.
 `src/main.tsx` — 앱 최상단에서 `import './lib/faro'`로 조기 로드.
 
 ### X-Request-Id 연결
@@ -134,7 +129,7 @@ FE 요청  →  X-Request-Id: <uuid>  →  BE MDC 로그에 동일 값 기록
 FE 에러  →  Faro 로그에 request_id 포함  →  Grafana에서 동일 ID로 검색
 ```
 
-BE가 헤더를 수신하면 해당 값을 MDC에 사용하고, 응답 헤더 `X-Request-Id`로 반환합니다.  
+BE가 헤더를 수신하면 해당 값을 MDC에 사용하고, 응답 헤더 `X-Request-Id`로 반환합니다.
 헤더가 없으면 BE가 자체 생성하므로 FE 로그와 연결되지 않습니다.
 
 ### 에러 로깅
@@ -159,12 +154,18 @@ BE가 헤더를 수신하면 해당 값을 MDC에 사용하고, 응답 헤더 `X
 | `feature` | 어느 도메인에서 발생했는지 (`multi`, `contribution` 등) |
 | `room_id` | 도메인 훅에서 enrichment된 경우 |
 
-WS 끊김은 3단계 레이어에서 수집됩니다.
+WS 끊김은 2단계 레이어에서 수집됩니다.
 
 | 레이어 | 위치 | kind |
 |--------|------|------|
 | 소켓 레이어 (raw) | `SocketManager.ts` | `tcp_close`, `stomp_error` |
 | 대기실 레이어 (enriched) | `useRoomSocket.ts` | `force_disconnect` + `feature=multi` + `roomId` |
+
+#### Noise 차단 메커니즘
+정상 종료/연쇄 close가 모니터링에 누적되지 않도록 두 가드를 적용합니다.
+
+- **`intentionalDisconnect` 플래그**: `disconnect()` / `reconnectWithFreshToken()` / TERMINAL_AUTH 종료 경로에서 set. `onWebSocketClose`가 read + reset하여 의도된 끊김에는 `tcp_close`를 발화하지 않습니다.
+- **`lastDisconnectError` 가드**: STOMP error 직후 서버가 연쇄적으로 close하는 경우, `lastDisconnectError`가 set 상태인 동안 `tcp_close`를 발화하지 않아 같은 사건이 2회 누적되지 않습니다. `onConnect` 성공 시 reset.
 
 ### BE 팀 전달 사항
 - **헤더명**: `X-Request-Id` (HTTP 헤더 대소문자 무관)
@@ -183,11 +184,12 @@ WS 끊김은 3단계 레이어에서 수집됩니다.
 | `src/providers/PostHogProvider.tsx` | PostHog 초기화 (production 전용), PHProvider |
 | `src/routes/__root.tsx` | PostHogPageView (Router context 내부) |
 | `src/core/http.ts` | X-Request-Id 헤더 부착, Faro API 에러 로깅 |
-| `src/core/socket/SocketManager.ts` | WS tcp_close / stomp_error 끊김 감지 |
+| `src/core/socket/SocketManager.ts` | WS tcp_close / stomp_error 끊김 감지, noise 차단 가드 |
 | `src/features/auth/hooks/useAuth.ts` | 로그인/로그아웃 시 PostHog identify/reset |
 | `src/features/auth/hooks/useNicknameSetup.ts` | 닉네임 설정 후 PostHog identify |
 | `src/features/home/components/ModeSelectSection.tsx` | `game_mode_selected` |
 | `src/features/single/components/StartModal.tsx` | `game_started` |
+| `src/features/single/store/gameResultAtom.ts` | `GameEndReason` SSOT 타입 export |
 | `src/features/single/hooks/useGameLifecycle.ts` | `game_completed`, `game_over` (reason 포함) |
 | `src/features/single/hooks/usePauseModal.ts` | `game_abandoned`, `single_game_restarted` (from: pause) |
 | `src/features/single/hooks/useResultModal.ts` | `single_game_restarted` (from: result) |
@@ -199,5 +201,4 @@ WS 끊김은 3단계 레이어에서 수집됩니다.
 | `src/features/contribution/hooks/useContributionGame.ts` | `contribution_game_started` |
 | `src/features/contribution/hooks/useResultModal.ts` | `contribution_game_ended`, `contribution_game_exited` |
 | `src/features/contribution/components/ContributionGameContent.tsx` | `contribution_game_exited` (kicked / force_disconnect) |
-| `src/features/coop/hooks/useCoopGame.ts` | `coop_game_started`, `coop_game_ended`, `coop_order_reset` |
 | `src/features/incident/components/IncidentGame.tsx` | `incident_scenario_started`, `incident_scenario_completed`, `incident_scenario_abandoned` |
