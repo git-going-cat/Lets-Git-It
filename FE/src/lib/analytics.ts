@@ -43,6 +43,9 @@ export const analytics = {
 
   gameAbandoned: () => capture('game_abandoned'),
 
+  singleGameRestarted: (props: { from: 'pause' | 'result'; difficulty: string }) =>
+    capture('single_game_restarted', props),
+
   tutorialStepCompleted: (step: number, total: number) =>
     capture('tutorial_step_completed', { step, total }),
 

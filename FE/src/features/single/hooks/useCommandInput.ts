@@ -142,7 +142,7 @@ export function useCommandInput() {
         // 잘못된 브랜치에서의 입력은 텍스트 일치 여부와 무관하게 브랜치 안내 우선.
         setHistory((prev) => [
           ...prev,
-          { text: '브랜치를 이동해주세요! (hint: switch)', status: 'wrong-branch' },
+          { text: '브랜치를 이동해주세요! (hint: git switch <branch>)', status: 'wrong-branch' },
         ]);
         applyTypoPenalty();
       } else {
@@ -168,7 +168,6 @@ export function useCommandInput() {
     };
 
     const handleMiss = () => {
-      setInputValue('');
       setHistory((prev) => [...prev, { text: 'MISS!', status: 'miss' }]);
       singleBus.emit('command:wrong');
     };
@@ -217,6 +216,12 @@ export function useCommandInput() {
       singleBus.emit('command:wrong');
     };
 
+    // cherry-pick·miss 등 자동 경로에서 Phaser가 emit하는 branch:switch를
+    // activeBranchAtom에 동기화. NORMAL/HARD의 branchMatches 검사가 일관되게 통과되도록 한다.
+    const handleBranchSwitchSync = ({ branch }: { branch: string }) => {
+      setActiveBranch(branch);
+    };
+
     const unsubs = [
       singleBus.subscribe('command:miss', handleMiss),
       singleBus.subscribe('game:restart', resetInput),
@@ -225,9 +230,10 @@ export function useCommandInput() {
       singleBus.subscribe('conflict:start', handleConflictStart),
       singleBus.subscribe('conflict:resolve', handleConflictResolve),
       singleBus.subscribe('conflict:typo', handleConflictTypo),
+      singleBus.subscribe('branch:switch', handleBranchSwitchSync),
     ];
     return () => unsubs.forEach((fn) => fn());
-  }, [setCombo, setConflictMiniGame, setTotalAttempts, setTypoCount]);
+  }, [setActiveBranch, setCombo, setConflictMiniGame, setTotalAttempts, setTypoCount]);
 
   // 미니게임 중에는 input을 disabled 처리해 텍스트 입력/포커스를 차단한다.
   // (handleKeyDown은 Enter 만 다루므로 글자 입력 자체가 들어오는 걸 막아야 한다.)

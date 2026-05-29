@@ -77,6 +77,12 @@ export default function IncidentGame({
     });
     setShowIntro(false);
     setShowMission(true);
+    scenarioStartedAtRef.current = Date.now();
+    analytics.incidentScenarioStarted({
+      scenarioId: scenario.id,
+      scenarioTitle: scenario.title,
+      cardCount: scenario.cards.length,
+    });
   };
 
   const handleNext = () => {
@@ -155,9 +161,10 @@ export default function IncidentGame({
   const coachingText = (() => {
     if (phase !== 'scored' || !scored) return null;
     if (scored.status === 'perfect' || scored.status === 'accepted') return null;
+    if (scored.status === 'lower-retry') return card.explanation ?? null;
     if (aiCoachingLoading) return null;
     if (aiCoachingMessage) return aiCoachingMessage;
-    return scored.coaching;
+    return scored.coaching ?? null;
   })();
 
   const canonicalReveal =

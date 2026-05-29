@@ -30,8 +30,9 @@ function grade(raw: string): ScoreResult | null {
   const hasFeatLogin = /\bfeat\/login\b/.test(cmd);
   const must = isPush && hasOrigin && hasFeatLogin ? 40 : 0;
 
+  const isCanonicalForm = cmd === 'git push origin feat/login';
   const hasUpstream = /-u\b|--set-upstream\b/.test(cmd);
-  const bonus = must === 40 && hasUpstream ? 20 : 0;
+  const bonus = must === 40 && (isCanonicalForm || hasUpstream) ? 20 : 0;
 
   const total = base + must + bonus;
 

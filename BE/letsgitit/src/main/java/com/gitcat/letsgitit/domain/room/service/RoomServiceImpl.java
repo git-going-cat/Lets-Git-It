@@ -244,9 +244,7 @@ public class RoomServiceImpl implements RoomService {
 				}
 				boolean isInGame = ROOM_STATE_IN_GAME.equals(roomRedisRepository.findRoomStateById(roomId));
 				if (RoomMode.CONTRIBUTION.name().equals(mode)) {
-					if (isInGame) {
-						leaveRoom(roomId, UUID.fromString(memberId));
-					}
+					leaveRoom(roomId, UUID.fromString(memberId));
 					return;
 				}
 				if (RoomMode.COOP.name().equals(mode)) {
