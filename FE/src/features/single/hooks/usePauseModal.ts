@@ -41,6 +41,7 @@ export function usePauseModal() {
       return;
     }
 
+    analytics.singleGameRestarted({ from: 'pause', difficulty });
     setIsRestarting(true);
     try {
       const nextSession = await singleApi.startSession(difficulty);

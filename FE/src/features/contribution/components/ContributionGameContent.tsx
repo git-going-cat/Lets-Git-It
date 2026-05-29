@@ -7,6 +7,7 @@ import screenBg from '@/assets/bg/screen.png';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useInGameRoomEvents } from '@/features/multi/hooks/useInGameRoomEvents';
 import { createGameConfig } from '@/game/config';
+import { analytics } from '@/lib/analytics';
 import SharedCommandInput from '@/shared/components/CommandInput';
 import SharedGameProgress from '@/shared/components/GameProgress';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
@@ -43,14 +44,16 @@ export default function ContributionGameContent() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
   const handleForceDisconnect = useCallback(() => {
+    analytics.contributionGameExited({ roomId, via: 'force_disconnect' });
     clearAuth();
     void navigate({ to: '/login' });
-  }, [clearAuth, navigate]);
+  }, [clearAuth, navigate, roomId]);
 
   const handleKicked = useCallback(() => {
+    analytics.contributionGameExited({ roomId, via: 'kicked' });
     useContributionStore.getState().clearSession();
     void navigate({ to: '/home', search: { lobby: 'CONTRIBUTION' } });
-  }, [navigate]);
+  }, [navigate, roomId]);
 
   const handlePrivateError = useCallback((code: string, message: string) => {
     setPrivateError({ code, message });

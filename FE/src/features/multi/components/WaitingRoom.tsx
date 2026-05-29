@@ -1,10 +1,11 @@
-﻿import { useCallback, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Check, Copy, Gamepad2, LockKeyhole, LogOut, Settings, Users } from 'lucide-react';
 
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useContributionStore } from '@/features/contribution/store/contributionStore';
 import { useCoopStore } from '@/features/coop/store/coopStore';
+import { analytics } from '@/lib/analytics';
 import { useModal } from '@/shared/hooks/useModal';
 
 import { useCopyRoomCode } from '../hooks/useCopyRoomCode';
@@ -95,16 +96,21 @@ export default function WaitingRoom() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
   const handleForceDisconnect = useCallback(() => {
+    analytics.multiRoomLeft(useRoomStore.getState().mode, {
+      roomId: numericRoomId,
+      trigger: 'force_disconnect',
+    });
     reset();
     clearAuth();
     void navigate({ to: '/login' });
-  }, [clearAuth, navigate, reset]);
+  }, [clearAuth, navigate, numericRoomId, reset]);
 
   const handleKicked = useCallback(() => {
     const currentMode = useRoomStore.getState().mode;
+    analytics.multiRoomLeft(currentMode, { roomId: numericRoomId, trigger: 'kicked' });
     reset();
     void navigate({ to: '/home', search: { lobby: currentMode ?? 'CONTRIBUTION' } });
-  }, [navigate, reset]);
+  }, [navigate, numericRoomId, reset]);
 
   const handlePrivateError = useCallback((code: string, message: string) => {
     if (code === 'PLAYER_NOT_IN_ROOM' || code === 'ROOM_NOT_FOUND') {
@@ -313,9 +319,18 @@ export default function WaitingRoom() {
   const memberActionConfirmButtonLabel = pendingMemberAction?.type === 'kick' ? '추방' : '위임';
 
   const handleLeaveConfirm = useCallback(() => {
+    analytics.multiRoomLeft(useRoomStore.getState().mode, {
+      roomId: numericRoomId,
+      trigger: 'manual',
+    });
     setShowLeaveConfirm(false);
     handleLeave();
-  }, [handleLeave]);
+  }, [handleLeave, numericRoomId]);
+
+  useEffect(() => {
+    if (mode == null) return;
+    analytics.multiWaitingRoomEntered(mode, numericRoomId);
+  }, [numericRoomId, mode]);
 
   // B. 외부 dialog는 편집 모달·confirm·에러 오버레이가 없을 때만 ESC/focus trap 활성화
   const { containerRef: dialogRef } = useModal({
@@ -690,6 +705,12 @@ export default function WaitingRoom() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (mode) {
+                      analytics.multiGameStartClicked(mode, {
+                        roomId: numericRoomId,
+                        memberCount: members.length,
+                      });
+                    }
                     setPrivateError(null);
                     publishStart();
                   }}

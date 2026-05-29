@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { analytics } from '@/lib/analytics';
 import PauseModal from '@/shared/components/PauseModal';
 
 import { useIncidentGame } from '../hooks/useIncidentGame';
@@ -40,6 +41,7 @@ export default function IncidentGame({
   const [showPause, setShowPause] = useState(false);
   const [showDictionary, setShowDictionary] = useState(false);
   const [inputFocusTrigger, setInputFocusTrigger] = useState(0);
+  const scenarioStartedAtRef = useRef<number>(0);
 
   const handleComplete = useCallback(
     () => onScenarioClear(scenario.id),
@@ -67,12 +69,34 @@ export default function IncidentGame({
   } = useIncidentGame(scenario.cards, handleComplete);
 
   const handleStart = () => {
+    scenarioStartedAtRef.current = Date.now();
+    analytics.incidentScenarioStarted({
+      scenarioId: scenario.id,
+      scenarioTitle: scenario.title,
+      cardCount: totalCards,
+    });
     setShowIntro(false);
     setShowMission(true);
   };
 
   const handleNext = () => {
     if (cardIndex === totalCards - 1) {
+      const durationMs =
+        scenarioStartedAtRef.current > 0 ? Date.now() - scenarioStartedAtRef.current : 0;
+      const scoreMap = history.reduce<Record<string, number>>((acc, h) => {
+        acc[h.cardId] = Math.max(acc[h.cardId] ?? 0, h.score);
+        return acc;
+      }, {});
+      if (scored) scoreMap[card.id] = Math.max(scoreMap[card.id] ?? 0, scored.total);
+      const totalScore = Object.values(scoreMap).reduce((sum, s) => sum + s, 0);
+      analytics.incidentScenarioCompleted({
+        scenarioId: scenario.id,
+        scenarioTitle: scenario.title,
+        cardCount: totalCards,
+        totalScore,
+        maxScore: totalCards * 100,
+        durationMs,
+      });
       next();
       setShowResult(true);
     } else {
@@ -80,6 +104,21 @@ export default function IncidentGame({
       setShowMission(true);
     }
     setShowAnswer(false);
+  };
+
+  const handleExit = () => {
+    if (!showResult) {
+      const durationMs =
+        scenarioStartedAtRef.current > 0 ? Date.now() - scenarioStartedAtRef.current : 0;
+      analytics.incidentScenarioAbandoned({
+        scenarioId: scenario.id,
+        scenarioTitle: scenario.title,
+        currentCardIndex: cardIndex,
+        cardCount: totalCards,
+        durationMs,
+      });
+    }
+    onExit();
   };
 
   const handleRetry = () => {
@@ -127,7 +166,7 @@ export default function IncidentGame({
   return (
     <div className="relative flex h-full overflow-hidden">
       {showIntro && <ScenarioIntroModal scenario={scenario} onStart={handleStart} />}
-      <PauseModal isOpen={showPause} onResume={() => setShowPause(false)} onExit={onExit} />
+      <PauseModal isOpen={showPause} onResume={() => setShowPause(false)} onExit={handleExit} />
       {showDictionary && renderDictionaryModal(() => setShowDictionary(false))}
       {showResult && (
         <ScenarioResultModal
@@ -136,7 +175,7 @@ export default function IncidentGame({
             acc[h.cardId] = Math.max(acc[h.cardId] ?? 0, h.score);
             return acc;
           }, {})}
-          onExit={onExit}
+          onExit={handleExit}
           onNextMission={onNextMission}
           onRetry={onRetry}
         />
