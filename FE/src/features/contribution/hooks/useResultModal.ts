@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
 import { leaveRoom } from '@/features/multi/api/room.api';
+import { analytics } from '@/lib/analytics';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
 import { useContributionStore } from '../store/contributionStore';
@@ -41,6 +42,7 @@ export function useResultModal() {
   };
 
   const onBackToRoom = () => {
+    analytics.contributionGameExited({ roomId, via: 'back_to_room' });
     cleanup();
     if (roomId != null) {
       void navigate({ to: '/multi/$roomId', params: { roomId: String(roomId) } });
@@ -51,6 +53,7 @@ export function useResultModal() {
   };
 
   const onHome = () => {
+    analytics.contributionGameExited({ roomId, via: 'home' });
     // cleanup()이 clearSession()을 호출하면 roomId가 null로 바뀌어
     // useRoomExitGuard의 leave 예약이 취소된다. 따라서 cleanup() 전에 roomId를 캡처해 직접 호출.
     if (roomId != null) {
@@ -60,6 +63,23 @@ export function useResultModal() {
     // 로비 모달이 다시 열리도록 lobby search를 동반한다.
     void navigate({ to: '/home', search: { lobby: 'CONTRIBUTION' } });
   };
+
+  // 게임 종료 analytics — 세션별 1회만 발화. derived 값 reference가 매번 새로 만들어져도
+  // reportedSessionRef 가드가 발화를 1회로 막는다.
+  const reportedSessionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isVisible || !result) return;
+    if (reportedSessionRef.current === result.gameSessionId) return;
+    reportedSessionRef.current = result.gameSessionId;
+    analytics.contributionGameEnded({
+      roomId: roomId ?? 0,
+      sessionId: result.gameSessionId,
+      isSuccess,
+      myRank,
+      rankingsCount: rankings.length,
+      reason,
+    });
+  }, [isVisible, result, isSuccess, myRank, rankings.length, reason, roomId]);
 
   // 자동 복귀 타이머
   const [endsAt, setEndsAt] = useState<number | null>(null);

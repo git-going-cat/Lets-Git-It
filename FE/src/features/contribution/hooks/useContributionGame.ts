@@ -3,6 +3,7 @@ import { useSetAtom } from 'jotai';
 
 import { socketManager } from '@/core/socket/SocketManager';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { analytics } from '@/lib/analytics';
 import { isSwitchCommand } from '@/shared/game/branchParser';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
@@ -80,6 +81,14 @@ export function useContributionGame({
       if (gameEndedEarly) return;
       setGameStatus('playing');
       contributionBus.emit('game:start');
+      const { roomId: rId, sessionId: sid, players } = useContributionStore.getState();
+      if (rId != null && sid) {
+        analytics.contributionGameStarted({
+          roomId: rId,
+          sessionId: sid,
+          playerCount: players.length,
+        });
+      }
     };
 
     let timerId: ReturnType<typeof setTimeout> | null = null;

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 
+import { analytics } from '@/lib/analytics';
 import { MYPAGE_QUERY_KEYS } from '@/shared/constants/queryKeys';
 import { gameStatusAtom } from '@/shared/store/gameStatusAtom';
 
@@ -71,6 +72,7 @@ export function useResultModal() {
 
   const onRestart = async () => {
     if (!difficulty || isRestarting) return;
+    analytics.singleGameRestarted({ from: 'result', difficulty });
     setIsRestarting(true);
     try {
       const nextSession = await singleApi.startSession(difficulty);
