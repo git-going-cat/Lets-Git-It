@@ -4,6 +4,9 @@ import posthog from 'posthog-js';
 import { env } from '@/config/env';
 import { faro } from '@/lib/faro';
 
+import type { GameEndReason } from '@/features/single/store/gameResultAtom';
+
+// dev 이벤트가 prod PostHog 프로젝트로 유입되는 것을 방지 — production 빌드에서만 활성화
 const isEnabled = Boolean(env.POSTHOG_KEY) && env.MODE === 'production';
 
 const capture = (event: string, props?: Record<string, unknown>) => {
@@ -11,7 +14,7 @@ const capture = (event: string, props?: Record<string, unknown>) => {
   posthog.capture(event, props);
 };
 
-type GameOverReason = 'GAMEOVER' | 'ESCAPE_FAILED' | 'SESSION_EXPIRED';
+type GameOverReason = Exclude<GameEndReason, 'SUCCESS'>;
 type MultiMode = 'CONTRIBUTION' | 'COOP';
 type RoomEntryMethod = 'list' | 'code' | 'create';
 type WsDisconnectKind = 'tcp_close' | 'stomp_error' | 'force_disconnect';
@@ -48,7 +51,11 @@ export const analytics = {
 
   tutorialSkipped: (at_step: number) => capture('tutorial_skipped', { at_step }),
 
-  // Multi 방 funnel
+  // ── Single 다시하기 ────────────────────────────────────────────────────
+  singleGameRestarted: (props: { from: 'pause' | 'result'; difficulty: string }) =>
+    capture('single_game_restarted', props),
+
+  // ── Multi 방 ──────────────────────────────────────────────────────────
   multiRoomCreated: (
     mode: MultiMode,
     props: { roomId: number; hasPassword: boolean; maxPlayers?: number; selectedMapId?: number }
@@ -70,7 +77,7 @@ export const analytics = {
     props: { roomId: number; trigger: 'manual' | 'kicked' | 'force_disconnect' }
   ) => capture('multi_room_left', { mode, ...props }),
 
-  // Contribution 게임 funnel
+  // ── Contribution 게임 ─────────────────────────────────────────────────
   contributionGameStarted: (props: { roomId: number; sessionId: string; playerCount: number }) =>
     capture('contribution_game_started', props),
 
@@ -88,29 +95,7 @@ export const analytics = {
     via: 'home' | 'back_to_room' | 'kicked' | 'force_disconnect';
   }) => capture('contribution_game_exited', props),
 
-  // Coop 게임 funnel
-  coopGameStarted: (props: {
-    roomId: number;
-    sessionId: string;
-    playerCount: number;
-    mapName: string | null;
-  }) => capture('coop_game_started', props),
-
-  coopGameEnded: (props: {
-    roomId: number;
-    sessionId: string;
-    isSuccess: boolean;
-    reason: string | null;
-    elapsedTimeMs: number | null;
-    hasNewRecord: boolean;
-    totalTypoCount: number;
-    totalResetCount: number;
-  }) => capture('coop_game_ended', props),
-
-  coopOrderReset: (props: { roomId: number; sessionId: string; round: number; isMe: boolean }) =>
-    capture('coop_order_reset', props),
-
-  // Incident funnel
+  // ── Incident ──────────────────────────────────────────────────────────
   incidentScenarioStarted: (props: {
     scenarioId: number;
     scenarioTitle: string;
@@ -134,7 +119,7 @@ export const analytics = {
     durationMs: number;
   }) => capture('incident_scenario_abandoned', props),
 
-  // WS 끊김 — PostHog 미사용, Faro + Sentry 직접 전송
+  // ── WS 끊김 헬퍼 (PostHog 미사용 — Faro + Sentry 직접 전송) ──────────
   reportWsDisconnect: (props: {
     kind: WsDisconnectKind;
     code?: string;
@@ -158,6 +143,7 @@ export const analytics = {
       { context }
     );
 
+    // STOMP error만 Sentry warning — TCP close/force_disconnect는 Faro로만
     if (props.kind === 'stomp_error') {
       Sentry.captureMessage(`WS STOMP error: ${props.code ?? 'unknown'}`, {
         level: 'warning',

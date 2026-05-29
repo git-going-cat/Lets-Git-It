@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 
 import EscapeAnimation from './EscapeAnimation';
 
-type GameEndStatus = 'SUCCESS' | 'GAMEOVER' | 'ESCAPE_FAILED';
+import type { GameEndReason } from '@/features/single/store/gameResultAtom';
+
+type GameEndStatus = Exclude<GameEndReason, 'SESSION_EXPIRED'>;
 
 const VIDEO_SRC: Record<GameEndStatus, string> = {
   SUCCESS: '/video/Game_Success.mp4',
