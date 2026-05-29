@@ -4,6 +4,8 @@ import axios from 'axios';
 import { Cat, FolderClosed, Gamepad2, LockKeyhole, LockKeyholeOpen } from 'lucide-react';
 import { ZodError } from 'zod';
 
+import { analytics } from '@/lib/analytics';
+
 import {
   useJoinContributionRoom,
   useJoinCoopRoom,
@@ -103,7 +105,14 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
     } else {
       joinByMode(
         room,
-        () => goToRoom(room.roomId),
+        () => {
+          analytics.multiRoomJoined(room.mode, {
+            roomId: room.roomId,
+            via: 'list',
+            hasPassword: room.hasPassword,
+          });
+          goToRoom(room.roomId);
+        },
         handle409OrError(room, '방 입장에 실패했습니다.')
       );
     }
@@ -133,7 +142,14 @@ export default function LobbyPage({ mode: initialMode, onClose }: LobbyPageProps
         } else {
           joinByMode(
             room,
-            () => goToRoom(room.roomId),
+            () => {
+              analytics.multiRoomJoined(room.mode, {
+                roomId: room.roomId,
+                via: 'code',
+                hasPassword: room.hasPassword,
+              });
+              goToRoom(room.roomId);
+            },
             handle409OrError(room, '방 입장에 실패했습니다.')
           );
         }

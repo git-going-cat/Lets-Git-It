@@ -3,6 +3,7 @@
 import { socketManager, TERMINAL_AUTH_ERROR_CODES } from '@/core/socket/SocketManager';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useCoopStore } from '@/features/coop/store/coopStore';
+import { analytics } from '@/lib/analytics';
 
 import { getRoomState } from '../api/room.api';
 import { handleRoomPrivateMessage, handleRoomTopicMessage } from '../handlers/roomSocketHandlers';
@@ -187,6 +188,13 @@ export function useRoomSocket(
               return;
             }
             if (!TERMINAL_AUTH_ERROR_CODES.has(result.data.code)) return;
+            analytics.reportWsDisconnect({
+              kind: 'force_disconnect',
+              code: result.data.code,
+              route: window.location.pathname,
+              feature: 'multi',
+              roomId,
+            });
             socketManager.disconnect();
             privateQueueHandlersRef.current.onForceDisconnect?.();
             return;

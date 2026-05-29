@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { analytics } from '@/lib/analytics';
+
 import { useCoopMaps, useCreateContributionRoom, useCreateCoopRoom } from '../../hooks/useRoom';
 
 import type { GameMode } from '../../types/room.types';
@@ -93,7 +95,15 @@ export default function CreateRoomModal({ defaultMode, onClose, onSuccess }: Cre
     }
     setError('');
 
-    const onSuccess_ = (data: { roomId: number }) => onSuccess(data.roomId);
+    const onSuccess_ = (data: { roomId: number }) => {
+      analytics.multiRoomCreated(mode, {
+        roomId: data.roomId,
+        hasPassword,
+        maxPlayers: mode === 'CONTRIBUTION' ? maxPlayers : undefined,
+        selectedMapId: selectedMapId ? Number(selectedMapId) : undefined,
+      });
+      onSuccess(data.roomId);
+    };
     const onError = () => setError('방 생성에 실패했습니다. 다시 시도해 주세요.');
 
     if (mode === 'COOP') {

@@ -2,6 +2,7 @@ import { Client } from '@stomp/stompjs';
 
 import { env } from '@/config/env';
 import { reissueToken } from '@/core/http';
+import { analytics } from '@/lib/analytics';
 
 import type { SocketMessageHandler } from '@/shared/types/socket.types';
 import type { IMessage, StompSubscription } from '@stomp/stompjs';
@@ -42,6 +43,9 @@ class SocketManager {
   private isConnecting = false;
 
   private isReissuingToken = false;
+
+  // 의도된 끊김(disconnect/재연결/auth 종료)에서 set → onWebSocketClose가 read+reset해 tcp_close noise 차단.
+  private intentionalDisconnect = false;
 
   private lastDisconnectError: DisconnectError | null = null;
 
@@ -98,6 +102,11 @@ class SocketManager {
       this.queueActiveSubscriptionsForReconnect();
       this.emitConnectionEvent('disconnected');
       console.warn('[socket] WebSocket connection closed.');
+      // lastDisconnectError가 set 상태면 직전 STOMP error의 연쇄 close — 같은 사건이라 dedup.
+      if (!this.intentionalDisconnect && !this.lastDisconnectError) {
+        analytics.reportWsDisconnect({ kind: 'tcp_close', route: window.location.pathname });
+      }
+      this.intentionalDisconnect = false;
     };
 
     client.onStompError = (frame) => {
@@ -116,11 +125,18 @@ class SocketManager {
         body: frame.body,
         message: frame.headers.message,
       });
+      analytics.reportWsDisconnect({
+        kind: 'stomp_error',
+        code: disconnectError.code,
+        message: disconnectError.message,
+        route: window.location.pathname,
+      });
 
       if (TERMINAL_AUTH_ERROR_CODES.has(disconnectError.code)) {
         this.pendingSubscriptions.clear();
         this.subscriptions.clear();
         this.client = null;
+        this.intentionalDisconnect = true;
         void client.deactivate();
       }
     };
@@ -143,6 +159,7 @@ class SocketManager {
     this.connectCallbacks.clear();
 
     if (currentClient) {
+      this.intentionalDisconnect = true;
       void currentClient.deactivate();
     }
   }
@@ -307,6 +324,7 @@ class SocketManager {
 
     try {
       if (currentClient) {
+        this.intentionalDisconnect = true;
         await currentClient.deactivate();
       }
       const token = await reissueToken();
