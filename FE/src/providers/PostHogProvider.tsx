@@ -5,8 +5,8 @@ import { PostHogProvider as PHProvider, usePostHog } from 'posthog-js/react';
 
 import { env } from '@/config/env';
 
-// 빈 키로 init 호출 시 PostHog가 콘솔에 misconfiguration 경고 — 18장에 따라 가드
-if (env.POSTHOG_KEY) {
+// 빈 키 또는 dev 환경에서 init을 차단해 dev 이벤트가 prod 프로젝트로 유입되지 않도록 함
+if (env.POSTHOG_KEY && env.MODE === 'production') {
   posthog.init(env.POSTHOG_KEY, {
     api_host: env.POSTHOG_HOST,
     capture_pageview: false,
@@ -20,9 +20,9 @@ export function PostHogPageView() {
   const posthogClient = usePostHog();
 
   useEffect(() => {
-    // 빈 키 환경에서는 init이 가드되어 posthogClient는 uninitialized 싱글톤.
+    // 빈 키 또는 dev 환경에서는 init이 가드되어 posthogClient는 uninitialized 싱글톤.
     // capture 호출 시 콘솔 경고가 발생하므로 호출 자체를 가드.
-    if (!env.POSTHOG_KEY) return;
+    if (!env.POSTHOG_KEY || env.MODE !== 'production') return;
     if (posthogClient) {
       // OAuth callback의 code/state querystring을 strip해 PII 누출 방지
       const url = new URL(window.location.href);

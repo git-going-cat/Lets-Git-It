@@ -11,7 +11,7 @@ import { activeBranchAtom } from '../store/activeBranchAtom';
 import { churuCountAtom } from '../store/churuAtom';
 import { currentCommandIndexAtom } from '../store/commandIndexAtom';
 import { commandTimestampsAtom } from '../store/commandTimestampsAtom';
-import { gameResultAtom } from '../store/gameResultAtom';
+import { type GameEndReason, gameResultAtom } from '../store/gameResultAtom';
 import { itemSlotsAtom } from '../store/itemSlotsAtom';
 import { livesAtom, MAX_LIVES } from '../store/livesAtom';
 import { livesLostAtom } from '../store/livesLostAtom';
@@ -102,7 +102,7 @@ export function useGameLifecycle({
 
     resetGame();
 
-    const finishGame = (status: 'SUCCESS' | 'GAMEOVER' | 'ESCAPE_FAILED' | 'SESSION_EXPIRED') => {
+    const finishGame = (status: GameEndReason) => {
       if (isFinishedRef.current) return;
       isFinishedRef.current = true;
       const diff = useSingleStore.getState().difficulty;
@@ -111,11 +111,7 @@ export function useGameLifecycle({
       const missCount = stateRef.current.livesLost;
       const typoCount = typoRef.current;
       if (status !== 'SUCCESS') {
-        analytics.gameOver(
-          diff,
-          playTimeMs,
-          status as 'GAMEOVER' | 'ESCAPE_FAILED' | 'SESSION_EXPIRED'
-        );
+        analytics.gameOver(diff, playTimeMs, status);
         setGameResult({ status, score: 0, grade: 'F', playTimeMs, missCount, typoCount });
       } else {
         const totalCommands = countScoringCommands(useSingleStore.getState().commandSet, diff);
