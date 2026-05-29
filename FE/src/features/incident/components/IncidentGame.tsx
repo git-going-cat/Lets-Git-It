@@ -77,12 +77,6 @@ export default function IncidentGame({
     });
     setShowIntro(false);
     setShowMission(true);
-    scenarioStartedAtRef.current = Date.now();
-    analytics.incidentScenarioStarted({
-      scenarioId: scenario.id,
-      scenarioTitle: scenario.title,
-      cardCount: scenario.cards.length,
-    });
   };
 
   const handleNext = () => {
